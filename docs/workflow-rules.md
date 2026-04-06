@@ -201,6 +201,8 @@ review 的结果会驱动三种后续动作：
   - 再走 `node --check`
 - `.java`
   - 先走 `tree-sitter`
+- `.py/.go`
+  - 先走 `tree-sitter`
 
 约束：
 
@@ -233,6 +235,42 @@ review 的结果会驱动三种后续动作：
 - 只对 HTML 页面启用
 - 只对已有稳定锚点的页面启用
 - 锚点缺失时仍回退到完整文件生成
+
+### 3.3 Java / Python / Go 优先走符号级精确改写
+
+对已有 `Java / Python / Go` 文件，如果 `tree-sitter` 能稳定提取符号：
+
+- Java
+  - `class / interface / enum / record / constructor / method`
+- Python
+  - `class / function`
+- Go
+  - `type / method / function`
+
+则 `IMPLEMENTATION` 在 `INCREMENTAL / PATCH` 模式下应优先：
+
+- 输出符号级 JSON patch
+- 只替换目标符号或在目标符号体内插入内容
+- 避免整文件重写
+
+当前支持动作：
+
+- `REPLACE_SYMBOL`
+- `INSERT_INTO_SYMBOL`
+- `APPEND_FILE`
+
+目的：
+
+- 降低大文件截断风险
+- 降低局部修复时的误伤范围
+- 让 patch 更聚焦、更容易自检和 review
+
+当前边界：
+
+- 只对已有文件启用
+- 只在 `PATCH / INCREMENTAL` 模式启用
+- 无可解析符号时回退到完整文件生成
+- 还不支持通用 AST refactor、跨文件语义迁移和自动依赖重写
 
 ### 4. review 结论必须可执行
 

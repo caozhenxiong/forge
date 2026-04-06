@@ -2,7 +2,9 @@ package devflow.agent.parsing;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -11,9 +13,11 @@ import org.treesitter.TSLanguage;
 import org.treesitter.TSNode;
 import org.treesitter.TSParser;
 import org.treesitter.TSTree;
+import org.treesitter.TreeSitterGo;
 import org.treesitter.TreeSitterHtml;
 import org.treesitter.TreeSitterJava;
 import org.treesitter.TreeSitterJavascript;
+import org.treesitter.TreeSitterPython;
 
 @Component
 public class TreeSitterSupport {
@@ -87,6 +91,35 @@ public class TreeSitterSupport {
                 flags.appStyleInnerRange,
                 flags.appScriptInnerRange
         );
+    }
+
+    public CodeStructureSnapshot inspectCodeStructure(Path relativePath, String source) {
+        return inspectCodeStructure(SourceLanguage.fromPath(relativePath), source);
+    }
+
+    public CodeStructureSnapshot inspectCodeStructure(SourceLanguage language, String source) {
+        if (language != SourceLanguage.JAVA && language != SourceLanguage.PYTHON && language != SourceLanguage.GO) {
+            return new CodeStructureSnapshot(
+                    language,
+                    new TreeSitterParseSummary(language, false, true, 0, 0),
+                    List.of()
+            );
+        }
+        ParseMetrics metrics = parseMetrics(language, source);
+        TreeSitterParseSummary summary = new TreeSitterParseSummary(
+                language,
+                true,
+                metrics.errorNodes() == 0 && metrics.missingNodes() == 0,
+                metrics.errorNodes(),
+                metrics.missingNodes()
+        );
+        List<CodeSymbol> symbols = switch (language) {
+            case JAVA -> inspectJavaSymbols(source, metrics.rootNode());
+            case PYTHON -> inspectPythonSymbols(source, metrics.rootNode());
+            case GO -> inspectGoSymbols(source, metrics.rootNode());
+            default -> List.of();
+        };
+        return new CodeStructureSnapshot(language, summary, symbols);
     }
 
     private void inspectHtmlNode(
@@ -250,8 +283,267 @@ public class TreeSitterSupport {
             case HTML -> new TreeSitterHtml();
             case JAVASCRIPT -> new TreeSitterJavascript();
             case JAVA -> new TreeSitterJava();
+            case PYTHON -> new TreeSitterPython();
+            case GO -> new TreeSitterGo();
             case UNSUPPORTED -> throw new IllegalArgumentException("Unsupported tree-sitter language");
         };
+    }
+
+    private List<CodeSymbol> inspectJavaSymbols(String source, TSNode root) {
+        List<CodeSymbol> symbols = new ArrayList<>();
+        walk(root, node -> {
+            switch (node.getType()) {
+                case "class_declaration" -> addIfPresent(symbols, buildJavaTypeSymbol(source, node, "class"));
+                case "interface_declaration" -> addIfPresent(symbols, buildJavaTypeSymbol(source, node, "interface"));
+                case "enum_declaration" -> addIfPresent(symbols, buildJavaTypeSymbol(source, node, "enum"));
+                case "record_declaration" -> addIfPresent(symbols, buildJavaTypeSymbol(source, node, "record"));
+                case "constructor_declaration" -> addIfPresent(symbols, buildNamedSymbol(
+                        source,
+                        node,
+                        "constructor",
+                        findChildByTypes(node, "identifier"),
+                        findChildByTypes(node, "constructor_body")
+                ));
+                case "method_declaration" -> addIfPresent(symbols, buildNamedSymbol(
+                        source,
+                        node,
+                        "method",
+                        findChildByTypes(node, "identifier"),
+                        findChildByTypes(node, "block")
+                ));
+                default -> {
+                }
+            }
+        });
+        return deduplicateSymbols(symbols);
+    }
+
+    private List<CodeSymbol> inspectPythonSymbols(String source, TSNode root) {
+        List<CodeSymbol> symbols = new ArrayList<>();
+        walk(root, node -> {
+            switch (node.getType()) {
+                case "class_definition" -> addIfPresent(symbols, buildNamedSymbol(
+                        source,
+                        node,
+                        "class",
+                        findChildByTypes(node, "identifier"),
+                        findChildByTypes(node, "block")
+                ));
+                case "function_definition" -> addIfPresent(symbols, buildNamedSymbol(
+                        source,
+                        node,
+                        "function",
+                        findChildByTypes(node, "identifier"),
+                        findChildByTypes(node, "block")
+                ));
+                case "decorated_definition" -> addIfPresent(symbols, buildDecoratedPythonSymbol(source, node));
+                default -> {
+                }
+            }
+        });
+        return deduplicateSymbols(symbols);
+    }
+
+    private List<CodeSymbol> inspectGoSymbols(String source, TSNode root) {
+        List<CodeSymbol> symbols = new ArrayList<>();
+        walk(root, node -> {
+            switch (node.getType()) {
+                case "type_declaration" -> addIfPresent(symbols, buildGoTypeSymbol(source, node));
+                case "method_declaration" -> addIfPresent(symbols, buildNamedSymbol(
+                        source,
+                        node,
+                        "method",
+                        findChildByTypes(node, "field_identifier"),
+                        findChildByTypes(node, "block")
+                ));
+                case "function_declaration" -> addIfPresent(symbols, buildNamedSymbol(
+                        source,
+                        node,
+                        "function",
+                        findChildByTypes(node, "identifier"),
+                        findChildByTypes(node, "block")
+                ));
+                default -> {
+                }
+            }
+        });
+        return deduplicateSymbols(symbols);
+    }
+
+    private CodeSymbol buildJavaTypeSymbol(String source, TSNode node, String kind) {
+        return buildNamedSymbol(
+                source,
+                node,
+                kind,
+                findChildByTypes(node, "identifier", "type_identifier"),
+                findChildByTypes(node, "class_body", "interface_body", "enum_body", "record_body")
+        );
+    }
+
+    private CodeSymbol buildDecoratedPythonSymbol(String source, TSNode node) {
+        TSNode wrapped = findChildByTypes(node, "class_definition", "function_definition");
+        if (wrapped == null) {
+            return null;
+        }
+        String kind = "class_definition".equals(wrapped.getType()) ? "class" : "function";
+        TSNode nameNode = findChildByTypes(wrapped, "identifier");
+        TSNode bodyNode = findChildByTypes(wrapped, "block");
+        if (nameNode == null || bodyNode == null) {
+            return null;
+        }
+        String name = sliceSimpleName(source, nameNode);
+        if (name.isBlank()) {
+            return null;
+        }
+        return new CodeSymbol(
+                name,
+                kind,
+                new ByteRange(node.getStartByte(), node.getEndByte()),
+                innerBodyRange(bodyNode)
+        );
+    }
+
+    private CodeSymbol buildGoTypeSymbol(String source, TSNode node) {
+        TSNode typeSpec = findChildByTypes(node, "type_spec");
+        if (typeSpec == null) {
+            return null;
+        }
+        TSNode nameNode = findChildByTypes(typeSpec, "type_identifier", "identifier");
+        TSNode typeBody = findChildByTypes(typeSpec, "struct_type", "interface_type");
+        ByteRange bodyRange = null;
+        if (typeBody != null) {
+            bodyRange = innerBraceRange(typeBody);
+            if (bodyRange == null) {
+                TSNode nestedBraceContainer = findChildByTypes(typeBody, "field_declaration_list", "method_spec_list");
+                bodyRange = innerBraceRange(nestedBraceContainer);
+            }
+        }
+        String name = sliceSimpleName(source, nameNode);
+        if (name.isBlank()) {
+            return null;
+        }
+        return new CodeSymbol(
+                name,
+                "type",
+                new ByteRange(node.getStartByte(), node.getEndByte()),
+                bodyRange
+        );
+    }
+
+    private CodeSymbol buildNamedSymbol(String source, TSNode node, String kind, TSNode nameNode, TSNode bodyNode) {
+        if (node == null || nameNode == null) {
+            return null;
+        }
+        String name = sliceSimpleName(source, nameNode);
+        if (name.isBlank()) {
+            return null;
+        }
+        ByteRange bodyRange = null;
+        if (bodyNode != null) {
+            bodyRange = innerBraceRange(bodyNode);
+            if (bodyRange == null) {
+                bodyRange = innerBodyRange(bodyNode);
+            }
+        }
+        return new CodeSymbol(
+                name,
+                kind,
+                new ByteRange(node.getStartByte(), node.getEndByte()),
+                bodyRange
+        );
+    }
+
+    private List<CodeSymbol> deduplicateSymbols(List<CodeSymbol> symbols) {
+        List<CodeSymbol> deduplicated = new ArrayList<>();
+        for (CodeSymbol candidate : symbols) {
+            int existingIndex = findEquivalentSymbolIndex(deduplicated, candidate);
+            if (existingIndex < 0) {
+                deduplicated.add(candidate);
+                continue;
+            }
+            CodeSymbol existing = deduplicated.get(existingIndex);
+            if (symbolSpan(candidate) > symbolSpan(existing)) {
+                deduplicated.set(existingIndex, candidate);
+            }
+        }
+        return List.copyOf(deduplicated);
+    }
+
+    private int findEquivalentSymbolIndex(List<CodeSymbol> symbols, CodeSymbol candidate) {
+        for (int index = 0; index < symbols.size(); index++) {
+            CodeSymbol existing = symbols.get(index);
+            if (!existing.kind().equals(candidate.kind()) || !existing.name().equals(candidate.name())) {
+                continue;
+            }
+            ByteRange existingBody = existing.bodyInnerRange();
+            ByteRange candidateBody = candidate.bodyInnerRange();
+            if ((existingBody == null && candidateBody == null)
+                    || (existingBody != null && candidateBody != null
+                    && existingBody.startByte() == candidateBody.startByte()
+                    && existingBody.endByte() == candidateBody.endByte())) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private int symbolSpan(CodeSymbol symbol) {
+        return symbol.replaceRange().endByte() - symbol.replaceRange().startByte();
+    }
+
+    private void addIfPresent(List<CodeSymbol> symbols, CodeSymbol symbol) {
+        if (symbol != null) {
+            symbols.add(symbol);
+        }
+    }
+
+    private TSNode findChildByTypes(TSNode parent, String... types) {
+        if (parent == null || parent.isNull()) {
+            return null;
+        }
+        for (int index = 0; index < parent.getChildCount(); index++) {
+            TSNode child = parent.getChild(index);
+            for (String type : types) {
+                if (type.equals(child.getType())) {
+                    return child;
+                }
+            }
+        }
+        return null;
+    }
+
+    private String sliceSimpleName(String source, TSNode node) {
+        return node == null ? "" : sliceUtf8(source, node.getStartByte(), node.getEndByte()).trim();
+    }
+
+    private ByteRange innerBraceRange(TSNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        TSNode openBrace = null;
+        TSNode closeBrace = null;
+        for (int index = 0; index < node.getChildCount(); index++) {
+            TSNode child = node.getChild(index);
+            if ("{".equals(child.getType()) && openBrace == null) {
+                openBrace = child;
+            }
+            if ("}".equals(child.getType())) {
+                closeBrace = child;
+            }
+        }
+        if (openBrace != null && closeBrace != null) {
+            ByteRange range = new ByteRange(openBrace.getEndByte(), closeBrace.getStartByte());
+            return range.isValid() ? range : null;
+        }
+        return null;
+    }
+
+    private ByteRange innerBodyRange(TSNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        ByteRange range = new ByteRange(node.getStartByte(), node.getEndByte());
+        return range.isValid() ? range : null;
     }
 
     private String extractTagName(String tagSource) {

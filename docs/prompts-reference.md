@@ -187,9 +187,11 @@ user prompt 结构：
 `IMPLEMENTATION` 不是一个单 prompt，而是 4 类 prompt：
 
 1. implementation plan
-2. file generation
-3. subtask verifier
-4. JSON repair
+2. full-file generation
+3. precise HTML generation
+4. precise code generation
+5. subtask verifier
+6. JSON repair
 
 ### 1. implementation plan
 
@@ -341,6 +343,69 @@ user prompt 输入：
 - 上一轮反馈
 - 当前相关文件上下文
 - 当前文件内容
+
+### 2.1 precise HTML generation
+
+当目标文件是已有稳定锚点的 HTML 页面，且当前 `deliveryMode` 为 `INCREMENTAL / PATCH` 时，`IMPLEMENTATION` 会切到“精确 HTML 改写” prompt，而不是输出完整页面。
+
+system prompt 核心：
+
+```text
+你是资深前端工程师。请对现有 HTML 页面做“精确改写”，不要整页重写。
+你必须只返回一个 JSON 对象。
+```
+
+输出 JSON 结构：
+
+```json
+{
+  "markupHtml": "main#app-root 的内部 HTML；不修改则返回 null",
+  "styleCss": "style#app-style 的 CSS 内容；不修改则返回 null",
+  "scriptJs": "script#app-script 的 JS 内容；不修改则返回 null"
+}
+```
+
+关键约束：
+
+- 不输出完整 HTML 文档
+- 只修改必要区块
+- `markupHtml` 只包含 `<main id="app-root">` 的内部内容
+- `styleCss` 只包含纯 CSS
+- `scriptJs` 只包含纯 JavaScript
+
+### 2.2 precise code generation
+
+当目标文件是已有 `Java / Python / Go` 文件，且当前 `deliveryMode` 为 `INCREMENTAL / PATCH` 时，`IMPLEMENTATION` 会切到“符号级精确改写” prompt，而不是输出完整源码文件。
+
+system prompt 核心：
+
+```text
+你是资深工程师。请对现有源码做“符号级精确改写”，不要整文件重写。
+你必须只返回一个 JSON 对象。
+```
+
+输出 JSON 结构：
+
+```json
+{
+  "operations": [
+    {
+      "action": "REPLACE_SYMBOL|INSERT_INTO_SYMBOL|APPEND_FILE",
+      "targetSymbol": "目标符号名；APPEND_FILE 时可为 null",
+      "targetKind": "class|interface|enum|record|constructor|method|function|type；APPEND_FILE 时可为 null",
+      "content": "要写入的源码片段"
+    }
+  ]
+}
+```
+
+关键约束：
+
+- 不输出完整源码文件
+- `REPLACE_SYMBOL` 必须提供完整声明
+- `INSERT_INTO_SYMBOL` 只在目标符号体内部插入内容
+- `APPEND_FILE` 只用于补充顶层符号或文件尾部内容
+- `targetSymbol / targetKind` 必须来自执行器提供的当前符号清单
 
 ## `SupervisorAgent`
 

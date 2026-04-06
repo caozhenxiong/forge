@@ -6,6 +6,8 @@ public enum SourceLanguage {
     HTML,
     JAVASCRIPT,
     JAVA,
+    PYTHON,
+    GO,
     UNSUPPORTED;
 
     static SourceLanguage fromPath(Path relativePath) {
@@ -21,6 +23,12 @@ public enum SourceLanguage {
         }
         if (fileName.endsWith(".java")) {
             return JAVA;
+        }
+        if (fileName.endsWith(".py")) {
+            return PYTHON;
+        }
+        if (fileName.endsWith(".go")) {
+            return GO;
         }
         return UNSUPPORTED;
     }

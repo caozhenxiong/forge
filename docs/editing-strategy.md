@@ -205,10 +205,13 @@ Java 内核可以把它们当 sidecar 能力来调用，而不是在主进程里
   - HTML
   - JavaScript
   - Java
+  - Python
+  - Go
 - 当前主要用途：
   - 生成内容写盘前的结构合法性校验
   - 静态 HTML 结构快照提取
   - 为 fallback testcase 设计提供真实 DOM 线索
+  - 为 HTML / Java / Python / Go 精确改写提供稳定结构边界
 
 当前代码位置：
 
@@ -219,8 +222,9 @@ Java 内核可以把它们当 sidecar 能力来调用，而不是在主进程里
 当前接入点：
 
 - `ImplementationExecutor`
-  - 对 `.html/.js/.java` 的模型输出先做 `tree-sitter` 校验，再决定是否接受
+  - 对 `.html/.js/.java/.py/.go` 的模型输出先做 `tree-sitter` 校验，再决定是否接受
   - 对带稳定锚点的 HTML 页面，`INCREMENTAL / PATCH` 优先走区块级精确改写
+  - 对已有 `Java / Python / Go` 文件，`INCREMENTAL / PATCH` 优先走符号级精确改写
 - `TestCasePlanner`
   - 对静态网页从真实 HTML 中提取按钮、`id`、`canvas` 等结构，再生成 testcase
 
@@ -236,14 +240,28 @@ Java 内核可以把它们当 sidecar 能力来调用，而不是在主进程里
   - `scriptJs`
 - 执行器再基于 `tree-sitter` 定位这些区块并应用替换
 
+当前代码精确改写约束：
+
+- 当前覆盖语言：
+  - Java
+  - Python
+  - Go
+- 精确改写只对已有可解析符号的文件启用
+- 当前支持动作：
+  - `REPLACE_SYMBOL`
+  - `INSERT_INTO_SYMBOL`
+  - `APPEND_FILE`
+- 模型输出不再是完整源码文件，而是符号级 JSON patch
+- 执行器会先基于 `tree-sitter` 提取符号清单，再应用 patch 并重新校验结构合法性
+
 当前仍未做：
 
-- AST 级 patch 应用
-- 节点级改写
-- 多语言统一编辑计划执行器
+- 通用 AST refactor
+- 更丰富的节点级语义改写
+- 跨文件统一编辑计划执行器
 
 也就是说：
 
 - 现在的 `tree-sitter` 已经进入主链路
-- 但角色还是“结构理解 + 写盘前验证”
+- 已经从“结构理解 + 写盘前验证”前进到“受控的区块/符号级 patch”
 - 还不是“完整精确编辑器”

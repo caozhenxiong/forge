@@ -3,6 +3,7 @@ package devflow.agent.parsing;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -57,5 +58,48 @@ class TreeSitterSupportTests {
         );
 
         assertFalse(summary.valid());
+    }
+
+    @Test
+    void extractsPreciseEditingSymbolsForJavaPythonAndGo() {
+        CodeStructureSnapshot javaSnapshot = support.inspectCodeStructure(
+                Path.of("App.java"),
+                """
+                class App {
+                    App() {}
+                    void tick() {}
+                }
+                """
+        );
+        CodeStructureSnapshot pythonSnapshot = support.inspectCodeStructure(
+                Path.of("game.py"),
+                """
+                class Game:
+                    def tick(self):
+                        return 1
+                """
+        );
+        CodeStructureSnapshot goSnapshot = support.inspectCodeStructure(
+                Path.of("game.go"),
+                """
+                package main
+
+                type Game struct {
+                }
+
+                func (g *Game) Tick() {
+                }
+                """
+        );
+
+        assertTrue(javaSnapshot.supportsPreciseEditing());
+        assertTrue(pythonSnapshot.supportsPreciseEditing());
+        assertTrue(goSnapshot.supportsPreciseEditing());
+        assertEquals("class", javaSnapshot.symbols().getFirst().kind());
+        assertTrue(javaSnapshot.symbols().stream().anyMatch(symbol -> "tick".equals(symbol.name()) && "method".equals(symbol.kind())));
+        assertTrue(pythonSnapshot.symbols().stream().anyMatch(symbol -> "Game".equals(symbol.name()) && "class".equals(symbol.kind())));
+        assertTrue(pythonSnapshot.symbols().stream().anyMatch(symbol -> "tick".equals(symbol.name()) && "function".equals(symbol.kind())));
+        assertTrue(goSnapshot.symbols().stream().anyMatch(symbol -> "Game".equals(symbol.name()) && "type".equals(symbol.kind())));
+        assertTrue(goSnapshot.symbols().stream().anyMatch(symbol -> "Tick".equals(symbol.name()) && "method".equals(symbol.kind())));
     }
 }

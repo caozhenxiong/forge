@@ -43,6 +43,8 @@
   模型与执行器抽象
 - `src/main/java/devflow/agent/parsing`
   `tree-sitter` 解析、结构快照与写盘前结构校验
+- `src/main/java/devflow/agent/editing`
+  HTML 锚点区块改写与 Java/Python/Go 符号级精确改写
 - `src/main/java/devflow/agent/project`
   仓库工作区抽象
 - `src/main/java/devflow/agent/interfaceadapter`
@@ -241,7 +243,7 @@ mvn -q spring-boot:run -Dspring-boot.run.arguments='run logs <runId> --project /
 - implementation 阶段内置子任务 planner，先把大功能拆成 3-6 个可验证的子步骤
 - implementation 阶段按子任务逐步写代码，每个子任务会做自检和 verifier 校验
 - implementation 阶段内置自测，优先使用项目自身构建/测试工具链，没有工具链时退回通用静态 Web 检查
-- implementation 阶段在接受模型生成内容前，会先用 `tree-sitter` 校验 `HTML / JavaScript / Java` 的基本结构合法性
+- implementation 阶段在接受模型生成内容前，会先用 `tree-sitter` 校验 `HTML / JavaScript / Java / Python / Go` 的基本结构合法性
 - fallback testcase 设计已优先基于 `tree-sitter` 提取静态 HTML 结构，而不是只靠正则猜测按钮和选择器
 - `ANALYSIS / PRD / DESIGN` 已改成固定模板输出，降低文档漂移和阶段间理解偏差
 - code review 阶段会输出 `fixMode`
@@ -264,16 +266,27 @@ mvn -q spring-boot:run -Dspring-boot.run.arguments='run logs <runId> --project /
 - `HTML`
   - 写盘前结构校验
   - 静态 `id/button/canvas` 结构提取
+  - 稳定锚点页面的区块级精确改写
 - `JavaScript`
   - 写盘前语法树合法性校验
 - `Java`
   - 写盘前基础结构校验
+- `Python`
+  - 写盘前基础结构校验
+- `Go`
+  - 写盘前基础结构校验
+- `Java / Python / Go`
+  - 符号级精确改写支持
+  - 当前支持动作：
+    - `REPLACE_SYMBOL`
+    - `INSERT_INTO_SYMBOL`
+    - `APPEND_FILE`
 
 当前边界：
 
-- 还没有进入 AST 级精确改写
-- 当前角色仍然是“结构理解 + 写盘前验收”
-- 后续 patch / section 级写入会继续建立在这层解析能力上
+- 还没有进入通用 AST refactor 级别改写
+- 当前仍然是“受控 patch/section/symbol 写入”，不是任意语义重构
+- 更复杂的跨文件重构仍应继续建立在这层解析能力之上
 
 当前这版新增的精确改写能力：
 
@@ -282,12 +295,20 @@ mvn -q spring-boot:run -Dspring-boot.run.arguments='run logs <runId> --project /
   - `<style id="app-style">`
   - `<script id="app-script">`
 - `IMPLEMENTATION` 在 `INCREMENTAL / PATCH` 模式下会优先做区块级精确改写，而不是整页重写
+- 对已有 `Java / Python / Go` 文件，若 `tree-sitter` 能稳定提取符号：
+  - `class / interface / enum / record / constructor / method`
+  - `class / function`
+  - `type / method / function`
+- `IMPLEMENTATION` 在 `INCREMENTAL / PATCH` 模式下会优先输出符号级 JSON patch，而不是整文件重写
 
 这版边界：
 
-- 只先覆盖 HTML 页面
-- 只对带稳定锚点的页面启用
-- 不满足锚点条件时仍会回退到完整文件生成
+- HTML 精确改写只对带稳定锚点的页面启用
+- Java/Python/Go 精确改写只对已有可解析符号的文件启用
+- 不满足精确改写条件时仍会回退到完整文件生成
+- Java/Python/Go 只对已有文件启用
+- 只在 `PATCH / INCREMENTAL` 模式启用
+- 仍不支持任意 AST 级重构或自动移动跨文件依赖
 
 ## 当前自动模式说明
 
