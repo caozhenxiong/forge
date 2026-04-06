@@ -161,6 +161,91 @@ class ImplementationExecutorTests {
         assertTrue(exception.getMessage().contains("Failed to parse implementation plan"));
     }
 
+    @Test
+    void rejectsMalformedHtmlGeneratedDuringImplementation() {
+        FileProjectWorkspace workspace = new FileProjectWorkspace();
+        ObjectMapper objectMapper = new ObjectMapper();
+        LlmProvider provider = new LlmProvider() {
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
+                return generate(systemPrompt, userPrompt, options, null);
+            }
+
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
+                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
+                    return """
+                            {
+                              "summary": "建立页面骨架",
+                              "subtasks": [
+                                {
+                                  "title": "写入口",
+                                  "goal": "创建 html",
+                                  "deliveryMode": "SKELETON",
+                                  "acceptanceCriteria": ["页面结构合法"],
+                                  "changes": [
+                                    {
+                                      "path": "index.html",
+                                      "action": "WRITE",
+                                      "reason": "创建页面入口"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                            """;
+                }
+                if (role == ModelRole.IMPLEMENTATION) {
+                    return """
+                            <!DOCTYPE html>
+                            <html>
+                            <body>
+                              <div id="app"><span
+                            </body>
+                            </html>
+                            """;
+                }
+                if (role == ModelRole.VALIDATION_STRATEGY) {
+                    return """
+                            {
+                              "summary": "静态网页做基础资源检查即可。",
+                              "steps": [
+                                {
+                                  "capability": "WEB_RESOURCE_LINK_CHECK",
+                                  "reason": "确认页面本地资源完整。",
+                                  "required": true
+                                }
+                              ]
+                            }
+                            """;
+                }
+                return "";
+            }
+
+            @Override
+            public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
+                return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
+            }
+        };
+
+        TestExecutor testExecutor = new TestExecutor(workspace, provider, objectMapper);
+        ImplementationExecutor executor = new ImplementationExecutor(provider, workspace, objectMapper, testExecutor);
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> executor.execute(
+                        tempDir,
+                        runRecord("实现一个网页版应用", "需要纯网页版"),
+                        "# analysis",
+                        "# prd",
+                        "# design",
+                        ""
+                )
+        );
+
+        assertTrue(exception.getMessage().contains("incomplete or invalid"));
+    }
+
     private String invalidPlan() {
         return """
                 {

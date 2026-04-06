@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.orchestrator.RunRecord;
 import devflow.agent.orchestrator.StageExecution;
 import devflow.agent.orchestrator.StageType;
+import devflow.agent.parsing.TreeSitterParseSummary;
+import devflow.agent.parsing.TreeSitterSupport;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.review.FixMode;
 import java.nio.file.Files;
@@ -17,6 +19,7 @@ import java.util.stream.Collectors;
 import java.util.regex.Pattern;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -47,6 +50,7 @@ public class ImplementationExecutor {
     private final FileProjectWorkspace workspace;
     private final ObjectMapper objectMapper;
     private final TestExecutor testExecutor;
+    private final TreeSitterSupport treeSitterSupport;
 
     public ImplementationExecutor(
             LlmProvider llmProvider,
@@ -54,10 +58,22 @@ public class ImplementationExecutor {
             ObjectMapper objectMapper,
             TestExecutor testExecutor
     ) {
+        this(llmProvider, workspace, objectMapper, testExecutor, new TreeSitterSupport());
+    }
+
+    @Autowired
+    public ImplementationExecutor(
+            LlmProvider llmProvider,
+            FileProjectWorkspace workspace,
+            ObjectMapper objectMapper,
+            TestExecutor testExecutor,
+            TreeSitterSupport treeSitterSupport
+    ) {
         this.llmProvider = llmProvider;
         this.workspace = workspace;
         this.objectMapper = objectMapper;
         this.testExecutor = testExecutor;
+        this.treeSitterSupport = treeSitterSupport;
     }
 
     public String execute(Path projectPath, RunRecord runRecord, String analysis, String prd, String design, String note) {
@@ -855,6 +871,10 @@ public class ImplementationExecutor {
         }
         String path = relativePath.toString().toLowerCase();
         if (path.endsWith(".js") || path.endsWith(".mjs") || path.endsWith(".cjs")) {
+            String treeSitterFailure = validateWithTreeSitter(relativePath, content);
+            if (treeSitterFailure != null) {
+                return treeSitterFailure;
+            }
             return validateJavaScript(projectPath, content);
         }
         if (path.endsWith(".html")) {
@@ -862,9 +882,24 @@ public class ImplementationExecutor {
             if (htmlFailure != null) {
                 return htmlFailure;
             }
+            String treeSitterFailure = validateWithTreeSitter(relativePath, content);
+            if (treeSitterFailure != null) {
+                return treeSitterFailure;
+            }
             return validateInlineScripts(projectPath, content);
         }
+        if (path.endsWith(".java")) {
+            return validateWithTreeSitter(relativePath, content);
+        }
         return null;
+    }
+
+    private String validateWithTreeSitter(Path relativePath, String content) {
+        TreeSitterParseSummary summary = treeSitterSupport.analyze(relativePath, content);
+        if (!summary.supported() || summary.valid()) {
+            return null;
+        }
+        return summary.describe();
     }
 
     private String validateJavaScript(Path projectPath, String content) {

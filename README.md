@@ -41,6 +41,8 @@
   产物存储抽象
 - `src/main/java/devflow/agent/executor`
   模型与执行器抽象
+- `src/main/java/devflow/agent/parsing`
+  `tree-sitter` 解析、结构快照与写盘前结构校验
 - `src/main/java/devflow/agent/project`
   仓库工作区抽象
 - `src/main/java/devflow/agent/interfaceadapter`
@@ -239,6 +241,8 @@ mvn -q spring-boot:run -Dspring-boot.run.arguments='run logs <runId> --project /
 - implementation 阶段内置子任务 planner，先把大功能拆成 3-6 个可验证的子步骤
 - implementation 阶段按子任务逐步写代码，每个子任务会做自检和 verifier 校验
 - implementation 阶段内置自测，优先使用项目自身构建/测试工具链，没有工具链时退回通用静态 Web 检查
+- implementation 阶段在接受模型生成内容前，会先用 `tree-sitter` 校验 `HTML / JavaScript / Java` 的基本结构合法性
+- fallback testcase 设计已优先基于 `tree-sitter` 提取静态 HTML 结构，而不是只靠正则猜测按钮和选择器
 - `ANALYSIS / PRD / DESIGN` 已改成固定模板输出，降低文档漂移和阶段间理解偏差
 - code review 阶段会输出 `fixMode`
 - code review / test 打回后会把 `PATCH` 或 `REWORK` 明确传回 implementation
@@ -254,6 +258,22 @@ mvn -q spring-boot:run -Dspring-boot.run.arguments='run logs <runId> --project /
 - implementation 阶段的代码写入执行器
 - code review 阶段的变更审阅
 - test 阶段的命令执行器
+
+当前 `tree-sitter` 已落地的作用范围：
+
+- `HTML`
+  - 写盘前结构校验
+  - 静态 `id/button/canvas` 结构提取
+- `JavaScript`
+  - 写盘前语法树合法性校验
+- `Java`
+  - 写盘前基础结构校验
+
+当前边界：
+
+- 还没有进入 AST 级精确改写
+- 当前角色仍然是“结构理解 + 写盘前验收”
+- 后续 patch / section 级写入会继续建立在这层解析能力上
 
 ## 当前自动模式说明
 

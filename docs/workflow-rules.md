@@ -184,6 +184,29 @@ review 的结果会驱动三种后续动作：
 - required testcase 必须真实执行，未执行不能视为通过
 - 当前如果技术栈尚未实现专用 testcase 执行器，required case 会失败，而不是默认通过
 - 单个 `index.html` + 内联脚本的项目也会识别为 `web-static` 并进入浏览器级 testcase 执行路径
+- fallback testcase 设计会优先基于 `tree-sitter` 提取真实 HTML 结构，而不是只靠正则猜测静态页面选择器
+
+### 3.1 生成内容写盘前必须先过结构校验
+
+`IMPLEMENTATION` 阶段不能只因为模型返回了非空文本，就直接覆盖现有文件。
+
+当前规则：
+
+- `.html`
+  - 先做基本结构检查
+  - 再走 `tree-sitter`
+  - 内联脚本还要单独做脚本可解析性检查
+- `.js/.mjs/.cjs`
+  - 先走 `tree-sitter`
+  - 再走 `node --check`
+- `.java`
+  - 先走 `tree-sitter`
+
+约束：
+
+- 结构不完整、语法不合法或明显截断的输出不能写盘
+- 模型只返回“非空半截内容”不算成功
+- 这层校验属于 implementation 的基础护栏，不由 reviewer 兜底
 
 ### 4. review 结论必须可执行
 

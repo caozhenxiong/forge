@@ -195,3 +195,42 @@ Java 内核可以把它们当 sidecar 能力来调用，而不是在主进程里
 4. 我们是不是只需要一个受控的薄封装，而不是重做整套系统
 
 如果前两条答案偏正向，就优先接现成方案。
+
+## 当前已落地状态
+
+第一阶段已经不是只停留在原则层，当前实际已落地：
+
+- `tree-sitter` 已接入 `Forge` 的解析层
+- 当前支持：
+  - HTML
+  - JavaScript
+  - Java
+- 当前主要用途：
+  - 生成内容写盘前的结构合法性校验
+  - 静态 HTML 结构快照提取
+  - 为 fallback testcase 设计提供真实 DOM 线索
+
+当前代码位置：
+
+- `src/main/java/devflow/agent/parsing/TreeSitterSupport.java`
+- `src/main/java/devflow/agent/parsing/TreeSitterParseSummary.java`
+- `src/main/java/devflow/agent/parsing/HtmlStructureSnapshot.java`
+
+当前接入点：
+
+- `ImplementationExecutor`
+  - 对 `.html/.js/.java` 的模型输出先做 `tree-sitter` 校验，再决定是否接受
+- `TestCasePlanner`
+  - 对静态网页从真实 HTML 中提取按钮、`id`、`canvas` 等结构，再生成 testcase
+
+当前仍未做：
+
+- AST 级 patch 应用
+- 节点级改写
+- 多语言统一编辑计划执行器
+
+也就是说：
+
+- 现在的 `tree-sitter` 已经进入主链路
+- 但角色还是“结构理解 + 写盘前验证”
+- 还不是“完整精确编辑器”
