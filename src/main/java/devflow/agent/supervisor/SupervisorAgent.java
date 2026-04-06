@@ -52,7 +52,7 @@ public class SupervisorAgent {
         try {
             String response = llmProvider.generate(
                     """
-                            你是 SupervisorAgent，负责决定 devflow-agent 的下一步流程动作。
+                            你是 SupervisorAgent，负责决定 Forge 的下一步流程动作。
                             你必须只返回 JSON，格式如下：
                             {
                               "action": "ADVANCE_STAGE|REQUEST_HUMAN_REVIEW|RETRY_STAGE|ROUTE_TO_REPAIR|ROLLBACK_STAGE|COMPLETE_RUN|FAIL_RUN",

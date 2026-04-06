@@ -2,7 +2,7 @@
 
 ## 目的
 
-这份文档整理 `devflow-agent` 当前代码里各阶段实际使用的 prompt。
+这份文档整理 `Forge` 当前代码里各阶段实际使用的 prompt。
 
 目标是方便：
 
@@ -43,7 +43,7 @@
 
 来源：
 
-- [StageArtifactComposer.java](/home/linus/workspace/devflow-agent/src/main/java/devflow/agent/artifact/StageArtifactComposer.java)
+- [StageArtifactComposer.java](/home/linus/workspace/forge/src/main/java/devflow/agent/artifact/StageArtifactComposer.java)
 
 system prompt：
 
@@ -96,7 +96,7 @@ user prompt 结构：
 
 来源：
 
-- [StageArtifactComposer.java](/home/linus/workspace/devflow-agent/src/main/java/devflow/agent/artifact/StageArtifactComposer.java)
+- [StageArtifactComposer.java](/home/linus/workspace/forge/src/main/java/devflow/agent/artifact/StageArtifactComposer.java)
 
 system prompt：
 
@@ -139,7 +139,7 @@ user prompt 结构：
 
 来源：
 
-- [StageArtifactComposer.java](/home/linus/workspace/devflow-agent/src/main/java/devflow/agent/artifact/StageArtifactComposer.java)
+- [StageArtifactComposer.java](/home/linus/workspace/forge/src/main/java/devflow/agent/artifact/StageArtifactComposer.java)
 
 system prompt：
 
@@ -182,7 +182,7 @@ user prompt 结构：
 
 来源：
 
-- [ImplementationExecutor.java](/home/linus/workspace/devflow-agent/src/main/java/devflow/agent/executor/ImplementationExecutor.java)
+- [ImplementationExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/ImplementationExecutor.java)
 
 `IMPLEMENTATION` 不是一个单 prompt，而是 4 类 prompt：
 
@@ -303,7 +303,7 @@ user prompt 输入：
 
 来源：
 
-- [ImplementationExecutor.java](/home/linus/workspace/devflow-agent/src/main/java/devflow/agent/executor/ImplementationExecutor.java)
+- [ImplementationExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/ImplementationExecutor.java)
 
 system prompt 核心：
 
@@ -346,12 +346,12 @@ user prompt 输入：
 
 来源：
 
-- [SupervisorAgent.java](/home/linus/workspace/devflow-agent/src/main/java/devflow/agent/supervisor/SupervisorAgent.java)
+- [SupervisorAgent.java](/home/linus/workspace/forge/src/main/java/devflow/agent/supervisor/SupervisorAgent.java)
 
 system prompt 核心：
 
 ```text
-你是 SupervisorAgent，负责决定 devflow-agent 的下一步流程动作。
+你是 SupervisorAgent，负责决定 Forge 的下一步流程动作。
 你必须只返回 JSON。
 ```
 
@@ -528,7 +528,7 @@ user prompt 输入：
 
 来源：
 
-- [StageArtifactComposer.java](/home/linus/workspace/devflow-agent/src/main/java/devflow/agent/artifact/StageArtifactComposer.java)
+- [StageArtifactComposer.java](/home/linus/workspace/forge/src/main/java/devflow/agent/artifact/StageArtifactComposer.java)
 
 system prompt 核心：
 
@@ -587,7 +587,7 @@ user prompt 输入：
 
 来源：
 
-- [ValidationStrategyPlanner.java](/home/linus/workspace/devflow-agent/src/main/java/devflow/agent/validation/ValidationStrategyPlanner.java)
+- [ValidationStrategyPlanner.java](/home/linus/workspace/forge/src/main/java/devflow/agent/validation/ValidationStrategyPlanner.java)
 
 system prompt 核心：
 
@@ -631,7 +631,7 @@ user prompt 输入：
 
 来源：
 
-- [TestCasePlanner.java](/home/linus/workspace/devflow-agent/src/main/java/devflow/agent/executor/TestCasePlanner.java)
+- [TestCasePlanner.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/TestCasePlanner.java)
 
 system prompt 核心：
 
@@ -700,7 +700,7 @@ user prompt 输入：
 
 当前网页项目优先使用：
 
-- [run-testcases.mjs](/home/linus/workspace/devflow-agent/tools/playwright-smoke/run-testcases.mjs)
+- [run-testcases.mjs](/home/linus/workspace/forge/tools/playwright-smoke/run-testcases.mjs)
 
 这层不是 LLM prompt，而是结构化执行器。
 
@@ -718,7 +718,7 @@ user prompt 输入：
 
 来源：
 
-- [OllamaLlmProvider.java](/home/linus/workspace/devflow-agent/src/main/java/devflow/agent/executor/OllamaLlmProvider.java)
+- [OllamaLlmProvider.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/OllamaLlmProvider.java)
 
 所有 `llmProvider.review(...)` 都会被包上一层统一 prompt：
 
@@ -743,7 +743,7 @@ user prompt 输入：
 
 来源：
 
-- [StageReviewer.java](/home/linus/workspace/devflow-agent/src/main/java/devflow/agent/review/StageReviewer.java)
+- [StageReviewer.java](/home/linus/workspace/forge/src/main/java/devflow/agent/review/StageReviewer.java)
 
 ### `ANALYSIS` reviewer
 

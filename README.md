@@ -1,6 +1,6 @@
-# devflow-agent
+# Forge
 
-`devflow-agent` 是一个面向研发流程的编程 agent 内核，目标是把下面这条链路做成可追溯、可审阅、可打回重做的工作流：
+`Forge` 是一个面向研发流程的编程 agent 内核，目标是把下面这条链路做成可追溯、可审阅、可打回重做的工作流：
 
 - 需求分析与调研
 - 产品需求文档
@@ -113,11 +113,11 @@ mvn test
 最省事的启动方式：
 
 ```bash
-cd /home/linus/workspace/devflow-agent
-./devflow.sh run autopilot --project /path/to/repo --goal '你的目标' --constraints '你的约束'
+cd /home/linus/workspace/forge
+./forge.sh run autopilot --project /path/to/repo --goal '你的目标' --constraints '你的约束'
 ```
 
-`devflow.sh` 会自动切到仓库根目录再执行 Maven，避免在别的目录里触发 `No plugin found for prefix 'spring-boot'`。
+`forge.sh` 会自动切到仓库根目录再执行 Maven，避免在别的目录里触发 `No plugin found for prefix 'spring-boot'`。
 
 可选模型配置：
 
@@ -129,7 +129,7 @@ mvn -q spring-boot:run \
 阶段级模型配置也已经支持，推荐这样配：
 
 ```bash
-/home/linus/workspace/devflow-agent/devflow.sh run autopilot \
+/home/linus/workspace/forge/forge.sh run autopilot \
   --project /path/to/repo \
   --goal '你的目标' \
   --constraints '你的约束' \

@@ -28,7 +28,7 @@ public class PlaywrightCaseExecutor {
                     projectPath,
                     List.of(
                             "node",
-                            Path.of("/home/linus/workspace/devflow-agent/tools/playwright-smoke/run-testcases.mjs").toString(),
+                            Path.of("tools", "playwright-smoke", "run-testcases.mjs").toString(),
                             tempFile.toString(),
                             projectPath.toString()
                     ),
