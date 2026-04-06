@@ -1,6 +1,8 @@
 package devflow.agent.executor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import devflow.agent.editing.HtmlPreciseEditor;
+import devflow.agent.editing.HtmlPrecisePatch;
 import devflow.agent.orchestrator.RunRecord;
 import devflow.agent.orchestrator.StageExecution;
 import devflow.agent.orchestrator.StageType;
@@ -51,6 +53,7 @@ public class ImplementationExecutor {
     private final ObjectMapper objectMapper;
     private final TestExecutor testExecutor;
     private final TreeSitterSupport treeSitterSupport;
+    private final HtmlPreciseEditor htmlPreciseEditor;
 
     public ImplementationExecutor(
             LlmProvider llmProvider,
@@ -74,6 +77,7 @@ public class ImplementationExecutor {
         this.objectMapper = objectMapper;
         this.testExecutor = testExecutor;
         this.treeSitterSupport = treeSitterSupport;
+        this.htmlPreciseEditor = new HtmlPreciseEditor(treeSitterSupport);
     }
 
     public String execute(Path projectPath, RunRecord runRecord, String analysis, String prd, String design, String note) {
@@ -475,6 +479,20 @@ public class ImplementationExecutor {
         String existingContent = Files.exists(projectPath.resolve(relativePath))
                 ? workspace.readFile(projectPath, relativePath)
                 : "(new file)";
+        if (shouldUsePreciseHtmlEditing(projectPath, relativePath, subtask.deliveryMode(), existingContent)) {
+            return generatePreciseHtmlContent(
+                    projectPath,
+                    relativePath,
+                    analysis,
+                    prd,
+                    design,
+                    planSummary,
+                    subtask,
+                    feedback,
+                    reason,
+                    existingContent
+            );
+        }
         String targetedContext = renderTargetedContext(projectPath, subtask.changes(), relativePath);
         String system = """
                 你是资深软件工程师。请只输出目标文件的完整最终内容。
@@ -500,6 +518,17 @@ public class ImplementationExecutor {
                     2. 优先在已有骨架上增量添加函数、状态和事件，不要重写整套结构
                     3. 保持已有入口、样式、模块边界不变
                     4. 单次改动要尽量小，避免大段推翻式改写
+                    """;
+        }
+        if (pathLooksLikeHtml(relativePath)) {
+            system = system + """
+
+                    HTML 入口文件约束：
+                    1. 请优先输出可持续增量修改的结构
+                    2. 主内容容器使用 <main id="app-root">...</main>
+                    3. 内联样式使用 <style id="app-style">...</style>
+                    4. 主脚本使用 <script id="app-script">...</script>
+                    5. 后续精确改写会依赖这些稳定锚点，请保持这些 id 不变
                     """;
         }
         if (fixMode == FixMode.PATCH) {
@@ -599,6 +628,126 @@ public class ImplementationExecutor {
                     """.formatted(attempt, relativePath, validationFailure);
         }
         throw new IllegalStateException("Generated file content is incomplete or invalid for " + relativePath);
+    }
+
+    private String generatePreciseHtmlContent(
+            Path projectPath,
+            Path relativePath,
+            String analysis,
+            String prd,
+            String design,
+            String planSummary,
+            Subtask subtask,
+            String feedback,
+            String reason,
+            String existingContent
+    ) {
+        String targetedContext = renderTargetedContext(projectPath, subtask.changes(), relativePath);
+        String system = """
+                你是资深前端工程师。请对现有 HTML 页面做“精确改写”，不要整页重写。
+                你必须只返回一个 JSON 对象，格式如下：
+                {
+                  "markupHtml": "main#app-root 的内部 HTML；不修改则返回 null",
+                  "styleCss": "style#app-style 的 CSS 内容；不修改则返回 null",
+                  "scriptJs": "script#app-script 的 JS 内容；不修改则返回 null"
+                }
+
+                规则：
+                1. 只返回 JSON，不要解释，不要 markdown
+                2. 不要输出完整 HTML 文档
+                3. 只修改必要区块，未修改的区块返回 null
+                4. markupHtml 只包含 <main id="app-root"> 的内部内容，不要再包一层 <main>
+                5. styleCss 只包含纯 CSS，不要包 <style>
+                6. scriptJs 只包含纯 JavaScript，不要包 <script>
+                7. 当前是精确改写模式，优先最小改动
+                """;
+        String user = """
+                总体实现摘要：
+                %s
+
+                当前子任务：
+                - 标题：%s
+                - 目标：%s
+                - 交付模式：%s
+                - 验收标准：%s
+
+                文件路径：
+                %s
+
+                变更原因：
+                %s
+
+                需求分析：
+                %s
+
+                产品需求文档：
+                %s
+
+                技术方案设计：
+                %s
+
+                上一轮反馈：
+                %s
+
+                当前精确改写锚点：
+                %s
+
+                当前相关文件上下文：
+                %s
+
+                当前 HTML 内容：
+                %s
+                """.formatted(
+                planSummary,
+                subtask.title(),
+                subtask.goal(),
+                subtask.deliveryMode(),
+                String.join("；", safeList(subtask.acceptanceCriteria())),
+                relativePath,
+                reason,
+                analysis,
+                prd,
+                design,
+                nullToEmpty(feedback),
+                htmlPreciseEditor.describeAnchors(existingContent),
+                targetedContext,
+                summarizeForVerification(existingContent, 12000)
+        );
+        String retryFeedback = "";
+        for (int attempt = 1; attempt <= MAX_FILE_GENERATION_ATTEMPTS; attempt++) {
+            String prompt = retryFeedback.isBlank() ? user : user + "\n\n上一轮精确改写失败，请修正后重新生成：\n" + retryFeedback;
+            String generated = stripCodeFence(
+                    llmProvider.generate(system, prompt, Map.of("num_predict", 1400), ModelRole.IMPLEMENTATION)
+            );
+            try {
+                HtmlPrecisePatch patch = objectMapper.readValue(extractJsonObject(generated), HtmlPrecisePatch.class);
+                String merged = htmlPreciseEditor.applyPatch(existingContent, patch);
+                String validationFailure = validateGeneratedContent(projectPath, relativePath, merged);
+                if (validationFailure == null) {
+                    return merged;
+                }
+                retryFeedback = """
+                        - attempt: %d
+                        - 文件: %s
+                        - 问题: %s
+                        要求：
+                        1. 继续使用 JSON 精确改写格式
+                        2. 只返回需要修改的区块
+                        3. 保证改写后 HTML、脚本和样式都可解析
+                        """.formatted(attempt, relativePath, validationFailure);
+            } catch (Exception exception) {
+                retryFeedback = """
+                        - attempt: %d
+                        - 文件: %s
+                        - 问题: %s
+                        要求：
+                        1. 必须只返回合法 JSON
+                        2. 至少修改一个区块
+                        3. 不要输出完整 HTML 文档
+                        """.formatted(attempt, relativePath, exception.getMessage());
+            }
+        }
+        throw new IllegalStateException("Generated precise HTML patch is incomplete or invalid for " + relativePath);
     }
 
     private ReviewResult verifySubtask(
@@ -790,6 +939,24 @@ public class ImplementationExecutor {
             }
         }
         return false;
+    }
+
+    private boolean shouldUsePreciseHtmlEditing(Path projectPath, Path relativePath, DeliveryMode deliveryMode, String existingContent) {
+        if (!pathLooksLikeHtml(relativePath)) {
+            return false;
+        }
+        if (!Files.exists(projectPath.resolve(relativePath))) {
+            return false;
+        }
+        if (deliveryMode == DeliveryMode.SKELETON || deliveryMode == DeliveryMode.REWORK) {
+            return false;
+        }
+        return htmlPreciseEditor.supportsPreciseEditing(existingContent);
+    }
+
+    private boolean pathLooksLikeHtml(Path relativePath) {
+        String path = relativePath.toString().toLowerCase();
+        return path.endsWith(".html") || path.endsWith(".htm");
     }
 
     private int numPredictFor(DeliveryMode deliveryMode) {

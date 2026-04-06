@@ -220,8 +220,21 @@ Java 内核可以把它们当 sidecar 能力来调用，而不是在主进程里
 
 - `ImplementationExecutor`
   - 对 `.html/.js/.java` 的模型输出先做 `tree-sitter` 校验，再决定是否接受
+  - 对带稳定锚点的 HTML 页面，`INCREMENTAL / PATCH` 优先走区块级精确改写
 - `TestCasePlanner`
   - 对静态网页从真实 HTML 中提取按钮、`id`、`canvas` 等结构，再生成 testcase
+
+当前 HTML 精确改写约束：
+
+- 第一版只支持稳定锚点页面：
+  - `<main id="app-root">`
+  - `<style id="app-style">`
+  - `<script id="app-script">`
+- 模型输出不再是完整 HTML 文档，而是区块 JSON：
+  - `markupHtml`
+  - `styleCss`
+  - `scriptJs`
+- 执行器再基于 `tree-sitter` 定位这些区块并应用替换
 
 当前仍未做：
 

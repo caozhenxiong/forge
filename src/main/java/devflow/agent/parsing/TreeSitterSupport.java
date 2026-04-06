@@ -18,6 +18,10 @@ import org.treesitter.TreeSitterJavascript;
 @Component
 public class TreeSitterSupport {
 
+    public static final String APP_ROOT_ID = "app-root";
+    public static final String APP_STYLE_ID = "app-style";
+    public static final String APP_SCRIPT_ID = "app-script";
+
     private static final Pattern TAG_NAME_PATTERN = Pattern.compile("^<\\s*([A-Za-z0-9:-]+)");
     private static final Pattern ID_PATTERN = Pattern.compile("\\bid\\s*=\\s*[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
     private static final Pattern CLASS_PATTERN = Pattern.compile("\\bclass\\s*=\\s*[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
@@ -61,6 +65,27 @@ public class TreeSitterSupport {
                 flags.inlineScriptCount,
                 Set.copyOf(idSelectors),
                 Set.copyOf(buttonSelectors)
+        );
+    }
+
+    public HtmlEditableStructure inspectEditableHtml(String source) {
+        ParseMetrics metrics = parseMetrics(SourceLanguage.HTML, source);
+        EditableHtmlFlags flags = new EditableHtmlFlags();
+        walk(metrics.rootNode(), node -> inspectEditableHtmlNode(source, node, flags));
+        TreeSitterParseSummary summary = new TreeSitterParseSummary(
+                SourceLanguage.HTML,
+                true,
+                metrics.errorNodes() == 0 && metrics.missingNodes() == 0,
+                metrics.errorNodes(),
+                metrics.missingNodes()
+        );
+        return new HtmlEditableStructure(
+                summary,
+                flags.headInnerRange,
+                flags.bodyInnerRange,
+                flags.appRootInnerRange,
+                flags.appStyleInnerRange,
+                flags.appScriptInnerRange
         );
     }
 
@@ -120,6 +145,53 @@ public class TreeSitterSupport {
         }
     }
 
+    private void inspectEditableHtmlNode(String source, TSNode node, EditableHtmlFlags flags) {
+        String type = node.getType();
+        if ("element".equals(type)) {
+            TSNode startTag = findChild(node, "start_tag");
+            TSNode endTag = findLastChild(node, "end_tag");
+            if (startTag == null || endTag == null) {
+                return;
+            }
+            String tagSource = sliceUtf8(source, startTag.getStartByte(), startTag.getEndByte());
+            String tagName = extractTagName(tagSource).toLowerCase();
+            String id = extractAttribute(tagSource, ID_PATTERN);
+            ByteRange innerRange = new ByteRange(startTag.getEndByte(), endTag.getStartByte());
+            if (!innerRange.isValid()) {
+                return;
+            }
+            if ("head".equals(tagName) && flags.headInnerRange == null) {
+                flags.headInnerRange = innerRange;
+            }
+            if ("body".equals(tagName) && flags.bodyInnerRange == null) {
+                flags.bodyInnerRange = innerRange;
+            }
+            if (APP_ROOT_ID.equals(id) && flags.appRootInnerRange == null) {
+                flags.appRootInnerRange = innerRange;
+            }
+            return;
+        }
+        if ("style_element".equals(type) || "script_element".equals(type)) {
+            TSNode startTag = findChild(node, "start_tag");
+            TSNode endTag = findLastChild(node, "end_tag");
+            if (startTag == null || endTag == null) {
+                return;
+            }
+            String tagSource = sliceUtf8(source, startTag.getStartByte(), startTag.getEndByte());
+            String id = extractAttribute(tagSource, ID_PATTERN);
+            ByteRange innerRange = new ByteRange(startTag.getEndByte(), endTag.getStartByte());
+            if (!innerRange.isValid()) {
+                return;
+            }
+            if (APP_STYLE_ID.equals(id) && flags.appStyleInnerRange == null) {
+                flags.appStyleInnerRange = innerRange;
+            }
+            if (APP_SCRIPT_ID.equals(id) && flags.appScriptInnerRange == null) {
+                flags.appScriptInnerRange = innerRange;
+            }
+        }
+    }
+
     private ParseMetrics parseMetrics(SourceLanguage language, String source) {
         TSParser parser = new TSParser();
         TSLanguage tsLanguage = createLanguage(language);
@@ -151,6 +223,26 @@ public class TreeSitterSupport {
         for (int index = 0; index < node.getChildCount(); index++) {
             walk(node.getChild(index), consumer);
         }
+    }
+
+    private TSNode findChild(TSNode parent, String type) {
+        for (int index = 0; index < parent.getChildCount(); index++) {
+            TSNode child = parent.getChild(index);
+            if (type.equals(child.getType())) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    private TSNode findLastChild(TSNode parent, String type) {
+        for (int index = parent.getChildCount() - 1; index >= 0; index--) {
+            TSNode child = parent.getChild(index);
+            if (type.equals(child.getType())) {
+                return child;
+            }
+        }
+        return null;
     }
 
     private TSLanguage createLanguage(SourceLanguage language) {
@@ -196,5 +288,13 @@ public class TreeSitterSupport {
         private boolean hasBody;
         private boolean hasCanvas;
         private int inlineScriptCount;
+    }
+
+    private static final class EditableHtmlFlags {
+        private ByteRange headInnerRange;
+        private ByteRange bodyInnerRange;
+        private ByteRange appRootInnerRange;
+        private ByteRange appStyleInnerRange;
+        private ByteRange appScriptInnerRange;
     }
 }

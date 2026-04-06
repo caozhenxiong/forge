@@ -226,6 +226,7 @@
 - `.js` 还会追加 `node --check`
 - `.html` 还会追加内联脚本解析校验
 - 校验失败会触发重新生成，而不是直接覆盖文件
+- 对已有带锚点的 HTML 页面，`PATCH / INCREMENTAL` 已优先改成区块级精确改写，避免每次整页重写
 
 ### 6. implementation plan JSON 不稳定
 

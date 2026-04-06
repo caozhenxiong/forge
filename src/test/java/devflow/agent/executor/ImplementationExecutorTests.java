@@ -11,6 +11,7 @@ import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.EnumMap;
@@ -244,6 +245,117 @@ class ImplementationExecutorTests {
         );
 
         assertTrue(exception.getMessage().contains("incomplete or invalid"));
+    }
+
+    @Test
+    void patchModeUsesPreciseHtmlEditingForAnchoredPages() throws Exception {
+        Files.writeString(
+                tempDir.resolve("index.html"),
+                """
+                        <!DOCTYPE html>
+                        <html lang="zh-CN">
+                        <head>
+                          <meta charset="UTF-8">
+                          <title>Tetris</title>
+                          <style id="app-style">
+                            body { margin: 0; }
+                          </style>
+                        </head>
+                        <body>
+                          <main id="app-root">
+                            <p>loading</p>
+                          </main>
+                          <script id="app-script">
+                            console.log('boot');
+                          </script>
+                        </body>
+                        </html>
+                        """
+        );
+
+        FileProjectWorkspace workspace = new FileProjectWorkspace();
+        ObjectMapper objectMapper = new ObjectMapper();
+        LlmProvider provider = new LlmProvider() {
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
+                return generate(systemPrompt, userPrompt, options, null);
+            }
+
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
+                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
+                    return """
+                            {
+                              "summary": "精确补齐页面内容",
+                              "subtasks": [
+                                {
+                                  "title": "填充游戏容器",
+                                  "goal": "在已有 HTML 骨架中补齐主要内容",
+                                  "deliveryMode": "PATCH",
+                                  "acceptanceCriteria": ["保留既有外层结构", "补齐主要内容"],
+                                  "changes": [
+                                    {
+                                      "path": "index.html",
+                                      "action": "WRITE",
+                                      "reason": "在稳定锚点内精确更新内容"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                            """;
+                }
+                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("精确改写")) {
+                    return """
+                            {
+                              "markupHtml": "<section class=\\"playfield\\"><canvas id=\\"gameCanvas\\"></canvas></section>",
+                              "styleCss": "body { margin: 0; background: #10131a; }",
+                              "scriptJs": "window.tetrisReady = true;"
+                            }
+                            """;
+                }
+                if (role == ModelRole.VALIDATION_STRATEGY) {
+                    return """
+                            {
+                              "summary": "静态网页做基础资源检查即可。",
+                              "steps": [
+                                {
+                                  "capability": "WEB_RESOURCE_LINK_CHECK",
+                                  "reason": "确认页面本地资源完整。",
+                                  "required": true
+                                }
+                              ]
+                            }
+                            """;
+                }
+                return "";
+            }
+
+            @Override
+            public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
+                return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
+            }
+        };
+
+        TestExecutor testExecutor = new TestExecutor(workspace, provider, objectMapper);
+        ImplementationExecutor executor = new ImplementationExecutor(provider, workspace, objectMapper, testExecutor);
+
+        String report = executor.execute(
+                tempDir,
+                runRecord("实现一个俄罗斯方块页面", "需要纯网页版"),
+                "# analysis",
+                "# prd",
+                "# design",
+                "[FIX_MODE=PATCH]"
+        );
+
+        String html = Files.readString(tempDir.resolve("index.html"));
+        assertTrue(report.contains("交付模式：PATCH"));
+        assertTrue(html.contains("<title>Tetris</title>"));
+        assertTrue(html.contains("<section class=\"playfield\">"));
+        assertTrue(html.contains("window.tetrisReady = true;"));
+        assertTrue(html.contains("id=\"app-root\""));
+        assertTrue(html.contains("id=\"app-script\""));
     }
 
     private String invalidPlan() {

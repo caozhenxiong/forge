@@ -275,6 +275,20 @@ mvn -q spring-boot:run -Dspring-boot.run.arguments='run logs <runId> --project /
 - 当前角色仍然是“结构理解 + 写盘前验收”
 - 后续 patch / section 级写入会继续建立在这层解析能力上
 
+当前这版新增的精确改写能力：
+
+- 对已有 HTML 页面，若已存在稳定锚点：
+  - `<main id="app-root">`
+  - `<style id="app-style">`
+  - `<script id="app-script">`
+- `IMPLEMENTATION` 在 `INCREMENTAL / PATCH` 模式下会优先做区块级精确改写，而不是整页重写
+
+这版边界：
+
+- 只先覆盖 HTML 页面
+- 只对带稳定锚点的页面启用
+- 不满足锚点条件时仍会回退到完整文件生成
+
 ## 当前自动模式说明
 
 当前已经支持“自动跑到人工 gate 为止”的模式：

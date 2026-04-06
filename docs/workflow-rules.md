@@ -208,6 +208,32 @@ review 的结果会驱动三种后续动作：
 - 模型只返回“非空半截内容”不算成功
 - 这层校验属于 implementation 的基础护栏，不由 reviewer 兜底
 
+### 3.2 HTML 页面优先走区块级精确改写
+
+对已有 HTML 页面，如果已经存在稳定锚点：
+
+- `<main id="app-root">`
+- `<style id="app-style">`
+- `<script id="app-script">`
+
+则 `IMPLEMENTATION` 在 `INCREMENTAL / PATCH` 模式下应优先：
+
+- 只生成区块 JSON
+- 只替换 `app-root / app-style / app-script` 的内部内容
+- 不再整页重写
+
+目的：
+
+- 降低大文件截断风险
+- 让页面结构、`<head>` 元信息和外围壳子保持稳定
+- 让后续 patch 更容易收敛
+
+当前边界：
+
+- 只对 HTML 页面启用
+- 只对已有稳定锚点的页面启用
+- 锚点缺失时仍回退到完整文件生成
+
 ### 4. review 结论必须可执行
 
 review 不能只说“有问题”。
