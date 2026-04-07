@@ -127,9 +127,18 @@ class TreeSitterSupportTests {
                 const score: number = 0;
                 """
         );
+        CodeStructureSnapshot tsxSnapshot = support.inspectCodeStructure(
+                Path.of("app.tsx"),
+                """
+                export function App(): JSX.Element {
+                    return <main>ok</main>;
+                }
+                """
+        );
 
         assertTrue(javascriptSnapshot.supportsPreciseEditing());
         assertTrue(typescriptSnapshot.supportsPreciseEditing());
+        assertTrue(tsxSnapshot.supportsPreciseEditing());
         assertTrue(javascriptSnapshot.symbols().stream().anyMatch(symbol -> "Game".equals(symbol.name()) && "class".equals(symbol.kind())));
         assertTrue(javascriptSnapshot.symbols().stream().anyMatch(symbol -> "tick".equals(symbol.name()) && "method".equals(symbol.kind())));
         assertTrue(javascriptSnapshot.symbols().stream().anyMatch(symbol -> "boot".equals(symbol.name()) && "function".equals(symbol.kind())));
@@ -137,5 +146,6 @@ class TreeSitterSupportTests {
         assertTrue(typescriptSnapshot.symbols().stream().anyMatch(symbol -> "Game".equals(symbol.name()) && "class".equals(symbol.kind())));
         assertTrue(typescriptSnapshot.symbols().stream().anyMatch(symbol -> "boot".equals(symbol.name()) && "function".equals(symbol.kind())));
         assertTrue(typescriptSnapshot.symbols().stream().anyMatch(symbol -> "score".equals(symbol.name()) && "variable".equals(symbol.kind())));
+        assertTrue(tsxSnapshot.symbols().stream().anyMatch(symbol -> "App".equals(symbol.name()) && "function".equals(symbol.kind())));
     }
 }
