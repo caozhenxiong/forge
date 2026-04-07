@@ -34,6 +34,7 @@ public class ImplementationExecutor {
     private static final int MAX_PLAN_PARSE_ATTEMPTS = 3;
     private static final int MAX_FILE_GENERATION_ATTEMPTS = 3;
     private static final int MAX_FILES_PER_SUBTASK = 2;
+    private static final int MAX_DELIVERY_POLICY_FILES = 3;
     private static final String FIX_MODE_PATCH_TAG = "[FIX_MODE=PATCH]";
     private static final String FIX_MODE_REWORK_TAG = "[FIX_MODE=REWORK]";
     private static final String REPAIR_BRIEF_TAG = "[REPAIR_BRIEF]";
@@ -1223,7 +1224,7 @@ public class ImplementationExecutor {
         Boolean requireVerification = parseBooleanTag(note, DELIVERY_REQUIRE_VERIFICATION_TAG);
         return new DeliveryPolicyEnvelope(
                 mode == null ? DeliveryMode.INCREMENTAL : mode,
-                maxFiles == null ? MAX_FILES_PER_SUBTASK : Math.max(1, Math.min(maxFiles, MAX_FILES_PER_SUBTASK)),
+                maxFiles == null ? MAX_FILES_PER_SUBTASK : Math.max(1, Math.min(maxFiles, MAX_DELIVERY_POLICY_FILES)),
                 maxSymbols == null ? 4 : Math.max(1, maxSymbols),
                 preferPrecise == null || preferPrecise,
                 forceBacklogSplit != null && forceBacklogSplit,
