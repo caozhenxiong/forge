@@ -188,7 +188,7 @@ public class TestExecutor {
     private String renderReport(String note, SelfCheckResult selfCheck, List<TestCaseResult> caseResults, boolean finalPassed) {
         long totalCases = caseResults.size();
         long passedCases = caseResults.stream().filter(TestCaseResult::passed).count();
-        long requiredFailedCases = caseResults.stream().filter(result -> result.required() && result.status() != TestCaseStatus.PASSED).count();
+        long requiredFailedCases = caseResults.stream().filter(result -> result.required() && result.status() == TestCaseStatus.FAILED).count();
         long requiredBlockedCases = caseResults.stream().filter(result -> result.required() && result.status() == TestCaseStatus.BLOCKED).count();
         String summary = finalPassed
                 ? "自检通过，且必测用例全部通过。"
