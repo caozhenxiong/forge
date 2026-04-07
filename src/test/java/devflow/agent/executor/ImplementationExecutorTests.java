@@ -104,7 +104,7 @@ class ImplementationExecutorTests {
         TestExecutor testExecutor = new TestExecutor(workspace, provider, objectMapper);
         ImplementationExecutor executor = new ImplementationExecutor(provider, workspace, objectMapper, testExecutor);
 
-        String report = executor.execute(
+        ImplementationExecutionBundle bundle = executor.execute(
                 tempDir,
                 runRecord("实现一个网页版俄罗斯方块", "需要纯网页版、像素风"),
                 "# analysis",
@@ -113,7 +113,8 @@ class ImplementationExecutorTests {
                 ""
         );
 
-        assertTrue(report.contains("交付模式：SKELETON"));
+        assertTrue(bundle.implementationMarkdown().contains("交付模式：SKELETON"));
+        assertTrue(bundle.backlogMarkdown().contains("Implementation Backlog"));
         assertTrue(capturedFileSystemPrompt.get().contains("当前处于骨架模式"));
     }
 
@@ -340,7 +341,7 @@ class ImplementationExecutorTests {
         TestExecutor testExecutor = new TestExecutor(workspace, provider, objectMapper);
         ImplementationExecutor executor = new ImplementationExecutor(provider, workspace, objectMapper, testExecutor);
 
-        String report = executor.execute(
+        ImplementationExecutionBundle bundle = executor.execute(
                 tempDir,
                 runRecord("实现一个俄罗斯方块页面", "需要纯网页版"),
                 "# analysis",
@@ -350,7 +351,7 @@ class ImplementationExecutorTests {
         );
 
         String html = Files.readString(tempDir.resolve("index.html"));
-        assertTrue(report.contains("交付模式：PATCH"));
+        assertTrue(bundle.implementationMarkdown().contains("交付模式：PATCH"));
         assertTrue(html.contains("<title>Tetris</title>"));
         assertTrue(html.contains("<section class=\"playfield\">"));
         assertTrue(html.contains("window.tetrisReady = true;"));
@@ -437,7 +438,7 @@ class ImplementationExecutorTests {
         TestExecutor testExecutor = new TestExecutor(workspace, provider, objectMapper);
         ImplementationExecutor executor = new ImplementationExecutor(provider, workspace, objectMapper, testExecutor);
 
-        String report = executor.execute(
+        ImplementationExecutionBundle bundle = executor.execute(
                 tempDir,
                 runRecord("修复 Java 方法", ""),
                 "# analysis",
@@ -447,7 +448,7 @@ class ImplementationExecutorTests {
         );
 
         String javaSource = Files.readString(tempDir.resolve("App.java"));
-        assertTrue(report.contains("交付模式：PATCH"));
+        assertTrue(bundle.implementationMarkdown().contains("交付模式：PATCH"));
         assertTrue(javaSource.contains("System.out.println(\"patched\");"));
         assertTrue(javaSource.contains("class App"));
     }

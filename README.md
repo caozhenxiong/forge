@@ -24,17 +24,24 @@
 - 结构化代码编辑默认选择 `tree-sitter`
 - 复杂底层能力先做 build-vs-buy 判断，再决定是否自研
 - HTML / DOM 修改优先使用成熟现成工具，而不是强行统一手搓
+- 下一阶段的中改和大改路线以 `docs/redesign-roadmap.md` 为准
 
 ## 当前结构
 
 - `docs/architecture-plan.md`
   第一版架构方案归档
+- `docs/redesign-roadmap.md`
+  中改详细方案，以及中改到大改的演进路线
 - `docs/editing-strategy.md`
   结构化编辑与“优先现成方案”原则
 - `src/main/java/devflow/agent/orchestrator`
   工作流与状态机接口、核心枚举
 - `src/main/java/devflow/agent/supervisor`
   主流程决策 agent、决策动作和结构化决策模型
+- `src/main/java/devflow/agent/loop`
+  `AgentLoop`、transition decision 与 transition reason
+- `src/main/java/devflow/agent/context`
+  上下文投影、任务记忆与失败摘要
 - `src/main/java/devflow/agent/review`
   review 决策模型
 - `src/main/java/devflow/agent/artifact`
@@ -67,6 +74,8 @@
   - 负责执行、持久化、事件记录、边界约束
 - `SupervisorAgent`
   - 负责决定下一步动作
+- `AgentLoop`
+  - 负责每轮循环、transition reason 与稳定收敛判断
 - 各阶段 worker
   - 负责生成产物、review、diagnosis、repair、test
 
@@ -80,13 +89,28 @@
 - 进入阶段后会自动生成产物
 - 生成后会自动触发 reviewer
 - `SupervisorAgent` 会基于当前 artifact、review 结果、history 和 `repair_brief` 决定下一步动作
+- `AgentLoop` 会为每轮决策额外落盘：
+  - `projected_context.md`
+  - `task_memory.md`
+  - `transition_decision.md`
 - `AGENT_ONLY` 阶段通过后会自动进入下一阶段
 - `AGENT_PLUS_HUMAN` 阶段通过后会停在 `AWAITING_HUMAN_REVIEW`
 - `IMPLEMENTATION` 会先拆成多个子任务，再逐个子任务做代码生成、自检和验证
+- `IMPLEMENTATION` 会额外输出：
+  - `implementation_backlog.md`
+  - `repair_alignment.md`
 - `IMPLEMENTATION` 只有在子任务级验证通过后才会继续推进，最后还会再做阶段级自测
 - `CODE_REVIEW` reviewer 必须明确给出 `fixMode = PATCH | REWORK`
 - `PATCH` 表示走增量修补，`REWORK` 表示允许较大范围重构
 - `self-check` 已切成“项目识别 -> 策略规划 -> 白名单能力执行”的通用技术规则
+- `TEST` 阶段会额外输出：
+  - `test_runtime_snapshot.md`
+  - `test_cases.md`
+  - `test_execution.md`
+- required test case 现在是三态：
+  - `PASSED`
+  - `FAILED`
+  - `BLOCKED`
 - 被拒绝后会根据阶段自动打回并重试，超过最大自动修订次数后失败
 - 当前总自动修订次数上限为 `5`
 

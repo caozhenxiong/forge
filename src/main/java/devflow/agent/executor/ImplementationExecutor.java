@@ -38,6 +38,12 @@ public class ImplementationExecutor {
     private static final String FIX_MODE_REWORK_TAG = "[FIX_MODE=REWORK]";
     private static final String REPAIR_BRIEF_TAG = "[REPAIR_BRIEF]";
     private static final String REPAIR_BRIEF_ENFORCED_TAG = "[REPAIR_BRIEF_ENFORCED]";
+    private static final String DELIVERY_MODE_TAG = "[DELIVERY_MODE=";
+    private static final String DELIVERY_MAX_FILES_TAG = "[DELIVERY_MAX_FILES=";
+    private static final String DELIVERY_MAX_SYMBOLS_TAG = "[DELIVERY_MAX_SYMBOLS=";
+    private static final String DELIVERY_PREFER_PRECISE_TAG = "[DELIVERY_PREFER_PRECISE_EDITING=";
+    private static final String DELIVERY_FORCE_BACKLOG_SPLIT_TAG = "[DELIVERY_FORCE_BACKLOG_SPLIT=";
+    private static final String DELIVERY_REQUIRE_VERIFICATION_TAG = "[DELIVERY_REQUIRE_VERIFICATION=";
     private static final Pattern DESIGN_PERFORMANCE_REQUIREMENT_PATTERN = Pattern.compile(
             "(\\d+\\s*(ms|毫秒|s|秒)|p95|benchmark|基准|基准测试|性能验收|性能要求|记录\\s*.*耗时|测量\\s*.*耗时|生成时间\\s*(小于|低于|<)|响应时间\\s*(小于|低于|<)|切换时间\\s*(小于|低于|<))",
             Pattern.CASE_INSENSITIVE
@@ -85,10 +91,13 @@ public class ImplementationExecutor {
         this.codePreciseEditor = new CodePreciseEditor(treeSitterSupport);
     }
 
-    public String execute(Path projectPath, RunRecord runRecord, String analysis, String prd, String design, String note) {
+    public ImplementationExecutionBundle execute(Path projectPath, RunRecord runRecord, String analysis, String prd, String design, String note) {
         String workspaceContext = workspace.collectContext(projectPath, 24, 12000, 60000);
         String performanceValidationGuidance = extractPerformanceValidationGuidance(design);
-        boolean preferSkeletonFlow = shouldPreferSkeletonFlow(runRecord.goal(), runRecord.constraints(), workspaceContext);
+        DeliveryPolicyEnvelope deliveryPolicy = parseDeliveryPolicy(note);
+        boolean preferSkeletonFlow = deliveryPolicy.mode() == DeliveryMode.SKELETON
+                || (deliveryPolicy.forceBacklogSplit() && deliveryPolicy.mode() != DeliveryMode.PATCH)
+                || shouldPreferSkeletonFlow(runRecord.goal(), runRecord.constraints(), workspaceContext);
         ImplementationPlan plan = planImplementation(
                 runRecord,
                 analysis,
@@ -97,12 +106,17 @@ public class ImplementationExecutor {
                 note,
                 workspaceContext,
                 performanceValidationGuidance,
-                preferSkeletonFlow
+                preferSkeletonFlow,
+                deliveryPolicy
         );
         // Large tasks are more stable when we decompose them into explicit implementation
         // subtasks, validate each subtask, and only then move on to the next one.
         List<SubtaskExecutionReport> reports = executePlan(projectPath, runRecord, analysis, prd, design, note, plan);
-        return renderReport(plan, reports, note);
+        return new ImplementationExecutionBundle(
+                renderReport(plan, reports, note),
+                renderBacklog(plan, deliveryPolicy),
+                renderRepairAlignment(plan, reports, note, deliveryPolicy)
+        );
     }
 
     private ImplementationPlan planImplementation(
@@ -113,7 +127,8 @@ public class ImplementationExecutor {
             String note,
             String workspaceContext,
             String performanceValidationGuidance,
-            boolean preferSkeletonFlow
+            boolean preferSkeletonFlow,
+            DeliveryPolicyEnvelope deliveryPolicy
     ) {
         FixMode fixMode = extractFixMode(note);
         String system = """
@@ -150,6 +165,23 @@ public class ImplementationExecutor {
                 8. deliveryMode 必须明确选择
                 9. 若任务较大，优先拆成“骨架 -> 功能填充 -> 交互补全 -> polish/验证”
                 """;
+        system = system + """
+
+                本轮交付策略：
+                1. deliveryMode 参考建议：%s
+                2. 每个子任务最多改 %d 个文件
+                3. 每个子任务最多变更 %d 个符号
+                4. preferPreciseEditing=%s
+                5. forceBacklogSplit=%s
+                6. requireVerificationBeforeReview=%s
+                """.formatted(
+                deliveryPolicy.mode(),
+                deliveryPolicy.maxFiles(),
+                deliveryPolicy.maxSymbols(),
+                deliveryPolicy.preferPreciseEditing(),
+                deliveryPolicy.forceBacklogSplit(),
+                deliveryPolicy.requireVerificationBeforeReview()
+        );
         if (fixMode == FixMode.PATCH) {
             system = system + """
 
@@ -184,7 +216,7 @@ public class ImplementationExecutor {
 
                     当前任务更适合小步交付：
                     1. 第一子任务优先建立最小可运行骨架，deliveryMode 使用 SKELETON
-                    2. 前端/网页项目优先拆成 index.html + styles.css + app.js/game.js 等分职责文件，避免单文件塞入全部 HTML/CSS/JS
+                    2. 优先按结构搭建、核心逻辑、接线与验证逐步拆分，避免单文件塞入全部 HTML/CSS/JS
                     3. 后续子任务使用 INCREMENTAL，逐步填充核心逻辑、输入控制、状态更新和 polish
                     4. 不要试图在一个子任务里完成整个页面或整个游戏
                     5. 每个子任务完成后，项目应保持“至少可打开、可自检”
@@ -222,6 +254,9 @@ public class ImplementationExecutor {
                 当前工作区上下文：
                 %s
 
+                本轮必需证据：
+                %s
+
                 %s
                 """.formatted(
                 runRecord.goal(),
@@ -231,10 +266,11 @@ public class ImplementationExecutor {
                 design,
                 note,
                 workspaceContext,
+                renderBulletList(deliveryPolicy.requiredEvidence()),
                 performanceValidationGuidance
         );
         String response = llmProvider.generate(system, user, Map.of("num_predict", 2600), ModelRole.IMPLEMENTATION);
-        return parsePlanWithRepair(response, fixMode, preferSkeletonFlow);
+        return parsePlanWithRepair(response, fixMode, preferSkeletonFlow, deliveryPolicy);
     }
 
     private List<SubtaskExecutionReport> executePlan(
@@ -390,12 +426,92 @@ public class ImplementationExecutor {
         return builder.toString();
     }
 
-    private ImplementationPlan parsePlanWithRepair(String response, FixMode fixMode, boolean preferSkeletonFlow) {
+    private String renderBacklog(ImplementationPlan plan, DeliveryPolicyEnvelope deliveryPolicy) {
+        StringBuilder builder = new StringBuilder("""
+                # Implementation Backlog
+
+                - recommendedMode: %s
+                - maxFiles: %d
+                - maxSymbols: %d
+                - preferPreciseEditing: %s
+                - forceBacklogSplit: %s
+                - requireVerificationBeforeReview: %s
+
+                ## Backlog Items
+
+                """.formatted(
+                deliveryPolicy.mode(),
+                deliveryPolicy.maxFiles(),
+                deliveryPolicy.maxSymbols(),
+                deliveryPolicy.preferPreciseEditing(),
+                deliveryPolicy.forceBacklogSplit(),
+                deliveryPolicy.requireVerificationBeforeReview()
+        ));
+        int index = 1;
+        for (Subtask subtask : plan.subtasks()) {
+            builder.append("### ").append(index++).append(". ").append(subtask.title()).append("\n\n");
+            builder.append("- goal: ").append(subtask.goal()).append("\n");
+            builder.append("- deliveryMode: ").append(subtask.deliveryMode()).append("\n");
+            builder.append("- files: ").append(renderChangeList(subtask.changes())).append("\n");
+            builder.append("- acceptance: ").append(String.join("；", safeList(subtask.acceptanceCriteria()))).append("\n\n");
+        }
+        return builder.toString().trim();
+    }
+
+    private String renderRepairAlignment(
+            ImplementationPlan plan,
+            List<SubtaskExecutionReport> reports,
+            String note,
+            DeliveryPolicyEnvelope deliveryPolicy
+    ) {
+        if (note == null || !note.contains(REPAIR_BRIEF_ENFORCED_TAG)) {
+            return """
+                    # Repair Alignment
+
+                    - status: NOT_APPLICABLE
+                    - note: 当前实现不处于 repair brief 强约束模式。
+                    """;
+        }
+        List<String> completedSubtasks = reports.stream()
+                .filter(SubtaskExecutionReport::completed)
+                .map(report -> report.subtask().title())
+                .toList();
+        String noteSummary = summarizeForVerification(note, 2600);
+        return """
+                # Repair Alignment
+
+                - status: ACTIVE
+                - deliveryMode: %s
+                - completedSubtasks: %s
+
+                ## Repair Context
+
+                ```text
+                %s
+                ```
+
+                ## Covered Backlog Items
+
+                %s
+                """.formatted(
+                deliveryPolicy.mode(),
+                completedSubtasks.isEmpty() ? "(none)" : String.join("，", completedSubtasks),
+                noteSummary,
+                renderBulletList(completedSubtasks)
+        );
+    }
+
+    private ImplementationPlan parsePlanWithRepair(
+            String response,
+            FixMode fixMode,
+            boolean preferSkeletonFlow,
+            DeliveryPolicyEnvelope deliveryPolicy
+    ) {
         String candidate = response;
         Exception lastException = null;
         for (int attempt = 1; attempt <= MAX_PLAN_PARSE_ATTEMPTS; attempt++) {
             try {
-                return parsePlan(candidate, fixMode, preferSkeletonFlow);
+                return parsePlan(candidate, fixMode, preferSkeletonFlow, deliveryPolicy);
             } catch (Exception exception) {
                 lastException = exception;
                 if (attempt == MAX_PLAN_PARSE_ATTEMPTS) {
@@ -407,7 +523,12 @@ public class ImplementationExecutor {
         throw new IllegalStateException("Failed to parse implementation plan: " + response, lastException);
     }
 
-    private ImplementationPlan parsePlan(String response, FixMode fixMode, boolean preferSkeletonFlow) throws Exception {
+    private ImplementationPlan parsePlan(
+            String response,
+            FixMode fixMode,
+            boolean preferSkeletonFlow,
+            DeliveryPolicyEnvelope deliveryPolicy
+    ) throws Exception {
         ImplementationPlan plan = objectMapper.readValue(extractJsonObject(response), ImplementationPlan.class);
         if (plan.subtasks() == null || plan.subtasks().isEmpty()) {
             throw new IllegalStateException("Implementation plan must contain subtasks");
@@ -418,15 +539,16 @@ public class ImplementationExecutor {
             if (subtask.changes() == null || subtask.changes().isEmpty()) {
                 throw new IllegalStateException("Each subtask must contain at least one file change");
             }
-            if (subtask.changes().size() > MAX_FILES_PER_SUBTASK) {
-                throw new IllegalStateException("Each subtask may change at most %d files".formatted(MAX_FILES_PER_SUBTASK));
+            if (subtask.changes().size() > deliveryPolicy.maxFiles()) {
+                throw new IllegalStateException("Each subtask may change at most %d files".formatted(deliveryPolicy.maxFiles()));
             }
             DeliveryMode deliveryMode = resolveDeliveryMode(
                     subtask.deliveryMode(),
                     fixMode,
                     preferSkeletonFlow,
                     index,
-                    subtask.changes()
+                    subtask.changes(),
+                    deliveryPolicy
             );
             normalized.add(new Subtask(
                     subtask.title(),
@@ -1071,8 +1193,12 @@ public class ImplementationExecutor {
             FixMode fixMode,
             boolean preferSkeletonFlow,
             int subtaskIndex,
-            List<FileChange> changes
+            List<FileChange> changes,
+            DeliveryPolicyEnvelope deliveryPolicy
     ) {
+        if (deliveryPolicy.mode() != null && deliveryPolicy.mode() != DeliveryMode.INCREMENTAL && rawMode == null) {
+            return deliveryPolicy.mode();
+        }
         if (rawMode != null) {
             return rawMode;
         }
@@ -1086,6 +1212,112 @@ public class ImplementationExecutor {
             return DeliveryMode.SKELETON;
         }
         return DeliveryMode.INCREMENTAL;
+    }
+
+    private DeliveryPolicyEnvelope parseDeliveryPolicy(String note) {
+        DeliveryMode mode = parseDeliveryModeTag(note, DELIVERY_MODE_TAG);
+        Integer maxFiles = parseIntegerTag(note, DELIVERY_MAX_FILES_TAG);
+        Integer maxSymbols = parseIntegerTag(note, DELIVERY_MAX_SYMBOLS_TAG);
+        Boolean preferPrecise = parseBooleanTag(note, DELIVERY_PREFER_PRECISE_TAG);
+        Boolean forceBacklogSplit = parseBooleanTag(note, DELIVERY_FORCE_BACKLOG_SPLIT_TAG);
+        Boolean requireVerification = parseBooleanTag(note, DELIVERY_REQUIRE_VERIFICATION_TAG);
+        return new DeliveryPolicyEnvelope(
+                mode == null ? DeliveryMode.INCREMENTAL : mode,
+                maxFiles == null ? MAX_FILES_PER_SUBTASK : Math.max(1, Math.min(maxFiles, MAX_FILES_PER_SUBTASK)),
+                maxSymbols == null ? 4 : Math.max(1, maxSymbols),
+                preferPrecise == null || preferPrecise,
+                forceBacklogSplit != null && forceBacklogSplit,
+                requireVerification == null || requireVerification,
+                extractRequiredEvidence(note)
+        );
+    }
+
+    private DeliveryMode parseDeliveryModeTag(String note, String prefix) {
+        String value = extractTaggedValue(note, prefix);
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return DeliveryMode.valueOf(value.trim().toUpperCase());
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private Integer parseIntegerTag(String note, String prefix) {
+        String value = extractTaggedValue(note, prefix);
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private Boolean parseBooleanTag(String note, String prefix) {
+        String value = extractTaggedValue(note, prefix);
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return Boolean.parseBoolean(value.trim());
+    }
+
+    private String extractTaggedValue(String note, String prefix) {
+        if (note == null || note.isBlank()) {
+            return null;
+        }
+        int start = note.indexOf(prefix);
+        if (start < 0) {
+            return null;
+        }
+        int valueStart = start + prefix.length();
+        int end = note.indexOf(']', valueStart);
+        if (end < 0) {
+            return null;
+        }
+        return note.substring(valueStart, end);
+    }
+
+    private List<String> extractRequiredEvidence(String note) {
+        if (note == null || note.isBlank() || !note.contains("本轮必需证据：")) {
+            return List.of();
+        }
+        String section = note.substring(note.indexOf("本轮必需证据：") + "本轮必需证据：".length());
+        List<String> values = new ArrayList<>();
+        for (String line : section.split("\\R")) {
+            String trimmed = line.trim();
+            if (trimmed.isBlank()) {
+                if (!values.isEmpty()) {
+                    break;
+                }
+                continue;
+            }
+            if (trimmed.startsWith("- ")) {
+                values.add(trimmed.substring(2).trim());
+                continue;
+            }
+            if (!values.isEmpty()) {
+                break;
+            }
+        }
+        return values;
+    }
+
+    private String renderBulletList(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return "- (none)";
+        }
+        StringJoiner joiner = new StringJoiner("\n");
+        for (String value : values) {
+            if (value == null || value.isBlank()) {
+                continue;
+            }
+            joiner.add("- " + value.trim());
+        }
+        String rendered = joiner.toString();
+        return rendered.isBlank() ? "- (none)" : rendered;
     }
 
     private boolean targetsNewEntryOrUiFiles(List<FileChange> changes) {
@@ -1385,5 +1617,16 @@ public class ImplementationExecutor {
         INCREMENTAL,
         PATCH,
         REWORK
+    }
+
+    private record DeliveryPolicyEnvelope(
+            DeliveryMode mode,
+            int maxFiles,
+            int maxSymbols,
+            boolean preferPreciseEditing,
+            boolean forceBacklogSplit,
+            boolean requireVerificationBeforeReview,
+            List<String> requiredEvidence
+    ) {
     }
 }

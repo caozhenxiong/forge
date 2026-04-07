@@ -3,8 +3,18 @@ package devflow.agent.executor;
 public record TestCaseResult(
         String id,
         String title,
-        boolean passed,
+        TestCaseStatus status,
         boolean required,
-        String details
+        String details,
+        String failureReason,
+        String evidence
 ) {
+
+    public boolean passed() {
+        return status == TestCaseStatus.PASSED;
+    }
+
+    public boolean blocked() {
+        return status == TestCaseStatus.BLOCKED;
+    }
 }

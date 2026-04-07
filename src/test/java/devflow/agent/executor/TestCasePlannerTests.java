@@ -41,7 +41,8 @@ class TestCasePlannerTests {
                 "需要纯网页版",
                 "# 产品需求文档\n\n- 游戏加载时间小于2秒\n",
                 "# 技术方案\n\n- 页面加载时间小于 2000ms\n",
-                ""
+                "",
+                null
         );
 
         TestCaseSpec performanceCase = plan.cases().stream()
@@ -81,7 +82,8 @@ class TestCasePlannerTests {
                 "需要纯网页版",
                 "# 产品需求文档\n",
                 "# 技术方案\n",
-                ""
+                "",
+                null
         );
 
         assertTrue(plan.cases().stream().anyMatch(testCase ->

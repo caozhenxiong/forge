@@ -32,6 +32,12 @@
 
 ## 核心架构
 
+补充说明：
+
+- 本文描述当前第一版可运行内核的架构边界
+- 下一阶段的中改详细方案和中改到大改的演进路径，统一见：
+  - `docs/redesign-roadmap.md`
+
 ### 总体形态
 
 采用模块化单体，但边界按未来服务化拆分设计。
@@ -98,6 +104,23 @@
 - 通用 AST refactor
 - 跨文件语义级自动改写
 
+### 下一阶段演进方向
+
+当前判断：
+
+- 第一版已经具备“可运行 workflow 内核”的基础
+- 下一阶段不适合继续堆更多固定阶段规则
+- 更合理的方向是一次中改：
+  - `AgentLoop`
+  - `Supervisor transition`
+  - `ContextProjector`
+  - `DeliveryPolicy`
+  - `Repair / Test evidence` 强约束化
+
+详细路线图单独维护在：
+
+- `docs/redesign-roadmap.md`
+
 ### 角色与执行模型
 
 采用多角色逻辑加单编排内核。
@@ -158,7 +181,18 @@
 - `reason`
 - `focus`
 - `constraints`
+- `requiredEvidence`
+- `deliveryPolicy`
 - `humanRequired`
+
+当前第一版中改已落地的辅助产物：
+
+- `projected_context.md`
+- `task_memory.md`
+- `transition_decision.md`
+- `implementation_backlog.md`
+- `repair_alignment.md`
+- `test_runtime_snapshot.md`
 
 ### 阶段定义
 

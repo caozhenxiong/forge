@@ -47,9 +47,10 @@ public class TestCasePlanner {
             String constraints,
             String prd,
             String design,
-            String implementationReport
+            String implementationReport,
+            RuntimeSnapshot runtimeSnapshot
     ) {
-        List<TestCaseSpec> fallback = fallbackCases(projectPath, fingerprint, prd, design, implementationReport);
+        List<TestCaseSpec> fallback = fallbackCases(projectPath, fingerprint, prd, design, implementationReport, runtimeSnapshot);
         if (llmProvider == null) {
             return new TestCasePlan("未配置模型，使用默认网页测试用例。", fallback);
         }
@@ -115,6 +116,9 @@ public class TestCasePlanner {
                             实现报告：
                             %s
 
+                            运行时快照：
+                            %s
+
                             当前代码上下文：
                             %s
                             """.formatted(
@@ -124,6 +128,7 @@ public class TestCasePlanner {
                             shrink(prd),
                             shrink(design),
                             shrink(implementationReport),
+                            runtimeSnapshot == null ? "" : runtimeSnapshot.toMarkdown(),
                             context
                     ),
                     Map.of("num_predict", 1200),
@@ -143,7 +148,14 @@ public class TestCasePlanner {
         return new TestCasePlan("模型未能稳定输出测试用例，使用默认网页测试用例。", fallback);
     }
 
-    private List<TestCaseSpec> fallbackCases(Path projectPath, ProjectFingerprint fingerprint, String prd, String design, String implementationReport) {
+    private List<TestCaseSpec> fallbackCases(
+            Path projectPath,
+            ProjectFingerprint fingerprint,
+            String prd,
+            String design,
+            String implementationReport,
+            RuntimeSnapshot runtimeSnapshot
+    ) {
         List<TestCaseSpec> cases = new ArrayList<>();
         String entry = fingerprint.hasHtmlEntry() ? "index.html" : "";
         if (fingerprint.hasHtmlEntry()) {
@@ -182,7 +194,15 @@ public class TestCasePlanner {
                     ));
                 }
 
-                Set<String> selectors = new LinkedHashSet<>(htmlSnapshot.buttonSelectors());
+                Set<String> selectors = new LinkedHashSet<>();
+                if (runtimeSnapshot != null && runtimeSnapshot.usable()) {
+                    for (String selector : runtimeSnapshot.selectors()) {
+                        if (selector.startsWith("#") || selector.startsWith(".") || "button".equals(selector)) {
+                            selectors.add(selector);
+                        }
+                    }
+                }
+                selectors.addAll(htmlSnapshot.buttonSelectors());
                 int index = 1;
                 for (String selector : selectors) {
                     if (selectors.size() > 3 && index > 3) {

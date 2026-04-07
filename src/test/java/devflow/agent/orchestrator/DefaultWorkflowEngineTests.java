@@ -4,9 +4,12 @@ import devflow.agent.artifact.ArtifactTemplateFactory;
 import devflow.agent.artifact.EventLogStore;
 import devflow.agent.artifact.FileArtifactStore;
 import devflow.agent.artifact.StageArtifactComposer;
+import devflow.agent.context.ArtifactSummaryBuilder;
+import devflow.agent.context.ContextProjector;
 import devflow.agent.executor.ImplementationExecutor;
 import devflow.agent.executor.LlmProvider;
 import devflow.agent.executor.TestExecutor;
+import devflow.agent.loop.AgentLoop;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.project.WorkspaceSnapshotStore;
 import devflow.agent.repair.DiagnosisAgent;
@@ -32,6 +35,42 @@ class DefaultWorkflowEngineTests {
     @TempDir
     Path tempDir;
 
+    private SupervisorAgent newSupervisorAgent(LlmProvider provider, FileArtifactStore artifactStore, FileProjectWorkspace workspace) {
+        return new SupervisorAgent(
+                provider,
+                artifactStore,
+                new ObjectMapper(),
+                new ContextProjector(artifactStore, workspace, new ArtifactSummaryBuilder())
+        );
+    }
+
+    private DefaultWorkflowEngine newWorkflowEngine(
+            FileRunRepository runRepository,
+            FileArtifactStore artifactStore,
+            StageArtifactComposer stageArtifactComposer,
+            StageReviewer stageReviewer,
+            EventLogStore eventLogStore,
+            WorkspaceSnapshotStore snapshotStore,
+            DiagnosisAgent diagnosisAgent,
+            RepairAgent repairAgent,
+            SupervisorAgent supervisorAgent,
+            FileProjectWorkspace workspace
+    ) {
+        return new DefaultWorkflowEngine(
+                runRepository,
+                artifactStore,
+                stageArtifactComposer,
+                stageReviewer,
+                eventLogStore,
+                snapshotStore,
+                diagnosisAgent,
+                repairAgent,
+                supervisorAgent,
+                new ContextProjector(artifactStore, workspace, new ArtifactSummaryBuilder()),
+                new AgentLoop()
+        );
+    }
+
     @Test
     void createAndStartRunWritesStateAndAnalysisArtifact() throws Exception {
         FileRunRepository runRepository = new FileRunRepository();
@@ -50,7 +89,7 @@ class DefaultWorkflowEngineTests {
                         snapshotStore
                 );
         DefaultWorkflowEngine workflowEngine =
-                new DefaultWorkflowEngine(
+                newWorkflowEngine(
                         runRepository,
                         artifactStore,
                         stageArtifactComposer,
@@ -59,7 +98,8 @@ class DefaultWorkflowEngineTests {
                         snapshotStore,
                         new DiagnosisAgent(provider, artifactStore, new ObjectMapper()),
                         new RepairAgent(),
-                        new SupervisorAgent(provider, artifactStore, new ObjectMapper())
+                        newSupervisorAgent(provider, artifactStore, workspace),
+                        workspace
                 );
 
         workflowEngine.initialize(tempDir);
@@ -92,7 +132,7 @@ class DefaultWorkflowEngineTests {
                         snapshotStore
                 );
         DefaultWorkflowEngine workflowEngine =
-                new DefaultWorkflowEngine(
+                newWorkflowEngine(
                         runRepository,
                         artifactStore,
                         stageArtifactComposer,
@@ -101,7 +141,8 @@ class DefaultWorkflowEngineTests {
                         snapshotStore,
                         new DiagnosisAgent(provider, artifactStore, new ObjectMapper()),
                         new RepairAgent(),
-                        new SupervisorAgent(provider, artifactStore, new ObjectMapper())
+                        newSupervisorAgent(provider, artifactStore, workspace),
+                        workspace
                 );
 
         workflowEngine.initialize(tempDir);
@@ -146,7 +187,7 @@ class DefaultWorkflowEngineTests {
                         snapshotStore
                 );
         DefaultWorkflowEngine workflowEngine =
-                new DefaultWorkflowEngine(
+                newWorkflowEngine(
                         runRepository,
                         artifactStore,
                         stageArtifactComposer,
@@ -155,7 +196,8 @@ class DefaultWorkflowEngineTests {
                         snapshotStore,
                         new DiagnosisAgent(provider, artifactStore, new ObjectMapper()),
                         new RepairAgent(),
-                        new SupervisorAgent(provider, artifactStore, new ObjectMapper())
+                        newSupervisorAgent(provider, artifactStore, workspace),
+                        workspace
                 );
 
         workflowEngine.initialize(tempDir);
@@ -181,7 +223,7 @@ class DefaultWorkflowEngineTests {
         DiagnosisAgent diagnosisAgent = new DiagnosisAgent(provider, artifactStore, new ObjectMapper());
 
         runRepository.initialize(tempDir);
-        RunRecord created = new DefaultWorkflowEngine(
+        RunRecord created = newWorkflowEngine(
                 runRepository,
                 artifactStore,
                 new StageArtifactComposer(
@@ -197,7 +239,8 @@ class DefaultWorkflowEngineTests {
                 new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
                 diagnosisAgent,
                 new RepairAgent(),
-                new SupervisorAgent(provider, artifactStore, new ObjectMapper())
+                newSupervisorAgent(provider, artifactStore, new FileProjectWorkspace()),
+                new FileProjectWorkspace()
         ).createRun(tempDir, "实现 Java 内核", "先跑通基础状态机");
 
         artifactStore.appendReviewHistory(
@@ -258,7 +301,7 @@ class DefaultWorkflowEngineTests {
         DiagnosisAgent diagnosisAgent = new DiagnosisAgent(provider, artifactStore, new ObjectMapper());
 
         runRepository.initialize(tempDir);
-        RunRecord created = new DefaultWorkflowEngine(
+        RunRecord created = newWorkflowEngine(
                 runRepository,
                 artifactStore,
                 new StageArtifactComposer(
@@ -274,7 +317,8 @@ class DefaultWorkflowEngineTests {
                 new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
                 diagnosisAgent,
                 new RepairAgent(),
-                new SupervisorAgent(provider, artifactStore, new ObjectMapper())
+                newSupervisorAgent(provider, artifactStore, new FileProjectWorkspace()),
+                new FileProjectWorkspace()
         ).createRun(tempDir, "实现数独", "纯前端");
 
         artifactStore.appendReviewHistory(
@@ -349,7 +393,7 @@ class DefaultWorkflowEngineTests {
                         snapshotStore
                 );
         DefaultWorkflowEngine workflowEngine =
-                new DefaultWorkflowEngine(
+                newWorkflowEngine(
                         runRepository,
                         artifactStore,
                         stageArtifactComposer,
@@ -358,7 +402,8 @@ class DefaultWorkflowEngineTests {
                         snapshotStore,
                         new DiagnosisAgent(provider, artifactStore, new ObjectMapper()),
                         new RepairAgent(),
-                        new SupervisorAgent(provider, artifactStore, new ObjectMapper())
+                        newSupervisorAgent(provider, artifactStore, workspace),
+                        workspace
                 );
 
         workflowEngine.initialize(tempDir);
@@ -415,7 +460,7 @@ class DefaultWorkflowEngineTests {
         DiagnosisAgent diagnosisAgent = new DiagnosisAgent(provider, artifactStore, new ObjectMapper());
 
         runRepository.initialize(tempDir);
-        RunRecord created = new DefaultWorkflowEngine(
+        RunRecord created = newWorkflowEngine(
                 runRepository,
                 artifactStore,
                 new StageArtifactComposer(
@@ -431,7 +476,8 @@ class DefaultWorkflowEngineTests {
                 new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
                 diagnosisAgent,
                 new RepairAgent(),
-                new SupervisorAgent(provider, artifactStore, new ObjectMapper())
+                newSupervisorAgent(provider, artifactStore, new FileProjectWorkspace()),
+                new FileProjectWorkspace()
         ).createRun(tempDir, "实现数独", "纯前端");
 
         artifactStore.appendReviewHistory(

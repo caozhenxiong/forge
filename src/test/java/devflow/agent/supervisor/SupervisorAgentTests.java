@@ -2,6 +2,8 @@ package devflow.agent.supervisor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.artifact.FileArtifactStore;
+import devflow.agent.context.ArtifactSummaryBuilder;
+import devflow.agent.context.ContextProjector;
 import devflow.agent.executor.LlmProvider;
 import devflow.agent.orchestrator.FileRunRepository;
 import devflow.agent.orchestrator.GatePolicy;
@@ -14,6 +16,7 @@ import devflow.agent.orchestrator.StageType;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
+import devflow.agent.project.FileProjectWorkspace;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.EnumMap;
@@ -34,7 +37,12 @@ class SupervisorAgentTests {
         FileRunRepository runRepository = new FileRunRepository();
         runRepository.initialize(tempDir);
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
-        SupervisorAgent supervisorAgent = new SupervisorAgent(null, artifactStore, new ObjectMapper());
+        SupervisorAgent supervisorAgent = new SupervisorAgent(
+                null,
+                artifactStore,
+                new ObjectMapper(),
+                new ContextProjector(artifactStore, new FileProjectWorkspace(), new ArtifactSummaryBuilder())
+        );
 
         RunRecord runRecord = runRecord(StageType.ANALYSIS, GatePolicy.AGENT_PLUS_HUMAN);
         SupervisorDecision decision = supervisorAgent.decide(
@@ -54,7 +62,12 @@ class SupervisorAgentTests {
         FileRunRepository runRepository = new FileRunRepository();
         runRepository.initialize(tempDir);
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
-        SupervisorAgent supervisorAgent = new SupervisorAgent(null, artifactStore, new ObjectMapper());
+        SupervisorAgent supervisorAgent = new SupervisorAgent(
+                null,
+                artifactStore,
+                new ObjectMapper(),
+                new ContextProjector(artifactStore, new FileProjectWorkspace(), new ArtifactSummaryBuilder())
+        );
 
         RunRecord runRecord = runRecord(StageType.CODE_REVIEW, GatePolicy.AGENT_PLUS_HUMAN);
         SupervisorDecision decision = supervisorAgent.decide(

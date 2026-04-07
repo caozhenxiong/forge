@@ -16,6 +16,13 @@
 - review 历史必须保留每一轮记录，不能只保留最后一条。
 - 当相同问题连续多轮不收敛时，需要升级到 `diagnosis -> repair`，不能只靠原实现器反复盲修。
 - 对复杂底层能力不要默认手搓；要先判断是否有成熟现成方案，结构化代码编辑默认优先 `tree-sitter`。
+- 从 `~/workspace/cloud` 中整理的 Claude Code 架构分析看，Forge 下一阶段真正该补的是：
+  - `AgentLoop`
+  - 上下文投影与压缩
+  - 更强的流程决策层
+  - 更干净的 memory / repair / test evidence 闭环
+- 对应正式路线图已经单独沉淀到：
+  - `docs/redesign-roadmap.md`
 
 ## 新的工程原则
 
@@ -536,6 +543,84 @@
 - 进入阶段时先写入 `RUNNING + attempt`
 - 再执行 artifact 生成
 - 即使中途失败，当前阶段状态也可见
+
+### 19. 主循环必须显式产出 transition 决策痕迹
+
+现状：
+
+- 过去流程推进虽然有 `SupervisorAgent`
+- 但外部很难看清“为什么这一步要 repair / retry / rollback”
+
+问题：
+
+- 决策不可审计
+- diagnosis / repair / test evidence 很难真正反作用于主流程
+
+当前修复：
+
+- 引入 `AgentLoop`
+- 每轮额外落盘：
+  - `projected_context.md`
+  - `task_memory.md`
+  - `transition_decision.md`
+- transition 现在有明确 `reason`
+
+### 20. delivery policy 不能只存在于 prompt 里
+
+现状：
+
+- 之前“骨架 / patch / incremental”更多停留在 prompt 约束
+
+问题：
+
+- implementer 很容易忽略
+- 外部也看不到本轮到底按什么策略交付
+
+当前修复：
+
+- `SupervisorAgent` 现在输出结构化 `deliveryPolicy`
+- `WorkflowEngine` 会把它编码进下游约束标签
+- `IMPLEMENTATION` 额外落盘：
+  - `implementation_backlog.md`
+  - `repair_alignment.md`
+
+### 21. testcase 设计必须吸收运行时页面快照
+
+现状：
+
+- 只看静态 HTML 容易假设错误 selector
+
+问题：
+
+- testcase 设计和真实页面结构错位
+- 导致测试信号不稳定
+
+当前修复：
+
+- `TEST` 在 `self-check` 后先采 `test_runtime_snapshot.md`
+- testcase 设计优先参考运行时快照
+- required case 改成三态：
+  - `PASSED`
+  - `FAILED`
+  - `BLOCKED`
+
+### 22. repair 对齐结果需要单独落盘
+
+现状：
+
+- `repair_brief` 虽然存在
+- 但实现产物里不容易看出“本轮到底有没有对齐修复目标”
+
+问题：
+
+- 修复路径不透明
+- verifier 难以判断本轮是否真的围绕 root cause 收敛
+
+当前修复：
+
+- 新增 `repair_alignment.md`
+- 当前实现会把 repair 上下文、已完成子任务和本轮交付策略单独落盘
+- 这让 repair 不再只是“备注”，而开始成为可追踪约束
 
 ## 建议的后续迭代顺序
 

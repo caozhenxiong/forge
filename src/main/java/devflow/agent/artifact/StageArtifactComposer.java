@@ -1,6 +1,7 @@
 package devflow.agent.artifact;
 
 import devflow.agent.executor.ImplementationExecutor;
+import devflow.agent.executor.ImplementationExecutionBundle;
 import devflow.agent.executor.LlmProvider;
 import devflow.agent.executor.ModelRole;
 import devflow.agent.executor.TestExecutor;
@@ -328,7 +329,10 @@ public class StageArtifactComposer {
         String analysis = requiredStageArtifact(projectPath, runRecord, StageType.ANALYSIS);
         String prd = requiredStageArtifact(projectPath, runRecord, StageType.PRD);
         String design = requiredStageArtifact(projectPath, runRecord, StageType.DESIGN);
-        return implementationExecutor.execute(projectPath, runRecord, analysis, prd, design, note);
+        ImplementationExecutionBundle bundle = implementationExecutor.execute(projectPath, runRecord, analysis, prd, design, note);
+        artifactStore.writeAuxiliaryArtifact(projectPath, runRecord.runId(), "implementation_backlog.md", bundle.backlogMarkdown());
+        artifactStore.writeAuxiliaryArtifact(projectPath, runRecord.runId(), "repair_alignment.md", bundle.repairAlignmentMarkdown());
+        return bundle.implementationMarkdown();
     }
 
     private String generateCodeReview(Path projectPath, RunRecord runRecord, String note) {
@@ -394,6 +398,7 @@ public class StageArtifactComposer {
                 note
         );
         artifactStore.writeAuxiliaryArtifact(projectPath, runRecord.runId(), "test_cases.md", bundle.testCasesMarkdown());
+        artifactStore.writeAuxiliaryArtifact(projectPath, runRecord.runId(), "test_runtime_snapshot.md", bundle.runtimeSnapshotMarkdown());
         artifactStore.writeAuxiliaryArtifact(projectPath, runRecord.runId(), "test_execution.md", bundle.executionMarkdown());
         return bundle.reportMarkdown();
     }

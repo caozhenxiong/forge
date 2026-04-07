@@ -3,6 +3,8 @@ package devflow.agent.supervisor;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.artifact.FileArtifactStore;
+import devflow.agent.context.ContextProjector;
+import devflow.agent.context.ProjectedContext;
 import devflow.agent.executor.LlmProvider;
 import devflow.agent.executor.ModelRole;
 import devflow.agent.orchestrator.GatePolicy;
@@ -27,11 +29,18 @@ public class SupervisorAgent {
     private final LlmProvider llmProvider;
     private final FileArtifactStore artifactStore;
     private final ObjectMapper objectMapper;
+    private final ContextProjector contextProjector;
 
-    public SupervisorAgent(LlmProvider llmProvider, FileArtifactStore artifactStore, ObjectMapper objectMapper) {
+    public SupervisorAgent(
+            LlmProvider llmProvider,
+            FileArtifactStore artifactStore,
+            ObjectMapper objectMapper,
+            ContextProjector contextProjector
+    ) {
         this.llmProvider = llmProvider;
         this.artifactStore = artifactStore;
         this.objectMapper = objectMapper;
+        this.contextProjector = contextProjector;
     }
 
     public SupervisorDecision decide(
@@ -44,7 +53,8 @@ public class SupervisorAgent {
         StageExecution currentExecution = runRecord.stageStates().get(currentStage);
         StageType nextStage = nextStage(currentStage);
         GatePolicy gatePolicy = runRecord.config().gatePolicies().getOrDefault(currentStage, GatePolicy.AGENT_ONLY);
-        SupervisorDecision fallback = fallbackDecision(currentStage, nextStage, gatePolicy, reviewResult, repeatedIssue);
+        ProjectedContext projectedContext = contextProjector.project(projectPath, runRecord, currentStage);
+        SupervisorDecision fallback = fallbackDecision(currentStage, nextStage, gatePolicy, reviewResult, repeatedIssue, projectedContext);
         if (llmProvider == null) {
             return fallback;
         }
@@ -61,6 +71,15 @@ public class SupervisorAgent {
                               "reason": "一句话说明",
                               "focus": ["本轮必须优先处理的问题"],
                               "constraints": ["本轮额外约束"],
+                              "requiredEvidence": ["下一轮必须补出的证据"],
+                              "deliveryPolicy": {
+                                "mode": "SKELETON|INCREMENTAL|PATCH|REWORK",
+                                "maxFiles": 2,
+                                "maxSymbols": 4,
+                                "preferPreciseEditing": true,
+                                "forceBacklogSplit": false,
+                                "requireVerificationBeforeReview": true
+                              },
                               "humanRequired": false
                             }
 
@@ -72,8 +91,9 @@ public class SupervisorAgent {
                             5. ROLLBACK_STAGE 只在根因明显属于上游文档或设计时使用。
                             6. 不要凭空跳过阶段，不要选择无效 targetStage。
                             7. reason/focus/constraints 必须简洁、可执行。
-                            8. 对复杂前端/网页/游戏任务，优先选择更小粒度的推进方式；focus/constraints 要尽量把当前轮次收缩成“先可运行骨架，再渐进填充”。
+                            8. deliveryPolicy 必须体现“本轮最多改多少文件、是否强制继续拆小、是否优先走精确 patch”。
                             9. 不要鼓励单轮写完整个产品；如果当前问题复杂，优先约束为 1-2 个小目标。
+                            10. requiredEvidence 只写对下一轮收敛真正必要的证据。
                             """,
                     """
                             任务目标：
@@ -105,13 +125,22 @@ public class SupervisorAgent {
                             是否已识别为重复问题：
                             %s
 
-                            当前 artifact 摘要：
+                            Projected Context / 当前阶段摘要：
                             %s
 
-                            最近 review history 摘要：
+                            上游约束摘要：
+                            %s
+
+                            最近历史摘要：
+                            %s
+
+                            失败摘要：
                             %s
 
                             repair brief 摘要：
+                            %s
+
+                            当前工作集摘要：
                             %s
 
                             默认保守决策参考：
@@ -119,6 +148,7 @@ public class SupervisorAgent {
                             - targetStage: %s
                             - mode: %s
                             - reason: %s
+                            - deliveryPolicy: %s
                             """.formatted(
                             runRecord.goal(),
                             blank(runRecord.constraints()),
@@ -133,19 +163,23 @@ public class SupervisorAgent {
                             blank(reviewResult.evidence()),
                             blank(reviewResult.actionItems()),
                             repeatedIssue,
-                            shrink(readCurrentArtifact(projectPath, runRecord, currentStage)),
-                            shrink(readReviewHistory(projectPath, runRecord, currentStage)),
-                            shrink(readRepairBrief(projectPath, runRecord)),
+                            projectedContext.currentStageSummary(),
+                            projectedContext.upstreamContractSummary(),
+                            projectedContext.recentHistorySummary(),
+                            projectedContext.failureSummary(),
+                            projectedContext.repairSummary(),
+                            projectedContext.workingSetSummary(),
                             fallback.action(),
                             fallback.targetStage() == null ? "null" : fallback.targetStage(),
                             fallback.mode(),
-                            fallback.reason()
+                            fallback.reason(),
+                            renderPolicy(fallback.deliveryPolicy())
                     ),
                     Map.of("num_predict", 220),
                     ModelRole.SUPERVISOR
             );
             DecisionPayload payload = objectMapper.readValue(extractJsonObject(response), DecisionPayload.class);
-            return sanitizeDecision(payload, currentStage, nextStage, gatePolicy, reviewResult, repeatedIssue, fallback);
+            return sanitizeDecision(payload, currentStage, nextStage, gatePolicy, reviewResult, repeatedIssue, fallback, projectedContext);
         } catch (Exception ignored) {
             return fallback;
         }
@@ -177,6 +211,19 @@ public class SupervisorAgent {
                 ## Constraints
 
                 %s
+
+                ## Required Evidence
+
+                %s
+
+                ## Delivery Policy
+
+                - mode: %s
+                - maxFiles: %s
+                - maxSymbols: %s
+                - preferPreciseEditing: %s
+                - forceBacklogSplit: %s
+                - requireVerificationBeforeReview: %s
                 """.formatted(
                 currentStage,
                 reviewResult.decision(),
@@ -188,7 +235,14 @@ public class SupervisorAgent {
                 decision.humanRequired(),
                 blank(decision.reason()),
                 renderList(decision.focus()),
-                renderList(decision.constraints())
+                renderList(decision.constraints()),
+                renderList(decision.requiredEvidence()),
+                decision.deliveryPolicy().mode(),
+                decision.deliveryPolicy().maxFiles(),
+                decision.deliveryPolicy().maxSymbols(),
+                decision.deliveryPolicy().preferPreciseEditing(),
+                decision.deliveryPolicy().forceBacklogSplit(),
+                decision.deliveryPolicy().requireVerificationBeforeReview()
         );
     }
 
@@ -199,7 +253,8 @@ public class SupervisorAgent {
             GatePolicy gatePolicy,
             ReviewResult reviewResult,
             boolean repeatedIssue,
-            SupervisorDecision fallback
+            SupervisorDecision fallback,
+            ProjectedContext projectedContext
     ) {
         if (payload == null || payload.action() == null || payload.action().isBlank()) {
             return fallback;
@@ -269,6 +324,8 @@ public class SupervisorAgent {
                 blank(payload.reason()),
                 normalizeList(payload.focus()),
                 normalizeList(payload.constraints()),
+                normalizeList(payload.requiredEvidence()),
+                sanitizePolicy(payload.deliveryPolicy(), currentStage, reviewResult, repeatedIssue, projectedContext, fallback.deliveryPolicy()),
                 payload.humanRequired() != null && payload.humanRequired()
         );
     }
@@ -278,7 +335,8 @@ public class SupervisorAgent {
             StageType nextStage,
             GatePolicy gatePolicy,
             ReviewResult reviewResult,
-            boolean repeatedIssue
+            boolean repeatedIssue,
+            ProjectedContext projectedContext
     ) {
         if (reviewResult.decision() == ReviewDecision.APPROVED) {
             if (nextStage == null) {
@@ -289,6 +347,8 @@ public class SupervisorAgent {
                         "最后阶段已通过，结束 run。",
                         List.of("归档最终产物"),
                         List.of(),
+                        List.of("最终阶段通过证据"),
+                        DeliveryPolicy.balanced("NONE"),
                         false
                 );
             }
@@ -300,9 +360,14 @@ public class SupervisorAgent {
                         "当前阶段需要人工 gate，先阻塞等待人工批准。",
                         List.of("等待人工确认当前阶段产物"),
                         List.of("保持当前 artifact 不变"),
+                        List.of("人工审批结果"),
+                        DeliveryPolicy.balanced("NONE"),
                         true
                 );
             }
+            DeliveryPolicy deliveryPolicy = nextStage == StageType.IMPLEMENTATION
+                    ? initialImplementationPolicy(projectedContext)
+                    : DeliveryPolicy.balanced("INCREMENTAL");
             return new SupervisorDecision(
                     SupervisorAction.ADVANCE_STAGE,
                     nextStage,
@@ -310,6 +375,8 @@ public class SupervisorAgent {
                     "当前阶段已通过，推进到下一阶段。",
                     List.of("进入 " + nextStage + " 并生成新产物"),
                     List.of(),
+                    List.of("进入下一阶段所需的基础 artifact"),
+                    deliveryPolicy,
                     false
             );
         }
@@ -324,6 +391,11 @@ public class SupervisorAgent {
         String reason = repeatedIssue
                 ? "检测到重复问题，优先进入 repair 路径做定点修补。"
                 : "当前问题仍可收敛，先按既定回退路径继续修订。";
+        DeliveryPolicy deliveryPolicy = switch (reviewResult.fixMode()) {
+            case PATCH -> DeliveryPolicy.patchSafe();
+            case REWORK -> DeliveryPolicy.reworkSafe();
+            case NONE -> DeliveryPolicy.balanced("INCREMENTAL");
+        };
         return new SupervisorDecision(
                 action,
                 retryStage,
@@ -333,6 +405,8 @@ public class SupervisorAgent {
                         .filter(item -> !item.isBlank())
                         .toList(),
                 List.of("不要偏离当前 review 提示的主问题"),
+                buildRequiredEvidence(reviewResult),
+                deliveryPolicy,
                 false
         );
     }
@@ -380,6 +454,19 @@ public class SupervisorAgent {
             builder.append("- ").append(item);
         }
         return builder.isEmpty() ? "- (empty)" : builder.toString();
+    }
+
+    private String renderPolicy(DeliveryPolicy policy) {
+        return """
+                {mode=%s, maxFiles=%s, maxSymbols=%s, preferPreciseEditing=%s, forceBacklogSplit=%s, requireVerificationBeforeReview=%s}
+                """.formatted(
+                policy.mode(),
+                policy.maxFiles(),
+                policy.maxSymbols(),
+                policy.preferPreciseEditing(),
+                policy.forceBacklogSplit(),
+                policy.requireVerificationBeforeReview()
+        ).trim();
     }
 
     private List<String> normalizeList(List<String> rawItems) {
@@ -450,6 +537,73 @@ public class SupervisorAgent {
         return value == null ? "" : value;
     }
 
+    private List<String> buildRequiredEvidence(ReviewResult reviewResult) {
+        List<String> items = new ArrayList<>();
+        if (reviewResult.evidence() != null && !reviewResult.evidence().isBlank()) {
+            items.add(reviewResult.evidence().trim());
+        }
+        if (reviewResult.actionItems() != null && !reviewResult.actionItems().isBlank()) {
+            items.add(reviewResult.actionItems().trim());
+        }
+        if (items.isEmpty() && reviewResult.changeRequest() != null && !reviewResult.changeRequest().isBlank()) {
+            items.add(reviewResult.changeRequest().trim());
+        }
+        return items;
+    }
+
+    private DeliveryPolicy initialImplementationPolicy(ProjectedContext projectedContext) {
+        boolean existingWorkingSet = projectedContext.workingSetSummary() != null
+                && !projectedContext.workingSetSummary().isBlank()
+                && !projectedContext.workingSetSummary().contains("(workspace context unavailable)");
+        return new DeliveryPolicy(
+                existingWorkingSet ? "INCREMENTAL" : "SKELETON",
+                2,
+                existingWorkingSet ? 4 : 3,
+                true,
+                true,
+                true
+        );
+    }
+
+    private DeliveryPolicy sanitizePolicy(
+            DeliveryPolicyPayload payload,
+            StageType currentStage,
+            ReviewResult reviewResult,
+            boolean repeatedIssue,
+            ProjectedContext projectedContext,
+            DeliveryPolicy fallback
+    ) {
+        if (payload == null) {
+            return fallback;
+        }
+        String mode = blank(payload.mode()).toUpperCase(Locale.ROOT);
+        if (!List.of("SKELETON", "INCREMENTAL", "PATCH", "REWORK", "NONE").contains(mode)) {
+            mode = fallback.mode();
+        }
+        int maxFiles = payload.maxFiles() == null || payload.maxFiles() <= 0 || payload.maxFiles() > 3
+                ? fallback.maxFiles()
+                : payload.maxFiles();
+        int maxSymbols = payload.maxSymbols() == null || payload.maxSymbols() <= 0 || payload.maxSymbols() > 12
+                ? fallback.maxSymbols()
+                : payload.maxSymbols();
+        boolean preferPreciseEditing = payload.preferPreciseEditing() == null
+                ? fallback.preferPreciseEditing()
+                : payload.preferPreciseEditing();
+        boolean forceBacklogSplit = payload.forceBacklogSplit() == null
+                ? fallback.forceBacklogSplit()
+                : payload.forceBacklogSplit();
+        boolean requireVerificationBeforeReview = payload.requireVerificationBeforeReview() == null
+                ? fallback.requireVerificationBeforeReview()
+                : payload.requireVerificationBeforeReview();
+        if (reviewResult.decision() != ReviewDecision.APPROVED && repeatedIssue) {
+            forceBacklogSplit = true;
+        }
+        if (currentStage == StageType.DESIGN && "NONE".equals(mode)) {
+            return initialImplementationPolicy(projectedContext);
+        }
+        return new DeliveryPolicy(mode, maxFiles, maxSymbols, preferPreciseEditing, forceBacklogSplit, requireVerificationBeforeReview);
+    }
+
     private record DecisionPayload(
             @JsonProperty("action") String action,
             @JsonProperty("targetStage") String targetStage,
@@ -457,7 +611,19 @@ public class SupervisorAgent {
             @JsonProperty("reason") String reason,
             @JsonProperty("focus") List<String> focus,
             @JsonProperty("constraints") List<String> constraints,
+            @JsonProperty("requiredEvidence") List<String> requiredEvidence,
+            @JsonProperty("deliveryPolicy") DeliveryPolicyPayload deliveryPolicy,
             @JsonProperty("humanRequired") Boolean humanRequired
+    ) {
+    }
+
+    private record DeliveryPolicyPayload(
+            @JsonProperty("mode") String mode,
+            @JsonProperty("maxFiles") Integer maxFiles,
+            @JsonProperty("maxSymbols") Integer maxSymbols,
+            @JsonProperty("preferPreciseEditing") Boolean preferPreciseEditing,
+            @JsonProperty("forceBacklogSplit") Boolean forceBacklogSplit,
+            @JsonProperty("requireVerificationBeforeReview") Boolean requireVerificationBeforeReview
     ) {
     }
 }

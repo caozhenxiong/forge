@@ -3,6 +3,13 @@ package devflow.agent.orchestrator;
 import devflow.agent.artifact.EventLogStore;
 import devflow.agent.artifact.FileArtifactStore;
 import devflow.agent.artifact.StageArtifactComposer;
+import devflow.agent.context.ContextProjector;
+import devflow.agent.context.ProjectedContext;
+import devflow.agent.loop.AgentLoop;
+import devflow.agent.loop.LoopState;
+import devflow.agent.loop.LoopStepResult;
+import devflow.agent.loop.TransitionDecision;
+import devflow.agent.loop.TransitionReason;
 import devflow.agent.project.WorkspaceSnapshotStore;
 import devflow.agent.repair.DiagnosisAgent;
 import devflow.agent.repair.RepairAgent;
@@ -33,6 +40,8 @@ public class DefaultWorkflowEngine implements WorkflowEngine {
     private final DiagnosisAgent diagnosisAgent;
     private final RepairAgent repairAgent;
     private final SupervisorAgent supervisorAgent;
+    private final ContextProjector contextProjector;
+    private final AgentLoop agentLoop;
 
     public DefaultWorkflowEngine(
             FileRunRepository runRepository,
@@ -43,7 +52,9 @@ public class DefaultWorkflowEngine implements WorkflowEngine {
             WorkspaceSnapshotStore snapshotStore,
             DiagnosisAgent diagnosisAgent,
             RepairAgent repairAgent,
-            SupervisorAgent supervisorAgent
+            SupervisorAgent supervisorAgent,
+            ContextProjector contextProjector,
+            AgentLoop agentLoop
     ) {
         this.runRepository = runRepository;
         this.artifactStore = artifactStore;
@@ -54,6 +65,8 @@ public class DefaultWorkflowEngine implements WorkflowEngine {
         this.diagnosisAgent = diagnosisAgent;
         this.repairAgent = repairAgent;
         this.supervisorAgent = supervisorAgent;
+        this.contextProjector = contextProjector;
+        this.agentLoop = agentLoop;
     }
 
     public void initialize(Path projectPath) {
@@ -201,63 +214,76 @@ public class DefaultWorkflowEngine implements WorkflowEngine {
     }
 
     private RunRecord progress(Path projectPath, RunRecord runRecord) {
-        RunRecord current = runRecord;
-        while (true) {
-            if (current.status() == RunStatus.COMPLETED || current.status() == RunStatus.FAILED || current.status() == RunStatus.CANCELLED) {
-                return current;
-            }
+        return agentLoop.runUntilStable(runRecord, loopState -> progressOnce(projectPath, loopState));
+    }
 
-            StageType stageType = current.currentStage();
-            StageExecution stageExecution = requireStage(current.stageStates(), stageType);
-            if (stageExecution.status() != StageStatus.RUNNING) {
-                return current;
-            }
-
-            // Each stage follows the same contract: generate artifact first, then let the reviewer
-            // decide whether we can advance, pause for human approval, or reroute for revision.
-            String artifactContent = artifactStore.readArtifact(projectPath, current.runId(), stageType);
-            ReviewResult reviewResult = stageReviewer.review(projectPath, current, stageType, artifactContent);
-            String reviewArtifact = renderReviewArtifact(stageType, reviewResult);
-            artifactStore.writeReviewArtifact(projectPath, current.runId(), stageType, reviewArtifact);
-            artifactStore.appendReviewHistory(
-                    projectPath,
-                    current.runId(),
-                    stageType,
-                    renderReviewHistoryEntry(stageType, stageExecution.attempt(), "agent", reviewResult)
-            );
-            eventLogStore.append(
-                    projectPath,
-                    current.runId(),
-                    "Agent reviewed " + stageType + " with decision " + reviewResult.decision() + " fixMode=" + reviewResult.fixMode() + "."
-            );
-            boolean repeatedIssue = reviewResult.decision() != ReviewDecision.APPROVED
-                    && stageType != StageType.ANALYSIS
-                    && diagnosisAgent.shouldDiagnose(
-                    projectPath,
-                    current,
-                    stageType,
-                    reviewResult.fixMode(),
-                    reviewResult.summary(),
-                    reviewResult.changeRequest()
-            );
-            SupervisorDecision supervisorDecision = supervisorAgent.decide(projectPath, current, stageType, reviewResult, repeatedIssue);
-            artifactStore.writeAuxiliaryArtifact(
-                    projectPath,
-                    current.runId(),
-                    "supervisor_decision.md",
-                    supervisorAgent.renderDecisionArtifact(stageType, reviewResult, repeatedIssue, supervisorDecision)
-            );
-            eventLogStore.append(
-                    projectPath,
-                    current.runId(),
-                    "Supervisor decided action=" + supervisorDecision.action()
-                            + " targetStage=" + supervisorDecision.targetStage()
-                            + " mode=" + supervisorDecision.mode()
-                            + " repeatedIssue=" + repeatedIssue + "."
-            );
-            current = applySupervisorDecision(projectPath, current, stageType, reviewResult, repeatedIssue, supervisorDecision);
-            continue;
+    private LoopStepResult progressOnce(Path projectPath, LoopState loopState) {
+        RunRecord current = loopState.runRecord();
+        StageType stageType = current.currentStage();
+        StageExecution stageExecution = requireStage(current.stageStates(), stageType);
+        if (stageExecution.status() != StageStatus.RUNNING) {
+            return new LoopStepResult(current, null, false);
         }
+
+        String artifactContent = artifactStore.readArtifact(projectPath, current.runId(), stageType);
+        ReviewResult reviewResult = stageReviewer.review(projectPath, current, stageType, artifactContent);
+        String reviewArtifact = renderReviewArtifact(stageType, reviewResult);
+        artifactStore.writeReviewArtifact(projectPath, current.runId(), stageType, reviewArtifact);
+        artifactStore.appendReviewHistory(
+                projectPath,
+                current.runId(),
+                stageType,
+                renderReviewHistoryEntry(stageType, stageExecution.attempt(), "agent", reviewResult)
+        );
+        eventLogStore.append(
+                projectPath,
+                current.runId(),
+                "Agent reviewed " + stageType + " with decision " + reviewResult.decision() + " fixMode=" + reviewResult.fixMode() + "."
+        );
+
+        boolean repeatedIssue = reviewResult.decision() != ReviewDecision.APPROVED
+                && stageType != StageType.ANALYSIS
+                && diagnosisAgent.shouldDiagnose(
+                projectPath,
+                current,
+                stageType,
+                reviewResult.fixMode(),
+                reviewResult.summary(),
+                reviewResult.changeRequest()
+        );
+
+        ProjectedContext projectedContext = contextProjector.project(projectPath, current, stageType);
+        artifactStore.writeAuxiliaryArtifact(projectPath, current.runId(), "projected_context.md", projectedContext.toMarkdown());
+        artifactStore.writeAuxiliaryArtifact(projectPath, current.runId(), "task_memory.md", projectedContext.taskMemory().toMarkdown());
+
+        SupervisorDecision supervisorDecision = supervisorAgent.decide(projectPath, current, stageType, reviewResult, repeatedIssue);
+        artifactStore.writeAuxiliaryArtifact(
+                projectPath,
+                current.runId(),
+                "supervisor_decision.md",
+                supervisorAgent.renderDecisionArtifact(stageType, reviewResult, repeatedIssue, supervisorDecision)
+        );
+        TransitionDecision transitionDecision = buildTransitionDecision(stageType, repeatedIssue, reviewResult, supervisorDecision);
+        artifactStore.writeAuxiliaryArtifact(
+                projectPath,
+                current.runId(),
+                "transition_decision.md",
+                renderTransitionDecision(transitionDecision)
+        );
+        eventLogStore.append(
+                projectPath,
+                current.runId(),
+                "Supervisor decided action=" + supervisorDecision.action()
+                        + " targetStage=" + supervisorDecision.targetStage()
+                        + " mode=" + supervisorDecision.mode()
+                        + " repeatedIssue=" + repeatedIssue
+                        + " transitionReason=" + transitionDecision.reason() + "."
+        );
+
+        RunRecord next = applySupervisorDecision(projectPath, current, stageType, reviewResult, repeatedIssue, supervisorDecision);
+        boolean continueLoop = next.status() == RunStatus.IN_PROGRESS
+                && requireStage(next.stageStates(), next.currentStage()).status() == StageStatus.RUNNING;
+        return new LoopStepResult(next, transitionDecision, continueLoop);
     }
 
     private RunRecord applySupervisorDecision(
@@ -559,11 +585,21 @@ public class DefaultWorkflowEngine implements WorkflowEngine {
         }
         String focus = renderList(supervisorDecision.focus());
         String constraints = renderList(supervisorDecision.constraints());
-        if (focus.isBlank() && constraints.isBlank() && nullToEmpty(supervisorDecision.reason()).isBlank()) {
+        String requiredEvidence = renderList(supervisorDecision.requiredEvidence());
+        if (focus.isBlank()
+                && constraints.isBlank()
+                && requiredEvidence.isBlank()
+                && nullToEmpty(supervisorDecision.reason()).isBlank()) {
             return "";
         }
         return """
                 [SUPERVISOR_GUIDANCE]
+                [DELIVERY_MODE=%s]
+                [DELIVERY_MAX_FILES=%d]
+                [DELIVERY_MAX_SYMBOLS=%d]
+                [DELIVERY_PREFER_PRECISE_EDITING=%s]
+                [DELIVERY_FORCE_BACKLOG_SPLIT=%s]
+                [DELIVERY_REQUIRE_VERIFICATION=%s]
                 决策原因：
                 %s
 
@@ -572,11 +608,98 @@ public class DefaultWorkflowEngine implements WorkflowEngine {
 
                 本轮约束：
                 %s
+
+                本轮必需证据：
+                %s
                 """.formatted(
+                supervisorDecision.deliveryPolicy().mode(),
+                supervisorDecision.deliveryPolicy().maxFiles(),
+                supervisorDecision.deliveryPolicy().maxSymbols(),
+                supervisorDecision.deliveryPolicy().preferPreciseEditing(),
+                supervisorDecision.deliveryPolicy().forceBacklogSplit(),
+                supervisorDecision.deliveryPolicy().requireVerificationBeforeReview(),
                 nullToEmpty(supervisorDecision.reason()),
                 focus.isBlank() ? "- 无" : focus,
-                constraints.isBlank() ? "- 无" : constraints
+                constraints.isBlank() ? "- 无" : constraints,
+                requiredEvidence.isBlank() ? "- 无" : requiredEvidence
         ).trim();
+    }
+
+    private TransitionDecision buildTransitionDecision(
+            StageType stageType,
+            boolean repeatedIssue,
+            ReviewResult reviewResult,
+            SupervisorDecision supervisorDecision
+    ) {
+        TransitionReason reason = switch (supervisorDecision.action()) {
+            case ADVANCE_STAGE -> StageType.TEST == stageType ? TransitionReason.RUN_COMPLETED : TransitionReason.STAGE_APPROVED;
+            case REQUEST_HUMAN_REVIEW -> TransitionReason.HUMAN_REVIEW_REQUIRED;
+            case RETRY_STAGE -> TransitionReason.STAGE_RETRY;
+            case ROUTE_TO_REPAIR -> TransitionReason.REPAIR_ROUTE;
+            case ROLLBACK_STAGE -> TransitionReason.STAGE_ROLLBACK;
+            case COMPLETE_RUN -> TransitionReason.RUN_COMPLETED;
+            case FAIL_RUN -> TransitionReason.RUN_FAILED;
+        };
+        return new TransitionDecision(
+                reason,
+                stageType,
+                supervisorDecision.targetStage(),
+                repeatedIssue,
+                nullToEmpty(reviewResult.summary()),
+                supervisorDecision
+        );
+    }
+
+    private String renderTransitionDecision(TransitionDecision decision) {
+        return """
+                # Transition Decision
+
+                - reason: %s
+                - fromStage: %s
+                - targetStage: %s
+                - repeatedIssue: %s
+                - reviewSummary: %s
+                - supervisorAction: %s
+                - supervisorMode: %s
+
+                ## Delivery Policy
+
+                - mode: %s
+                - maxFiles: %s
+                - maxSymbols: %s
+                - preferPreciseEditing: %s
+                - forceBacklogSplit: %s
+                - requireVerificationBeforeReview: %s
+
+                ## Focus
+
+                %s
+
+                ## Constraints
+
+                %s
+
+                ## Required Evidence
+
+                %s
+                """.formatted(
+                decision.reason(),
+                decision.fromStage(),
+                decision.targetStage() == null ? "null" : decision.targetStage(),
+                decision.repeatedIssue(),
+                nullToEmpty(decision.summary()),
+                decision.supervisorDecision().action(),
+                decision.supervisorDecision().mode(),
+                decision.supervisorDecision().deliveryPolicy().mode(),
+                decision.supervisorDecision().deliveryPolicy().maxFiles(),
+                decision.supervisorDecision().deliveryPolicy().maxSymbols(),
+                decision.supervisorDecision().deliveryPolicy().preferPreciseEditing(),
+                decision.supervisorDecision().deliveryPolicy().forceBacklogSplit(),
+                decision.supervisorDecision().deliveryPolicy().requireVerificationBeforeReview(),
+                renderList(decision.supervisorDecision().focus()),
+                renderList(decision.supervisorDecision().constraints()),
+                renderList(decision.supervisorDecision().requiredEvidence())
+        );
     }
 
     private String renderList(java.util.List<String> values) {

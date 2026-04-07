@@ -11,6 +11,8 @@ public record SupervisorDecision(
         String reason,
         List<String> focus,
         List<String> constraints,
+        List<String> requiredEvidence,
+        DeliveryPolicy deliveryPolicy,
         boolean humanRequired
 ) {
     public SupervisorDecision {
@@ -18,5 +20,7 @@ public record SupervisorDecision(
         reason = reason == null ? "" : reason;
         focus = focus == null ? List.of() : List.copyOf(focus);
         constraints = constraints == null ? List.of() : List.copyOf(constraints);
+        requiredEvidence = requiredEvidence == null ? List.of() : List.copyOf(requiredEvidence);
+        deliveryPolicy = deliveryPolicy == null ? DeliveryPolicy.balanced(mode.name()) : deliveryPolicy;
     }
 }

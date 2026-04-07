@@ -6,8 +6,9 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 async function main() {
-  const planPath = process.argv[2];
-  const rootDirArg = process.argv[3];
+  const snapshotMode = process.argv[2] === '--snapshot';
+  const planPath = snapshotMode ? process.argv[3] : process.argv[2];
+  const rootDirArg = snapshotMode ? process.argv[4] : process.argv[3];
   if (!planPath || !rootDirArg) {
     console.error(JSON.stringify({ error: 'usage: run-testcases.mjs <plan.json> <projectDir>' }));
     process.exit(2);
@@ -15,7 +16,7 @@ async function main() {
 
   const raw = await readFile(planPath, 'utf8');
   const plan = JSON.parse(raw);
-  const firstCase = (plan.cases || [])[0];
+  const firstCase = snapshotMode ? { entry: plan.entry || 'index.html' } : (plan.cases || [])[0];
   if (!firstCase?.entry) {
     console.error(JSON.stringify({ error: 'missing entry in test cases' }));
     process.exit(2);
@@ -26,6 +27,11 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
 
   try {
+    if (snapshotMode) {
+      const snapshot = await captureSnapshot(browser, server.port, firstCase.entry);
+      console.log(JSON.stringify(snapshot, null, 2));
+      process.exit(0);
+    }
     const results = [];
     for (const testCase of plan.cases || []) {
       results.push(await runCase(browser, server.port, testCase));
@@ -36,6 +42,54 @@ async function main() {
   } finally {
     await browser.close();
     await new Promise((resolve) => server.server.close(resolve));
+  }
+}
+
+async function captureSnapshot(browser, port, entry) {
+  const page = await browser.newPage();
+  const consoleErrors = [];
+  const pageErrors = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      consoleErrors.push(message.text());
+    }
+  });
+  page.on('pageerror', (error) => {
+    pageErrors.push(String(error));
+  });
+  try {
+    await page.goto(`http://127.0.0.1:${port}/${entry}`, { waitUntil: 'load', timeout: 15000 });
+    return {
+      pageTitle: await page.title(),
+      pageLoadMs: await readPageLoadMs(page),
+      canvasCount: await page.locator('canvas').count(),
+      selectors: await page.evaluate(() => {
+        const collected = new Set(['body']);
+        for (const element of document.querySelectorAll('button, input, canvas, main, [id], [class]')) {
+          const tag = element.tagName.toLowerCase();
+          if (element.id) {
+            collected.add(`#${element.id}`);
+          }
+          if (tag === 'button') {
+            collected.add('button');
+          }
+          if (tag === 'input') {
+            collected.add('input');
+          }
+          if (tag === 'canvas') {
+            collected.add('canvas');
+          }
+          for (const className of Array.from(element.classList || []).slice(0, 2)) {
+            collected.add(`.${className}`);
+          }
+        }
+        return Array.from(collected).sort();
+      }),
+      consoleErrors,
+      pageErrors
+    };
+  } finally {
+    await page.close();
   }
 }
 
@@ -82,6 +136,8 @@ async function runCase(browser, port, testCase) {
 
   const details = [];
   let passed = true;
+  let status = 'PASSED';
+  let failureReason = '';
   try {
     const entry = testCase.entry || 'index.html';
     await page.goto(`http://127.0.0.1:${port}/${entry}`, { waitUntil: 'load', timeout: 15000 });
@@ -96,6 +152,8 @@ async function runCase(browser, port, testCase) {
           continue;
         }
         passed = false;
+        failureReason = classifyFailure(step, error.message);
+        status = failureReason === 'missing-runtime-element' || failureReason === 'setup-failure' ? 'BLOCKED' : 'FAILED';
         details.push(`FAIL ${step.action}: ${error.message}`);
         break;
       }
@@ -108,6 +166,8 @@ async function runCase(browser, port, testCase) {
     }
   } catch (error) {
     passed = false;
+    failureReason = 'navigation-failure';
+    status = 'BLOCKED';
     details.push(`FAIL case: ${error.message}`);
   } finally {
     await page.close();
@@ -117,9 +177,28 @@ async function runCase(browser, port, testCase) {
     id: testCase.id,
     title: testCase.title,
     required: Boolean(testCase.required),
+    status,
     passed,
-    details: details.join('\n')
+    details: details.join('\n'),
+    failureReason,
+    evidence: details.join('\n')
   };
+}
+
+function classifyFailure(step, message) {
+  if ((step.action === 'ASSERT_SELECTOR' || step.action === 'CLICK') && /selector|waiting for/i.test(message)) {
+    return 'missing-runtime-element';
+  }
+  if (step.action === 'ASSERT_NO_ERRORS') {
+    return 'runtime-error';
+  }
+  if (step.action === 'PRESS_KEY' || step.action === 'CLICK') {
+    return 'interaction-failure';
+  }
+  if (step.action === 'MEASURE_PAGE_LOAD_MAX_MS' || step.action === 'ASSERT_WINDOW_METRIC_MAX_MS') {
+    return 'performance-threshold-exceeded';
+  }
+  return 'assertion-failure';
 }
 
 async function runStep(page, step, consoleErrors, pageErrors, measurements) {

@@ -20,6 +20,8 @@
 - 复杂底层能力优先做 build-vs-buy 判断
 - 结构化代码编辑默认选择 `tree-sitter`
 - 不再把自研低层精确字符串替换作为长期主路径
+- 下一阶段的主流程升级路线单独维护在：
+  - `docs/redesign-roadmap.md`
 
 ## 总体流程
 
@@ -45,6 +47,13 @@
 
 所以实际流程是“固定主阶段顺序 + supervisor 决策分流”。
 
+补充说明：
+
+- 本文描述的是当前已落地的 workflow 规则
+- 下一阶段计划中的 `AgentLoop / ContextProjector / DeliveryPolicy / 强化 Repair / 测试证据闭环` 不在本文详细展开
+- 对应路线统一定义在：
+  - `docs/redesign-roadmap.md`
+
 review 的结果会驱动三种后续动作：
 
 - `APPROVED`
@@ -61,6 +70,12 @@ review 的结果会驱动三种后续动作：
 ### 1. Supervisor 只做流程决策
 
 `SupervisorAgent` 不直接写代码、不直接改文件。
+
+当前已落地的 supervisor 辅助产物：
+
+- `projected_context.md`
+- `task_memory.md`
+- `transition_decision.md`
 
 它只负责基于当前上下文判断：
 
@@ -123,6 +138,7 @@ review 的结果会驱动三种后续动作：
 
 `TEST` 阶段额外包含：
 
+- `test_runtime_snapshot.md`
 - `test_cases.md`
 - `test_execution.md`
 - `test_report.md`
@@ -545,6 +561,16 @@ review 补充规则：
 - 当前没有真正的子任务并行 merge 层
 - 多子任务之间的“合并”本质上是顺序叠加，不是分支 merge
 - 当前 file generation 仍以“完整文件输出”为主，但已增加不完整内容校验与重试；后续仍建议继续演进到 patch/section 级写入
+- `SupervisorAgent` 的 `deliveryPolicy` 会通过标签传入实现阶段：
+  - `[DELIVERY_MODE=...]`
+  - `[DELIVERY_MAX_FILES=...]`
+  - `[DELIVERY_MAX_SYMBOLS=...]`
+  - `[DELIVERY_PREFER_PRECISE_EDITING=...]`
+  - `[DELIVERY_FORCE_BACKLOG_SPLIT=...]`
+  - `[DELIVERY_REQUIRE_VERIFICATION=...]`
+- 当前实现阶段会额外落盘：
+  - `implementation_backlog.md`
+  - `repair_alignment.md`
 - patch/section 级写入的长期默认方向是：
   - 优先使用现成专用编辑工具
   - 多语言结构化定位默认走 `tree-sitter`
@@ -705,6 +731,7 @@ review 补充规则：
 当前内部流程：
 
 1. `self-check`
+2. `runtime snapshot`
 2. `test case design`
 3. `test execution`
 4. 汇总 test report
@@ -749,6 +776,7 @@ review 补充规则：
 当前第一版：
 
 - 网页项目优先用 `Playwright`
+- testcase 设计会优先吸收运行时快照，而不是只看静态 HTML
 - 若 `DESIGN` 明确提出性能验收要求，TEST 阶段可以执行：
   - `MEASURE_PAGE_LOAD_MAX_MS`
   - `ASSERT_WINDOW_METRIC_MAX_MS`
@@ -760,10 +788,22 @@ review 补充规则：
 必须同时满足：
 
 - `self-check` 通过
-- 所有必测 testcase 全部通过
+- 所有必测 testcase 的状态均为 `PASSED`
 - 若 `DESIGN` 定义了性能指标，需基于实测结果完成最终性能验收
 
 只通过 `self-check` 不算测试通过。
+
+required testcase 当前使用三态：
+
+- `PASSED`
+- `FAILED`
+- `BLOCKED`
+
+说明：
+
+- `FAILED` 表示已执行但不满足期望
+- `BLOCKED` 表示缺少运行时元素、导航失败、执行器缺失或其他阻塞条件
+- 只要 required case 中出现 `FAILED` 或 `BLOCKED`，`TEST` 都不能通过
 
 ## `PATCH` 和 `REWORK` 的分流规则
 

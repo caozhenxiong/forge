@@ -43,15 +43,23 @@ public class TestExecutor {
         Path normalized = projectPath.toAbsolutePath().normalize();
         ProjectFingerprint fingerprint = projectInspector.inspect(normalized);
         SelfCheckResult selfCheck = selfCheck(normalized, fingerprint);
-        TestCasePlan testCasePlan = testCasePlanner.plan(normalized, fingerprint, goal, constraints, prd, design, implementationReport);
+        RuntimeSnapshot runtimeSnapshot = captureRuntimeSnapshot(normalized, fingerprint);
+        TestCasePlan testCasePlan = testCasePlanner.plan(normalized, fingerprint, goal, constraints, prd, design, implementationReport, runtimeSnapshot);
         List<TestCaseResult> caseResults = executeCases(normalized, fingerprint, testCasePlan);
-        boolean requiredCasesPassed = caseResults.stream().filter(TestCaseResult::required).allMatch(TestCaseResult::passed);
+        boolean requiredCasesPassed = caseResults.stream()
+                .filter(TestCaseResult::required)
+                .allMatch(result -> result.status() == TestCaseStatus.PASSED);
         boolean finalPassed = selfCheck.passed() && requiredCasesPassed;
 
         String testCasesMarkdown = renderTestCases(testCasePlan);
-        String executionMarkdown = renderExecution(selfCheck, caseResults);
+        String executionMarkdown = renderExecution(selfCheck, runtimeSnapshot, caseResults);
         String reportMarkdown = renderReport(note, selfCheck, caseResults, finalPassed);
-        return new TestExecutionBundle(testCasesMarkdown, executionMarkdown, reportMarkdown);
+        return new TestExecutionBundle(
+                testCasesMarkdown,
+                runtimeSnapshot == null ? "# Runtime Snapshot\n\n- status: unavailable" : runtimeSnapshot.toMarkdown(),
+                executionMarkdown,
+                reportMarkdown
+        );
     }
 
     public SelfCheckResult selfCheck(Path projectPath) {
@@ -67,7 +75,15 @@ public class TestExecutor {
 
     private List<TestCaseResult> executeCases(Path projectPath, ProjectFingerprint fingerprint, TestCasePlan plan) {
         if (plan.cases() == null || plan.cases().isEmpty()) {
-            return List.of(new TestCaseResult("NO-CASES", "未生成测试用例", false, true, "测试阶段未生成任何可执行用例。"));
+            return List.of(new TestCaseResult(
+                    "NO-CASES",
+                    "未生成测试用例",
+                    TestCaseStatus.BLOCKED,
+                    true,
+                    "测试阶段未生成任何可执行用例。",
+                    "missing-testcases",
+                    "未生成任何可执行 testcase。"
+            ));
         }
         if ("web-static".equals(fingerprint.projectType()) || "web-app".equals(fingerprint.projectType())) {
             return playwrightCaseExecutor.execute(projectPath, plan);
@@ -76,11 +92,20 @@ public class TestExecutor {
                 .map(testCase -> new TestCaseResult(
                         testCase.id(),
                         testCase.title(),
-                        false,
+                        testCase.required() ? TestCaseStatus.BLOCKED : TestCaseStatus.FAILED,
                         testCase.required(),
-                        "当前技术栈尚未实现专用 testcase 执行器，测试用例未执行。"
+                        "当前技术栈尚未实现专用 testcase 执行器，测试用例未执行。",
+                        "unsupported-executor",
+                        "当前技术栈没有匹配的 testcase 执行器。"
                 ))
                 .toList();
+    }
+
+    private RuntimeSnapshot captureRuntimeSnapshot(Path projectPath, ProjectFingerprint fingerprint) {
+        if (!("web-static".equals(fingerprint.projectType()) || "web-app".equals(fingerprint.projectType())) || !fingerprint.hasHtmlEntry()) {
+            return null;
+        }
+        return playwrightCaseExecutor.captureRuntimeSnapshot(projectPath, "index.html");
     }
 
     private String renderTestCases(TestCasePlan plan) {
@@ -127,13 +152,15 @@ public class TestExecutor {
         return builder.toString();
     }
 
-    private String renderExecution(SelfCheckResult selfCheck, List<TestCaseResult> caseResults) {
+    private String renderExecution(SelfCheckResult selfCheck, RuntimeSnapshot runtimeSnapshot, List<TestCaseResult> caseResults) {
         StringBuilder builder = new StringBuilder();
         builder.append("# 测试执行记录\n\n");
         builder.append("## Self-check\n\n");
         builder.append("- passed: ").append(selfCheck.passed()).append("\n");
         builder.append("- summary: ").append(blank(selfCheck.summary())).append("\n\n");
         builder.append("```text\n").append(trim(selfCheck.details())).append("\n```\n\n");
+        builder.append("## Runtime Snapshot\n\n");
+        builder.append(runtimeSnapshot == null ? "- unavailable\n\n" : runtimeSnapshot.toMarkdown().replaceFirst("^# Runtime Snapshot\\n\\n", "") + "\n\n");
         builder.append("## Test Case Results\n\n");
         for (TestCaseResult result : caseResults) {
             builder.append("- ")
@@ -142,10 +169,16 @@ public class TestExecutor {
                     .append(result.title())
                     .append(" | required=")
                     .append(result.required())
-                    .append(" | passed=")
-                    .append(result.passed())
+                    .append(" | status=")
+                    .append(result.status())
                     .append("\n");
             builder.append("  detail: ").append(trim(result.details()).replace("\n", " | ")).append("\n");
+            if (!blank(result.failureReason()).isBlank()) {
+                builder.append("  failureReason: ").append(result.failureReason()).append("\n");
+            }
+            if (!blank(result.evidence()).isBlank()) {
+                builder.append("  evidence: ").append(trim(result.evidence()).replace("\n", " | ")).append("\n");
+            }
         }
         builder.append("\n");
         return builder.toString();
@@ -154,11 +187,14 @@ public class TestExecutor {
     private String renderReport(String note, SelfCheckResult selfCheck, List<TestCaseResult> caseResults, boolean finalPassed) {
         long totalCases = caseResults.size();
         long passedCases = caseResults.stream().filter(TestCaseResult::passed).count();
-        long requiredFailedCases = caseResults.stream().filter(result -> result.required() && !result.passed()).count();
+        long requiredFailedCases = caseResults.stream().filter(result -> result.required() && result.status() != TestCaseStatus.PASSED).count();
+        long requiredBlockedCases = caseResults.stream().filter(result -> result.required() && result.status() == TestCaseStatus.BLOCKED).count();
         String summary = finalPassed
                 ? "自检通过，且必测用例全部通过。"
+                : requiredBlockedCases > 0
+                ? "存在未执行或被阻塞的必测用例。"
                 : requiredFailedCases > 0
-                ? "存在未通过的必测用例。"
+                ? "存在失败的必测用例。"
                 : "技术自检未通过。";
         return """
                 # 测试报告
@@ -170,6 +206,7 @@ public class TestExecutor {
                 - totalCases: %d
                 - passedCases: %d
                 - requiredFailedCases: %d
+                - requiredBlockedCases: %d
 
                 ## 结论
 
@@ -182,9 +219,10 @@ public class TestExecutor {
                 totalCases,
                 passedCases,
                 requiredFailedCases,
-                requiredFailedCases == 0
+                requiredBlockedCases,
+                requiredFailedCases == 0 && requiredBlockedCases == 0
                         ? "所有必测 test case 已通过。"
-                        : "仍有必测 test case 未通过，不能视为测试完成。"
+                        : "仍有必测 test case 未通过或未执行，不能视为测试完成。"
         );
     }
 
