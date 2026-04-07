@@ -4,10 +4,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Component;
 
@@ -34,6 +37,94 @@ public class FileProjectWorkspace implements ProjectWorkspace {
             Files.writeString(path, content, StandardCharsets.UTF_8);
         } catch (IOException exception) {
             throw new IllegalStateException("Failed to write file: " + path, exception);
+        }
+    }
+
+    public WriteTransaction stageWrite(Path projectPath, Path relativePath, String content) {
+        Path normalizedProject = projectPath.toAbsolutePath().normalize();
+        Path targetPath = resolve(normalizedProject, relativePath);
+        String transactionId = Instant.now().toEpochMilli() + "-" + UUID.randomUUID();
+        Path stagingRoot = normalizedProject.resolve(".devflow")
+                .resolve("write-transactions")
+                .resolve("active")
+                .resolve(transactionId);
+        Path candidatePath = stagingRoot.resolve("candidate").resolve(relativePath).normalize();
+        Path originalSnapshotPath = stagingRoot.resolve("original").resolve(relativePath).normalize();
+        try {
+            Files.createDirectories(candidatePath.getParent());
+            Files.writeString(candidatePath, content, StandardCharsets.UTF_8);
+            if (Files.exists(targetPath)) {
+                Files.createDirectories(originalSnapshotPath.getParent());
+                Files.copy(targetPath, originalSnapshotPath, StandardCopyOption.REPLACE_EXISTING);
+            }
+            return new WriteTransaction(
+                    transactionId,
+                    normalizedProject,
+                    relativePath,
+                    targetPath,
+                    stagingRoot,
+                    candidatePath,
+                    originalSnapshotPath
+            );
+        } catch (IOException exception) {
+            throw new IllegalStateException("Failed to stage write transaction for " + targetPath, exception);
+        }
+    }
+
+    public String readStagedContent(WriteTransaction transaction) {
+        try {
+            return Files.readString(transaction.candidatePath());
+        } catch (IOException exception) {
+            throw new IllegalStateException("Failed to read staged candidate: " + transaction.candidatePath(), exception);
+        }
+    }
+
+    public void commitWrite(WriteTransaction transaction) {
+        try {
+            if (transaction.targetPath().getParent() != null) {
+                Files.createDirectories(transaction.targetPath().getParent());
+            }
+            try {
+                Files.move(
+                        transaction.candidatePath(),
+                        transaction.targetPath(),
+                        StandardCopyOption.ATOMIC_MOVE,
+                        StandardCopyOption.REPLACE_EXISTING
+                );
+            } catch (IOException atomicMoveFailure) {
+                Files.move(
+                        transaction.candidatePath(),
+                        transaction.targetPath(),
+                        StandardCopyOption.REPLACE_EXISTING
+                );
+            }
+            deleteRecursively(transaction.stagingRoot());
+        } catch (IOException exception) {
+            throw new IllegalStateException("Failed to commit write transaction for " + transaction.targetPath(), exception);
+        }
+    }
+
+    public void failWrite(WriteTransaction transaction, String reason) {
+        Path failedRoot = transaction.projectPath().resolve(".devflow")
+                .resolve("write-transactions")
+                .resolve("failed")
+                .resolve(transaction.id());
+        try {
+            if (failedRoot.getParent() != null) {
+                Files.createDirectories(failedRoot.getParent());
+            }
+            if (Files.exists(transaction.stagingRoot())) {
+                Files.move(transaction.stagingRoot(), failedRoot, StandardCopyOption.REPLACE_EXISTING);
+            } else {
+                Files.createDirectories(failedRoot);
+            }
+            Files.writeString(
+                    failedRoot.resolve("failure.txt"),
+                    reason == null ? "(unknown failure)" : reason,
+                    StandardCharsets.UTF_8
+            );
+        } catch (IOException exception) {
+            throw new IllegalStateException("Failed to record failed write transaction for " + transaction.targetPath(), exception);
         }
     }
 
@@ -143,6 +234,22 @@ public class FileProjectWorkspace implements ProjectWorkspace {
             }
             Files.deleteIfExists(cursor);
             cursor = cursor.getParent();
+        }
+    }
+
+    private void deleteRecursively(Path root) throws IOException {
+        if (root == null || !Files.exists(root)) {
+            return;
+        }
+        try (Stream<Path> stream = Files.walk(root)) {
+            stream.sorted(Comparator.reverseOrder())
+                    .forEach(path -> {
+                        try {
+                            Files.deleteIfExists(path);
+                        } catch (IOException exception) {
+                            throw new IllegalStateException("Failed to clean staged path: " + path, exception);
+                        }
+                    });
         }
     }
 

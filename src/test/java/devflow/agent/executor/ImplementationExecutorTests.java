@@ -452,6 +452,99 @@ class ImplementationExecutorTests {
         assertTrue(javaSource.contains("class App"));
     }
 
+    @Test
+    void patchModeUsesPreciseCodeEditingForExistingJavaScriptFiles() throws Exception {
+        Files.writeString(
+                tempDir.resolve("game.js"),
+                """
+                        class Game {
+                            tick() {
+                                return 1;
+                            }
+                        }
+                        """
+        );
+
+        FileProjectWorkspace workspace = new FileProjectWorkspace();
+        ObjectMapper objectMapper = new ObjectMapper();
+        LlmProvider provider = new LlmProvider() {
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
+                return generate(systemPrompt, userPrompt, options, null);
+            }
+
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
+                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
+                    return """
+                            {
+                              "summary": "定点修补 JavaScript 方法",
+                              "subtasks": [
+                                {
+                                  "title": "更新 tick 方法",
+                                  "goal": "在不重写整文件的情况下更新 tick 的实现",
+                                  "deliveryMode": "PATCH",
+                                  "acceptanceCriteria": ["保留 class Game", "更新 tick 行为"],
+                                  "changes": [
+                                    {
+                                      "path": "game.js",
+                                      "action": "WRITE",
+                                      "reason": "对现有方法做精确修改"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                            """;
+                }
+                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("符号级精确改写")) {
+                    return """
+                            {
+                              "operations": [
+                                {
+                                  "action": "REPLACE_SYMBOL",
+                                  "targetSymbol": "tick",
+                                  "targetKind": "method",
+                                  "content": "tick() {\\n    return 2;\\n}"
+                                }
+                              ]
+                            }
+                            """;
+                }
+                if (role == ModelRole.VALIDATION_STRATEGY) {
+                    return """
+                            {
+                              "summary": "当前项目无额外自检步骤",
+                              "steps": []
+                            }
+                            """;
+                }
+                return "";
+            }
+
+            @Override
+            public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
+                return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
+            }
+        };
+
+        TestExecutor testExecutor = new TestExecutor(workspace, provider, objectMapper);
+        ImplementationExecutor executor = new ImplementationExecutor(provider, workspace, objectMapper, testExecutor);
+
+        executor.execute(
+                tempDir,
+                runRecord("修复 JavaScript 方法", ""),
+                "# analysis",
+                "# prd",
+                "# design",
+                "[FIX_MODE=PATCH]"
+        );
+
+        String jsSource = Files.readString(tempDir.resolve("game.js"));
+        assertTrue(jsSource.contains("return 2;"));
+        assertTrue(jsSource.contains("class Game"));
+    }
+
     private String invalidPlan() {
         return """
                 {

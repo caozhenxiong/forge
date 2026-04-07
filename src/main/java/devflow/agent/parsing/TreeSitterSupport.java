@@ -18,6 +18,7 @@ import org.treesitter.TreeSitterHtml;
 import org.treesitter.TreeSitterJava;
 import org.treesitter.TreeSitterJavascript;
 import org.treesitter.TreeSitterPython;
+import org.treesitter.TreeSitterTypescript;
 
 @Component
 public class TreeSitterSupport {
@@ -98,7 +99,11 @@ public class TreeSitterSupport {
     }
 
     public CodeStructureSnapshot inspectCodeStructure(SourceLanguage language, String source) {
-        if (language != SourceLanguage.JAVA && language != SourceLanguage.PYTHON && language != SourceLanguage.GO) {
+        if (language != SourceLanguage.JAVASCRIPT
+                && language != SourceLanguage.TYPESCRIPT
+                && language != SourceLanguage.JAVA
+                && language != SourceLanguage.PYTHON
+                && language != SourceLanguage.GO) {
             return new CodeStructureSnapshot(
                     language,
                     new TreeSitterParseSummary(language, false, true, 0, 0),
@@ -114,6 +119,7 @@ public class TreeSitterSupport {
                 metrics.missingNodes()
         );
         List<CodeSymbol> symbols = switch (language) {
+            case JAVASCRIPT, TYPESCRIPT -> inspectJavascriptSymbols(source, metrics.rootNode());
             case JAVA -> inspectJavaSymbols(source, metrics.rootNode());
             case PYTHON -> inspectPythonSymbols(source, metrics.rootNode());
             case GO -> inspectGoSymbols(source, metrics.rootNode());
@@ -282,11 +288,45 @@ public class TreeSitterSupport {
         return switch (language) {
             case HTML -> new TreeSitterHtml();
             case JAVASCRIPT -> new TreeSitterJavascript();
+            case TYPESCRIPT -> new TreeSitterTypescript();
             case JAVA -> new TreeSitterJava();
             case PYTHON -> new TreeSitterPython();
             case GO -> new TreeSitterGo();
             case UNSUPPORTED -> throw new IllegalArgumentException("Unsupported tree-sitter language");
         };
+    }
+
+    private List<CodeSymbol> inspectJavascriptSymbols(String source, TSNode root) {
+        List<CodeSymbol> symbols = new ArrayList<>();
+        walk(root, node -> {
+            switch (node.getType()) {
+                case "class_declaration" -> addIfPresent(symbols, buildNamedSymbol(
+                        source,
+                        node,
+                        "class",
+                        findChildByTypes(node, "identifier", "type_identifier"),
+                        findChildByTypes(node, "class_body")
+                ));
+                case "method_definition" -> addIfPresent(symbols, buildNamedSymbol(
+                        source,
+                        node,
+                        "method",
+                        findChildByTypes(node, "property_identifier", "identifier"),
+                        findChildByTypes(node, "statement_block")
+                ));
+                case "function_declaration" -> addIfPresent(symbols, buildNamedSymbol(
+                        source,
+                        node,
+                        "function",
+                        findChildByTypes(node, "identifier"),
+                        findChildByTypes(node, "statement_block")
+                ));
+                case "lexical_declaration" -> addIfPresent(symbols, buildJavascriptVariableSymbol(source, node));
+                default -> {
+                }
+            }
+        });
+        return deduplicateSymbols(symbols);
     }
 
     private List<CodeSymbol> inspectJavaSymbols(String source, TSNode root) {
@@ -427,6 +467,27 @@ public class TreeSitterSupport {
                 "type",
                 new ByteRange(node.getStartByte(), node.getEndByte()),
                 bodyRange
+        );
+    }
+
+    private CodeSymbol buildJavascriptVariableSymbol(String source, TSNode node) {
+        TSNode declarator = findChildByTypes(node, "variable_declarator");
+        if (declarator == null) {
+            return null;
+        }
+        TSNode nameNode = findChildByTypes(declarator, "identifier");
+        if (nameNode == null) {
+            return null;
+        }
+        String name = sliceSimpleName(source, nameNode);
+        if (name.isBlank()) {
+            return null;
+        }
+        return new CodeSymbol(
+                name,
+                "variable",
+                new ByteRange(node.getStartByte(), node.getEndByte()),
+                null
         );
     }
 

@@ -102,4 +102,40 @@ class TreeSitterSupportTests {
         assertTrue(goSnapshot.symbols().stream().anyMatch(symbol -> "Game".equals(symbol.name()) && "type".equals(symbol.kind())));
         assertTrue(goSnapshot.symbols().stream().anyMatch(symbol -> "Tick".equals(symbol.name()) && "method".equals(symbol.kind())));
     }
+
+    @Test
+    void extractsPreciseEditingSymbolsForJavaScriptAndTypeScript() {
+        CodeStructureSnapshot javascriptSnapshot = support.inspectCodeStructure(
+                Path.of("app.js"),
+                """
+                class Game {
+                    tick() {}
+                }
+
+                function boot() {}
+                const score = 0;
+                """
+        );
+        CodeStructureSnapshot typescriptSnapshot = support.inspectCodeStructure(
+                Path.of("app.ts"),
+                """
+                class Game {
+                    tick(): void {}
+                }
+
+                function boot(): void {}
+                const score: number = 0;
+                """
+        );
+
+        assertTrue(javascriptSnapshot.supportsPreciseEditing());
+        assertTrue(typescriptSnapshot.supportsPreciseEditing());
+        assertTrue(javascriptSnapshot.symbols().stream().anyMatch(symbol -> "Game".equals(symbol.name()) && "class".equals(symbol.kind())));
+        assertTrue(javascriptSnapshot.symbols().stream().anyMatch(symbol -> "tick".equals(symbol.name()) && "method".equals(symbol.kind())));
+        assertTrue(javascriptSnapshot.symbols().stream().anyMatch(symbol -> "boot".equals(symbol.name()) && "function".equals(symbol.kind())));
+        assertTrue(javascriptSnapshot.symbols().stream().anyMatch(symbol -> "score".equals(symbol.name()) && "variable".equals(symbol.kind())));
+        assertTrue(typescriptSnapshot.symbols().stream().anyMatch(symbol -> "Game".equals(symbol.name()) && "class".equals(symbol.kind())));
+        assertTrue(typescriptSnapshot.symbols().stream().anyMatch(symbol -> "boot".equals(symbol.name()) && "function".equals(symbol.kind())));
+        assertTrue(typescriptSnapshot.symbols().stream().anyMatch(symbol -> "score".equals(symbol.name()) && "variable".equals(symbol.kind())));
+    }
 }

@@ -11,6 +11,7 @@ import devflow.agent.orchestrator.StageType;
 import devflow.agent.parsing.TreeSitterParseSummary;
 import devflow.agent.parsing.TreeSitterSupport;
 import devflow.agent.project.FileProjectWorkspace;
+import devflow.agent.project.WriteTransaction;
 import devflow.agent.review.FixMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -307,13 +308,29 @@ public class ImplementationExecutor {
         for (FileChange change : subtask.changes()) {
             Path relativePath = Path.of(change.path()).normalize();
             switch (change.action()) {
-                case WRITE -> workspace.writeFile(
+                case WRITE -> writeFileTransactionally(
                         projectPath,
                         relativePath,
                         generateFileContent(projectPath, relativePath, analysis, prd, design, planSummary, subtask, feedback, change.reason())
                 );
                 case DELETE -> workspace.deleteFile(projectPath, relativePath);
             }
+        }
+    }
+
+    private void writeFileTransactionally(Path projectPath, Path relativePath, String content) {
+        WriteTransaction transaction = workspace.stageWrite(projectPath, relativePath, content);
+        String stagedContent = workspace.readStagedContent(transaction);
+        String validationFailure = validateGeneratedContent(projectPath, relativePath, stagedContent);
+        if (validationFailure != null) {
+            workspace.failWrite(transaction, validationFailure);
+            throw new IllegalStateException("Generated file content is incomplete or invalid for " + relativePath + ": " + validationFailure);
+        }
+        try {
+            workspace.commitWrite(transaction);
+        } catch (RuntimeException exception) {
+            workspace.failWrite(transaction, "Commit failure: " + exception.getMessage());
+            throw exception;
         }
     }
 
@@ -789,7 +806,7 @@ public class ImplementationExecutor {
                     {
                       "action": "REPLACE_SYMBOL|INSERT_INTO_SYMBOL|APPEND_FILE",
                       "targetSymbol": "目标符号名；APPEND_FILE 时可为 null",
-                      "targetKind": "class|interface|enum|record|constructor|method|function|type；APPEND_FILE 时可为 null",
+                      "targetKind": "class|interface|enum|record|constructor|method|function|type|variable；APPEND_FILE 时可为 null",
                       "content": "要写入的源码片段"
                     }
                   ]
@@ -1117,7 +1134,9 @@ public class ImplementationExecutor {
 
     private boolean pathLooksLikePreciseCode(Path relativePath) {
         String path = relativePath.toString().toLowerCase();
-        return path.endsWith(".java") || path.endsWith(".py") || path.endsWith(".go");
+        return path.endsWith(".java") || path.endsWith(".py") || path.endsWith(".go")
+                || path.endsWith(".js") || path.endsWith(".mjs") || path.endsWith(".cjs")
+                || path.endsWith(".ts");
     }
 
     private int numPredictFor(DeliveryMode deliveryMode) {
@@ -1217,6 +1236,9 @@ public class ImplementationExecutor {
             return validateInlineScripts(projectPath, content);
         }
         if (path.endsWith(".java")) {
+            return validateWithTreeSitter(relativePath, content);
+        }
+        if (path.endsWith(".ts")) {
             return validateWithTreeSitter(relativePath, content);
         }
         if (path.endsWith(".py") || path.endsWith(".go")) {

@@ -201,7 +201,7 @@ review 的结果会驱动三种后续动作：
   - 再走 `node --check`
 - `.java`
   - 先走 `tree-sitter`
-- `.py/.go`
+- `.ts/.py/.go`
   - 先走 `tree-sitter`
 
 约束：
@@ -209,6 +209,11 @@ review 的结果会驱动三种后续动作：
 - 结构不完整、语法不合法或明显截断的输出不能写盘
 - 模型只返回“非空半截内容”不算成功
 - 这层校验属于 implementation 的基础护栏，不由 reviewer 兜底
+- `WRITE` 不会直接覆盖目标文件，而是：
+  - 先 stage 候选文件
+  - 再重新校验
+  - 通过后 commit
+  - 失败则回滚并在 `.devflow/write-transactions/failed/` 留下候选内容、旧文件快照和失败原因
 
 ### 3.2 HTML 页面优先走区块级精确改写
 
@@ -236,10 +241,12 @@ review 的结果会驱动三种后续动作：
 - 只对已有稳定锚点的页面启用
 - 锚点缺失时仍回退到完整文件生成
 
-### 3.3 Java / Python / Go 优先走符号级精确改写
+### 3.3 JavaScript / TypeScript / Java / Python / Go 优先走符号级精确改写
 
-对已有 `Java / Python / Go` 文件，如果 `tree-sitter` 能稳定提取符号：
+对已有 `JavaScript / TypeScript / Java / Python / Go` 文件，如果 `tree-sitter` 能稳定提取符号：
 
+- JavaScript / TypeScript
+  - `class / method / function / variable`
 - Java
   - `class / interface / enum / record / constructor / method`
 - Python

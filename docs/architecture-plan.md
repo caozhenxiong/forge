@@ -83,6 +83,7 @@
 - 当前支持：
   - HTML
   - JavaScript
+  - TypeScript
   - Java
   - Python
   - Go
@@ -90,7 +91,7 @@
   - 生成内容写盘前结构验收
   - 静态 HTML 结构快照提取
   - 为 testcase fallback 提供真实 DOM 线索
-  - 为 HTML 区块级改写和 Java/Python/Go 符号级 patch 提供结构范围
+  - 为 HTML 区块级改写和 JavaScript/TypeScript/Java/Python/Go 符号级 patch 提供结构范围
 
 当前仍未进入：
 

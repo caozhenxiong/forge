@@ -5,6 +5,7 @@ import java.nio.file.Path;
 public enum SourceLanguage {
     HTML,
     JAVASCRIPT,
+    TYPESCRIPT,
     JAVA,
     PYTHON,
     GO,
@@ -20,6 +21,9 @@ public enum SourceLanguage {
         }
         if (fileName.endsWith(".js") || fileName.endsWith(".mjs") || fileName.endsWith(".cjs")) {
             return JAVASCRIPT;
+        }
+        if (fileName.endsWith(".ts")) {
+            return TYPESCRIPT;
         }
         if (fileName.endsWith(".java")) {
             return JAVA;

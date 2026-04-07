@@ -100,4 +100,64 @@ class CodePreciseEditorTests {
         assertTrue(updated.contains("println(\"new\")"));
         assertTrue(updated.contains("package main"));
     }
+
+    @Test
+    void appliesPrecisePatchToJavaScriptSymbols() {
+        String source = """
+                class Game {
+                    tick() {
+                        return 1;
+                    }
+                }
+                """;
+
+        String updated = editor.applyPatch(
+                Path.of("game.js"),
+                source,
+                new CodePrecisePatch(List.of(
+                        new CodePreciseOperation(
+                                CodePreciseAction.REPLACE_SYMBOL,
+                                "tick",
+                                "method",
+                                """
+                                tick() {
+                                    return 2;
+                                }
+                                """
+                        )
+                ))
+        );
+
+        assertTrue(updated.contains("return 2;"));
+        assertTrue(updated.contains("class Game"));
+    }
+
+    @Test
+    void appliesPrecisePatchToTypeScriptSymbols() {
+        String source = """
+                function boot(): void {
+                    console.log("old");
+                }
+                """;
+
+        String updated = editor.applyPatch(
+                Path.of("app.ts"),
+                source,
+                new CodePrecisePatch(List.of(
+                        new CodePreciseOperation(
+                                CodePreciseAction.REPLACE_SYMBOL,
+                                "boot",
+                                "function",
+                                """
+                                function boot(): void {
+                                    console.log("new");
+                                }
+                                """
+                        )
+                ))
+        );
+
+        assertTrue(updated.contains("console.log(\"new\");"));
+        assertTrue(updated.contains("function boot(): void"));
+    }
 }

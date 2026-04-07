@@ -223,11 +223,14 @@
 当前已落地：
 
 - `.html/.js/.java` 生成内容在写盘前会先过 `tree-sitter`
+- `.ts/.py/.go` 也已纳入同一层结构校验
 - `.js` 还会追加 `node --check`
 - `.html` 还会追加内联脚本解析校验
 - 校验失败会触发重新生成，而不是直接覆盖文件
 - 对已有带锚点的 HTML 页面，`PATCH / INCREMENTAL` 已优先改成区块级精确改写，避免每次整页重写
 - `Java / Python / Go` 已进入符号级精确改写路径，优先做受控 patch，而不是整文件重写
+- `JavaScript / TypeScript` 也已进入符号级精确改写路径
+- `WRITE` 现已改成事务式候选写入，失败会留下调试 artifact 而不是直接污染目标文件
 
 ### 6. implementation plan JSON 不稳定
 

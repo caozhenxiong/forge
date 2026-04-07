@@ -204,6 +204,7 @@ Java 内核可以把它们当 sidecar 能力来调用，而不是在主进程里
 - 当前支持：
   - HTML
   - JavaScript
+  - TypeScript
   - Java
   - Python
   - Go
@@ -211,7 +212,7 @@ Java 内核可以把它们当 sidecar 能力来调用，而不是在主进程里
   - 生成内容写盘前的结构合法性校验
   - 静态 HTML 结构快照提取
   - 为 fallback testcase 设计提供真实 DOM 线索
-  - 为 HTML / Java / Python / Go 精确改写提供稳定结构边界
+  - 为 HTML / JavaScript / TypeScript / Java / Python / Go 精确改写提供稳定结构边界
 
 当前代码位置：
 
@@ -222,9 +223,10 @@ Java 内核可以把它们当 sidecar 能力来调用，而不是在主进程里
 当前接入点：
 
 - `ImplementationExecutor`
-  - 对 `.html/.js/.java/.py/.go` 的模型输出先做 `tree-sitter` 校验，再决定是否接受
+  - 对 `.html/.js/.ts/.java/.py/.go` 的模型输出先做 `tree-sitter` 校验，再决定是否接受
   - 对带稳定锚点的 HTML 页面，`INCREMENTAL / PATCH` 优先走区块级精确改写
-  - 对已有 `Java / Python / Go` 文件，`INCREMENTAL / PATCH` 优先走符号级精确改写
+  - 对已有 `JavaScript / TypeScript / Java / Python / Go` 文件，`INCREMENTAL / PATCH` 优先走符号级精确改写
+  - 写入流程已改成事务式：stage 候选文件，重新校验，通过后 commit，失败则保留调试 artifact
 - `TestCasePlanner`
   - 对静态网页从真实 HTML 中提取按钮、`id`、`canvas` 等结构，再生成 testcase
 
@@ -243,6 +245,8 @@ Java 内核可以把它们当 sidecar 能力来调用，而不是在主进程里
 当前代码精确改写约束：
 
 - 当前覆盖语言：
+  - JavaScript
+  - TypeScript
   - Java
   - Python
   - Go
@@ -253,6 +257,7 @@ Java 内核可以把它们当 sidecar 能力来调用，而不是在主进程里
   - `APPEND_FILE`
 - 模型输出不再是完整源码文件，而是符号级 JSON patch
 - 执行器会先基于 `tree-sitter` 提取符号清单，再应用 patch 并重新校验结构合法性
+- 失败的候选写入会保留在 `.devflow/write-transactions/failed/`
 
 当前仍未做：
 

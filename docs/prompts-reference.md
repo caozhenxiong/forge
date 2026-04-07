@@ -331,6 +331,14 @@ system prompt 核心：
   - 允许较大范围调整
   - 默认 `num_predict = 2200`
 
+补充执行规则：
+
+- 完整文件输出不会直接覆盖目标文件
+- `WRITE` 会先把候选内容 stage 到事务目录
+- 然后重新做结构/语法校验
+- 校验通过后才 commit
+- 失败会保留 `.devflow/write-transactions/failed/` 调试 artifact
+
 user prompt 输入：
 
 - 总体实现摘要
@@ -375,7 +383,7 @@ system prompt 核心：
 
 ### 2.2 precise code generation
 
-当目标文件是已有 `Java / Python / Go` 文件，且当前 `deliveryMode` 为 `INCREMENTAL / PATCH` 时，`IMPLEMENTATION` 会切到“符号级精确改写” prompt，而不是输出完整源码文件。
+当目标文件是已有 `JavaScript / TypeScript / Java / Python / Go` 文件，且当前 `deliveryMode` 为 `INCREMENTAL / PATCH` 时，`IMPLEMENTATION` 会切到“符号级精确改写” prompt，而不是输出完整源码文件。
 
 system prompt 核心：
 
@@ -392,7 +400,7 @@ system prompt 核心：
     {
       "action": "REPLACE_SYMBOL|INSERT_INTO_SYMBOL|APPEND_FILE",
       "targetSymbol": "目标符号名；APPEND_FILE 时可为 null",
-      "targetKind": "class|interface|enum|record|constructor|method|function|type；APPEND_FILE 时可为 null",
+      "targetKind": "class|interface|enum|record|constructor|method|function|type|variable；APPEND_FILE 时可为 null",
       "content": "要写入的源码片段"
     }
   ]
