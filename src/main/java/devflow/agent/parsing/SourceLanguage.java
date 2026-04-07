@@ -22,7 +22,8 @@ public enum SourceLanguage {
         if (fileName.endsWith(".js") || fileName.endsWith(".mjs") || fileName.endsWith(".cjs")) {
             return JAVASCRIPT;
         }
-        if (fileName.endsWith(".ts")) {
+        if (fileName.endsWith(".ts") || fileName.endsWith(".tsx")
+                || fileName.endsWith(".mts") || fileName.endsWith(".cts")) {
             return TYPESCRIPT;
         }
         if (fileName.endsWith(".java")) {

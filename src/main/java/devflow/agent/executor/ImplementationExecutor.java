@@ -1136,7 +1136,8 @@ public class ImplementationExecutor {
         String path = relativePath.toString().toLowerCase();
         return path.endsWith(".java") || path.endsWith(".py") || path.endsWith(".go")
                 || path.endsWith(".js") || path.endsWith(".mjs") || path.endsWith(".cjs")
-                || path.endsWith(".ts");
+                || path.endsWith(".ts") || path.endsWith(".tsx")
+                || path.endsWith(".mts") || path.endsWith(".cts");
     }
 
     private int numPredictFor(DeliveryMode deliveryMode) {
@@ -1238,7 +1239,8 @@ public class ImplementationExecutor {
         if (path.endsWith(".java")) {
             return validateWithTreeSitter(relativePath, content);
         }
-        if (path.endsWith(".ts")) {
+        if (path.endsWith(".ts") || path.endsWith(".tsx")
+                || path.endsWith(".mts") || path.endsWith(".cts")) {
             return validateWithTreeSitter(relativePath, content);
         }
         if (path.endsWith(".py") || path.endsWith(".go")) {
