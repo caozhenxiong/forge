@@ -77,6 +77,27 @@
 - 大量字符串前插/后插
 - 先整文件重写，再依赖 reviewer 补救
 
+当前第一阶段已落地：
+
+- `parsing` 层已基于 `tree-sitter` 接入
+- 当前支持：
+  - HTML
+  - JavaScript
+  - TypeScript
+  - Java
+  - Python
+  - Go
+- 当前用途：
+  - 生成内容写盘前结构验收
+  - 静态 HTML 结构快照提取
+  - 为 testcase fallback 提供真实 DOM 线索
+  - 为 HTML 区块级改写和 JavaScript/TypeScript/Java/Python/Go 符号级 patch 提供结构范围
+
+当前仍未进入：
+
+- 通用 AST refactor
+- 跨文件语义级自动改写
+
 ### 角色与执行模型
 
 采用多角色逻辑加单编排内核。

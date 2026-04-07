@@ -184,6 +184,100 @@ review 的结果会驱动三种后续动作：
 - required testcase 必须真实执行，未执行不能视为通过
 - 当前如果技术栈尚未实现专用 testcase 执行器，required case 会失败，而不是默认通过
 - 单个 `index.html` + 内联脚本的项目也会识别为 `web-static` 并进入浏览器级 testcase 执行路径
+- fallback testcase 设计会优先基于 `tree-sitter` 提取真实 HTML 结构，而不是只靠正则猜测静态页面选择器
+
+### 3.1 生成内容写盘前必须先过结构校验
+
+`IMPLEMENTATION` 阶段不能只因为模型返回了非空文本，就直接覆盖现有文件。
+
+当前规则：
+
+- `.html`
+  - 先做基本结构检查
+  - 再走 `tree-sitter`
+  - 内联脚本还要单独做脚本可解析性检查
+- `.js/.mjs/.cjs`
+  - 先走 `tree-sitter`
+  - 再走 `node --check`
+- `.java`
+  - 先走 `tree-sitter`
+- `.ts/.py/.go`
+  - 先走 `tree-sitter`
+
+约束：
+
+- 结构不完整、语法不合法或明显截断的输出不能写盘
+- 模型只返回“非空半截内容”不算成功
+- 这层校验属于 implementation 的基础护栏，不由 reviewer 兜底
+- `WRITE` 不会直接覆盖目标文件，而是：
+  - 先 stage 候选文件
+  - 再重新校验
+  - 通过后 commit
+  - 失败则回滚并在 `.devflow/write-transactions/failed/` 留下候选内容、旧文件快照和失败原因
+
+### 3.2 HTML 页面优先走区块级精确改写
+
+对已有 HTML 页面，如果已经存在稳定锚点：
+
+- `<main id="app-root">`
+- `<style id="app-style">`
+- `<script id="app-script">`
+
+则 `IMPLEMENTATION` 在 `INCREMENTAL / PATCH` 模式下应优先：
+
+- 只生成区块 JSON
+- 只替换 `app-root / app-style / app-script` 的内部内容
+- 不再整页重写
+
+目的：
+
+- 降低大文件截断风险
+- 让页面结构、`<head>` 元信息和外围壳子保持稳定
+- 让后续 patch 更容易收敛
+
+当前边界：
+
+- 只对 HTML 页面启用
+- 只对已有稳定锚点的页面启用
+- 锚点缺失时仍回退到完整文件生成
+
+### 3.3 JavaScript / TypeScript / Java / Python / Go 优先走符号级精确改写
+
+对已有 `JavaScript / TypeScript / Java / Python / Go` 文件，如果 `tree-sitter` 能稳定提取符号：
+
+- JavaScript / TypeScript
+  - `class / method / function / variable`
+- Java
+  - `class / interface / enum / record / constructor / method`
+- Python
+  - `class / function`
+- Go
+  - `type / method / function`
+
+则 `IMPLEMENTATION` 在 `INCREMENTAL / PATCH` 模式下应优先：
+
+- 输出符号级 JSON patch
+- 只替换目标符号或在目标符号体内插入内容
+- 避免整文件重写
+
+当前支持动作：
+
+- `REPLACE_SYMBOL`
+- `INSERT_INTO_SYMBOL`
+- `APPEND_FILE`
+
+目的：
+
+- 降低大文件截断风险
+- 降低局部修复时的误伤范围
+- 让 patch 更聚焦、更容易自检和 review
+
+当前边界：
+
+- 只对已有文件启用
+- 只在 `PATCH / INCREMENTAL` 模式启用
+- 无可解析符号时回退到完整文件生成
+- 还不支持通用 AST refactor、跨文件语义迁移和自动依赖重写
 
 ### 4. review 结论必须可执行
 

@@ -2,6 +2,8 @@ package devflow.agent.executor;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import devflow.agent.parsing.HtmlStructureSnapshot;
+import devflow.agent.parsing.TreeSitterSupport;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Path;
@@ -18,13 +20,24 @@ public class TestCasePlanner {
     private final FileProjectWorkspace workspace;
     private final LlmProvider llmProvider;
     private final ObjectMapper objectMapper;
+    private final TreeSitterSupport treeSitterSupport;
     private static final Pattern LOAD_TIME_PATTERN = Pattern.compile("(加载时间|首屏|页面加载).*?(\\d+)\\s*(ms|毫秒|s|秒)", Pattern.CASE_INSENSITIVE);
     private static final Pattern GENERATE_TIME_PATTERN = Pattern.compile("(生成时间|题目生成|切换时间|响应时间|回退.*响应).*?(\\d+)\\s*(ms|毫秒|s|秒)", Pattern.CASE_INSENSITIVE);
 
     public TestCasePlanner(FileProjectWorkspace workspace, LlmProvider llmProvider, ObjectMapper objectMapper) {
+        this(workspace, llmProvider, objectMapper, new TreeSitterSupport());
+    }
+
+    TestCasePlanner(
+            FileProjectWorkspace workspace,
+            LlmProvider llmProvider,
+            ObjectMapper objectMapper,
+            TreeSitterSupport treeSitterSupport
+    ) {
         this.workspace = workspace;
         this.llmProvider = llmProvider;
         this.objectMapper = objectMapper;
+        this.treeSitterSupport = treeSitterSupport;
     }
 
     public TestCasePlan plan(
@@ -152,7 +165,8 @@ public class TestCasePlanner {
         try {
             if (fingerprint.hasHtmlEntry()) {
                 String html = workspace.readFile(projectPath, Path.of(entry));
-                if (html.contains("<canvas")) {
+                HtmlStructureSnapshot htmlSnapshot = treeSitterSupport.inspectHtml(html);
+                if (htmlSnapshot.hasCanvas()) {
                     cases.add(new TestCaseSpec(
                             "TC-SMOKE-CANVAS",
                             "主画布存在",
@@ -168,13 +182,12 @@ public class TestCasePlanner {
                     ));
                 }
 
-                Set<String> selectors = new LinkedHashSet<>();
-                java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("<button[^>]*id=[\"']([^\"']+)[\"']", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(html);
-                while (matcher.find() && selectors.size() < 3) {
-                    selectors.add("#" + matcher.group(1));
-                }
+                Set<String> selectors = new LinkedHashSet<>(htmlSnapshot.buttonSelectors());
                 int index = 1;
                 for (String selector : selectors) {
+                    if (selectors.size() > 3 && index > 3) {
+                        break;
+                    }
                     cases.add(new TestCaseSpec(
                             "TC-FUNC-BTN-" + index,
                             "按钮 " + selector + " 点击不报错",

@@ -1,10 +1,17 @@
 package devflow.agent.executor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import devflow.agent.editing.CodePreciseEditor;
+import devflow.agent.editing.CodePrecisePatch;
+import devflow.agent.editing.HtmlPreciseEditor;
+import devflow.agent.editing.HtmlPrecisePatch;
 import devflow.agent.orchestrator.RunRecord;
 import devflow.agent.orchestrator.StageExecution;
 import devflow.agent.orchestrator.StageType;
+import devflow.agent.parsing.TreeSitterParseSummary;
+import devflow.agent.parsing.TreeSitterSupport;
 import devflow.agent.project.FileProjectWorkspace;
+import devflow.agent.project.WriteTransaction;
 import devflow.agent.review.FixMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,6 +24,7 @@ import java.util.stream.Collectors;
 import java.util.regex.Pattern;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -47,6 +55,9 @@ public class ImplementationExecutor {
     private final FileProjectWorkspace workspace;
     private final ObjectMapper objectMapper;
     private final TestExecutor testExecutor;
+    private final TreeSitterSupport treeSitterSupport;
+    private final HtmlPreciseEditor htmlPreciseEditor;
+    private final CodePreciseEditor codePreciseEditor;
 
     public ImplementationExecutor(
             LlmProvider llmProvider,
@@ -54,10 +65,24 @@ public class ImplementationExecutor {
             ObjectMapper objectMapper,
             TestExecutor testExecutor
     ) {
+        this(llmProvider, workspace, objectMapper, testExecutor, new TreeSitterSupport());
+    }
+
+    @Autowired
+    public ImplementationExecutor(
+            LlmProvider llmProvider,
+            FileProjectWorkspace workspace,
+            ObjectMapper objectMapper,
+            TestExecutor testExecutor,
+            TreeSitterSupport treeSitterSupport
+    ) {
         this.llmProvider = llmProvider;
         this.workspace = workspace;
         this.objectMapper = objectMapper;
         this.testExecutor = testExecutor;
+        this.treeSitterSupport = treeSitterSupport;
+        this.htmlPreciseEditor = new HtmlPreciseEditor(treeSitterSupport);
+        this.codePreciseEditor = new CodePreciseEditor(treeSitterSupport);
     }
 
     public String execute(Path projectPath, RunRecord runRecord, String analysis, String prd, String design, String note) {
@@ -283,13 +308,29 @@ public class ImplementationExecutor {
         for (FileChange change : subtask.changes()) {
             Path relativePath = Path.of(change.path()).normalize();
             switch (change.action()) {
-                case WRITE -> workspace.writeFile(
+                case WRITE -> writeFileTransactionally(
                         projectPath,
                         relativePath,
                         generateFileContent(projectPath, relativePath, analysis, prd, design, planSummary, subtask, feedback, change.reason())
                 );
                 case DELETE -> workspace.deleteFile(projectPath, relativePath);
             }
+        }
+    }
+
+    private void writeFileTransactionally(Path projectPath, Path relativePath, String content) {
+        WriteTransaction transaction = workspace.stageWrite(projectPath, relativePath, content);
+        String stagedContent = workspace.readStagedContent(transaction);
+        String validationFailure = validateGeneratedContent(projectPath, relativePath, stagedContent);
+        if (validationFailure != null) {
+            workspace.failWrite(transaction, validationFailure);
+            throw new IllegalStateException("Generated file content is incomplete or invalid for " + relativePath + ": " + validationFailure);
+        }
+        try {
+            workspace.commitWrite(transaction);
+        } catch (RuntimeException exception) {
+            workspace.failWrite(transaction, "Commit failure: " + exception.getMessage());
+            throw exception;
         }
     }
 
@@ -459,6 +500,34 @@ public class ImplementationExecutor {
         String existingContent = Files.exists(projectPath.resolve(relativePath))
                 ? workspace.readFile(projectPath, relativePath)
                 : "(new file)";
+        if (shouldUsePreciseHtmlEditing(projectPath, relativePath, subtask.deliveryMode(), existingContent)) {
+            return generatePreciseHtmlContent(
+                    projectPath,
+                    relativePath,
+                    analysis,
+                    prd,
+                    design,
+                    planSummary,
+                    subtask,
+                    feedback,
+                    reason,
+                    existingContent
+            );
+        }
+        if (shouldUsePreciseCodeEditing(projectPath, relativePath, subtask.deliveryMode(), existingContent)) {
+            return generatePreciseCodeContent(
+                    projectPath,
+                    relativePath,
+                    analysis,
+                    prd,
+                    design,
+                    planSummary,
+                    subtask,
+                    feedback,
+                    reason,
+                    existingContent
+            );
+        }
         String targetedContext = renderTargetedContext(projectPath, subtask.changes(), relativePath);
         String system = """
                 你是资深软件工程师。请只输出目标文件的完整最终内容。
@@ -484,6 +553,17 @@ public class ImplementationExecutor {
                     2. 优先在已有骨架上增量添加函数、状态和事件，不要重写整套结构
                     3. 保持已有入口、样式、模块边界不变
                     4. 单次改动要尽量小，避免大段推翻式改写
+                    """;
+        }
+        if (pathLooksLikeHtml(relativePath)) {
+            system = system + """
+
+                    HTML 入口文件约束：
+                    1. 请优先输出可持续增量修改的结构
+                    2. 主内容容器使用 <main id="app-root">...</main>
+                    3. 内联样式使用 <style id="app-style">...</style>
+                    4. 主脚本使用 <script id="app-script">...</script>
+                    5. 后续精确改写会依赖这些稳定锚点，请保持这些 id 不变
                     """;
         }
         if (fixMode == FixMode.PATCH) {
@@ -583,6 +663,251 @@ public class ImplementationExecutor {
                     """.formatted(attempt, relativePath, validationFailure);
         }
         throw new IllegalStateException("Generated file content is incomplete or invalid for " + relativePath);
+    }
+
+    private String generatePreciseHtmlContent(
+            Path projectPath,
+            Path relativePath,
+            String analysis,
+            String prd,
+            String design,
+            String planSummary,
+            Subtask subtask,
+            String feedback,
+            String reason,
+            String existingContent
+    ) {
+        String targetedContext = renderTargetedContext(projectPath, subtask.changes(), relativePath);
+        String system = """
+                你是资深前端工程师。请对现有 HTML 页面做“精确改写”，不要整页重写。
+                你必须只返回一个 JSON 对象，格式如下：
+                {
+                  "markupHtml": "main#app-root 的内部 HTML；不修改则返回 null",
+                  "styleCss": "style#app-style 的 CSS 内容；不修改则返回 null",
+                  "scriptJs": "script#app-script 的 JS 内容；不修改则返回 null"
+                }
+
+                规则：
+                1. 只返回 JSON，不要解释，不要 markdown
+                2. 不要输出完整 HTML 文档
+                3. 只修改必要区块，未修改的区块返回 null
+                4. markupHtml 只包含 <main id="app-root"> 的内部内容，不要再包一层 <main>
+                5. styleCss 只包含纯 CSS，不要包 <style>
+                6. scriptJs 只包含纯 JavaScript，不要包 <script>
+                7. 当前是精确改写模式，优先最小改动
+                """;
+        String user = """
+                总体实现摘要：
+                %s
+
+                当前子任务：
+                - 标题：%s
+                - 目标：%s
+                - 交付模式：%s
+                - 验收标准：%s
+
+                文件路径：
+                %s
+
+                变更原因：
+                %s
+
+                需求分析：
+                %s
+
+                产品需求文档：
+                %s
+
+                技术方案设计：
+                %s
+
+                上一轮反馈：
+                %s
+
+                当前精确改写锚点：
+                %s
+
+                当前相关文件上下文：
+                %s
+
+                当前 HTML 内容：
+                %s
+                """.formatted(
+                planSummary,
+                subtask.title(),
+                subtask.goal(),
+                subtask.deliveryMode(),
+                String.join("；", safeList(subtask.acceptanceCriteria())),
+                relativePath,
+                reason,
+                analysis,
+                prd,
+                design,
+                nullToEmpty(feedback),
+                htmlPreciseEditor.describeAnchors(existingContent),
+                targetedContext,
+                summarizeForVerification(existingContent, 12000)
+        );
+        String retryFeedback = "";
+        for (int attempt = 1; attempt <= MAX_FILE_GENERATION_ATTEMPTS; attempt++) {
+            String prompt = retryFeedback.isBlank() ? user : user + "\n\n上一轮精确改写失败，请修正后重新生成：\n" + retryFeedback;
+            String generated = stripCodeFence(
+                    llmProvider.generate(system, prompt, Map.of("num_predict", 1400), ModelRole.IMPLEMENTATION)
+            );
+            try {
+                HtmlPrecisePatch patch = objectMapper.readValue(extractJsonObject(generated), HtmlPrecisePatch.class);
+                String merged = htmlPreciseEditor.applyPatch(existingContent, patch);
+                String validationFailure = validateGeneratedContent(projectPath, relativePath, merged);
+                if (validationFailure == null) {
+                    return merged;
+                }
+                retryFeedback = """
+                        - attempt: %d
+                        - 文件: %s
+                        - 问题: %s
+                        要求：
+                        1. 继续使用 JSON 精确改写格式
+                        2. 只返回需要修改的区块
+                        3. 保证改写后 HTML、脚本和样式都可解析
+                        """.formatted(attempt, relativePath, validationFailure);
+            } catch (Exception exception) {
+                retryFeedback = """
+                        - attempt: %d
+                        - 文件: %s
+                        - 问题: %s
+                        要求：
+                        1. 必须只返回合法 JSON
+                        2. 至少修改一个区块
+                        3. 不要输出完整 HTML 文档
+                        """.formatted(attempt, relativePath, exception.getMessage());
+            }
+        }
+        throw new IllegalStateException("Generated precise HTML patch is incomplete or invalid for " + relativePath);
+    }
+
+    private String generatePreciseCodeContent(
+            Path projectPath,
+            Path relativePath,
+            String analysis,
+            String prd,
+            String design,
+            String planSummary,
+            Subtask subtask,
+            String feedback,
+            String reason,
+            String existingContent
+    ) {
+        String targetedContext = renderTargetedContext(projectPath, subtask.changes(), relativePath);
+        String system = """
+                你是资深工程师。请对现有源码做“符号级精确改写”，不要整文件重写。
+                你必须只返回一个 JSON 对象，格式如下：
+                {
+                  "operations": [
+                    {
+                      "action": "REPLACE_SYMBOL|INSERT_INTO_SYMBOL|APPEND_FILE",
+                      "targetSymbol": "目标符号名；APPEND_FILE 时可为 null",
+                      "targetKind": "class|interface|enum|record|constructor|method|function|type|variable；APPEND_FILE 时可为 null",
+                      "content": "要写入的源码片段"
+                    }
+                  ]
+                }
+
+                规则：
+                1. 只返回 JSON，不要解释，不要 markdown
+                2. 不要输出完整文件内容
+                3. REPLACE_SYMBOL 必须提供完整声明
+                4. INSERT_INTO_SYMBOL 只在目标符号体内部插入内容
+                5. APPEND_FILE 只用于新增顶层符号或补充文件尾部内容
+                6. 优先最小改动，优先复用现有符号和结构
+                7. 仅选择当前符号清单里真实存在的 targetSymbol/targetKind
+                """;
+        String user = """
+                总体实现摘要：
+                %s
+
+                当前子任务：
+                - 标题：%s
+                - 目标：%s
+                - 交付模式：%s
+                - 验收标准：%s
+
+                文件路径：
+                %s
+
+                变更原因：
+                %s
+
+                需求分析：
+                %s
+
+                产品需求文档：
+                %s
+
+                技术方案设计：
+                %s
+
+                上一轮反馈：
+                %s
+
+                当前可精确编辑的符号：
+                %s
+
+                当前相关文件上下文：
+                %s
+
+                当前文件内容：
+                %s
+                """.formatted(
+                planSummary,
+                subtask.title(),
+                subtask.goal(),
+                subtask.deliveryMode(),
+                String.join("；", safeList(subtask.acceptanceCriteria())),
+                relativePath,
+                reason,
+                analysis,
+                prd,
+                design,
+                nullToEmpty(feedback),
+                codePreciseEditor.describeSymbols(relativePath, existingContent),
+                targetedContext,
+                summarizeForVerification(existingContent, 12000)
+        );
+        String retryFeedback = "";
+        for (int attempt = 1; attempt <= MAX_FILE_GENERATION_ATTEMPTS; attempt++) {
+            String prompt = retryFeedback.isBlank() ? user : user + "\n\n上一轮符号级改写失败，请修正后重新生成：\n" + retryFeedback;
+            String generated = stripCodeFence(
+                    llmProvider.generate(system, prompt, Map.of("num_predict", 1600), ModelRole.IMPLEMENTATION)
+            );
+            try {
+                CodePrecisePatch patch = objectMapper.readValue(extractJsonObject(generated), CodePrecisePatch.class);
+                String merged = codePreciseEditor.applyPatch(relativePath, existingContent, patch);
+                String validationFailure = validateGeneratedContent(projectPath, relativePath, merged);
+                if (validationFailure == null) {
+                    return merged;
+                }
+                retryFeedback = """
+                        - attempt: %d
+                        - 文件: %s
+                        - 问题: %s
+                        要求：
+                        1. 继续使用 JSON 符号级改写格式
+                        2. 只改必要符号，避免整文件重写
+                        3. 产物必须保持语法和结构可解析
+                        """.formatted(attempt, relativePath, validationFailure);
+            } catch (Exception exception) {
+                retryFeedback = """
+                        - attempt: %d
+                        - 文件: %s
+                        - 问题: %s
+                        要求：
+                        1. 只返回合法 JSON
+                        2. operations 至少包含一个有效操作
+                        3. 目标符号必须来自给定符号清单
+                        """.formatted(attempt, relativePath, exception.getMessage());
+            }
+        }
+        throw new IllegalStateException("Generated precise code patch is incomplete or invalid for " + relativePath);
     }
 
     private ReviewResult verifySubtask(
@@ -776,6 +1101,45 @@ public class ImplementationExecutor {
         return false;
     }
 
+    private boolean shouldUsePreciseHtmlEditing(Path projectPath, Path relativePath, DeliveryMode deliveryMode, String existingContent) {
+        if (!pathLooksLikeHtml(relativePath)) {
+            return false;
+        }
+        if (!Files.exists(projectPath.resolve(relativePath))) {
+            return false;
+        }
+        if (deliveryMode == DeliveryMode.SKELETON || deliveryMode == DeliveryMode.REWORK) {
+            return false;
+        }
+        return htmlPreciseEditor.supportsPreciseEditing(existingContent);
+    }
+
+    private boolean shouldUsePreciseCodeEditing(Path projectPath, Path relativePath, DeliveryMode deliveryMode, String existingContent) {
+        if (!pathLooksLikePreciseCode(relativePath)) {
+            return false;
+        }
+        if (!Files.exists(projectPath.resolve(relativePath))) {
+            return false;
+        }
+        if (deliveryMode == DeliveryMode.SKELETON || deliveryMode == DeliveryMode.REWORK) {
+            return false;
+        }
+        return codePreciseEditor.supportsPreciseEditing(relativePath, existingContent);
+    }
+
+    private boolean pathLooksLikeHtml(Path relativePath) {
+        String path = relativePath.toString().toLowerCase();
+        return path.endsWith(".html") || path.endsWith(".htm");
+    }
+
+    private boolean pathLooksLikePreciseCode(Path relativePath) {
+        String path = relativePath.toString().toLowerCase();
+        return path.endsWith(".java") || path.endsWith(".py") || path.endsWith(".go")
+                || path.endsWith(".js") || path.endsWith(".mjs") || path.endsWith(".cjs")
+                || path.endsWith(".ts") || path.endsWith(".tsx")
+                || path.endsWith(".mts") || path.endsWith(".cts");
+    }
+
     private int numPredictFor(DeliveryMode deliveryMode) {
         return switch (deliveryMode) {
             case SKELETON -> 1200;
@@ -855,6 +1219,10 @@ public class ImplementationExecutor {
         }
         String path = relativePath.toString().toLowerCase();
         if (path.endsWith(".js") || path.endsWith(".mjs") || path.endsWith(".cjs")) {
+            String treeSitterFailure = validateWithTreeSitter(relativePath, content);
+            if (treeSitterFailure != null) {
+                return treeSitterFailure;
+            }
             return validateJavaScript(projectPath, content);
         }
         if (path.endsWith(".html")) {
@@ -862,9 +1230,31 @@ public class ImplementationExecutor {
             if (htmlFailure != null) {
                 return htmlFailure;
             }
+            String treeSitterFailure = validateWithTreeSitter(relativePath, content);
+            if (treeSitterFailure != null) {
+                return treeSitterFailure;
+            }
             return validateInlineScripts(projectPath, content);
         }
+        if (path.endsWith(".java")) {
+            return validateWithTreeSitter(relativePath, content);
+        }
+        if (path.endsWith(".ts") || path.endsWith(".tsx")
+                || path.endsWith(".mts") || path.endsWith(".cts")) {
+            return validateWithTreeSitter(relativePath, content);
+        }
+        if (path.endsWith(".py") || path.endsWith(".go")) {
+            return validateWithTreeSitter(relativePath, content);
+        }
         return null;
+    }
+
+    private String validateWithTreeSitter(Path relativePath, String content) {
+        TreeSitterParseSummary summary = treeSitterSupport.analyze(relativePath, content);
+        if (!summary.supported() || summary.valid()) {
+            return null;
+        }
+        return summary.describe();
     }
 
     private String validateJavaScript(Path projectPath, String content) {

@@ -195,3 +195,78 @@ Java 内核可以把它们当 sidecar 能力来调用，而不是在主进程里
 4. 我们是不是只需要一个受控的薄封装，而不是重做整套系统
 
 如果前两条答案偏正向，就优先接现成方案。
+
+## 当前已落地状态
+
+第一阶段已经不是只停留在原则层，当前实际已落地：
+
+- `tree-sitter` 已接入 `Forge` 的解析层
+- 当前支持：
+  - HTML
+  - JavaScript
+  - TypeScript
+  - Java
+  - Python
+  - Go
+- 当前主要用途：
+  - 生成内容写盘前的结构合法性校验
+  - 静态 HTML 结构快照提取
+  - 为 fallback testcase 设计提供真实 DOM 线索
+  - 为 HTML / JavaScript / TypeScript / Java / Python / Go 精确改写提供稳定结构边界
+
+当前代码位置：
+
+- `src/main/java/devflow/agent/parsing/TreeSitterSupport.java`
+- `src/main/java/devflow/agent/parsing/TreeSitterParseSummary.java`
+- `src/main/java/devflow/agent/parsing/HtmlStructureSnapshot.java`
+
+当前接入点：
+
+- `ImplementationExecutor`
+  - 对 `.html/.js/.ts/.java/.py/.go` 的模型输出先做 `tree-sitter` 校验，再决定是否接受
+  - 对带稳定锚点的 HTML 页面，`INCREMENTAL / PATCH` 优先走区块级精确改写
+  - 对已有 `JavaScript / TypeScript / Java / Python / Go` 文件，`INCREMENTAL / PATCH` 优先走符号级精确改写
+  - 写入流程已改成事务式：stage 候选文件，重新校验，通过后 commit，失败则保留调试 artifact
+- `TestCasePlanner`
+  - 对静态网页从真实 HTML 中提取按钮、`id`、`canvas` 等结构，再生成 testcase
+
+当前 HTML 精确改写约束：
+
+- 第一版只支持稳定锚点页面：
+  - `<main id="app-root">`
+  - `<style id="app-style">`
+  - `<script id="app-script">`
+- 模型输出不再是完整 HTML 文档，而是区块 JSON：
+  - `markupHtml`
+  - `styleCss`
+  - `scriptJs`
+- 执行器再基于 `tree-sitter` 定位这些区块并应用替换
+
+当前代码精确改写约束：
+
+- 当前覆盖语言：
+  - JavaScript
+  - TypeScript
+  - Java
+  - Python
+  - Go
+- 精确改写只对已有可解析符号的文件启用
+- 当前支持动作：
+  - `REPLACE_SYMBOL`
+  - `INSERT_INTO_SYMBOL`
+  - `APPEND_FILE`
+- 模型输出不再是完整源码文件，而是符号级 JSON patch
+- 执行器会先基于 `tree-sitter` 提取符号清单，再应用 patch 并重新校验结构合法性
+- 失败的候选写入会保留在 `.devflow/write-transactions/failed/`
+
+当前仍未做：
+
+- 通用 AST refactor
+- 更丰富的节点级语义改写
+- 跨文件统一编辑计划执行器
+
+也就是说：
+
+- 现在的 `tree-sitter` 已经进入主链路
+- 已经从“结构理解 + 写盘前验证”前进到“受控的区块/符号级 patch”
+- 还不是“完整精确编辑器”
