@@ -34,6 +34,7 @@ public class ImplementationExecutor {
     private static final int MAX_PLAN_PARSE_ATTEMPTS = 3;
     private static final int MAX_FILE_GENERATION_ATTEMPTS = 3;
     private static final int MAX_FILES_PER_SUBTASK = 2;
+    private static final int MAX_DELIVERY_POLICY_FILES = 3;
     private static final String FIX_MODE_PATCH_TAG = "[FIX_MODE=PATCH]";
     private static final String FIX_MODE_REWORK_TAG = "[FIX_MODE=REWORK]";
     private static final String REPAIR_BRIEF_TAG = "[REPAIR_BRIEF]";
@@ -157,14 +158,14 @@ public class ImplementationExecutor {
                 约束：
                 1. 子任务数量控制在 3 到 6 个
                 2. 每个子任务都必须可单独验证
-                3. 每个子任务最多改 2 个文件
+                3. 默认每个子任务最多改 %d 个文件；若本轮交付策略显式允许，可放宽到最多 %d 个文件
                 4. 优先最小改动
                 5. 只列出真正需要改动的文件
                 6. 不要在此步骤输出文件内容
                 7. 保持项目可编译、可测试
                 8. deliveryMode 必须明确选择
                 9. 若任务较大，优先拆成“骨架 -> 功能填充 -> 交互补全 -> polish/验证”
-                """;
+                """.formatted(MAX_FILES_PER_SUBTASK, MAX_DELIVERY_POLICY_FILES);
         system = system + """
 
                 本轮交付策略：
@@ -1223,7 +1224,7 @@ public class ImplementationExecutor {
         Boolean requireVerification = parseBooleanTag(note, DELIVERY_REQUIRE_VERIFICATION_TAG);
         return new DeliveryPolicyEnvelope(
                 mode == null ? DeliveryMode.INCREMENTAL : mode,
-                maxFiles == null ? MAX_FILES_PER_SUBTASK : Math.max(1, Math.min(maxFiles, MAX_FILES_PER_SUBTASK)),
+                maxFiles == null ? MAX_FILES_PER_SUBTASK : Math.max(1, Math.min(maxFiles, MAX_DELIVERY_POLICY_FILES)),
                 maxSymbols == null ? 4 : Math.max(1, maxSymbols),
                 preferPrecise == null || preferPrecise,
                 forceBacklogSplit != null && forceBacklogSplit,

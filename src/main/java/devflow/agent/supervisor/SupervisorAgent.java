@@ -313,6 +313,9 @@ public class SupervisorAgent {
                 }
             }
             if (action == SupervisorAction.REQUEST_HUMAN_REVIEW) {
+                if (gatePolicy != GatePolicy.AGENT_PLUS_HUMAN) {
+                    return fallback;
+                }
                 targetStage = currentStage;
             }
         }

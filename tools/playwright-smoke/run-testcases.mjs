@@ -16,7 +16,9 @@ async function main() {
 
   const raw = await readFile(planPath, 'utf8');
   const plan = JSON.parse(raw);
-  const firstCase = snapshotMode ? { entry: plan.entry || 'index.html' } : (plan.cases || [])[0];
+  const firstCase = snapshotMode
+    ? { entry: plan.entry || (plan.cases || [])[0]?.entry }
+    : (plan.cases || [])[0];
   if (!firstCase?.entry) {
     console.error(JSON.stringify({ error: 'missing entry in test cases' }));
     process.exit(2);
@@ -139,7 +141,10 @@ async function runCase(browser, port, testCase) {
   let status = 'PASSED';
   let failureReason = '';
   try {
-    const entry = testCase.entry || 'index.html';
+    const entry = testCase.entry;
+    if (!entry) {
+      throw new Error('missing entry in testcase');
+    }
     await page.goto(`http://127.0.0.1:${port}/${entry}`, { waitUntil: 'load', timeout: 15000 });
     measurements.pageLoadMs = await readPageLoadMs(page);
     for (const step of testCase.steps || []) {

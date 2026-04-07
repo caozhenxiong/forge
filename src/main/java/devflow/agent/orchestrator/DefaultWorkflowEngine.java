@@ -111,8 +111,13 @@ public class DefaultWorkflowEngine implements WorkflowEngine {
 
     public RunRecord startRun(Path projectPath, UUID runId) {
         RunRecord runRecord = find(projectPath, runId);
-        RunRecord started = enterStage(runRecord, StageType.ANALYSIS, RunStatus.IN_PROGRESS, "初次启动工作流。");
-        return progress(projectPath, started);
+        try {
+            RunRecord started = enterStage(runRecord, StageType.ANALYSIS, RunStatus.IN_PROGRESS, "初次启动工作流。");
+            return progress(projectPath, started);
+        } catch (RuntimeException ex) {
+            markFatalFailure(projectPath, runId, StageType.ANALYSIS, ex);
+            throw ex;
+        }
     }
 
     @Override
@@ -126,11 +131,16 @@ public class DefaultWorkflowEngine implements WorkflowEngine {
             return runRecord;
         }
 
-        StageExecution currentExecution = requireStage(runRecord.stageStates(), runRecord.currentStage());
-        if (currentExecution.status() == StageStatus.PENDING || currentExecution.artifactPath() == null) {
-            runRecord = enterStage(runRecord, runRecord.currentStage(), RunStatus.IN_PROGRESS, "恢复执行。");
+        try {
+            StageExecution currentExecution = requireStage(runRecord.stageStates(), runRecord.currentStage());
+            if (currentExecution.status() == StageStatus.PENDING || currentExecution.artifactPath() == null) {
+                runRecord = enterStage(runRecord, runRecord.currentStage(), RunStatus.IN_PROGRESS, "恢复执行。");
+            }
+            return progress(projectPath, runRecord);
+        } catch (RuntimeException ex) {
+            markFatalFailure(projectPath, runId, runRecord.currentStage(), ex);
+            throw ex;
         }
-        return progress(projectPath, runRecord);
     }
 
     @Override
@@ -214,7 +224,12 @@ public class DefaultWorkflowEngine implements WorkflowEngine {
     }
 
     private RunRecord progress(Path projectPath, RunRecord runRecord) {
-        return agentLoop.runUntilStable(runRecord, loopState -> progressOnce(projectPath, loopState));
+        try {
+            return agentLoop.runUntilStable(runRecord, loopState -> progressOnce(projectPath, loopState));
+        } catch (RuntimeException ex) {
+            markFatalFailure(projectPath, runRecord.runId(), runRecord.currentStage(), ex);
+            throw ex;
+        }
     }
 
     private LoopStepResult progressOnce(Path projectPath, LoopState loopState) {
@@ -456,17 +471,42 @@ public class DefaultWorkflowEngine implements WorkflowEngine {
         RunRecord persistedRunning = runRepository.save(draft);
         eventLogStore.append(runRecord.projectPath(), runRecord.runId(), "Entering stage " + stageType + " attempt=" + nextExecution.attempt() + ".");
 
-        // StageArtifactComposer encapsulates the stage-specific generation/execution logic.
-        String artifactContent = stageArtifactComposer.compose(runRecord.projectPath(), persistedRunning, stageType, note);
-        String artifactPath = artifactStore.writeArtifact(runRecord.projectPath(), runRecord.runId(), stageType, artifactContent).toString();
+        try {
+            // StageArtifactComposer encapsulates the stage-specific generation/execution logic.
+            String artifactContent = stageArtifactComposer.compose(runRecord.projectPath(), persistedRunning, stageType, note);
+            String artifactPath = artifactStore.writeArtifact(runRecord.projectPath(), runRecord.runId(), stageType, artifactContent).toString();
+            nextStates.put(
+                    stageType,
+                    nextExecution.withArtifactPath(artifactPath)
+                            .withReview(null, null, null)
+            );
+            eventLogStore.append(runRecord.projectPath(), runRecord.runId(), "Entered stage " + stageType + " attempt=" + nextExecution.attempt() + ".");
+            RunRecord saved = persistedRunning.withCurrentStage(stageType, runStatus, nextStates, Instant.now());
+            return runRepository.save(saved);
+        } catch (RuntimeException ex) {
+            markFatalFailure(runRecord.projectPath(), runRecord.runId(), stageType, ex);
+            throw ex;
+        }
+    }
+
+    private void markFatalFailure(Path projectPath, UUID runId, StageType stageType, RuntimeException ex) {
+        RunRecord latest = runRepository.findById(projectPath, runId).orElse(null);
+        if (latest == null || latest.status() == RunStatus.FAILED || latest.status() == RunStatus.COMPLETED || latest.status() == RunStatus.CANCELLED) {
+            return;
+        }
+        Map<StageType, StageExecution> nextStates = new EnumMap<>(latest.stageStates());
+        StageExecution currentExecution = requireStage(nextStates, stageType);
         nextStates.put(
                 stageType,
-                nextExecution.withArtifactPath(artifactPath)
-                        .withReview(null, null, null)
+                currentExecution.withStatus(StageStatus.FAILED)
+                        .withReview(
+                                ReviewDecision.REJECTED,
+                                "Stage failed due to runtime exception",
+                                ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()
+                        )
         );
-        eventLogStore.append(runRecord.projectPath(), runRecord.runId(), "Entered stage " + stageType + " attempt=" + nextExecution.attempt() + ".");
-        RunRecord saved = persistedRunning.withCurrentStage(stageType, runStatus, nextStates, Instant.now());
-        return runRepository.save(saved);
+        eventLogStore.append(projectPath, runId, "Stage " + stageType + " failed due to fatal error: " + ex.getMessage());
+        runRepository.save(latest.withCurrentStage(stageType, RunStatus.FAILED, nextStates, Instant.now()));
     }
 
     private String renderReviewArtifact(StageType stageType, ReviewResult reviewResult) {

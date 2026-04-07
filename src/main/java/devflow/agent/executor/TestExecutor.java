@@ -102,10 +102,11 @@ public class TestExecutor {
     }
 
     private RuntimeSnapshot captureRuntimeSnapshot(Path projectPath, ProjectFingerprint fingerprint) {
-        if (!("web-static".equals(fingerprint.projectType()) || "web-app".equals(fingerprint.projectType())) || !fingerprint.hasHtmlEntry()) {
+        if (!("web-static".equals(fingerprint.projectType()) || "web-app".equals(fingerprint.projectType()))
+                || !fingerprint.hasResolvedHtmlEntry()) {
             return null;
         }
-        return playwrightCaseExecutor.captureRuntimeSnapshot(projectPath, "index.html");
+        return playwrightCaseExecutor.captureRuntimeSnapshot(projectPath, fingerprint.resolvedHtmlEntryPath());
     }
 
     private String renderTestCases(TestCasePlan plan) {

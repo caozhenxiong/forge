@@ -50,6 +50,7 @@ public class TestCasePlanner {
             String implementationReport,
             RuntimeSnapshot runtimeSnapshot
     ) {
+        String detectedEntry = resolveEntry(fingerprint);
         List<TestCaseSpec> fallback = fallbackCases(projectPath, fingerprint, prd, design, implementationReport, runtimeSnapshot);
         if (llmProvider == null) {
             return new TestCasePlan("未配置模型，使用默认网页测试用例。", fallback);
@@ -69,7 +70,7 @@ public class TestCasePlanner {
                                   "title": "标题",
                                   "type": "smoke|functional",
                                   "required": true,
-                                  "entry": "index.html",
+                                  "entry": "实际入口相对路径，例如 public/index.html",
                                   "preconditions": "前置条件，无则空字符串",
                                   "expected": "预期结果",
                                   "steps": [
@@ -135,7 +136,7 @@ public class TestCasePlanner {
                     ModelRole.TEST_CASE_DESIGN
             );
             PlannedCasesPayload payload = objectMapper.readValue(extractJsonObject(response), PlannedCasesPayload.class);
-            List<TestCaseSpec> planned = sanitize(payload.cases(), fallback);
+            List<TestCaseSpec> planned = sanitize(payload.cases(), fallback, detectedEntry);
             if (!planned.isEmpty()) {
                 String summary = payload.summary() == null || payload.summary().isBlank()
                         ? "模型基于当前实现生成测试用例。"
@@ -157,8 +158,8 @@ public class TestCasePlanner {
             RuntimeSnapshot runtimeSnapshot
     ) {
         List<TestCaseSpec> cases = new ArrayList<>();
-        String entry = fingerprint.hasHtmlEntry() ? "index.html" : "";
-        if (fingerprint.hasHtmlEntry()) {
+        String entry = resolveEntry(fingerprint);
+        if (fingerprint.hasResolvedHtmlEntry()) {
             cases.add(new TestCaseSpec(
                     "TC-SMOKE-LOAD",
                     "页面可加载且无致命错误",
@@ -175,7 +176,7 @@ public class TestCasePlanner {
         }
 
         try {
-            if (fingerprint.hasHtmlEntry()) {
+            if (fingerprint.hasResolvedHtmlEntry()) {
                 String html = workspace.readFile(projectPath, Path.of(entry));
                 HtmlStructureSnapshot htmlSnapshot = treeSitterSupport.inspectHtml(html);
                 if (htmlSnapshot.hasCanvas()) {
@@ -276,7 +277,7 @@ public class TestCasePlanner {
         return cases;
     }
 
-    private List<TestCaseSpec> sanitize(List<PlannedCasePayload> rawCases, List<TestCaseSpec> fallback) {
+    private List<TestCaseSpec> sanitize(List<PlannedCasePayload> rawCases, List<TestCaseSpec> fallback, String defaultEntry) {
         if (rawCases == null || rawCases.isEmpty()) {
             return fallback;
         }
@@ -294,13 +295,17 @@ public class TestCasePlanner {
                     raw.title().trim(),
                     blank(raw.type()).isBlank() ? "smoke" : raw.type().trim(),
                     raw.required() == null || raw.required(),
-                    blank(raw.entry()).isBlank() ? "index.html" : raw.entry().trim(),
+                    blank(raw.entry()).isBlank() ? defaultEntry : raw.entry().trim(),
                     blank(raw.preconditions()),
                     blank(raw.expected()),
                     steps
             ));
         }
         return result.isEmpty() ? fallback : result;
+    }
+
+    private String resolveEntry(ProjectFingerprint fingerprint) {
+        return fingerprint == null ? "" : fingerprint.resolvedHtmlEntryPath();
     }
 
     private List<TestStepSpec> sanitizeSteps(List<PlannedStepPayload> rawSteps) {

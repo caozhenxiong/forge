@@ -30,6 +30,9 @@ public class TreeSitterSupport {
     private static final Pattern TAG_NAME_PATTERN = Pattern.compile("^<\\s*([A-Za-z0-9:-]+)");
     private static final Pattern ID_PATTERN = Pattern.compile("\\bid\\s*=\\s*[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
     private static final Pattern CLASS_PATTERN = Pattern.compile("\\bclass\\s*=\\s*[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
+    private static final Pattern TSX_CLASS_PATTERN = Pattern.compile("(?m)^\\s*(?:export\\s+)?class\\s+([A-Za-z_$][\\w$]*)\\b");
+    private static final Pattern TSX_FUNCTION_PATTERN = Pattern.compile("(?m)^\\s*(?:export\\s+)?function\\s+([A-Za-z_$][\\w$]*)\\b");
+    private static final Pattern TSX_VARIABLE_PATTERN = Pattern.compile("(?m)^\\s*(?:export\\s+)?(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\b");
 
     public TreeSitterParseSummary analyze(Path relativePath, String source) {
         return analyze(SourceLanguage.fromPath(relativePath), source);
@@ -125,6 +128,16 @@ public class TreeSitterSupport {
             case GO -> inspectGoSymbols(source, metrics.rootNode());
             default -> List.of();
         };
+        if (language == SourceLanguage.TYPESCRIPT && !summary.valid() && looksLikeTsx(source)) {
+            List<CodeSymbol> fallbackSymbols = inspectTsxSymbolsByHeuristics(source);
+            if (!fallbackSymbols.isEmpty()) {
+                return new CodeStructureSnapshot(
+                        language,
+                        new TreeSitterParseSummary(language, true, true, 0, 0),
+                        fallbackSymbols
+                );
+            }
+        }
         return new CodeStructureSnapshot(language, summary, symbols);
     }
 
@@ -326,6 +339,14 @@ public class TreeSitterSupport {
                 }
             }
         });
+        return deduplicateSymbols(symbols);
+    }
+
+    private List<CodeSymbol> inspectTsxSymbolsByHeuristics(String source) {
+        List<CodeSymbol> symbols = new ArrayList<>();
+        addPatternSymbols(source, symbols, TSX_CLASS_PATTERN, "class");
+        addPatternSymbols(source, symbols, TSX_FUNCTION_PATTERN, "function");
+        addPatternSymbols(source, symbols, TSX_VARIABLE_PATTERN, "variable");
         return deduplicateSymbols(symbols);
     }
 
@@ -558,6 +579,25 @@ public class TreeSitterSupport {
         }
     }
 
+    private void addPatternSymbols(String source, List<CodeSymbol> symbols, Pattern pattern, String kind) {
+        Matcher matcher = pattern.matcher(source);
+        while (matcher.find()) {
+            String name = matcher.group(1);
+            if (name == null || name.isBlank()) {
+                continue;
+            }
+            int declarationStart = matcher.start();
+            int bodyStart = findNextBodyStart(source, matcher.end());
+            int declarationEnd = bodyStart >= 0 ? findMatchingBrace(source, bodyStart) + 1 : matcher.end();
+            if (declarationEnd <= declarationStart) {
+                declarationEnd = matcher.end();
+            }
+            ByteRange replaceRange = new ByteRange(declarationStart, declarationEnd);
+            ByteRange bodyRange = bodyStart >= 0 ? new ByteRange(bodyStart + 1, Math.max(bodyStart + 1, declarationEnd - 1)) : null;
+            symbols.add(new CodeSymbol(name, kind, replaceRange, bodyRange != null && bodyRange.isValid() ? bodyRange : null));
+        }
+    }
+
     private TSNode findChildByTypes(TSNode parent, String... types) {
         if (parent == null || parent.isNull()) {
             return null;
@@ -571,6 +611,38 @@ public class TreeSitterSupport {
             }
         }
         return null;
+    }
+
+    private boolean looksLikeTsx(String source) {
+        return source != null
+                && source.contains("<")
+                && source.contains(">")
+                && (source.contains("JSX.") || source.contains("</") || source.contains("/>"));
+    }
+
+    private int findNextBodyStart(String source, int fromIndex) {
+        for (int index = fromIndex; index < source.length(); index++) {
+            if (source.charAt(index) == '{') {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private int findMatchingBrace(String source, int openBraceIndex) {
+        int depth = 0;
+        for (int index = openBraceIndex; index < source.length(); index++) {
+            char ch = source.charAt(index);
+            if (ch == '{') {
+                depth++;
+            } else if (ch == '}') {
+                depth--;
+                if (depth == 0) {
+                    return index;
+                }
+            }
+        }
+        return openBraceIndex;
     }
 
     private String sliceSimpleName(String source, TSNode node) {

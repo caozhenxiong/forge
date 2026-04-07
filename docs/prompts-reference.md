@@ -475,6 +475,7 @@ system prompt 核心：
   - `ROUTE_TO_REPAIR`
   - `ROLLBACK_STAGE`
   - `FAIL_RUN`
+- `REQUEST_HUMAN_REVIEW` 只有当前阶段 gate 为 `AGENT_PLUS_HUMAN` 时才允许选择
 - 对复杂前端/网页/游戏任务，优先给出更小粒度的 `focus / constraints`
 - 鼓励“先可运行骨架，再渐进填充”，不要鼓励单轮完成整个产品
 - `ROUTE_TO_REPAIR` 只在重复问题明确且适合定点修补时使用
@@ -724,7 +725,7 @@ system prompt 核心：
       "title": "标题",
       "type": "smoke|functional",
       "required": true,
-      "entry": "index.html",
+      "entry": "实际入口相对路径，例如 public/index.html",
       "preconditions": "",
       "expected": "预期结果",
       "steps": [

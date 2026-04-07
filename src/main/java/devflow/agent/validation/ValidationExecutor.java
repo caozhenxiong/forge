@@ -53,7 +53,7 @@ public class ValidationExecutor {
             case YARN_TEST -> runCommandStep(projectPath, ValidationCapability.YARN_TEST, List.of("yarn", "test"), step.reason(), false);
             case WEB_RESOURCE_LINK_CHECK -> runWebResourceLinkCheck(projectPath, step.reason());
             case WEB_JAVASCRIPT_SYNTAX_CHECK -> runJavaScriptSyntaxCheck(projectPath, step.reason());
-            case WEB_PLAYWRIGHT_SMOKE -> runPlaywrightSmoke(projectPath, step.reason());
+            case WEB_PLAYWRIGHT_SMOKE -> runPlaywrightSmoke(projectPath, fingerprint, step.reason());
         };
     }
 
@@ -135,20 +135,29 @@ public class ValidationExecutor {
         );
     }
 
-    private ValidationStepResult runPlaywrightSmoke(Path projectPath, String reason) {
-        Path entry = projectPath.resolve("index.html");
-        if (!Files.exists(entry)) {
+    private ValidationStepResult runPlaywrightSmoke(Path projectPath, ProjectFingerprint fingerprint, String reason) {
+        String entry = fingerprint == null ? "" : fingerprint.resolvedHtmlEntryPath();
+        if (entry.isBlank()) {
             return new ValidationStepResult(
                     ValidationCapability.WEB_PLAYWRIGHT_SMOKE,
                     ValidationStatus.SKIPPED,
-                    "未找到 index.html，跳过浏览器 smoke test。",
+                    "未探测到 HTML 入口，跳过浏览器 smoke test。",
                     reason
+            );
+        }
+        Path entryPath = projectPath.resolve(entry);
+        if (!Files.exists(entryPath)) {
+            return new ValidationStepResult(
+                    ValidationCapability.WEB_PLAYWRIGHT_SMOKE,
+                    ValidationStatus.SKIPPED,
+                    "探测到的 HTML 入口不存在，跳过浏览器 smoke test。",
+                    reason + "\nentry=" + entry
             );
         }
         Path scriptPath = Path.of("tools", "playwright-smoke", "run-smoke.mjs").toAbsolutePath();
         CommandResult result = workspace.runCommand(
                 projectPath,
-                List.of("node", scriptPath.toString(), projectPath.toString(), "index.html"),
+                List.of("node", scriptPath.toString(), projectPath.toString(), entry),
                 Duration.ofMinutes(2)
         );
         if (result.exitCode() != 0) {

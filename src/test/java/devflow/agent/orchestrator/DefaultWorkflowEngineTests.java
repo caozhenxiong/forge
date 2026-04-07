@@ -363,7 +363,7 @@ class DefaultWorkflowEngineTests {
     }
 
     @Test
-    void startRunPersistsRunningStageBeforeArtifactGeneration() {
+    void fatalGenerationErrorMarksRunFailed() {
         FileRunRepository runRepository = new FileRunRepository();
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
         FileProjectWorkspace workspace = new FileProjectWorkspace();
@@ -416,7 +416,8 @@ class DefaultWorkflowEngineTests {
 
         RunRecord persisted = workflowEngine.find(tempDir, created.runId());
         assertEquals(StageType.ANALYSIS, persisted.currentStage());
-        assertEquals(StageStatus.RUNNING, persisted.stageStates().get(StageType.ANALYSIS).status());
+        assertEquals(RunStatus.FAILED, persisted.status());
+        assertEquals(StageStatus.FAILED, persisted.stageStates().get(StageType.ANALYSIS).status());
         assertEquals(1, persisted.stageStates().get(StageType.ANALYSIS).attempt());
     }
 

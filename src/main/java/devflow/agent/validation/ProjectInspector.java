@@ -2,6 +2,7 @@ package devflow.agent.validation;
 
 import devflow.agent.project.FileProjectWorkspace;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -24,6 +25,7 @@ public class ProjectInspector {
         boolean hasHtmlEntry = false;
         boolean hasJavaScript = false;
         boolean hasTypeScript = false;
+        Set<String> htmlEntries = new LinkedHashSet<>();
 
         for (Path relativePath : files) {
             String normalized = relativePath.toString().replace('\\', '/');
@@ -33,7 +35,10 @@ public class ProjectInspector {
             hasGradleWrapper |= fileName.equals("gradlew");
             hasGradleBuild |= fileName.equals("build.gradle") || fileName.equals("build.gradle.kts");
             hasPackageJson |= fileName.equals("package.json");
-            hasHtmlEntry |= fileName.endsWith(".html");
+            if (fileName.endsWith(".html")) {
+                hasHtmlEntry = true;
+                htmlEntries.add(normalized);
+            }
             hasJavaScript |= fileName.endsWith(".js") || fileName.endsWith(".mjs") || fileName.endsWith(".cjs");
             hasTypeScript |= fileName.endsWith(".ts") || fileName.endsWith(".tsx");
         }
@@ -60,6 +65,7 @@ public class ProjectInspector {
             projectType = "web-static";
         }
 
+        String htmlEntryPath = resolveHtmlEntryPath(htmlEntries);
         List<String> evidence = List.of(
                 "projectType=" + projectType,
                 "packageManager=" + packageManager,
@@ -68,6 +74,7 @@ public class ProjectInspector {
                 "hasGradleBuild=" + hasGradleBuild,
                 "hasPackageJson=" + hasPackageJson,
                 "hasHtmlEntry=" + hasHtmlEntry,
+                "htmlEntryPath=" + htmlEntryPath,
                 "hasJavaScript=" + hasJavaScript,
                 "hasTypeScript=" + hasTypeScript
         );
@@ -82,8 +89,33 @@ public class ProjectInspector {
                 hasHtmlEntry,
                 hasJavaScript,
                 hasTypeScript,
+                htmlEntryPath,
                 fileNames,
                 evidence
         );
+    }
+
+    private String resolveHtmlEntryPath(Set<String> htmlEntries) {
+        if (htmlEntries.isEmpty()) {
+            return "";
+        }
+        if (htmlEntries.contains("index.html")) {
+            return "index.html";
+        }
+        for (String candidate : List.of("public/index.html", "dist/index.html", "src/index.html")) {
+            if (htmlEntries.contains(candidate)) {
+                return candidate;
+            }
+        }
+        return htmlEntries.stream()
+                .min(Comparator.<String>comparingInt(this::pathDepth).thenComparing(String::compareTo))
+                .orElse("");
+    }
+
+    private int pathDepth(String path) {
+        if (path == null || path.isBlank()) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) path.chars().filter(ch -> ch == '/').count();
     }
 }

@@ -103,6 +103,25 @@ class TestExecutorTests {
 
         ProjectInspector inspector = new ProjectInspector(new FileProjectWorkspace());
         assertEquals("web-static", inspector.inspect(tempDir).projectType());
+        assertEquals("index.html", inspector.inspect(tempDir).resolvedHtmlEntryPath());
+    }
+
+    @Test
+    void projectInspectorResolvesHtmlEntryWhenIndexIsMissing() throws Exception {
+        Files.writeString(
+                tempDir.resolve("play.html"),
+                """
+                        <!DOCTYPE html>
+                        <html lang="zh-CN">
+                        <body>
+                          <main id="app"></main>
+                        </body>
+                        </html>
+                        """
+        );
+
+        ProjectInspector inspector = new ProjectInspector(new FileProjectWorkspace());
+        assertEquals("play.html", inspector.inspect(tempDir).resolvedHtmlEntryPath());
     }
 
     @Test

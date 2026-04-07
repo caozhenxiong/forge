@@ -23,8 +23,9 @@ public class PlaywrightCaseExecutor {
     }
 
     public List<TestCaseResult> execute(Path projectPath, TestCasePlan plan) {
+        Path tempFile = null;
         try {
-            Path tempFile = Files.createTempFile("devflow-testcases-", ".json");
+            tempFile = Files.createTempFile("devflow-testcases-", ".json");
             Files.writeString(tempFile, objectMapper.writeValueAsString(plan));
             CommandResult result = workspace.runCommand(
                     projectPath,
@@ -36,7 +37,6 @@ public class PlaywrightCaseExecutor {
                     ),
                     Duration.ofSeconds(90)
             );
-            Files.deleteIfExists(tempFile);
             if (result.exitCode() != 0 && (result.stdout() == null || result.stdout().isBlank())) {
                 return List.of(new TestCaseResult(
                         "EXECUTOR",
@@ -80,12 +80,15 @@ public class PlaywrightCaseExecutor {
                     "executor-exception",
                     exception.getMessage()
             ));
+        } finally {
+            deleteQuietly(tempFile);
         }
     }
 
     public RuntimeSnapshot captureRuntimeSnapshot(Path projectPath, String entry) {
+        Path tempFile = null;
         try {
-            Path tempFile = Files.createTempFile("devflow-runtime-snapshot-", ".json");
+            tempFile = Files.createTempFile("devflow-runtime-snapshot-", ".json");
             Files.writeString(tempFile, "{\"entry\":\"" + escapeJson(entry) + "\"}");
             CommandResult result = workspace.runCommand(
                     projectPath,
@@ -98,7 +101,6 @@ public class PlaywrightCaseExecutor {
                     ),
                     Duration.ofSeconds(60)
             );
-            Files.deleteIfExists(tempFile);
             if (result.exitCode() != 0 && (result.stdout() == null || result.stdout().isBlank())) {
                 return new RuntimeSnapshot(entry, "", null, 0, List.of(), List.of(trim(result.stderr())), List.of());
             }
@@ -114,6 +116,8 @@ public class PlaywrightCaseExecutor {
             );
         } catch (Exception exception) {
             return new RuntimeSnapshot(entry, "", null, 0, List.of(), List.of(exception.getMessage()), List.of());
+        } finally {
+            deleteQuietly(tempFile);
         }
     }
 
@@ -134,6 +138,16 @@ public class PlaywrightCaseExecutor {
 
     private String escapeJson(String value) {
         return value == null ? "" : value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private void deleteQuietly(Path path) {
+        if (path == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException ignored) {
+        }
     }
 
     private String trim(String value) {

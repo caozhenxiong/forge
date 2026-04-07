@@ -93,4 +93,37 @@ class TestCasePlannerTests {
                 testCase.steps().stream().anyMatch(step -> ".pause-btn".equals(step.selector()))
         ));
     }
+
+    @Test
+    void fallbackUsesDetectedHtmlEntryWhenIndexIsMissing() throws Exception {
+        Files.createDirectories(tempDir.resolve("pages"));
+        Files.writeString(
+                tempDir.resolve("pages").resolve("play.html"),
+                """
+                        <!DOCTYPE html>
+                        <html lang="zh-CN">
+                        <body>
+                          <button id="startBtn">开始</button>
+                        </body>
+                        </html>
+                        """
+        );
+
+        FileProjectWorkspace workspace = new FileProjectWorkspace();
+        ProjectFingerprint fingerprint = new ProjectInspector(workspace).inspect(tempDir);
+        TestCasePlanner planner = new TestCasePlanner(workspace, null, new com.fasterxml.jackson.databind.ObjectMapper());
+
+        TestCasePlan plan = planner.plan(
+                tempDir,
+                fingerprint,
+                "实现一个俄罗斯方块",
+                "需要纯网页版",
+                "# 产品需求文档\n",
+                "# 技术方案\n",
+                "",
+                null
+        );
+
+        assertTrue(plan.cases().stream().allMatch(testCase -> "pages/play.html".equals(testCase.entry())));
+    }
 }

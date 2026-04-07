@@ -13,7 +13,16 @@ public record ProjectFingerprint(
         boolean hasHtmlEntry,
         boolean hasJavaScript,
         boolean hasTypeScript,
+        String htmlEntryPath,
         Set<String> fileNames,
         List<String> evidence
 ) {
+
+    public String resolvedHtmlEntryPath() {
+        return htmlEntryPath == null ? "" : htmlEntryPath;
+    }
+
+    public boolean hasResolvedHtmlEntry() {
+        return !resolvedHtmlEntryPath().isBlank();
+    }
 }

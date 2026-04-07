@@ -275,9 +275,11 @@ mvn -q spring-boot:run -Dspring-boot.run.arguments='run logs <runId> --project /
 - code review / test 打回后会把 `PATCH` 或 `REWORK` 明确传回 implementation
 - 连续相同失败会触发 diagnosis，并生成 `repair_brief.md` 再交给 repair 路径
 - `SupervisorAgent` 会把 review 结果、history、`repair_brief` 汇总成结构化流程决策，并额外落盘 `supervisor_decision.md`
+- `REQUEST_HUMAN_REVIEW` 只有当前阶段 gate 为 `AGENT_PLUS_HUMAN` 时才允许生效，不会再把 `AGENT_ONLY` 阶段错误阻塞到人工
 - 测试层已拆出 `ProjectInspector / ValidationStrategyPlanner / ValidationExecutor`
 - TEST 阶段现在会额外生成 `test_cases.md` 和 `test_execution.md`
 - 网页项目会先做浏览器级 `Playwright` smoke，再按结构化 testcase 执行关键用例
+- 运行时快照、Playwright smoke 和 testcase 默认入口都会复用 `ProjectInspector` 探测到的真实 HTML entry，而不是写死 `index.html`
 - 若 `DESIGN` 定义了性能验收要求，网页项目的 TEST case 还支持：
   - `MEASURE_PAGE_LOAD_MAX_MS`
   - `ASSERT_WINDOW_METRIC_MAX_MS`

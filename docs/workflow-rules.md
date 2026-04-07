@@ -732,9 +732,14 @@ review 补充规则：
 
 1. `self-check`
 2. `runtime snapshot`
-2. `test case design`
-3. `test execution`
-4. 汇总 test report
+3. `test case design`
+4. `test execution`
+5. 汇总 test report
+
+补充规则：
+
+- `runtime snapshot`、Playwright smoke 和 testcase 默认入口必须复用探测到的真实 HTML entry，不允许写死 `index.html`
+- required testcase 若缺少可执行入口或运行时元素，应记为 `BLOCKED` 或 `FAILED`，不能因为执行器回退而默认通过
 
 ### `self-check` 的职责边界
 
