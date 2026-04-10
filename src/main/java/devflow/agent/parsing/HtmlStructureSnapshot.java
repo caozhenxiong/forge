@@ -7,8 +7,10 @@ public record HtmlStructureSnapshot(
         boolean hasHtmlRoot,
         boolean hasBody,
         boolean hasCanvas,
+        int inlineStyleCount,
         int inlineScriptCount,
         Set<String> idSelectors,
+        Set<String> classSelectors,
         Set<String> buttonSelectors
 ) {
 }

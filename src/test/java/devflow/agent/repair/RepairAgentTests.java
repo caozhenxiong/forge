@@ -1,5 +1,10 @@
 package devflow.agent.repair;
 
+import devflow.agent.i18n.DocumentLanguage;
+import devflow.agent.protocol.ArtifactBlockKind;
+import devflow.agent.protocol.ExecutionDirectivePayload;
+import devflow.agent.protocol.ExecutionDirectiveProtocol;
+import devflow.agent.quality.CapabilitySurface;
 import devflow.agent.review.FixMode;
 import org.junit.jupiter.api.Test;
 
@@ -56,12 +61,14 @@ class RepairAgentTests {
                 "请回到页面结构问题",
                 "index.html 当前不是 HTML",
                 "恢复首页结构",
-                brief
+                List.of(CapabilitySurface.PRIMARY_INTERACTION.wireValue()),
+                brief,
+                DocumentLanguage.ZH
         );
 
-        assertTrue(note.contains("[REPAIR_BRIEF_ENFORCED]"));
-        assertTrue(note.contains("Must Fix First"));
-        assertTrue(note.contains("Forbidden Directions"));
+        assertTrue(note.contains(ArtifactBlockKind.EXECUTION_DIRECTIVES.beginMarker()));
         assertTrue(note.contains("如果本轮没有覆盖上述关键项，视为修复未完成"));
+        ExecutionDirectivePayload directives = ExecutionDirectiveProtocol.parseMerged(note);
+        assertTrue(directives.requiredCapabilitySurfaces().contains(CapabilitySurface.PRIMARY_INTERACTION.wireValue()));
     }
 }

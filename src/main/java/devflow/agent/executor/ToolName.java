@@ -1,0 +1,17 @@
+package devflow.agent.executor;
+
+/**
+ * 首批接入统一结果模型的本地工具名。
+ */
+public enum ToolName {
+    PATCH_APPLY,
+    TREE_SITTER_VERIFY,
+    CONTENT_VERIFY,
+    COMMAND_VALIDATE,
+    RESOURCE_LINK_VERIFY,
+    RUNTIME_WIRING_VERIFY,
+    JAVASCRIPT_SYNTAX_VERIFY,
+    PLAYWRIGHT_SMOKE,
+    TEST_CASE_EXECUTION,
+    RUNTIME_SNAPSHOT_CAPTURE
+}

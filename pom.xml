@@ -26,6 +26,7 @@
         <tree.sitter.typescript.version>0.23.2</tree.sitter.typescript.version>
         <tree.sitter.python.version>0.25.0</tree.sitter.python.version>
         <tree.sitter.go.version>0.25.0</tree.sitter.go.version>
+        <tree.sitter.css.version>0.23.1</tree.sitter.css.version>
     </properties>
 
     <dependencies>
@@ -75,6 +76,16 @@
             <groupId>io.github.bonede</groupId>
             <artifactId>tree-sitter-go</artifactId>
             <version>${tree.sitter.go.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.bonede</groupId>
+            <artifactId>tree-sitter-css</artifactId>
+            <version>${tree.sitter.css.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.18.3</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

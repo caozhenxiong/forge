@@ -1,5 +1,7 @@
 package devflow.agent.context;
 
+import devflow.agent.i18n.DocumentLanguage;
+import devflow.agent.i18n.PlaceholderValues;
 import devflow.agent.orchestrator.StageType;
 
 public record FailureDigest(
@@ -11,22 +13,31 @@ public record FailureDigest(
 ) {
 
     public String toMarkdown() {
+        return toMarkdown(DocumentLanguage.EN);
+    }
+
+    public String toMarkdown(DocumentLanguage language) {
         return """
-                - stage: %s
-                - summary: %s
-                - changeRequest: %s
-                - evidence: %s
-                - actionItems: %s
+                - %s: %s
+                - %s: %s
+                - %s: %s
+                - %s: %s
+                - %s: %s
                 """.formatted(
+                language.choose("阶段", "stage"),
                 stageType,
-                blank(summary),
-                blank(changeRequest),
-                blank(evidence),
-                blank(actionItems)
+                language.choose("摘要", "summary"),
+                blank(summary, language),
+                language.choose("修改要求", "changeRequest"),
+                blank(changeRequest, language),
+                language.choose("证据", "evidence"),
+                blank(evidence, language),
+                language.choose("行动项", "actionItems"),
+                blank(actionItems, language)
         ).trim();
     }
 
-    private String blank(String value) {
-        return value == null ? "" : value;
+    private String blank(String value, DocumentLanguage language) {
+        return PlaceholderValues.orNone(value, language);
     }
 }

@@ -109,10 +109,14 @@ class TreeSitterSupportTests {
                 Path.of("app.js"),
                 """
                 class Game {
-                    tick() {}
+                    tick() {
+                        const drawX = 1;
+                    }
                 }
 
-                function boot() {}
+                function boot() {
+                    const drawY = 2;
+                }
                 const score = 0;
                 """
         );
@@ -138,14 +142,32 @@ class TreeSitterSupportTests {
 
         assertTrue(javascriptSnapshot.supportsPreciseEditing());
         assertTrue(typescriptSnapshot.supportsPreciseEditing());
-        assertTrue(tsxSnapshot.supportsPreciseEditing());
+        assertFalse(tsxSnapshot.supportsPreciseEditing());
         assertTrue(javascriptSnapshot.symbols().stream().anyMatch(symbol -> "Game".equals(symbol.name()) && "class".equals(symbol.kind())));
         assertTrue(javascriptSnapshot.symbols().stream().anyMatch(symbol -> "tick".equals(symbol.name()) && "method".equals(symbol.kind())));
         assertTrue(javascriptSnapshot.symbols().stream().anyMatch(symbol -> "boot".equals(symbol.name()) && "function".equals(symbol.kind())));
         assertTrue(javascriptSnapshot.symbols().stream().anyMatch(symbol -> "score".equals(symbol.name()) && "variable".equals(symbol.kind())));
+        assertFalse(javascriptSnapshot.symbols().stream().anyMatch(symbol -> "drawX".equals(symbol.name())));
+        assertFalse(javascriptSnapshot.symbols().stream().anyMatch(symbol -> "drawY".equals(symbol.name())));
         assertTrue(typescriptSnapshot.symbols().stream().anyMatch(symbol -> "Game".equals(symbol.name()) && "class".equals(symbol.kind())));
         assertTrue(typescriptSnapshot.symbols().stream().anyMatch(symbol -> "boot".equals(symbol.name()) && "function".equals(symbol.kind())));
         assertTrue(typescriptSnapshot.symbols().stream().anyMatch(symbol -> "score".equals(symbol.name()) && "variable".equals(symbol.kind())));
-        assertTrue(tsxSnapshot.symbols().stream().anyMatch(symbol -> "App".equals(symbol.name()) && "function".equals(symbol.kind())));
+        assertTrue(tsxSnapshot.symbols().isEmpty());
+    }
+
+    @Test
+    void malformedTsxDoesNotInventHeuristicSymbols() {
+        CodeStructureSnapshot malformedTsxSnapshot = support.inspectCodeStructure(
+                Path.of("broken.tsx"),
+                """
+                export function App(): JSX.Element {
+                    return <main>
+                }
+                """
+        );
+
+        assertFalse(malformedTsxSnapshot.parseSummary().valid());
+        assertTrue(malformedTsxSnapshot.symbols().isEmpty());
+        assertFalse(malformedTsxSnapshot.supportsPreciseEditing());
     }
 }

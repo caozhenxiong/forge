@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
 import { chromium } from 'playwright';
-import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import crypto from 'node:crypto';
+import { startStaticServer } from './static-server.mjs';
 
 async function main() {
   const snapshotMode = process.argv[2] === '--snapshot';
@@ -87,6 +88,13 @@ async function captureSnapshot(browser, port, entry) {
         }
         return Array.from(collected).sort();
       }),
+      exposedMetricKeys: await page.evaluate(() => {
+        const root = window.__devflowMetrics;
+        if (!root || typeof root !== 'object' || Array.isArray(root)) {
+          return [];
+        }
+        return Object.keys(root).filter((key) => typeof key === 'string' && key.trim()).sort();
+      }),
       consoleErrors,
       pageErrors
     };
@@ -95,38 +103,12 @@ async function captureSnapshot(browser, port, entry) {
   }
 }
 
-function startStaticServer(rootDir) {
-  return new Promise((resolve, reject) => {
-    const server = http.createServer(async (req, res) => {
-      try {
-        const urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
-        const targetPath = path.resolve(rootDir, '.' + (urlPath === '/' ? '/index.html' : urlPath));
-        if (!targetPath.startsWith(path.resolve(rootDir))) {
-          res.writeHead(403);
-          res.end('forbidden');
-          return;
-        }
-        const body = await readFile(targetPath);
-        res.writeHead(200, { 'Content-Type': contentType(targetPath) });
-        res.end(body);
-      } catch {
-        res.writeHead(404);
-        res.end('not found');
-      }
-    });
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address();
-      resolve({ server, port: address.port });
-    });
-    server.on('error', reject);
-  });
-}
-
 async function runCase(browser, port, testCase) {
   const page = await browser.newPage();
   const consoleErrors = [];
   const pageErrors = [];
   const measurements = {};
+  const observations = new Map();
   page.on('console', (message) => {
     if (message.type() === 'error') {
       consoleErrors.push(message.text());
@@ -149,7 +131,7 @@ async function runCase(browser, port, testCase) {
     measurements.pageLoadMs = await readPageLoadMs(page);
     for (const step of testCase.steps || []) {
       try {
-        const note = await runStep(page, step, consoleErrors, pageErrors, measurements);
+        const note = await runStep(page, step, consoleErrors, pageErrors, measurements, observations);
         details.push(`PASS ${step.action}${step.selector ? ' ' + step.selector : ''}${step.key ? ' ' + step.key : ''}${note ? ' | ' + note : ''}`);
       } catch (error) {
         if (step.optional) {
@@ -206,7 +188,7 @@ function classifyFailure(step, message) {
   return 'assertion-failure';
 }
 
-async function runStep(page, step, consoleErrors, pageErrors, measurements) {
+async function runStep(page, step, consoleErrors, pageErrors, measurements, observations) {
   switch (step.action) {
     case 'ASSERT_SELECTOR': {
       await page.waitForSelector(step.selector, { timeout: 5000, state: 'attached' });
@@ -275,6 +257,42 @@ async function runStep(page, step, consoleErrors, pageErrors, measurements) {
       }
       return `${step.text}=${measured}ms limit=${step.ms ?? 'n/a'}ms`;
     }
+    case 'SNAPSHOT_CANVAS_HASH': {
+      const key = step.text || 'canvas';
+      const hash = await readCanvasHash(page, step.selector);
+      observations.set(key, hash);
+      return `snapshot=${key}`;
+    }
+    case 'ASSERT_CANVAS_HASH_CHANGED': {
+      const key = step.text || 'canvas';
+      const before = observations.get(key);
+      if (!before) {
+        throw new Error(`missing recorded canvas snapshot ${key}`);
+      }
+      const current = await readCanvasHash(page, step.selector);
+      if (before === current) {
+        throw new Error(`canvas snapshot ${key} did not change after interaction`);
+      }
+      return `snapshot=${key} changed`;
+    }
+    case 'SNAPSHOT_DOM_SIGNATURE': {
+      const key = step.text || 'dom';
+      const signature = await readDomSignature(page, step.selector);
+      observations.set(key, signature);
+      return `snapshot=${key}`;
+    }
+    case 'ASSERT_DOM_SIGNATURE_CHANGED': {
+      const key = step.text || 'dom';
+      const before = observations.get(key);
+      if (!before) {
+        throw new Error(`missing recorded DOM snapshot ${key}`);
+      }
+      const current = await readDomSignature(page, step.selector);
+      if (before === current) {
+        throw new Error(`DOM snapshot ${key} did not change after interaction`);
+      }
+      return `snapshot=${key} changed`;
+    }
     default:
       throw new Error(`unsupported action ${step.action}`);
   }
@@ -309,11 +327,37 @@ async function readWindowMetric(page, metricPath) {
   }, metricPath);
 }
 
-function contentType(filePath) {
-  if (filePath.endsWith('.html')) return 'text/html; charset=utf-8';
-  if (filePath.endsWith('.js')) return 'application/javascript; charset=utf-8';
-  if (filePath.endsWith('.css')) return 'text/css; charset=utf-8';
-  return 'application/octet-stream';
+async function readCanvasHash(page, selector) {
+  const dataUrl = await page.evaluate((requestedSelector) => {
+    const canvas = requestedSelector ? document.querySelector(requestedSelector) : document.querySelector('canvas');
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      return null;
+    }
+    return canvas.toDataURL();
+  }, selector || null);
+  if (!dataUrl) {
+    throw new Error(`canvas ${selector || 'canvas'} is unavailable`);
+  }
+  return crypto.createHash('sha256').update(dataUrl).digest('hex');
+}
+
+async function readDomSignature(page, selector) {
+  const snapshot = await page.evaluate((requestedSelector) => {
+    const element = requestedSelector ? document.querySelector(requestedSelector) : document.body;
+    if (!element) {
+      return null;
+    }
+    return {
+      text: (element.innerText || '').replace(/\s+/g, ' ').trim(),
+      childCount: element.childElementCount,
+      className: element.className || '',
+      html: element.outerHTML || ''
+    };
+  }, selector || null);
+  if (!snapshot) {
+    throw new Error(`DOM selector ${selector || 'body'} is unavailable`);
+  }
+  return crypto.createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');
 }
 
 main().catch((error) => {

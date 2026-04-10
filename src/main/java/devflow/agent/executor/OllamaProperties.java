@@ -10,10 +10,14 @@ public record OllamaProperties(
         ModelOverrides models
 ) {
 
+    private static final String DEFAULT_HOST = "http://127.0.0.1:11434";
+    private static final String DEFAULT_MODEL = "gemma4:26b";
+    private static final int DEFAULT_TIMEOUT_SECONDS = 300;
+
     public OllamaProperties {
-        host = host == null || host.isBlank() ? "http://127.0.0.1:11434" : host;
-        model = model == null || model.isBlank() ? "gemma4:26b" : model;
-        timeoutSeconds = timeoutSeconds <= 0 ? 300 : timeoutSeconds;
+        host = host == null || host.isBlank() ? DEFAULT_HOST : host;
+        model = model == null || model.isBlank() ? DEFAULT_MODEL : model;
+        timeoutSeconds = timeoutSeconds <= 0 ? DEFAULT_TIMEOUT_SECONDS : timeoutSeconds;
         models = models == null ? new ModelOverrides(null, null, null, null, null, null, null, null, null, null, null) : models;
     }
 
@@ -21,19 +25,37 @@ public record OllamaProperties(
         if (role == null) {
             return model;
         }
-        return switch (role) {
-            case ANALYSIS -> choose(models.analysis());
-            case PRD -> choose(models.prd());
-            case DESIGN -> choose(models.design());
-            case IMPLEMENTATION -> choose(models.implementation());
-            case CODE_REVIEW -> choose(models.codeReview());
-            case TEST -> choose(models.test());
-            case TEST_CASE_DESIGN -> choose(models.testCaseDesign());
-            case VALIDATION_STRATEGY -> choose(models.validationStrategy());
-            case DIAGNOSIS -> choose(models.diagnosis());
-            case REPAIR -> choose(models.repair());
-            case SUPERVISOR -> choose(models.supervisor());
-        };
+        if (role == ModelRole.ANALYSIS) {
+            return choose(models.analysis());
+        }
+        if (role == ModelRole.PRD) {
+            return choose(models.prd());
+        }
+        if (role == ModelRole.DESIGN) {
+            return choose(models.design());
+        }
+        if (role == ModelRole.IMPLEMENTATION) {
+            return choose(models.implementation());
+        }
+        if (role == ModelRole.CODE_REVIEW) {
+            return choose(models.codeReview());
+        }
+        if (role == ModelRole.TEST) {
+            return choose(models.test());
+        }
+        if (role == ModelRole.TEST_CASE_DESIGN) {
+            return choose(models.testCaseDesign());
+        }
+        if (role == ModelRole.VALIDATION_STRATEGY) {
+            return choose(models.validationStrategy());
+        }
+        if (role == ModelRole.DIAGNOSIS) {
+            return choose(models.diagnosis());
+        }
+        if (role == ModelRole.REPAIR) {
+            return choose(models.repair());
+        }
+        return choose(models.supervisor());
     }
 
     private String choose(String override) {

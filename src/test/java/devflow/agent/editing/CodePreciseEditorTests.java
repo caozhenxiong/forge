@@ -5,6 +5,7 @@ import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CodePreciseEditorTests {
@@ -159,5 +160,89 @@ class CodePreciseEditorTests {
 
         assertTrue(updated.contains("console.log(\"new\");"));
         assertTrue(updated.contains("function boot(): void"));
+    }
+
+    @Test
+    void replacesOnlyJavascriptFunctionBodyWithoutTouchingExportSignature() {
+        String source = """
+                export function checkLines(board) {
+                    return 0;
+                }
+                """;
+
+        String updated = editor.applyPatch(
+                Path.of("gameLogic.js"),
+                source,
+                new CodePrecisePatch(List.of(
+                        new CodePreciseOperation(
+                                CodePreciseAction.REPLACE_SYMBOL_BODY,
+                                "checkLines",
+                                "function",
+                                """
+                                const cleared = [];
+                                return cleared.length;
+                                """
+                        )
+                ))
+        );
+
+        assertTrue(updated.contains("export function checkLines(board) {"));
+        assertTrue(updated.contains("const cleared = [];"));
+        assertTrue(updated.contains("return cleared.length;"));
+    }
+
+    @Test
+    void resolvesContentFromContentLinesWhenPresent() {
+        String source = """
+                export function checkLines(board) {
+                    return 0;
+                }
+                """;
+
+        String updated = editor.applyPatch(
+                Path.of("gameLogic.js"),
+                source,
+                new CodePrecisePatch(List.of(
+                        new CodePreciseOperation(
+                                CodePreciseAction.REPLACE_SYMBOL_BODY,
+                                "checkLines",
+                                "function",
+                                null,
+                                List.of("const cleared = [];", "return cleared.length;")
+                        )
+                ))
+        );
+
+        assertTrue(updated.contains("const cleared = [];"));
+        assertTrue(updated.contains("return cleared.length;"));
+    }
+
+    @Test
+    void normalizesTargetKindToExistingSymbolKindWhenNameUniquelyMatches() {
+        String source = """
+                class PieceFactory {
+                    static createPiece() {
+                        return {};
+                    }
+                }
+                """;
+
+        CodePrecisePatch normalized = editor.normalizePatchTargets(
+                Path.of("piece-factory.js"),
+                source,
+                new CodePrecisePatch(List.of(
+                        new CodePreciseOperation(
+                                CodePreciseAction.REPLACE_SYMBOL_BODY,
+                                "createPiece",
+                                "function",
+                                null,
+                                List.of("return { type: 'I' };")
+                        )
+                ))
+        );
+
+        assertEquals("method", normalized.operations().getFirst().targetKind());
+        String updated = editor.applyPatch(Path.of("piece-factory.js"), source, normalized);
+        assertTrue(updated.contains("return { type: 'I' };"));
     }
 }

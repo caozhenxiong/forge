@@ -3,6 +3,13 @@ package devflow.agent.executor;
 public record ImplementationExecutionBundle(
         String implementationMarkdown,
         String backlogMarkdown,
-        String repairAlignmentMarkdown
+        String repairAlignmentMarkdown,
+        String sharedContextMarkdown,
+        String taskPackagesMarkdown,
+        String workerResultsMarkdown,
+        String eventsMarkdown,
+        String progressMarkdown,
+        String stateJson,
+        ImplementationRuntimeSnapshot snapshot
 ) {
 }

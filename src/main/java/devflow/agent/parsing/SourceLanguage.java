@@ -1,11 +1,13 @@
 package devflow.agent.parsing;
 
+import devflow.agent.util.ProjectPathSupport;
 import java.nio.file.Path;
 
 public enum SourceLanguage {
     HTML,
     JAVASCRIPT,
     TYPESCRIPT,
+    CSS,
     JAVA,
     PYTHON,
     GO,
@@ -15,24 +17,26 @@ public enum SourceLanguage {
         if (relativePath == null || relativePath.getFileName() == null) {
             return UNSUPPORTED;
         }
-        String fileName = relativePath.getFileName().toString().toLowerCase();
-        if (fileName.endsWith(".html") || fileName.endsWith(".htm")) {
+        String fileName = relativePath.getFileName().toString();
+        if (ProjectPathSupport.isHtml(fileName)) {
             return HTML;
         }
-        if (fileName.endsWith(".js") || fileName.endsWith(".mjs") || fileName.endsWith(".cjs")) {
+        if (ProjectPathSupport.isJavaScript(fileName)) {
             return JAVASCRIPT;
         }
-        if (fileName.endsWith(".ts") || fileName.endsWith(".tsx")
-                || fileName.endsWith(".mts") || fileName.endsWith(".cts")) {
+        if (ProjectPathSupport.isTypeScript(fileName)) {
             return TYPESCRIPT;
         }
-        if (fileName.endsWith(".java")) {
+        if (ProjectPathSupport.isStyle(fileName)) {
+            return CSS;
+        }
+        if (ProjectPathSupport.isJava(fileName)) {
             return JAVA;
         }
-        if (fileName.endsWith(".py")) {
+        if (ProjectPathSupport.isPython(fileName)) {
             return PYTHON;
         }
-        if (fileName.endsWith(".go")) {
+        if (ProjectPathSupport.isGo(fileName)) {
             return GO;
         }
         return UNSUPPORTED;

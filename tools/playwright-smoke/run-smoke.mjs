@@ -1,11 +1,10 @@
 import { chromium } from 'playwright';
-import { spawn } from 'node:child_process';
 import { access } from 'node:fs/promises';
 import path from 'node:path';
+import { startStaticServer } from './static-server.mjs';
 
 const projectPath = process.argv[2];
 const entryCandidate = process.argv[3] || 'index.html';
-const port = Number(process.argv[4] || 41731);
 
 if (!projectPath) {
   console.error('Missing project path');
@@ -21,31 +20,7 @@ try {
   process.exit(2);
 }
 
-const server = spawn('python3', ['-m', 'http.server', String(port), '--bind', '127.0.0.1'], {
-  cwd: normalizedProjectPath,
-  stdio: ['ignore', 'ignore', 'pipe']
-});
-
-let serverReady = false;
-let serverError = '';
-server.stderr.on('data', chunk => {
-  serverError += chunk.toString();
-});
-
-const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-for (let i = 0; i < 20; i++) {
-  if (server.exitCode !== null) {
-    console.error(`HTTP server exited early: ${serverError}`);
-    process.exit(2);
-  }
-  await wait(150);
-  serverReady = true;
-}
-
-if (!serverReady) {
-  console.error('HTTP server did not become ready');
-  process.exit(2);
-}
+const server = await startStaticServer(normalizedProjectPath);
 
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage();
@@ -61,7 +36,7 @@ page.on('pageerror', error => {
   pageErrors.push(error.stack || String(error));
 });
 
-const url = `http://127.0.0.1:${port}/${entryCandidate.replace(/^\/+/, '')}`;
+const url = `http://127.0.0.1:${server.port}/${entryCandidate.replace(/^\/+/, '')}`;
 
 try {
   await page.goto(url, { waitUntil: 'load', timeout: 15000 });
@@ -84,5 +59,5 @@ try {
   console.log(JSON.stringify(result, null, 2));
 } finally {
   await browser.close();
-  server.kill('SIGTERM');
+  await new Promise(resolve => server.server.close(resolve));
 }

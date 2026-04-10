@@ -1,151 +1,65 @@
 package devflow.agent.editing;
 
-import devflow.agent.parsing.ByteRange;
-import devflow.agent.parsing.CodeStructureSnapshot;
-import devflow.agent.parsing.CodeSymbol;
-import devflow.agent.parsing.SourceLanguage;
 import devflow.agent.parsing.TreeSitterSupport;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 
 public class CodePreciseEditor {
 
-    private final TreeSitterSupport treeSitterSupport;
+    private final CodePreciseSymbolSupport symbolSupport;
+    private final CodePrecisePatchApplySupport patchApplySupport;
 
     public CodePreciseEditor(TreeSitterSupport treeSitterSupport) {
-        this.treeSitterSupport = treeSitterSupport;
+        this.symbolSupport = new CodePreciseSymbolSupport(treeSitterSupport);
+        this.patchApplySupport = new CodePrecisePatchApplySupport(symbolSupport);
     }
 
     public boolean supportsPreciseEditing(Path relativePath, String source) {
-        return treeSitterSupport.inspectCodeStructure(relativePath, source).supportsPreciseEditing();
+        return symbolSupport.supportsPreciseEditing(relativePath, source);
+    }
+
+    /**
+     * 新建代码文件或空文件在没有现成符号时，仍允许通过 APPEND_FILE 追加顶层定义。
+     * 这让“局部编辑优先”也能覆盖新文件，而不是退回整文件重写。
+     */
+    public boolean supportsAppendOnlyEditing(Path relativePath, String source) {
+        return symbolSupport.supportsAppendOnlyEditing(relativePath, source);
     }
 
     public String describeSymbols(Path relativePath, String source) {
-        CodeStructureSnapshot snapshot = treeSitterSupport.inspectCodeStructure(relativePath, source);
-        StringBuilder builder = new StringBuilder();
-        builder.append("- language: ").append(snapshot.language()).append('\n');
-        builder.append("- supportsPreciseEditing: ").append(snapshot.supportsPreciseEditing()).append('\n');
-        int limit = Math.min(snapshot.symbols().size(), 12);
-        for (int index = 0; index < limit; index++) {
-            CodeSymbol symbol = snapshot.symbols().get(index);
-            builder.append("- symbol: ")
-                    .append(symbol.kind())
-                    .append(" ")
-                    .append(symbol.name())
-                    .append(" insertion=")
-                    .append(symbol.supportsInsertion())
-                    .append('\n');
-        }
-        return builder.toString().strip();
+        return symbolSupport.describeSymbols(relativePath, source);
+    }
+
+    public List<String> listSymbolNames(Path relativePath, String source) {
+        return symbolSupport.listSymbolNames(relativePath, source);
+    }
+
+    /**
+     * 只返回支持“插入/替换 body”的稳定符号名。
+     *
+     * <p>这层主要给 working-set 规划使用，避免把只有声明范围、没有 body 边界的局部变量
+     * 当成可持续精确编辑的锚点，导致模型反复命中 SYMBOL_NOT_FOUND。
+     */
+    public List<String> listInsertableSymbolNames(Path relativePath, String source) {
+        return symbolSupport.listInsertableSymbolNames(relativePath, source);
+    }
+
+    public boolean hasInsertableSymbols(Path relativePath, String source) {
+        return symbolSupport.hasInsertableSymbols(relativePath, source);
+    }
+
+    /**
+     * 把模型返回的 targetKind 对齐到当前源码里真实存在的符号类型。
+     *
+     * <p>模型经常把 class method 写成 function，或者省略 kind。
+     * 如果名称能唯一命中现有符号，这里会把 kind 纠正成真实类型，
+     * 避免本来可应用的局部编辑因为 kind 偏差被误判成 SYMBOL_NOT_FOUND。
+     */
+    public CodePrecisePatch normalizePatchTargets(Path relativePath, String source, CodePrecisePatch patch) {
+        return symbolSupport.normalizePatchTargets(relativePath, source, patch);
     }
 
     public String applyPatch(Path relativePath, String source, CodePrecisePatch patch) {
-        CodeStructureSnapshot snapshot = treeSitterSupport.inspectCodeStructure(relativePath, source);
-        if (!snapshot.supportsPreciseEditing()) {
-            throw new IllegalStateException("Current code file does not expose precise editing anchors.");
-        }
-        if (patch == null || !patch.hasAnyOperation()) {
-            throw new IllegalStateException("Precise code patch must contain at least one operation.");
-        }
-
-        int sourceLengthBytes = source.getBytes(StandardCharsets.UTF_8).length;
-        List<Replacement> replacements = new ArrayList<>();
-        for (CodePreciseOperation operation : patch.operations()) {
-            if (operation == null || operation.action() == null) {
-                continue;
-            }
-            switch (operation.action()) {
-                case REPLACE_SYMBOL -> replacements.add(buildReplace(snapshot, operation));
-                case INSERT_INTO_SYMBOL -> replacements.add(buildInsert(snapshot, operation));
-                case APPEND_FILE -> replacements.add(new Replacement(
-                        new ByteRange(sourceLengthBytes, sourceLengthBytes),
-                        renderAppend(snapshot.language(), operation.content())
-                ));
-            }
-        }
-        if (replacements.isEmpty()) {
-            throw new IllegalStateException("Precise code patch did not produce any applicable changes.");
-        }
-        return applyReplacements(source, replacements);
-    }
-
-    private Replacement buildReplace(CodeStructureSnapshot snapshot, CodePreciseOperation operation) {
-        CodeSymbol symbol = resolveSymbol(snapshot, operation.targetSymbol(), operation.targetKind(), false);
-        return new Replacement(symbol.replaceRange(), stripTrailingWhitespace(operation.content()) + "\n");
-    }
-
-    private Replacement buildInsert(CodeStructureSnapshot snapshot, CodePreciseOperation operation) {
-        CodeSymbol symbol = resolveSymbol(snapshot, operation.targetSymbol(), operation.targetKind(), true);
-        int insertionByte = symbol.bodyInnerRange().endByte();
-        return new Replacement(new ByteRange(insertionByte, insertionByte), renderInsert(snapshot.language(), operation.content()));
-    }
-
-    private CodeSymbol resolveSymbol(CodeStructureSnapshot snapshot, String name, String kind, boolean requireInsertion) {
-        String normalizedName = normalize(name);
-        String normalizedKind = normalize(kind);
-        return snapshot.symbols().stream()
-                .filter(symbol -> normalizedName.isBlank() || normalize(symbol.name()).equals(normalizedName))
-                .filter(symbol -> normalizedKind.isBlank() || normalize(symbol.kind()).equals(normalizedKind))
-                .filter(symbol -> !requireInsertion || symbol.supportsInsertion())
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No matching symbol found for precise edit: name=%s kind=%s"
-                        .formatted(name, kind)));
-    }
-
-    private String renderInsert(SourceLanguage language, String content) {
-        String normalized = stripTrailingWhitespace(content);
-        return switch (language) {
-            case JAVA, PYTHON, GO -> "\n" + normalized + "\n";
-            default -> "\n" + normalized + "\n";
-        };
-    }
-
-    private String renderAppend(SourceLanguage language, String content) {
-        String normalized = stripTrailingWhitespace(content);
-        return switch (language) {
-            case JAVA, PYTHON, GO -> "\n\n" + normalized + "\n";
-            default -> "\n\n" + normalized + "\n";
-        };
-    }
-
-    private String applyReplacements(String source, List<Replacement> replacements) {
-        byte[] bytes = source.getBytes(StandardCharsets.UTF_8);
-        List<Replacement> ordered = replacements.stream()
-                .sorted(Comparator.comparingInt((Replacement replacement) -> replacement.range().startByte()).reversed())
-                .toList();
-        for (Replacement replacement : ordered) {
-            bytes = replaceUtf8Range(bytes, replacement.range(), replacement.replacement());
-        }
-        return new String(bytes, StandardCharsets.UTF_8);
-    }
-
-    private byte[] replaceUtf8Range(byte[] bytes, ByteRange range, String replacement) {
-        int start = Math.max(0, Math.min(range.startByte(), bytes.length));
-        int end = Math.max(start, Math.min(range.endByte(), bytes.length));
-        byte[] replacementBytes = replacement.getBytes(StandardCharsets.UTF_8);
-        byte[] merged = new byte[start + replacementBytes.length + (bytes.length - end)];
-        System.arraycopy(bytes, 0, merged, 0, start);
-        System.arraycopy(replacementBytes, 0, merged, start, replacementBytes.length);
-        System.arraycopy(bytes, end, merged, start + replacementBytes.length, bytes.length - end);
-        return merged;
-    }
-
-    private String stripTrailingWhitespace(String content) {
-        String value = content == null ? "" : content.strip();
-        return value.replaceAll("[ \\t]+(?=\\n)", "");
-    }
-
-    private String normalize(String value) {
-        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
-    }
-
-    private record Replacement(
-            ByteRange range,
-            String replacement
-    ) {
+        return patchApplySupport.applyPatch(relativePath, source, patch);
     }
 }

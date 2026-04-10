@@ -3,6 +3,7 @@ package devflow.agent.editing;
 import devflow.agent.parsing.ByteRange;
 import devflow.agent.parsing.HtmlEditableStructure;
 import devflow.agent.parsing.TreeSitterSupport;
+import devflow.agent.text.TextCanonicalizer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -42,15 +43,44 @@ public class HtmlPreciseEditor {
     public String applyPatch(String source, HtmlPrecisePatch patch) {
         HtmlEditableStructure structure = treeSitterSupport.inspectEditableHtml(source);
         if (!structure.supportsPreciseEditing()) {
-            throw new IllegalStateException("Current HTML does not expose precise editing anchors.");
+            throw new PreciseEditException(
+                    PreciseEditFailureReason.ANCHOR_MISSING,
+                    "Current HTML does not expose precise editing anchors."
+            );
         }
-        if (patch == null || !patch.hasAnyChange()) {
-            throw new IllegalStateException("Precise HTML patch must contain at least one section update.");
+        if (patch == null) {
+            throw new PreciseEditException(
+                    PreciseEditFailureReason.PATCH_SCHEMA_INVALID,
+                    "Precise HTML patch must contain at least one section update."
+            );
+        }
+        if (!patch.hasAnyChange()) {
+            // 宿主 HTML 在外提脚本/样式后，后续子任务可能只需要确认“无需继续接线”。
+            // 对这种显式 no-op patch 直接返回原文，避免把幂等结果误判成 schema 错误。
+            return source;
         }
 
         List<Replacement> replacements = new ArrayList<>();
+        boolean idempotentNoop = false;
         if (patch.markupHtml() != null) {
             replacements.add(new Replacement(structure.appRootInnerRange(), surroundWithNewlines(patch.markupHtml())));
+        }
+        if (patch.headAppendHtml() != null) {
+            if (structure.headInnerRange() == null) {
+                throw new PreciseEditException(
+                        PreciseEditFailureReason.ANCHOR_MISSING,
+                        "Precise HTML patch requested headAppendHtml but the document has no editable <head> range."
+                );
+            }
+            String fragment = stripTrailingWhitespace(patch.headAppendHtml());
+            if (!fragment.isBlank() && !containsHtmlFragment(extractRange(source, structure.headInnerRange()), fragment)) {
+                replacements.add(new Replacement(
+                        new ByteRange(structure.headInnerRange().endByte(), structure.headInnerRange().endByte()),
+                        "\n" + fragment + "\n"
+                ));
+            } else if (!fragment.isBlank()) {
+                idempotentNoop = true;
+            }
         }
         if (patch.styleCss() != null) {
             if (structure.appStyleInnerRange() != null) {
@@ -76,12 +106,52 @@ public class HtmlPreciseEditor {
                 ));
             }
         }
+        if (patch.bodyAppendHtml() != null) {
+            if (structure.bodyInnerRange() == null) {
+                throw new PreciseEditException(
+                        PreciseEditFailureReason.ANCHOR_MISSING,
+                        "Precise HTML patch requested bodyAppendHtml but the document has no editable <body> range."
+                );
+            }
+            String fragment = stripTrailingWhitespace(patch.bodyAppendHtml());
+            if (!fragment.isBlank() && !containsHtmlFragment(extractRange(source, structure.bodyInnerRange()), fragment)) {
+                replacements.add(new Replacement(
+                        new ByteRange(structure.bodyInnerRange().endByte(), structure.bodyInnerRange().endByte()),
+                        "\n" + fragment + "\n"
+                ));
+            } else if (!fragment.isBlank()) {
+                idempotentNoop = true;
+            }
+        }
 
         if (replacements.isEmpty()) {
-            throw new IllegalStateException("Precise HTML patch did not produce any applicable changes.");
+            if (idempotentNoop) {
+                return source;
+            }
+            throw new PreciseEditException(
+                    PreciseEditFailureReason.PATCH_SCHEMA_INVALID,
+                    "Precise HTML patch did not produce any applicable changes."
+            );
         }
 
         return applyReplacements(source, replacements);
+    }
+
+    private String extractRange(String source, ByteRange range) {
+        byte[] bytes = source.getBytes(StandardCharsets.UTF_8);
+        int start = Math.max(0, Math.min(range.startByte(), bytes.length));
+        int end = Math.max(start, Math.min(range.endByte(), bytes.length));
+        return new String(bytes, start, end - start, StandardCharsets.UTF_8);
+    }
+
+    private boolean containsHtmlFragment(String container, String fragment) {
+        String normalizedContainer = normalizeHtml(container);
+        String normalizedFragment = normalizeHtml(fragment);
+        return !normalizedFragment.isBlank() && normalizedContainer.contains(normalizedFragment);
+    }
+
+    private String normalizeHtml(String value) {
+        return TextCanonicalizer.normalizeHtmlFragment(value);
     }
 
     private String applyReplacements(String source, List<Replacement> replacements) {
@@ -112,7 +182,7 @@ public class HtmlPreciseEditor {
 
     private String stripTrailingWhitespace(String content) {
         String value = content == null ? "" : content.strip();
-        return value.replaceAll("[ \\t]+(?=\\n)", "");
+        return TextCanonicalizer.trimTrailingHorizontalWhitespacePerLine(value);
     }
 
     private record Replacement(

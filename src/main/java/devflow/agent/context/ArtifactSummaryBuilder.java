@@ -1,5 +1,7 @@
 package devflow.agent.context;
 
+import devflow.agent.i18n.PlaceholderValues;
+import devflow.agent.text.TextCanonicalizer;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
@@ -11,13 +13,13 @@ public class ArtifactSummaryBuilder {
         if (content == null || content.isBlank()) {
             return "";
         }
-        String normalized = content.replaceAll("\\s+", " ").trim();
-        return normalized.length() > limit ? normalized.substring(0, limit) + " ...<truncated>" : normalized;
+        String normalized = TextCanonicalizer.collapseWhitespace(content);
+        return PlaceholderValues.truncateInline(normalized, limit);
     }
 
     public String renderBulletList(List<String> items) {
         if (items == null || items.isEmpty()) {
-            return "- (none)";
+            return PlaceholderValues.bulletMachineNone();
         }
         String rendered = items.stream()
                 .filter(item -> item != null && !item.isBlank())
@@ -25,6 +27,6 @@ public class ArtifactSummaryBuilder {
                 .distinct()
                 .map(item -> "- " + item)
                 .collect(Collectors.joining("\n"));
-        return rendered.isBlank() ? "- (none)" : rendered;
+        return rendered.isBlank() ? PlaceholderValues.bulletMachineNone() : rendered;
     }
 }

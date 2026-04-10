@@ -24,16 +24,31 @@
 - 结构化代码编辑默认选择 `tree-sitter`
 - 复杂底层能力先做 build-vs-buy 判断，再决定是否自研
 - HTML / DOM 修改优先使用成熟现成工具，而不是强行统一手搓
-- 下一阶段的中改和大改路线以 `docs/redesign-roadmap.md` 为准
+- 人读文档默认跟随用户需求语言：
+  - `goal / constraints / note` 以中文为主时，输出中文文档
+  - 以英文为主时，输出英文文档
+  - `Contract Metadata` 标题与键名保持稳定英文，便于机器读取
+- 文档 prompt 与 reviewer 统一按“信息来源 / 约束升级”管理，不再针对具体场景补关键词规则
+- 当前代码与业务状态总览以 `docs/current-state.md` 为准
+- 文档索引以 `docs/README.md` 为准
+- 根约定与工程约定分别维护在：
+  - `AGENTS.md`
+  - `docs/engineering-agreements.md`
+
+## 文档入口
+
+- `docs/README.md`
+  当前文档索引
+- `docs/current-state.md`
+  当前代码与业务状态总览
+- `docs/workflow-rules.md`
+  当前工作流与 gate 规则
+- `docs/redesign-roadmap.md`
+  后续演进路线图
+- `docs/engineering-agreements.md`
+  工程约定
 
 ## 当前结构
-
-- `docs/architecture-plan.md`
-  第一版架构方案归档
-- `docs/redesign-roadmap.md`
-  中改详细方案，以及中改到大改的演进路线
-- `docs/editing-strategy.md`
-  结构化编辑与“优先现成方案”原则
 - `src/main/java/devflow/agent/orchestrator`
   工作流与状态机接口、核心枚举
 - `src/main/java/devflow/agent/supervisor`
@@ -41,7 +56,7 @@
 - `src/main/java/devflow/agent/loop`
   `AgentLoop`、transition decision 与 transition reason
 - `src/main/java/devflow/agent/context`
-  上下文投影、任务记忆与失败摘要
+  上下文投影、任务记忆、失败摘要与结构化 contract 抽取
 - `src/main/java/devflow/agent/review`
   review 决策模型
 - `src/main/java/devflow/agent/artifact`
@@ -59,70 +74,12 @@
 
 ## 当前工作流
 
-当前工作流已经覆盖：
+当前工作流、gate 规则、阶段行为和 artifact 约束已经统一整理到：
 
-1. `ANALYSIS`
-2. `PRD`
-3. `DESIGN`
-4. `IMPLEMENTATION`
-5. `CODE_REVIEW`
-6. `TEST`
+- `docs/current-state.md`
+- `docs/workflow-rules.md`
 
-主链路仍然按上面的阶段顺序组织，但当前已经不是纯固定状态机直推，而是：
-
-- `DefaultWorkflowEngine`
-  - 负责执行、持久化、事件记录、边界约束
-- `SupervisorAgent`
-  - 负责决定下一步动作
-- `AgentLoop`
-  - 负责每轮循环、transition reason 与稳定收敛判断
-- 各阶段 worker
-  - 负责生成产物、review、diagnosis、repair、test
-
-默认 gate 策略：
-
-- `ANALYSIS / PRD / DESIGN / CODE_REVIEW`：`AGENT_PLUS_HUMAN`
-- `IMPLEMENTATION / TEST`：`AGENT_ONLY`
-
-行为说明：
-
-- 进入阶段后会自动生成产物
-- 生成后会自动触发 reviewer
-- `SupervisorAgent` 会基于当前 artifact、review 结果、history 和 `repair_brief` 决定下一步动作
-- `AgentLoop` 会为每轮决策额外落盘：
-  - `projected_context.md`
-  - `task_memory.md`
-  - `transition_decision.md`
-- `AGENT_ONLY` 阶段通过后会自动进入下一阶段
-- `AGENT_PLUS_HUMAN` 阶段通过后会停在 `AWAITING_HUMAN_REVIEW`
-- `IMPLEMENTATION` 会先拆成多个子任务，再逐个子任务做代码生成、自检和验证
-- `IMPLEMENTATION` 会额外输出：
-  - `implementation_backlog.md`
-  - `repair_alignment.md`
-- `IMPLEMENTATION` 只有在子任务级验证通过后才会继续推进，最后还会再做阶段级自测
-- `CODE_REVIEW` reviewer 必须明确给出 `fixMode = PATCH | REWORK`
-- `PATCH` 表示走增量修补，`REWORK` 表示允许较大范围重构
-- `self-check` 已切成“项目识别 -> 策略规划 -> 白名单能力执行”的通用技术规则
-- `TEST` 阶段会额外输出：
-  - `test_runtime_snapshot.md`
-  - `test_cases.md`
-  - `test_execution.md`
-- required test case 现在是三态：
-  - `PASSED`
-  - `FAILED`
-  - `BLOCKED`
-- 被拒绝后会根据阶段自动打回并重试，超过最大自动修订次数后失败
-- 当前总自动修订次数上限为 `5`
-
-`SupervisorAgent` 当前可输出的动作：
-
-- `ADVANCE_STAGE`
-- `REQUEST_HUMAN_REVIEW`
-- `RETRY_STAGE`
-- `ROUTE_TO_REPAIR`
-- `ROLLBACK_STAGE`
-- `COMPLETE_RUN`
-- `FAIL_RUN`
+这里不再重复维护一份“现状说明”，避免 README 和规则文档继续双写。
 
 ## 构建
 
@@ -191,6 +148,41 @@ mvn -q spring-boot:run \
     - `diagnosis`
     - `repair`
     - `supervisor`
+
+预算配置也支持通过参数覆盖：
+
+```bash
+/home/linus/workspace/forge/forge.sh run autopilot \
+  --project /path/to/repo \
+  --goal '你的目标' \
+  --constraints '你的约束' \
+  --reviewer autopilot \
+  --devflow.ollama.models.implementation=qwen3-coder:30b \
+  --devflow.ollama.budget.models.qwen3-coder.context-window-tokens=36864 \
+  --devflow.ollama.budget.models.qwen3-coder.safe-output-ratio=0.75 \
+  --devflow.ollama.budget.models.qwen3-coder.reserve-ratio=0.05 \
+  --devflow.ollama.budget.models.qwen3-coder.minimum-reserve-tokens=1200 \
+  --devflow.ollama.budget.models.qwen3-coder.maximum-reserve-tokens=4096
+```
+
+说明：
+
+- `context-window-tokens`
+  - Forge 用来裁剪 prompt、预算和 `num_ctx`
+- `safe-output-ratio`
+  - Forge 会按 `safeOutputCeiling = clamp(availableOutput * safeOutputRatio, minimumOutputTokens, availableOutput)` 计算动态安全上限
+- `reserve-ratio / minimum-reserve-tokens / maximum-reserve-tokens`
+  - Forge 会按 `clamp(num_ctx * reserveRatio, minReserve, maxReserve)` 计算动态预留
+  - 不再对 `32k/64k/128k` 一律使用同一个固定预留值
+- 这些配置是 Forge 的调用预算，不等于模型理论最大值
+- 大生成任务默认走动态预算请求：
+  - `availableOutput = num_ctx - promptTokens - reserveTokens`
+  - `safeOutputCeiling = clamp(availableOutput * safeOutputRatio, minimumOutputTokens, availableOutput)`
+  - `effectiveOutput = min(requestedOutput, safeOutputCeiling)`
+  - 文档整稿、implementation planning、precise-html、precise-code、inline patch 不再先写死一个固定小 `num_predict`
+- 如需微调任务侧预算，优先覆写输出比例，例如：
+  - `-Ddevflow.generation-budget.precise-html-output-ratio=1.0`
+  - `-Ddevflow.generation-budget.document-patch-output-ratio=0.6`
 
 ## 当前 CLI
 
@@ -287,6 +279,10 @@ mvn -q spring-boot:run -Dspring-boot.run.arguments='run logs <runId> --project /
 - implementation 阶段的代码写入执行器
 - code review 阶段的变更审阅
 - test 阶段的命令执行器
+- implementation 阶段已引入架构师/worker 风格的交接 artifact：
+  - `implementation_shared_context.md`
+  - `task_packages.md`
+  - `worker_results.md`
 
 当前 `tree-sitter` 已落地的作用范围：
 
@@ -308,12 +304,14 @@ mvn -q spring-boot:run -Dspring-boot.run.arguments='run logs <runId> --project /
   - 符号级精确改写支持
   - 当前支持动作：
     - `REPLACE_SYMBOL`
+    - `REPLACE_SYMBOL_BODY`
     - `INSERT_INTO_SYMBOL`
     - `APPEND_FILE`
 - `JavaScript / TypeScript`
   - 符号级精确改写支持
   - 当前支持动作：
     - `REPLACE_SYMBOL`
+    - `REPLACE_SYMBOL_BODY`
     - `INSERT_INTO_SYMBOL`
     - `APPEND_FILE`
 
@@ -330,19 +328,31 @@ mvn -q spring-boot:run -Dspring-boot.run.arguments='run logs <runId> --project /
   - `<style id="app-style">`
   - `<script id="app-script">`
 - `IMPLEMENTATION` 在 `INCREMENTAL / PATCH` 模式下会优先做区块级精确改写，而不是整页重写
+- 入口文件如果需要补充外部资源或额外结构片段，也可以通过 `headAppendHtml / bodyAppendHtml` 追加 `<script src>`、`<link rel=\"stylesheet\">` 或挂载节点，而不必退回整页重写
+- 现有 HTML 入口在 `INCREMENTAL / PATCH` 下不再允许静默退回 `whole-file`
+- `OUTPUT_TRUNCATED` 不再默认关闭 `preferPreciseEditing`；恢复链会优先保持局部编辑并继续收缩 `EditUnit`
+- 单入口内联脚本不再被当成一个 `inline-unit-all` 大块处理，而是先 `append-only` 追加辅助符号，再让入口符号负责编排
 - 对已有 `JavaScript / TypeScript / Java / Python / Go` 文件，若 `tree-sitter` 能稳定提取符号：
   - `class / interface / enum / record / constructor / method`
   - `class / function`
   - `type / method / function`
   - `class / method / function / variable`
 - `IMPLEMENTATION` 在 `INCREMENTAL / PATCH` 模式下会优先输出符号级 JSON patch，而不是整文件重写
+- 如果只是补齐现有函数、方法或类体内部逻辑，优先使用 `REPLACE_SYMBOL_BODY`
+  - 这样可以避免为了补一个函数体而重写整段导出声明
+  - 也能降低长符号整段重写时的截断风险
+- 对新建空代码文件，不再一次尝试吐完整模块
+  - 会先通过 `APPEND_FILE` 建立最小可解析骨架
+  - 骨架成功后，再基于新符号重新规划后续 `EditUnit`
+  - 后续实现继续按符号局部补齐
 
 这版边界：
 
 - HTML 精确改写只对带稳定锚点的页面启用
-- JavaScript/TypeScript/Java/Python/Go 精确改写只对已有可解析符号的文件启用
+- JavaScript/TypeScript/Java/Python/Go 精确改写对已有可解析符号的文件默认启用；空文件会先建立骨架再进入符号级改写
 - 不满足精确改写条件时仍会回退到完整文件生成
 - 事务写入失败时，会在 `.devflow/write-transactions/failed/` 保留候选内容、旧文件快照和失败原因
+- 精确 patch 连续失败时，不会直接抛 fatal 中断 run；Forge 会先把失败原因结构化，再交给 supervisor 决定是否继续保持局部编辑、缩小改单范围或停止当前子任务
 - 只在 `PATCH / INCREMENTAL` 模式启用
 - 仍不支持任意 AST 级重构或自动移动跨文件依赖
 

@@ -15,6 +15,7 @@
 - 这里记录的是**当前代码中的 prompt 结构和关键约束**
 - 不是理想设计稿
 - 后续如果源码 prompt 变化，这份文档也要同步更新
+- 文档整稿、implementation planning、precise-html、precise-code、inline patch 这类大生成任务现在默认按动态预算比例申请输出；这里如果提到预算，应优先理解成 `outputBudgetRatio + OutputBudgetCalculator` 的动态裁剪结果
 
 ## Prompt 分层
 
@@ -78,6 +79,7 @@ user prompt 结构：
 - 即使备注是逻辑修订意见而不是缺章节，系统仍会按顶层章节把新草稿合并回旧稿，避免已有章节被覆盖丢失
 - 首次完整生成与补缺失章节/修订章节都走同一个文档模型角色；差异通过 prompt 中的“完整生成 / 只补缺失章节 / 合并旧稿”模式体现
 - reviewer 还会检查每个必需章节是否有正文；只有标题没有内容也会被判为缺失章节
+- 若约束只有“可直接打开运行”“无需编译或打包”这类表述，不允许自行推断成“所有代码必须内联到单个 HTML 文件”；默认允许本地相对路径的 `js/css/image` 资源
 
 文档 agent mode：
 
@@ -88,9 +90,10 @@ user prompt 结构：
 - `REVISE_WITH_EXISTING_DRAFT`
   - reviewer 提的是逻辑修订意见时，只输出需要替换的顶层章节，再合并回旧稿
 
-默认 `num_predict`：
+预算说明：
 
-- `2200`
+- `FULL_DRAFT` 现在默认按动态预算上限请求输出
+- 最终仍会由 `OutputBudgetCalculator` 按 `safeOutputRatio`、`num_ctx`、`promptTokens` 和动态预留统一裁剪
 
 ## `PRD`
 
@@ -130,10 +133,12 @@ user prompt 结构：
 - 当备注中明确指出缺失章节时，系统会要求模型只输出缺失章节，再由程序合并回旧稿
 - 即使备注是逻辑修订意见而不是缺章节，系统仍会按顶层章节把新草稿合并回旧稿，避免已有章节被覆盖丢失
 - reviewer 还会检查每个必需章节是否有正文；只有标题没有内容也会被判为缺失章节
+- 若约束只有“可直接打开运行”“无需编译或打包”这类表述，不允许自行推断成“单文件 HTML”；默认允许相对路径引用本地资源
 
-默认 `num_predict`：
+预算说明：
 
-- `2200`
+- 按动态 output ratio 申请输出
+- 最终由 `OutputBudgetCalculator` 按上下文、预留和可用输出统一裁剪
 
 ## `DESIGN`
 
@@ -173,10 +178,12 @@ user prompt 结构：
 - 当备注中明确指出缺失章节时，系统会要求模型只输出缺失章节，再由程序合并回旧稿
 - 即使备注是逻辑修订意见而不是缺章节，系统仍会按顶层章节把新草稿合并回旧稿，避免已有章节被覆盖丢失
 - reviewer 还会检查每个必需章节是否有正文；只有标题没有内容也会被判为缺失章节
+- 若上游只要求“HTML 入口可直接打开运行”，技术方案不能自行收缩成“所有代码必须位于单个 HTML 文件”；除非用户明确要求单文件/内联资源
 
-默认 `num_predict`：
+预算说明：
 
-- `2400`
+- 按动态 output ratio 申请输出
+- 最终由 `OutputBudgetCalculator` 按上下文、预留和可用输出统一裁剪
 
 ## `IMPLEMENTATION` 总览
 
@@ -237,8 +244,11 @@ system prompt 核心：
 - `deliveryMode` 必须明确选择
 - 如果 `DESIGN` 明确定义了性能/耗时/benchmark 验证要求，需要把对应基础测量入口纳入实现子任务
 - 如果 `DESIGN` 未定义性能验证要求，不要自行发散额外 benchmark
-- 对复杂前端/网页/游戏任务，优先拆成“骨架 -> 功能填充 -> 交互补全 -> polish”
+- 对需要入口、可启动或可见运行表面的任务，优先拆成“最小可运行入口/表面 -> 核心功能填充 -> 接线与验证 -> polish”
 - 不要试图在一个子任务里完成整个页面或整个产品
+- 面向人的正文、标题和说明跟随用户请求语言；仅 `Contract Metadata` 标题和键名保持英文
+- `ANALYSIS / PRD / DESIGN` 的文档 prompt 不按具体场景补规则，而是统一按“用户要求 / 上游事实 / 推断 / 设计选择 / 建议 / 待确认问题”管理信息来源
+- 低确定性的内容不能升级成硬约束；设计选择必须写成设计选择，不能伪装成用户要求
 
 ### 1.1 implementation plan 的 `PATCH` 模式附加规则
 
@@ -275,16 +285,16 @@ system prompt 核心：
 3. 不要沿着 Forbidden Directions 继续重复失败路径
 ```
 
-### 1.4 implementation plan 的前端小步交付附加规则
+### 1.4 implementation plan 的渐进交付附加规则
 
-当任务目标属于复杂前端/网页/游戏时，追加：
+当交付契约要求“有入口、可启动、可见运行表面”，且本轮适合渐进交付时，追加：
 
 ```text
-1. 第一子任务优先建立最小可运行骨架，deliveryMode 使用 SKELETON
-2. 前端项目优先拆成 index.html + styles.css + app.js/game.js 等分职责文件
-3. 后续子任务使用 INCREMENTAL，逐步填充核心逻辑、输入控制、状态更新和 polish
-4. 不要试图在一个子任务里完成整个页面或整个游戏
-5. 每个子任务完成后，项目应保持“至少可打开、可自检”
+1. 第一子任务优先建立最小可运行入口或运行表面，deliveryMode 使用 SKELETON
+2. 优先按入口、接线、核心逻辑、验证与 polish 逐步拆分
+3. 后续子任务使用 INCREMENTAL，逐步补齐核心能力与交互
+4. 不要试图在一个子任务里完成整个产品
+5. 每个子任务完成后，项目应保持“至少可启动、可自检”
 ```
 
 user prompt 输入：
@@ -297,9 +307,10 @@ user prompt 输入：
 - 当前备注
 - 当前工作区上下文
 
-默认 `num_predict`：
+预算说明：
 
-- `2600`
+- implementation planning 按动态 output ratio 申请输出
+- 不再固定写死 `num_predict`
 
 ## `IMPLEMENTATION` file generation
 
@@ -319,17 +330,18 @@ system prompt 核心：
 - `SKELETON`
   - 只建立最小可运行骨架
   - 允许占位函数/容器
-  - 默认 `num_predict = 1200`
 - `INCREMENTAL`
   - 只补当前子任务功能
   - 保持已有骨架和模块边界
-  - 默认 `num_predict = 1600`
 - `PATCH`
   - 最小补丁修复
-  - 默认 `num_predict = 1600`
 - `REWORK`
   - 允许较大范围调整
-  - 默认 `num_predict = 2200`
+
+预算说明：
+
+- file generation 统一按动态 output ratio 申请输出
+- `deliveryMode` 只影响 prompt 约束和交付方式，不再直接绑定固定 `num_predict`
 
 补充执行规则：
 
@@ -338,6 +350,10 @@ system prompt 核心：
 - 然后重新做结构/语法校验
 - 校验通过后才 commit
 - 失败会保留 `.devflow/write-transactions/failed/` 调试 artifact
+- 如果完整文件、精确 HTML 或精确代码在本地校验阶段失败：
+  - 先在当前文件生成内做有限重试
+  - 仍失败时会产出结构化 `generation failure`
+  - 再由 `SupervisorAgent` 决定是否继续重试、切换更保守的 delivery policy，或停止当前子任务
 
 user prompt 输入：
 
@@ -369,7 +385,9 @@ system prompt 核心：
 {
   "markupHtml": "main#app-root 的内部 HTML；不修改则返回 null",
   "styleCss": "style#app-style 的 CSS 内容；不修改则返回 null",
-  "scriptJs": "script#app-script 的 JS 内容；不修改则返回 null"
+  "scriptJs": "script#app-script 的 JS 内容；不修改则返回 null",
+  "headAppendHtml": "需要追加到 <head> 末尾的 HTML 片段；不修改则返回 null",
+  "bodyAppendHtml": "需要追加到 <body> 末尾的 HTML 片段；不修改则返回 null"
 }
 ```
 
@@ -380,6 +398,14 @@ system prompt 核心：
 - `markupHtml` 只包含 `<main id="app-root">` 的内部内容
 - `styleCss` 只包含纯 CSS
 - `scriptJs` 只包含纯 JavaScript
+- `headAppendHtml` / `bodyAppendHtml` 用于追加新的资源接线或结构片段，例如 `<script src="...">`、`<link rel="stylesheet" ...>` 或额外挂载节点
+- 若连续失败，执行器会把失败原因分类为：
+  - `INVALID_PATCH_JSON`
+  - `PATCH_SCHEMA_INVALID`
+  - `EDIT_UNIT_SCOPE_VIOLATION`
+  - `TREE_SITTER_PARSE_FAILED`
+  - `RESULT_FILE_INVALID`
+  然后交给 supervisor 决定是否继续精确改写
 
 ### 2.2 precise code generation
 
@@ -398,10 +424,10 @@ system prompt 核心：
 {
   "operations": [
     {
-      "action": "REPLACE_SYMBOL|INSERT_INTO_SYMBOL|APPEND_FILE",
+      "action": "REPLACE_SYMBOL|REPLACE_SYMBOL_BODY|INSERT_INTO_SYMBOL|APPEND_FILE",
       "targetSymbol": "目标符号名；APPEND_FILE 时可为 null",
       "targetKind": "class|interface|enum|record|constructor|method|function|type|variable；APPEND_FILE 时可为 null",
-      "content": "要写入的源码片段"
+      "contentLines": ["逐行源码片段"]
     }
   ]
 }
@@ -411,9 +437,19 @@ system prompt 核心：
 
 - 不输出完整源码文件
 - `REPLACE_SYMBOL` 必须提供完整声明
+- `REPLACE_SYMBOL_BODY` 只替换现有符号体内部内容
 - `INSERT_INTO_SYMBOL` 只在目标符号体内部插入内容
 - `APPEND_FILE` 只用于补充顶层符号或文件尾部内容
 - `targetSymbol / targetKind` 必须来自执行器提供的当前符号清单
+- 必须优先使用 `contentLines`，不要在 `content` 字段里放多行源码字符串
+- 若连续失败，执行器会把失败原因分类为：
+  - `INVALID_PATCH_JSON`
+  - `PATCH_SCHEMA_INVALID`
+  - `EDIT_UNIT_SCOPE_VIOLATION`
+  - `SYMBOL_NOT_FOUND`
+  - `TREE_SITTER_PARSE_FAILED`
+  - `RESULT_FILE_INVALID`
+  然后交给 supervisor 决定是否继续保持局部编辑、收缩改单范围或停止当前子任务
 
 ## `SupervisorAgent`
 
@@ -427,6 +463,16 @@ system prompt 核心：
 你是 SupervisorAgent，负责决定 Forge 的下一步流程动作。
 你必须只返回 JSON。
 ```
+
+除主流程决策外，当前还承担一条 implementation 内部恢复路径：
+
+- 当文件生成/精确 patch 连续失败时
+- `ImplementationExecutor` 会把结构化 `generation failure` 交给 supervisor
+- supervisor 再输出：
+  - `RETRY_SUBTASK`
+  - `ROUTE_TO_REPAIR`
+  - `FAIL_SUBTASK`
+- 同时给出更保守的 `deliveryPolicy`
 
 输出 JSON 结构：
 
@@ -461,7 +507,7 @@ system prompt 核心：
 - 当前 artifact 摘要
 - 最近 review history 摘要
 - `repair_brief` 摘要
-- 保守 fallback 决策
+- 保守流程决策
 
 关键约束：
 
@@ -476,7 +522,7 @@ system prompt 核心：
   - `ROLLBACK_STAGE`
   - `FAIL_RUN`
 - `REQUEST_HUMAN_REVIEW` 只有当前阶段 gate 为 `AGENT_PLUS_HUMAN` 时才允许选择
-- 对复杂前端/网页/游戏任务，优先给出更小粒度的 `focus / constraints`
+- 对需要入口、运行表面或严格交付契约的任务，优先给出更小粒度的 `focus / constraints`
 - 鼓励“先可运行骨架，再渐进填充”，不要鼓励单轮完成整个产品
 - `ROUTE_TO_REPAIR` 只在重复问题明确且适合定点修补时使用
 - `ROLLBACK_STAGE` 只在根因明显属于上游文档/设计时使用
@@ -534,9 +580,10 @@ user prompt 输入：
 - 当前相关文件上下文
 - 当前文件内容
 
-默认 `num_predict`：
+预算说明：
 
-- `2600`
+- precise HTML / code patch 统一按动态 output ratio 申请输出
+- repair 或收窄后的生效输出仍由统一预算链裁剪
 
 ### 3. subtask verifier
 
@@ -563,9 +610,10 @@ candidate 输入包括：
 - 若 `DESIGN` 定义了性能验证策略，还会附带对应策略摘要
 - 若当前子任务处于 repair brief 路径，还会附带 repair brief 强约束上下文
 
-默认 `num_predict`：
+预算说明：
 
-- `220`
+- verifier 走小任务动态预算
+- 不再在文档层维护固定 `num_predict`
 
 verifier 额外约束：
 
@@ -594,9 +642,10 @@ user prompt 输入：
 - 当前 JSON 解析错误
 - 待修复内容
 
-默认 `num_predict`：
+预算说明：
 
-- `2600`
+- JSON repair 走动态预算申请
+- 最终仍由统一预算链按当前上下文裁剪
 
 ## `CODE_REVIEW`
 
@@ -645,9 +694,10 @@ user prompt 输入：
 - 然后给出 Findings
 - Findings 尽量引用具体文件/代码证据
 
-默认 `num_predict`：
+预算说明：
 
-- `1400`
+- `CODE_REVIEW` 走动态预算申请
+- 实际生效输出由统一预算链裁剪
 
 ## `TEST`
 
@@ -697,9 +747,10 @@ user prompt 输入：
 - 项目特征
 - 候选 capability 列表
 
-默认 `num_predict`：
+预算说明：
 
-- `600`
+- self-check 策略规划走动态预算申请
+- 实际生效输出由统一预算链裁剪
 
 ### 2. testcase 设计
 
@@ -747,14 +798,10 @@ system prompt 核心：
 约束：
 
 - 只能使用给定的 action 枚举
-- `required=true` 的 case 控制在 `2-5` 条
-- 优先设计“页面能跑起来、关键交互可用”的用例
+- 必须覆盖 `QualityPlan` 中的 required capability surfaces
+- 优先先满足确定性基础 testcase，再让模型补充或细化步骤
 - 不依赖外部网络、登录或人工操作
-- 网页/小游戏至少包含：
-  - 页面加载
-  - 关键元素存在
-  - 无运行时错误
-  - 至少一种交互
+- 不再按“网页/小游戏至少...”这种产品特判生成用例
 
 user prompt 输入：
 
@@ -766,9 +813,10 @@ user prompt 输入：
 - 实现报告
 - 当前代码上下文
 
-默认 `num_predict`：
+预算说明：
 
-- `1200`
+- testcase 设计走动态 output ratio 申请输出
+- 最终仍由统一预算链按上下文、预留和可用输出裁剪
 
 ### 3. testcase 执行
 

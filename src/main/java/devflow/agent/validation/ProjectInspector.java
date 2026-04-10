@@ -1,8 +1,8 @@
 package devflow.agent.validation;
 
 import devflow.agent.project.FileProjectWorkspace;
+import devflow.agent.util.ProjectPathSupport;
 import java.nio.file.Path;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -31,44 +31,30 @@ public class ProjectInspector {
             String normalized = relativePath.toString().replace('\\', '/');
             fileNames.add(normalized);
             String fileName = relativePath.getFileName().toString();
-            hasPom |= fileName.equals("pom.xml");
-            hasGradleWrapper |= fileName.equals("gradlew");
-            hasGradleBuild |= fileName.equals("build.gradle") || fileName.equals("build.gradle.kts");
-            hasPackageJson |= fileName.equals("package.json");
-            if (fileName.endsWith(".html")) {
+            hasPom |= ProjectPathSupport.isMavenPom(fileName);
+            hasGradleWrapper |= ProjectPathSupport.isGradleWrapper(fileName);
+            hasGradleBuild |= ProjectPathSupport.isGradleBuildFile(fileName);
+            hasPackageJson |= ProjectPathSupport.isNodeManifest(fileName);
+            if (ProjectPathSupport.isHtml(relativePath)) {
                 hasHtmlEntry = true;
                 htmlEntries.add(normalized);
             }
-            hasJavaScript |= fileName.endsWith(".js") || fileName.endsWith(".mjs") || fileName.endsWith(".cjs");
-            hasTypeScript |= fileName.endsWith(".ts") || fileName.endsWith(".tsx");
+            hasJavaScript |= ProjectPathSupport.isJavaScript(relativePath);
+            hasTypeScript |= ProjectPathSupport.isTypeScript(relativePath);
         }
 
-        String packageManager = "none";
-        if (fileNames.contains("pnpm-lock.yaml")) {
-            packageManager = "pnpm";
-        } else if (fileNames.contains("yarn.lock")) {
-            packageManager = "yarn";
-        } else if (hasPackageJson) {
-            packageManager = "npm";
-        }
-
-        String projectType = "unknown";
-        if (hasPom) {
-            projectType = "java-maven";
-        } else if (hasGradleWrapper || hasGradleBuild) {
-            projectType = "java-gradle";
-        } else if (hasPackageJson && hasHtmlEntry) {
-            projectType = "web-app";
-        } else if (hasPackageJson) {
-            projectType = "node-app";
-        } else if (hasHtmlEntry) {
-            projectType = "web-static";
-        }
-
-        String htmlEntryPath = resolveHtmlEntryPath(htmlEntries);
+        PackageManagerType packageManager = ProjectPathSupport.detectPackageManager(fileNames, hasPackageJson);
+        ProjectType projectType = ProjectPathSupport.detectProjectType(
+                hasPom,
+                hasGradleWrapper,
+                hasGradleBuild,
+                hasPackageJson,
+                hasHtmlEntry
+        );
+        String htmlEntryPath = ProjectPathSupport.resolvePreferredHtmlEntry(htmlEntries);
         List<String> evidence = List.of(
-                "projectType=" + projectType,
-                "packageManager=" + packageManager,
+                "projectType=" + projectType.key(),
+                "packageManager=" + packageManager.key(),
                 "hasPom=" + hasPom,
                 "hasGradleWrapper=" + hasGradleWrapper,
                 "hasGradleBuild=" + hasGradleBuild,
@@ -80,8 +66,8 @@ public class ProjectInspector {
         );
 
         return new ProjectFingerprint(
-                projectType,
-                packageManager,
+                projectType.key(),
+                packageManager.key(),
                 hasPom,
                 hasGradleWrapper,
                 hasGradleBuild,
@@ -95,27 +81,4 @@ public class ProjectInspector {
         );
     }
 
-    private String resolveHtmlEntryPath(Set<String> htmlEntries) {
-        if (htmlEntries.isEmpty()) {
-            return "";
-        }
-        if (htmlEntries.contains("index.html")) {
-            return "index.html";
-        }
-        for (String candidate : List.of("public/index.html", "dist/index.html", "src/index.html")) {
-            if (htmlEntries.contains(candidate)) {
-                return candidate;
-            }
-        }
-        return htmlEntries.stream()
-                .min(Comparator.<String>comparingInt(this::pathDepth).thenComparing(String::compareTo))
-                .orElse("");
-    }
-
-    private int pathDepth(String path) {
-        if (path == null || path.isBlank()) {
-            return Integer.MAX_VALUE;
-        }
-        return (int) path.chars().filter(ch -> ch == '/').count();
-    }
 }

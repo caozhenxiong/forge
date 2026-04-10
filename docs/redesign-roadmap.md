@@ -1,486 +1,225 @@
-# Forge 中改与大改路线图
+# Forge 后续演进路线图
+
+> 说明：这份文档只讨论后续怎么演进，不再复述已经完成的重构过程。当前代码与业务状态请优先看 `docs/current-state.md`。
 
 ## 目的
 
-这份文档定义 `Forge` 下一阶段的演进路线，分成两层：
+这份文档只回答两个问题：
 
-- 中改
-  在保留当前 `run / artifact / workflow / tree-sitter editing` 主体资产的前提下，把系统从“固定阶段流水线”升级成“主循环 + 决策驱动”的 agent 内核。
-- 大改
-  在中改稳定后，把 `Forge` 升级成“多 agent、上下文管理、记忆系统、工具编排、CLI/Server 可切壳”的通用内核。
+1. 当前版本在正式集成验收前后，还需要补哪些收尾项
+2. 当前版本稳定后，下一阶段应该往哪里演进
 
-这份文档不替代当前架构文档，而是回答两个问题：
+它不再沿用“中改 / 大改”这类历史分期表述，也不再兼任实施日志。
 
-- 下一轮应该具体改什么
-- 中改完成后，如何继续往更完整的 agent 内核演进
+## 当前基线
 
-## 当前判断
+当前代码已经完成一轮大规模重构，主线已经切到：
 
-`Forge` 当前已经具备这些重要基础：
+- `patch-first`
+- `tool-result-first`
+- `budget-first`
+- 结构化 gate / 结构化 review 语义
+- 单一现状文档与收敛后的流程门面
 
-- 结构化阶段产物与 review artifact
-- `SupervisorAgent`
-- `diagnosis / repair`
-- `tree-sitter` 结构验收与精确改写
-- 事务式写入
-- testcase 设计与执行基础
+当前版本是否完成，不再看“历史分期目标”，而看：
 
-但当前主流程仍然有四个明显瓶颈：
+- 正式黄金路径集成能否稳定通过
+- 当前尾项是否收口
+- 当前规则与文档是否一致
 
-- 流程决策仍有较强的固定状态机味道
-- 上下文在长任务中不断堆积，缺少稳定的投影视图和压缩层
-- `IMPLEMENTATION` 虽然已经小步化，但 delivery policy 还不够显式
-- `repair / test evidence / supervisor` 还没有形成真正的强约束闭环
+## 当前版本尾项
 
-因此，下一阶段最合理的方向不是继续增加更多固定阶段，而是做一次中等规模的核心流程升级。
+这些项和当前版本直接相关，优先级最高。
 
-## 当前进度
+### 1. 规则继续收紧为 contract / evidence 驱动
 
-截至当前版本，下面这些中改基础已经落地：
+当前虽然已经明显减少隐式默认值，但还要继续减少：
 
-- `AgentLoop`
-- `TransitionDecision / TransitionReason`
-- `ContextProjector / TaskMemory / FailureDigest`
-- `SupervisorAgent.deliveryPolicy`
-- `implementation_backlog.md`
-- `repair_alignment.md`
-- `test_runtime_snapshot.md`
-- required testcase 三态：`PASSED / FAILED / BLOCKED`
+- 默认放行
+- 默认兜底
+- 默认弱约束
 
-这份路线图后续重点转成：
+目标是让流程更多由：
 
-- 把这些基础能力继续收紧
-- 再逐步完成更完整的中改闭环
+- `contract`
+- `tool result`
+- `test evidence`
+- `repair artifact`
 
-## 中改目标
+直接驱动。
 
-中改的目标不是重写系统，而是在保留现有资产的前提下完成这些升级：
+### 2. HTML 整体重写与更细粒度 resume cursor 继续增强
 
-1. 引入真正的 `AgentLoop`
-2. 让 `SupervisorAgent` 从“阶段路由器”升级成“transition controller”
-3. 引入轻量的上下文投影和任务记忆层
-4. 把 implementation 从“分步执行”进一步升级成“delivery policy 驱动”
-5. 让 `repair_brief`、`test evidence`、`verification result` 真正控制后续流程
+当前 HTML patch 主链已经稳定很多，但还有两个增强方向：
 
-中改完成后，`Forge` 应该具备：
+- HTML 文档整体重写的安全边界
+- 更细粒度的 `resume cursor`
 
-- 统一的主循环
-- 明确的 transition reason
-- 轻量的上下文压缩与摘要
-- 风险驱动的 delivery policy
-- repair 和 test 证据驱动的收敛机制
+这部分仍然属于当前版本尾项，不应直接跳到下一套体系里。
 
-## 中改架构概览
+## 当前版本已补齐的关键尾项
 
-中改后的职责边界应为：
+下面这些尾项已经在当前版本内收口，不再作为未完成项保留：
 
-- `AgentLoop`
-  负责每轮循环的生命周期
-- `SupervisorAgent`
-  负责做下一步动作决策
-- `WorkflowEngine`
-  负责执行决策、写入状态、运行 worker
-- `Worker Agents`
-  负责生成 artifact、review、diagnosis、repair、test
-- `ContextProjector`
-  负责给当前轮构造“投影视图”
-- `TaskMemory`
-  负责当前 run 的紧凑记忆，而不是全量历史
+- `repair -> implementation / reviewer`
+  - repair brief / repair alignment 已进入 implementation review 上下文
+  - reviewer 会把 repair 产物作为当前轮修复契约的一部分看待
+- `runtime snapshot -> testcase -> diagnosis / repair`
+  - diagnosis 现在直接读取最新的 `test_runtime_snapshot.md`、`test_execution.md`、`test_report.md`
+  - diagnosis history 也会保留 review evidence / actionItems，而不再只看 summary / changeRequest
 
-整体思路是：
+## 集成验收后的近端演进
 
-- 原始 artifact 和历史全部保留
-- 模型每一轮只看经过投影和压缩后的必要上下文
-- 决策由 `SupervisorAgent` 输出
-- 执行由 `WorkflowEngine` 负责
+下面这些项不再属于“当前版本是否完成”的阻塞条件，但会是当前版本稳定后的第一批增强项。
 
-## 中改详细方案
+### 0. 质量规则架构
 
-### 迭代 A：引入 AgentLoop
+这条是下一轮主线，目标是把：
 
-#### 目标
+- coder 的结构优雅性
+- test 的覆盖完整性
+- 用户习惯与交互质量
 
-把当前“阶段推进 + reroute”的散落逻辑，收敛成统一主循环。
+从 prompt 软要求前移为：
 
-#### 主要改动
+- `QualityRules`
+- `FeatureProfile`
+- `QualityPlan`
+- `CapabilityMatrix`
+- `Structure / Coverage / Experience Gates`
 
-- 新增 `AgentLoop`
-- 新增 `LoopState`
-- 新增 `TransitionDecision`
-- 新增 `TransitionReason`
-- 新增 `LoopBudget`
+具体设计见：
 
-`AgentLoop` 的基本责任：
+- [quality-rules-architecture.md](/home/linus/workspace/forge/docs/quality-rules-architecture.md)
 
-1. 读取当前 `run` 状态
-2. 构造投影视图
-3. 请求 `SupervisorAgent` 决策
-4. 执行决策
-5. 记录 transition artifact 和事件
-6. 判断下一轮是否继续
+当前这条主线的下一步收口点已经明确：
 
-#### Supervisor 输出结构
+- 去掉质量核心中的领域语义硬编码
+- 将 `QualityPlan` 前移到 implementation 规划和子任务验证
+- 为 `repair-before-regenerate` 增加宿主产物结构校验
 
-建议固定字段：
+### 1. 更完整的 turn loop
 
-- `action`
-- `targetStage`
-- `reason`
-- `deliveryPolicy`
-- `focus`
-- `constraints`
-- `requiredEvidence`
-- `humanRequired`
+当前 `Plan / Coder / Reviewer` 已接入基础 `AgentTurnLoop`，后续要继续增强：
 
-#### 第一版支持的 action
+- 更清晰的内部状态迁移
+- 更统一的 turn 级 budget / retry / handoff 语义
+- 更少的角色内分支特判
 
-- `ENTER_STAGE`
-- `RETRY_STAGE`
-- `ROUTE_TO_DIAGNOSIS`
-- `ROUTE_TO_REPAIR`
-- `ROLLBACK_STAGE`
-- `REQUEST_HUMAN`
-- `FAIL_RUN`
-- `COMPLETE_RUN`
+### 2. 更完整的四层上下文体系
 
-#### 验收标准
+当前已经有：
 
-- 阶段推进不再依赖分散的 if/else
-- 每次转移都有明确 `TransitionReason`
-- `run` 目录里有单独的 transition artifact，可解释“为什么进入这一步”
+- `Durable Context`
+- `Working Context`
+- `Evidence Context`
+- `Trace Context`
 
-### 迭代 B：上下文投影与任务记忆
+后续要继续增强：
 
-#### 目标
+- 更明确的访问边界
+- 更清晰的裁剪策略
+- 更一致的角色视图
 
-避免每一轮把完整历史、完整文档和完整失败轨迹原样喂给模型。
+### 3. 完整的 `FileReadState / EditSession`
 
-#### 主要改动
+当前 patch 主链已经建立，但还没有把：
 
-- 新增 `ContextProjector`
-- 新增 `ProjectedContext`
-- 新增 `TaskMemory`
-- 新增 `FailureDigest`
-- 新增 `ArtifactSummaryBuilder`
+- 文件读取状态
+- 当前编辑会话
+- 编辑后状态演进
 
-#### 设计原则
+完整收成统一会话模型。
 
-- 原始 artifact 保留，不做破坏性压缩
-- 给模型的是“投影视图”，不是原始全量历史
-- 最近两轮保留较完整内容
-- 更早历史转成摘要
-- `repair_brief`、最近失败证据、当前 design 要求优先级最高
+### 4. 更完整的 `TestContract / RepairContract`
 
-#### 第一版上下文分层
+当前主链主要围绕 `ExecutionContract` 展开。后续要进一步补齐：
 
-- `CurrentStageContext`
-  当前阶段核心输入
-- `RecentHistory`
-  最近两轮产物与 review
-- `FailureContext`
-  最近失败原因、repair brief、test evidence
-- `UpstreamContract`
-  目标、约束、PRD、DESIGN 的高优先级摘要
-- `WorkingSet`
-  当前需要看的真实文件片段
+- `TestContract`
+- `RepairContract`
 
-#### 第一版不做的事
+让测试和修复都拥有更明确的结构化契约。
 
-- 不立即实现完整四层压缩
-- 不立即实现跨 session 的长期记忆检索
-- 不立即对所有 artifact 做深度语义摘要
+### 5. 文档阶段分段生成 / continuation
 
-#### 验收标准
+当前 `ANALYSIS / PRD / DESIGN` 已经有预算与 telemetry，但首稿仍可能走单次 `FULL_DRAFT`。
+后续要把文档阶段进一步改成：
 
-- 单轮 prompt 输入长度明显下降
-- 同一任务多轮修复时，模型能稳定看到真正重要的上下文
-- 复杂 run 不再因为历史过长而持续发散
+- 分段生成
+- continuation / resume cursor
+- 更细粒度的 section patch
 
-### 迭代 C：Delivery Policy 与 Implementation Backlog
+这项作为集成验收后的近端增强保留，不作为本次预算上调的范围。
 
-#### 目标
+## 长期演进方向
 
-把 `IMPLEMENTATION` 从“已有小步执行”进一步升级成“风险特征驱动的交付策略”。
+下面这些属于下一阶段体系升级，不应与当前版本尾项混在一起。
 
-#### 重要原则
+### 1. 完整上下文压缩体系
 
-不要写死：
+后续再考虑完整的：
 
-- 前端项目先骨架
-- 后端项目先补测试
+- `snip`
+- `microcompact`
+- `collapse`
+- `autocompact`
 
-应该改成：
+### 2. 分层长期记忆系统
 
-- `Design` 产出 `delivery policy`
-- `ProjectFingerprint` 产出客观风险特征
-- `SupervisorAgent` 最终决定本轮 delivery mode 和约束
+把当前运行时上下文进一步升级成：
 
-#### 新增产物
+- session 级
+- task 级
+- project 级
+- 长期记忆级
 
-- `implementation_backlog.md`
+### 3. sidechain 多 agent transcript
 
-内容建议包括：
+如果后面需要更强的多 agent 协作，再做：
 
-- 子任务列表
-- 每步目标
-- 每步验收标准
-- 每步建议 delivery mode
-- 每步预计涉及文件
-- 每步建议的验证方式
+- side transcript
+- 结构化回注
+- 主 transcript 污染控制
 
-#### Delivery policy 字段
+### 4. 独立工具编排层
 
-- `mode`
-  - `SKELETON`
-  - `INCREMENTAL`
-  - `PATCH`
-  - `REWORK`
-- `maxFiles`
-- `maxSymbols`
-- `preferPreciseEditing`
-- `forceBacklogSplit`
-- `requireVerificationBeforeReview`
+把工具系统进一步推进成独立层：
 
-#### 风险特征来源
+- tool registry
+- tool orchestration
+- permission / execution policy
 
-- 文件大小
-- 修改文件数量
-- 是否有稳定结构锚点
-- 是否支持精确 patch
-- 是否已有测试入口
-- 是否涉及高耦合运行时交互
-- 最近修复是否频繁发散
+### 5. CLI / Server 与核心彻底解耦
 
-#### 验收标准
+这一步属于更后期的工程边界收敛，不应提前和当前主线混做。
 
-- 实现阶段每轮改动范围可解释、可追踪
-- delivery mode 由策略和证据驱动，而不是技术栈标签驱动
-- “大块生成”成为例外，不是默认
+### 6. 更灵活的语言实现方式
 
-### 迭代 D：Repair 强约束化
+继续扩展多语言支持，但原则仍然是：
 
-#### 目标
+- 通用内核
+- 轻量适配
+- 不把语言特例堆回核心
 
-让 `repair_brief` 从“诊断摘要文件”升级成真正的流程约束物。
+## 建议顺序
 
-#### 主要改动
+后续建议按这个顺序推进：
 
-- 强化 `RepairBrief`
-- 新增 `repair_alignment.md`
-- verifier 和 supervisor 都必须读取 repair brief
+1. 先做当前版本尾项
+2. 再跑正式黄金路径集成验收
+3. 集成稳定后，推进近端演进项
+4. 最后再考虑长期体系升级
 
-#### RepairBrief 结构建议
+## 当前实施入口
 
-- `issueCluster`
-- `rootCause`
-- `mustFixFirst`
-- `priorityOrder`
-- `forbiddenDirections`
-- `filesToTouch`
-- `filesToAvoid`
-- `acceptanceChecks`
-- `verificationSteps`
+下一条主线的正式执行清单见：
 
-#### repair_alignment.md 结构建议
-
-- 本轮覆盖了哪些 `mustFixFirst`
-- 哪些 `acceptanceChecks` 已满足
-- 哪些仍未满足
-- 本轮是否违反 `forbiddenDirections`
-- 本轮实际修改了哪些文件
-
-#### 行为规则
-
-- 若 implementation 没覆盖 `mustFixFirst`，则 verifier 直接拒绝
-- 若 implementation 修改了 `filesToAvoid`，必须给明确理由，否则拒绝
-- 若本轮继续沿 `forbiddenDirections` 修补，直接拒绝
-
-#### 验收标准
-
-- 连续失败后不会继续沿错误方向空转
-- repair 真正改变 implementer 的关注重点
-- diagnosis 和 repair 结果能稳定收敛下一轮实现
-
-### 迭代 E：测试证据驱动化
-
-#### 目标
-
-让 `TEST` 真正变成可信 gate，而不是“报告说过了就算过了”。
-
-#### 主要改动
-
-- 在 smoke 后采集 runtime snapshot
-- testcase 设计基于 runtime snapshot，而不是静态猜测
-- required case 使用三态：
-  - `PASSED`
-  - `FAILED`
-  - `BLOCKED`
-- 每条 case 都必须带结构化 evidence
-
-#### 新增产物
-
-- `test_runtime_snapshot.json`
-- `test_runtime_snapshot.md`
-
-#### 每条 testcase 结果建议字段
-
-- `status`
-- `expected`
-- `observed`
-- `evidence`
-- `failureReason`
-- `selectorsChecked`
-- `artifacts`
-
-#### 规则
-
-- required case 若 `FAILED` 或 `BLOCKED`，`TEST` 不得通过
-- testcase 设计必须优先基于运行时页面，而不是静态文件脑补
-- 性能测试只在 `DESIGN` 明确要求后才变成强制 gate
-
-#### 验收标准
-
-- testcase 不再和真实页面结构严重错位
-- test failure 能直接喂给 diagnosis / repair
-- `TEST` 通过与否建立在真实执行证据上
-
-## 中改阶段的模块清单
-
-建议新增或扩展这些模块：
-
-- `agent/loop`
-  - `AgentLoop`
-  - `LoopState`
-  - `TransitionDecision`
-  - `TransitionReason`
-- `agent/context`
-  - `ContextProjector`
-  - `ProjectedContext`
-  - `TaskMemory`
-  - `FailureDigest`
-- `agent/supervisor`
-  - 强化 `SupervisorAgent`
-  - 新增 delivery policy 输出
-- `agent/repair`
-  - 强化 `RepairBrief`
-  - 新增 `repair_alignment`
-- `agent/testing`
-  - runtime snapshot
-  - structured test evidence
-
-## 中改后的验收标准
-
-中改完成后，至少要满足：
-
-1. 任何一轮流程转移都能回答“为什么”
-2. 模型输入是稳定的投影视图，而不是原始混乱历史
-3. 实现阶段默认按受控 delivery policy 推进
-4. repair 不再只是建议，而是强约束
-5. test 失败能提供直接可用于 repair 的证据
-
-## 从中改到大改的路径
-
-中改做完后，不建议立刻继续堆功能，而应该按下面顺序升级。
-
-### 大改阶段 1：完整上下文管理
-
-在中改的 `ContextProjector` 基础上，继续升级为真正的上下文管理系统。
-
-目标：
-
-- `Snip`
-- `Microcompact`
-- `Collapse`
-- `Autocompact`
-
-原则：
-
-- 原始历史不丢
-- 模型只看投影视图
-- 压缩逻辑是系统能力，不是 prompt 技巧
-
-### 大改阶段 2：记忆系统分层
-
-把当前零散的 repair/history/artifact 摘要，升级成分层记忆：
-
-- `SessionMemory`
-- `TaskMemory`
-- `LongTermMemory`
-- `ProjectMemory`
-
-这样 diagnosis、repair、supervisor 就不需要每次都从 artifact 目录反向拼历史。
-
-### 大改阶段 3：真正多 agent sidechain
-
-当前 diagnosis/repair/supervisor 虽然角色已分，但还不是真正的 sidechain agent。
-
-大改后应变成：
-
-- 主 agent 有主 transcript
-- diagnosis / repair / testcase planner 有独立 side transcript
-- 只把结构化产物回注主流程
-
-目的：
-
-- 降低上下文污染
-- 让不同子 agent 独立收敛
-- 避免所有角色挤在一个上下文里相互干扰
-
-### 大改阶段 4：工具编排层独立
-
-把工具执行继续从 workflow 中拆出来：
-
-- `ToolRegistry`
-- `ToolOrchestrator`
-- `StreamingToolExecutor`
-- `PermissionAdapter`
-- `ExecutionPolicy`
-
-这样 Forge 后面接更多工具时，不需要继续在 workflow 代码里堆规则。
-
-### 大改阶段 5：壳子与引擎分离
-
-最后再做壳子分离：
-
-- `forge-core`
-- `forge-tool`
-- `forge-agent`
-- `forge-cli`
-- `forge-server`
-
-遵循原则：
-
-- 先稳定核心引擎
-- 再切 CLI / Server 壳
-- 不要一边重构核心，一边同时做 server 化
-
-## 建议实施顺序
-
-推荐顺序：
-
-1. 迭代 A：AgentLoop
-2. 迭代 B：上下文投影与任务记忆
-3. 迭代 C：Delivery Policy 与 Implementation Backlog
-4. 迭代 D：Repair 强约束化
-5. 迭代 E：测试证据驱动化
-
-中改稳定后，再按：
-
-1. 上下文管理完整化
-2. 记忆系统分层
-3. 多 agent sidechain
-4. 工具编排独立
-5. CLI / Server 壳分离
+- [active-work-items.md](/home/linus/workspace/forge/docs/active-work-items.md)
 
 ## 当前决策
 
-当前 `Forge` 不走“直接大改”的路线。
+当前决策很明确：
 
-当前决策是：
-
-- 先做中改
-- 保留现有 artifact/run 体系
-- 保留现有 `tree-sitter` 编辑主线
-- 优先把主循环、上下文投影、delivery policy、repair、test evidence 收紧
-
-只有中改稳定后，才进入大改阶段。
+- 不再沿用“中改 / 大改”这套旧分期语言
+- 当前版本优先收尾并通过正式集成验收
+- 后续路线以“当前尾项 / 近端演进 / 长期方向”三层维护

@@ -21,6 +21,8 @@ public record SupervisorDecision(
         focus = focus == null ? List.of() : List.copyOf(focus);
         constraints = constraints == null ? List.of() : List.copyOf(constraints);
         requiredEvidence = requiredEvidence == null ? List.of() : List.copyOf(requiredEvidence);
-        deliveryPolicy = deliveryPolicy == null ? DeliveryPolicy.balanced(mode.name()) : deliveryPolicy;
+        deliveryPolicy = deliveryPolicy == null
+                ? DeliveryPolicy.balanced(DeliveryPolicyMode.fromWireValue(mode.name(), DeliveryPolicyMode.NONE))
+                : deliveryPolicy;
     }
 }

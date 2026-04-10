@@ -81,7 +81,7 @@
 
 这类能力适合作为：
 
-- fallback
+- 低风险文本文件修改补充路径
 - 低风险文本文件修改
 - 补丁可视化与审计
 
@@ -211,7 +211,7 @@ Java 内核可以把它们当 sidecar 能力来调用，而不是在主进程里
 - 当前主要用途：
   - 生成内容写盘前的结构合法性校验
   - 静态 HTML 结构快照提取
-  - 为 fallback testcase 设计提供真实 DOM 线索
+  - 为确定性基础 testcase 设计提供真实 DOM 线索
   - 为 HTML / JavaScript / TypeScript / Java / Python / Go 精确改写提供稳定结构边界
 
 当前代码位置：
@@ -240,6 +240,10 @@ Java 内核可以把它们当 sidecar 能力来调用，而不是在主进程里
   - `markupHtml`
   - `styleCss`
   - `scriptJs`
+- 入口文件如果需要补充新的资源接线或结构片段，还可以使用：
+  - `headAppendHtml`
+  - `bodyAppendHtml`
+- 这类追加片段用于处理通用入口接线，例如外部 `<script src>`、`<link rel="stylesheet">` 或额外挂载节点，不要求回退到整页重写
 - 执行器再基于 `tree-sitter` 定位这些区块并应用替换
 
 当前代码精确改写约束：
@@ -253,10 +257,12 @@ Java 内核可以把它们当 sidecar 能力来调用，而不是在主进程里
 - 精确改写只对已有可解析符号的文件启用
 - 当前支持动作：
   - `REPLACE_SYMBOL`
+  - `REPLACE_SYMBOL_BODY`
   - `INSERT_INTO_SYMBOL`
   - `APPEND_FILE`
 - 模型输出不再是完整源码文件，而是符号级 JSON patch
 - 执行器会先基于 `tree-sitter` 提取符号清单，再应用 patch 并重新校验结构合法性
+- 当任务只是补齐现有函数/方法/类体内部逻辑时，优先使用 `REPLACE_SYMBOL_BODY`
 - 失败的候选写入会保留在 `.devflow/write-transactions/failed/`
 
 当前仍未做：

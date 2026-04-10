@@ -1,0 +1,179 @@
+package devflow.agent.executor;
+
+import devflow.agent.editing.CodePreciseEditor;
+import devflow.agent.editing.CodePrecisePatch;
+import devflow.agent.editing.PreciseEditException;
+import devflow.agent.editing.PreciseEditFailureReason;
+import java.nio.file.Path;
+
+/**
+ * 代码 patch 的 apply + verify 内核。
+ *
+ * <p>当前先覆盖两种最常见路径：
+ * 1. 普通代码文件；
+ * 2. HTML 内联脚本抽出的虚拟 JS 文档。
+ *
+ * <p>这层只负责本地 apply / verify，不做流程决策。
+ */
+final class CodePatchKernel {
+
+    private final CodePreciseEditor codePreciseEditor;
+    private final PatchVerifier patchVerifier;
+
+    CodePatchKernel(
+            CodePreciseEditor codePreciseEditor,
+            PatchVerifier patchVerifier
+    ) {
+        this.codePreciseEditor = codePreciseEditor;
+        this.patchVerifier = patchVerifier;
+    }
+
+    PatchApplyResult applyInlineScript(
+            Path relativePath,
+            String currentScript,
+            CodePrecisePatch patch
+    ) {
+        try {
+            String merged = codePreciseEditor.applyPatch(devflow.agent.util.ProjectPathSupport.inlineScriptSyntheticPath(relativePath), currentScript, patch);
+            ToolResult verifyResult = patchVerifier.verifyInlineScript(relativePath, merged);
+            if (verifyResult.succeeded()) {
+                return new PatchApplyResult(
+                        merged,
+                        ToolResult.success(ToolName.PATCH_APPLY),
+                        verifyResult
+                );
+            }
+            return new PatchApplyResult(
+                    merged,
+                    ToolResult.success(ToolName.PATCH_APPLY),
+                    verifyResult
+            );
+        } catch (PreciseEditException exception) {
+            return new PatchApplyResult(
+                    null,
+                    preciseEditFailure(exception, "请保持 patch 目标与当前脚本工作集边界一致。"),
+                    null
+            );
+        } catch (RuntimeException exception) {
+            return new PatchApplyResult(
+                    null,
+                    ToolResult.failure(
+                            ToolName.PATCH_APPLY,
+                            ToolFailureCode.PATCH_APPLY_FAILED,
+                            exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage(),
+                            "请保持 patch 目标与当前脚本工作集边界一致。"
+                    ),
+                    null
+            );
+        }
+    }
+
+    PatchApplyResult applyInlineStyle(
+            Path relativePath,
+            String currentStyle,
+            CodePrecisePatch patch
+    ) {
+        try {
+            String merged = codePreciseEditor.applyPatch(devflow.agent.util.ProjectPathSupport.inlineStyleSyntheticPath(relativePath), currentStyle, patch);
+            ToolResult verifyResult = patchVerifier.verifyInlineStyle(relativePath, merged);
+            if (verifyResult.succeeded()) {
+                return new PatchApplyResult(
+                        merged,
+                        ToolResult.success(ToolName.PATCH_APPLY),
+                        verifyResult
+                );
+            }
+            return new PatchApplyResult(
+                    merged,
+                    ToolResult.success(ToolName.PATCH_APPLY),
+                    verifyResult
+            );
+        } catch (PreciseEditException exception) {
+            return new PatchApplyResult(
+                    null,
+                    preciseEditFailure(exception, "请保持 patch 目标与当前样式工作集边界一致。"),
+                    null
+            );
+        } catch (RuntimeException exception) {
+            return new PatchApplyResult(
+                    null,
+                    ToolResult.failure(
+                            ToolName.PATCH_APPLY,
+                            ToolFailureCode.PATCH_APPLY_FAILED,
+                            exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage(),
+                            "请保持 patch 目标与当前样式工作集边界一致。"
+                    ),
+                    null
+            );
+        }
+    }
+
+    PatchApplyResult applyCodeFile(
+            Path projectPath,
+            Path relativePath,
+            String currentContent,
+            CodePrecisePatch patch
+    ) {
+        try {
+            String merged = codePreciseEditor.applyPatch(relativePath, currentContent, patch);
+            ToolResult verifyResult = patchVerifier.verifyCodeFile(projectPath, relativePath, merged);
+            if (verifyResult.succeeded()) {
+                return new PatchApplyResult(
+                        merged,
+                        ToolResult.success(ToolName.PATCH_APPLY),
+                        verifyResult
+                );
+            }
+            return new PatchApplyResult(
+                    merged,
+                    ToolResult.success(ToolName.PATCH_APPLY),
+                    verifyResult
+            );
+        } catch (PreciseEditException exception) {
+            return new PatchApplyResult(
+                    null,
+                    preciseEditFailure(exception, "请保持 patch 目标与当前文件可编辑符号一致。"),
+                    null
+            );
+        } catch (RuntimeException exception) {
+            return new PatchApplyResult(
+                    null,
+                    ToolResult.failure(
+                            ToolName.PATCH_APPLY,
+                            ToolFailureCode.PATCH_APPLY_FAILED,
+                            exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage(),
+                            "请保持 patch 目标与当前文件可编辑符号一致。"
+                    ),
+                    null
+            );
+        }
+    }
+
+    /**
+     * 本地 patch apply 失败时要保留结构化失败原因，
+     * 不能再把所有问题都折叠成同一个 PATCH_APPLY_FAILED。
+     */
+    private ToolResult preciseEditFailure(PreciseEditException exception, String defaultNextAction) {
+        PreciseEditFailureReason reason = exception.reason();
+        ToolFailureCode failureCode = preciseEditFailureCode(reason);
+        return ToolResult.failure(
+                ToolName.PATCH_APPLY,
+                failureCode,
+                exception.getMessage() == null ? reason.name() : exception.getMessage(),
+                defaultNextAction
+        );
+    }
+
+    private ToolFailureCode preciseEditFailureCode(PreciseEditFailureReason reason) {
+        if (reason == PreciseEditFailureReason.PATCH_EMPTY || reason == PreciseEditFailureReason.PATCH_SCHEMA_INVALID) {
+            return ToolFailureCode.PATCH_SCHEMA_INVALID;
+        }
+        if (reason == PreciseEditFailureReason.EDIT_UNIT_SCOPE_VIOLATION) {
+            return ToolFailureCode.PATCH_SCOPE_VIOLATION;
+        }
+        if (reason == PreciseEditFailureReason.SYMBOL_NOT_FOUND) {
+            return ToolFailureCode.PATCH_SYMBOL_NOT_FOUND;
+        }
+        return ToolFailureCode.PATCH_ANCHOR_MISSING;
+    }
+}

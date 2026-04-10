@@ -1,0 +1,164 @@
+package devflow.agent.executor;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
+
+/**
+ * 负责把 runtime snapshot 投影成 implementation_state.json。
+ *
+ * <p>这层只做结构化状态序列化，不参与 markdown 渲染，
+ * 这样运行时状态 JSON 和进度/事件视图可以各自演进。
+ */
+final class ImplementationStateSnapshotSerializer {
+
+    private final ObjectMapper objectMapper;
+
+    ImplementationStateSnapshotSerializer(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
+
+    String renderStateJson(ImplementationRuntimeSnapshot runtimeSnapshot) {
+        try {
+            ImplementationStateSnapshot snapshot = new ImplementationStateSnapshot(
+                    runtimeSnapshot.plan() == null ? "" : ImplementationArtifactRenderSupport.blankIfNull(runtimeSnapshot.plan().summary()),
+                    serializeSubtasks(runtimeSnapshot.plan() == null ? List.of() : runtimeSnapshot.plan().subtasks()),
+                    serializeReports(runtimeSnapshot.reports()),
+                    serializeEvents(runtimeSnapshot.events()),
+                    ImplementationArtifactRenderSupport.blankIfNull(runtimeSnapshot.currentSubtaskTitle()),
+                    runtimeSnapshot.stageStatus() != null && runtimeSnapshot.stageStatus().planCompleted(),
+                    runtimeSnapshot.stageStatus() == null || runtimeSnapshot.stageStatus().architectCheckPassed(),
+                    runtimeSnapshot.architectCheckResult() == null || runtimeSnapshot.architectCheckResult().failureReason() == null
+                            ? ""
+                            : runtimeSnapshot.architectCheckResult().failureReason().name(),
+                    runtimeSnapshot.architectCheckResult() == null
+                            ? ""
+                            : ImplementationArtifactRenderSupport.blankIfNull(runtimeSnapshot.architectCheckResult().details()),
+                    runtimeSnapshot.stageStatus() == null ? List.of() : runtimeSnapshot.stageStatus().incompleteSubtasks()
+            );
+            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(snapshot);
+        } catch (Exception exception) {
+            throw new IllegalStateException("Failed to render implementation state: " + exception.getMessage(), exception);
+        }
+    }
+
+    private List<ImplementationStateSnapshot.EventState> serializeEvents(List<ImplementationEventEntry> events) {
+        if (events == null || events.isEmpty()) {
+            return List.of();
+        }
+        return events.stream()
+                .map(event -> new ImplementationStateSnapshot.EventState(
+                        event.timestamp() == null ? "" : event.timestamp().toString(),
+                        ImplementationArtifactRenderSupport.blankIfNull(event.message())
+                ))
+                .toList();
+    }
+
+    private List<ImplementationStateSnapshot.PlannedSubtaskState> serializeSubtasks(List<Subtask> subtasks) {
+        if (subtasks == null || subtasks.isEmpty()) {
+            return List.of();
+        }
+        return subtasks.stream()
+                .map(subtask -> new ImplementationStateSnapshot.PlannedSubtaskState(
+                        subtask.title(),
+                        subtask.goal(),
+                        ImplementationArtifactRenderSupport.safeList(subtask.coverageRefs()),
+                        ImplementationArtifactRenderSupport.safeList(subtask.ownedCapabilities()),
+                        ImplementationArtifactRenderSupport.safeList(subtask.deferredCapabilities()),
+                        ImplementationArtifactRenderSupport.safeList(subtask.acceptanceCriteria()),
+                        subtask.runnableMilestone(),
+                        subtask.deliveryMode().name(),
+                        (subtask.changes() == null ? List.<FileChange>of() : subtask.changes()).stream()
+                                .map(change -> new ImplementationStateSnapshot.FileChangeState(
+                                        change.path(),
+                                        change.action().name(),
+                                        change.reason(),
+                                        change.effectiveEditScope().name(),
+                                        change.runtimeOwnership() == null ? null : change.runtimeOwnership().name()
+                                ))
+                                .toList()
+                ))
+                .toList();
+    }
+
+    private List<ImplementationStateSnapshot.SubtaskExecutionStateSnapshot> serializeReports(List<SubtaskExecutionReport> reports) {
+        if (reports == null || reports.isEmpty()) {
+            return List.of();
+        }
+        return reports.stream()
+                .filter(report -> report != null)
+                .map(report -> new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot(
+                        report.subtask().title(),
+                        report.completed(),
+                        (report.attempts() == null ? List.<SubtaskAttemptReport>of() : report.attempts()).stream()
+                                .map(this::serializeAttempt)
+                                .toList(),
+                        report.executionState() == null ? null : report.executionState().deliveryMode().name(),
+                        report.executionState() != null && report.executionState().preferPreciseEditing(),
+                        serializeFilePatchProgressStates(report.executionState())
+                ))
+                .toList();
+    }
+
+    private List<ImplementationStateSnapshot.FilePatchProgressStateSnapshot> serializeFilePatchProgressStates(
+            SubtaskExecutionState executionState
+    ) {
+        if (executionState == null) {
+            return List.of();
+        }
+        return executionState.filePatchProgressStates().stream()
+                .map(progressState -> new ImplementationStateSnapshot.FilePatchProgressStateSnapshot(
+                        progressState.relativePath() == null ? "" : progressState.relativePath().toString(),
+                        progressState.strategyName(),
+                        progressState.workingContent(),
+                        progressState.pendingUnits().stream()
+                                .map(unit -> new ImplementationStateSnapshot.EditUnitState(
+                                        unit.kind().name(),
+                                        unit.label(),
+                                        unit.allowedSymbols(),
+                                        unit.appendSymbolBudget(),
+                                        unit.splitDepth()
+                                ))
+                                .toList()
+                ))
+                .toList();
+    }
+
+    private ImplementationStateSnapshot.SubtaskAttemptState serializeAttempt(SubtaskAttemptReport attempt) {
+        ImplementationStateSnapshot.GenerationFailureState failureState = attempt.generationFailure() == null
+                ? null
+                : new ImplementationStateSnapshot.GenerationFailureState(
+                        attempt.generationFailure().failureType().name(),
+                        attempt.generationFailure().summary(),
+                        attempt.generationFailure().evidence(),
+                        attempt.generationFailure().retryHint()
+                );
+        ImplementationStateSnapshot.RecoveryDecisionState recoveryState = attempt.recoveryDecision() == null
+                ? null
+                : new ImplementationStateSnapshot.RecoveryDecisionState(
+                        attempt.recoveryDecision().action().name(),
+                        attempt.recoveryDecision().deliveryPolicy().mode() == null
+                                ? null
+                                : attempt.recoveryDecision().deliveryPolicy().mode().wireValue(),
+                        attempt.recoveryDecision().deliveryPolicy().maxFiles(),
+                        attempt.recoveryDecision().deliveryPolicy().maxSymbols(),
+                        attempt.recoveryDecision().deliveryPolicy().preferPreciseEditing(),
+                        attempt.recoveryDecision().deliveryPolicy().forceBacklogSplit(),
+                        attempt.recoveryDecision().deliveryPolicy().requireVerificationBeforeReview(),
+                        attempt.recoveryDecision().reason()
+                );
+        return new ImplementationStateSnapshot.SubtaskAttemptState(
+                attempt.attempt(),
+                attempt.selfCheck().passed(),
+                attempt.selfCheck().summary(),
+                attempt.selfCheck().details(),
+                attempt.review().decision().name(),
+                attempt.review().fixMode().name(),
+                attempt.review().summary(),
+                attempt.review().changeRequest(),
+                attempt.review().evidence(),
+                attempt.review().actionItems(),
+                failureState,
+                recoveryState
+        );
+    }
+}

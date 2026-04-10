@@ -1,7 +1,7 @@
 package devflow.agent.supervisor;
 
 public record DeliveryPolicy(
-        String mode,
+        DeliveryPolicyMode mode,
         Integer maxFiles,
         Integer maxSymbols,
         boolean preferPreciseEditing,
@@ -9,19 +9,27 @@ public record DeliveryPolicy(
         boolean requireVerificationBeforeReview
 ) {
 
-    public static DeliveryPolicy balanced(String mode) {
+    public static DeliveryPolicy balanced(DeliveryPolicyMode mode) {
         return new DeliveryPolicy(mode, 2, 4, true, false, true);
     }
 
     public static DeliveryPolicy patchSafe() {
-        return new DeliveryPolicy("PATCH", 1, 2, true, false, true);
+        return new DeliveryPolicy(DeliveryPolicyMode.PATCH, 1, 2, true, false, true);
+    }
+
+    public static DeliveryPolicy recoverySafe() {
+        return new DeliveryPolicy(DeliveryPolicyMode.PATCH, 1, 1, true, false, true);
     }
 
     public static DeliveryPolicy skeletonFirst() {
-        return new DeliveryPolicy("SKELETON", 2, 3, true, true, true);
+        return new DeliveryPolicy(DeliveryPolicyMode.SKELETON, 2, 3, true, true, true);
     }
 
     public static DeliveryPolicy reworkSafe() {
-        return new DeliveryPolicy("REWORK", 2, 6, true, true, true);
+        return new DeliveryPolicy(DeliveryPolicyMode.REWORK, 2, 6, true, true, true);
+    }
+
+    public DeliveryPolicy withPreferPreciseEditing(boolean value) {
+        return new DeliveryPolicy(mode, maxFiles, maxSymbols, value, forceBacklogSplit, requireVerificationBeforeReview);
     }
 }

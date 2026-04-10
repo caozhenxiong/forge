@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class PlaywrightCaseExecutorTests {
@@ -33,7 +34,7 @@ class PlaywrightCaseExecutorTests {
                         "index.html",
                         "",
                         "",
-                        List.of(new TestStepSpec("ASSERT_NO_ERRORS", null, null, null, null, null, false))
+                        List.of(new TestStepSpec(TestStepAction.ASSERT_NO_ERRORS, null, null, null, null, null, false))
                 ))
         ));
 
@@ -52,6 +53,31 @@ class PlaywrightCaseExecutorTests {
         assertFalse(Files.exists(workspace.lastTempFile));
     }
 
+    @Test
+    void executeUsesForgeAbsoluteScriptPathInsteadOfProjectRelativePath() {
+        CapturingWorkspace workspace = new CapturingWorkspace();
+        PlaywrightCaseExecutor executor = new PlaywrightCaseExecutor(workspace, new ObjectMapper());
+
+        executor.execute(tempDir, new TestCasePlan(
+                "summary",
+                List.of(new TestCaseSpec(
+                        "TC-001",
+                        "smoke",
+                        "smoke",
+                        true,
+                        "index.html",
+                        "",
+                        "",
+                        List.of(new TestStepSpec(TestStepAction.ASSERT_NO_ERRORS, null, null, null, null, null, false))
+                ))
+        ));
+
+        assertNotNull(workspace.lastCommand);
+        Path scriptPath = Path.of(workspace.lastCommand.get(1));
+        assertTrue(scriptPath.isAbsolute(), "script path should be absolute");
+        assertTrue(scriptPath.endsWith(Path.of("tools", "playwright-smoke", "run-testcases.mjs")));
+    }
+
     private static final class ThrowingWorkspace extends FileProjectWorkspace {
         private Path lastTempFile;
 
@@ -60,6 +86,20 @@ class PlaywrightCaseExecutorTests {
             int tempIndex = command.contains("--snapshot") ? 3 : 2;
             lastTempFile = Path.of(command.get(tempIndex));
             throw new IllegalStateException("boom");
+        }
+    }
+
+    private static final class CapturingWorkspace extends FileProjectWorkspace {
+        private List<String> lastCommand;
+
+        @Override
+        public CommandResult runCommand(Path projectPath, List<String> command, Duration timeout) {
+            this.lastCommand = command;
+            return new CommandResult(
+                    0,
+                    "{\"cases\":[]}",
+                    ""
+            );
         }
     }
 }

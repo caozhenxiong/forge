@@ -1,6 +1,8 @@
 package devflow.agent.project;
 
+import devflow.agent.i18n.PlaceholderValues;
 import devflow.agent.orchestrator.FileRunRepository;
+import devflow.agent.util.DevflowPathSupport;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -155,15 +157,13 @@ public class WorkspaceSnapshotStore {
     }
 
     private Path baselineRoot(Path projectPath, UUID runId) {
-        return runRepository.runDirectory(projectPath, runId).resolve("baseline");
+        return DevflowPathSupport.baselineRoot(projectPath, runId);
     }
 
     private String trim(String content, int maxCharsPerFile) {
         if (content == null || content.isBlank()) {
             return "";
         }
-        return content.length() > maxCharsPerFile
-                ? content.substring(0, maxCharsPerFile) + "\n...<truncated>"
-                : content;
+        return PlaceholderValues.truncateTail(content, maxCharsPerFile);
     }
 }

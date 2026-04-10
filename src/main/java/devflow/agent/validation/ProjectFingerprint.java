@@ -18,6 +18,14 @@ public record ProjectFingerprint(
         List<String> evidence
 ) {
 
+    public ProjectType projectTypeEnum() {
+        return ProjectType.fromKey(projectType);
+    }
+
+    public PackageManagerType packageManagerType() {
+        return PackageManagerType.fromKey(packageManager);
+    }
+
     public String resolvedHtmlEntryPath() {
         return htmlEntryPath == null ? "" : htmlEntryPath;
     }

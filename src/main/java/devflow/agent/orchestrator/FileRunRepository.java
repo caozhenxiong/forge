@@ -3,6 +3,7 @@ package devflow.agent.orchestrator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import devflow.agent.util.DevflowPathSupport;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,7 +36,7 @@ public class FileRunRepository implements RunRepository {
         Path runDir = runDirectory(runRecord.projectPath(), runRecord.runId());
         try {
             Files.createDirectories(runDir);
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(runDir.resolve("run.json").toFile(), runRecord);
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(runDir.resolve(RunFileNames.RUN_RECORD).toFile(), runRecord);
         } catch (IOException exception) {
             throw new IllegalStateException("Failed to save run " + runRecord.runId(), exception);
         }
@@ -44,7 +45,7 @@ public class FileRunRepository implements RunRepository {
 
     @Override
     public Optional<RunRecord> findById(Path projectPath, UUID runId) {
-        Path runFile = runDirectory(projectPath, runId).resolve("run.json");
+        Path runFile = DevflowPathSupport.runRecord(projectPath, runId);
         if (!Files.exists(runFile)) {
             return Optional.empty();
         }
@@ -56,11 +57,10 @@ public class FileRunRepository implements RunRepository {
     }
 
     public Path runDirectory(Path projectPath, UUID runId) {
-        return runsRoot(projectPath).resolve(runId.toString());
+        return DevflowPathSupport.runDirectory(projectPath, runId);
     }
 
     private Path runsRoot(Path projectPath) {
-        return projectPath.resolve(".devflow").resolve("runs");
+        return DevflowPathSupport.runsRoot(projectPath);
     }
 }
-
