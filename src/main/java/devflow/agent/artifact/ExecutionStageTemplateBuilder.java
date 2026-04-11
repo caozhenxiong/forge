@@ -43,11 +43,7 @@ final class ExecutionStageTemplateBuilder {
                 ## 实施记录
 
                 [TODO]
-
-                %s
-
-                %s
-                """.formatted(runRecord.runId(), generatedAtLabel, support.now(), support.currentNotesHeading(language), note) : """
+                """.formatted(runRecord.runId(), generatedAtLabel, support.now()) : """
                 # Implementation
 
                 - runId: %s
@@ -61,11 +57,7 @@ final class ExecutionStageTemplateBuilder {
                 ## Execution Log
 
                 [TODO]
-
-                %s
-
-                %s
-                """.formatted(runRecord.runId(), generatedAtLabel, support.now(), support.currentNotesHeading(language), note);
+                """.formatted(runRecord.runId(), generatedAtLabel, support.now());
     }
 
     private String buildCodeReview(RunRecord runRecord, String note, DocumentLanguage language) {
@@ -84,11 +76,7 @@ final class ExecutionStageTemplateBuilder {
                 ## 问题列表
 
                 [TODO]
-
-                %s
-
-                %s
-                """.formatted(runRecord.runId(), generatedAtLabel, support.now(), support.currentNotesHeading(language), note) : """
+                """.formatted(runRecord.runId(), generatedAtLabel, support.now()) : """
                 # Code Review
 
                 - runId: %s
@@ -102,11 +90,7 @@ final class ExecutionStageTemplateBuilder {
                 ## Findings
 
                 [TODO]
-
-                %s
-
-                %s
-                """.formatted(runRecord.runId(), generatedAtLabel, support.now(), support.currentNotesHeading(language), note);
+                """.formatted(runRecord.runId(), generatedAtLabel, support.now());
     }
 
     private String buildTest(RunRecord runRecord, String note, DocumentLanguage language) {
@@ -125,11 +109,7 @@ final class ExecutionStageTemplateBuilder {
                 ## 测试结果
 
                 [TODO]
-
-                %s
-
-                %s
-                """.formatted(runRecord.runId(), generatedAtLabel, support.now(), support.currentNotesHeading(language), note) : """
+                """.formatted(runRecord.runId(), generatedAtLabel, support.now()) : """
                 # Test Report
 
                 - runId: %s
@@ -143,10 +123,6 @@ final class ExecutionStageTemplateBuilder {
                 ## Test Results
 
                 [TODO]
-
-                %s
-
-                %s
-                """.formatted(runRecord.runId(), generatedAtLabel, support.now(), support.currentNotesHeading(language), note);
+                """.formatted(runRecord.runId(), generatedAtLabel, support.now());
     }
 }

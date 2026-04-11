@@ -34,16 +34,6 @@ final class CodeReviewPromptAssembler {
                 }
                 %s
 
-                第二部分紧跟一组显式 key-value 行，字段必须与 JSON block 一致：
-                - decision: ...
-                - fixMode: ...
-                - summary: ...
-                - changeRequest: ...
-                - evidence: ...
-                - actionItems: ...
-                - blockingFindings: ...
-                - findingCount: ...
-
                 fixMode 规则：
                 - APPROVED 时必须是 NONE
                 - PATCH 表示结构基本可接受，只做增量修补
@@ -92,13 +82,12 @@ final class CodeReviewPromptAssembler {
 
                 输出要求：
                 1. 必须先输出 REVIEW_RESULT JSON block
-                2. 再输出 decision / fixMode / summary / changeRequest / evidence / actionItems / blockingFindings / findingCount 八行
-                3. 然后给出 Findings
-                4. Findings 只列真正的问题和风险，并尽量引用具体文件/代码证据
-                5. 每条 Findings 用下面格式：
+                2. 然后给出 Findings
+                3. Findings 只列真正的问题和风险，并尽量引用具体文件/代码证据
+                4. 每条 Findings 用下面格式：
                    - [严重度] 文件或模块：具体问题。证据：xxx。建议：xxx。
-                6. 如果 decision 不是 APPROVED，summary / changeRequest / evidence / actionItems 都必须概括最关键的 1-2 个具体问题
-                7. 必须同时判断代码是否满足 PRD 与 DESIGN 中已经明确的目标、约束、运行形态和验收要求，而不只是看代码语法是否成立
+                5. 如果 decision 不是 APPROVED，summary / changeRequest / evidence / actionItems 都必须概括最关键的 1-2 个具体问题
+                6. 必须同时判断代码是否满足 PRD 与 DESIGN 中已经明确的目标、约束、运行形态和验收要求，而不只是看代码语法是否成立
                 """.formatted(note, implementation, contractView, changes);
     }
 }

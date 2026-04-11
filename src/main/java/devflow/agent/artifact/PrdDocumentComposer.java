@@ -3,6 +3,7 @@ package devflow.agent.artifact;
 import devflow.agent.context.ConstraintSourceMetadata;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ExecutionContract;
+import devflow.agent.context.ValidationMetadata;
 import devflow.agent.executor.ModelRole;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.orchestrator.RunRecord;
@@ -61,19 +62,19 @@ final class PrdDocumentComposer {
         String generated = generationSupport.generate(prompt, context.mode(), ModelRole.PRD);
         generated = postProcessor.stabilizeSourceMetadata(generated, context.authoritativeSourceMetadata(), 8, language);
         String merged = draftAssembler.mergeDocumentDraft(StageType.PRD, context.previousDraft(), generated, context.targetSections());
+        ValidationMetadata validationMetadata = contractExtractor.extractValidationMetadata(merged);
         ExecutionContract executionContract = contractExtractor.extractExecutionContract(
                 runRecord.goal(),
                 runRecord.constraints(),
                 merged,
                 ""
         );
-        merged = postProcessor.stabilizeExecutionContractMetadata(merged, executionContract, 7);
+        merged = postProcessor.stabilizeContractMetadata(merged, executionContract, validationMetadata, 7);
         String sanitized = postProcessor.sanitizeDocumentConstraintEscalation(
-                runRecord,
                 StageType.PRD,
                 merged,
                 context.authoritativeSourceMetadata(),
-                executionContract,
+                validationMetadata,
                 language
         );
         return postProcessor.upsertDocumentBlocks(

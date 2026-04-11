@@ -9,6 +9,10 @@ package devflow.agent.protocol;
 public record ReviewArtifactPayload(
         String decision,
         String fixMode,
+        String implementationPatchTarget,
+        java.util.List<FileChangePayload> overrideChanges,
+        String revisionRoute,
+        String reasonCode,
         String summary,
         String changeRequest,
         String evidence,

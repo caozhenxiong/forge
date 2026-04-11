@@ -16,8 +16,8 @@ final class ConstraintPromptCatalog {
 
     String directLaunchClarification(DocumentLanguage language) {
         return language.choose(
-                "如果约束写的是“可直接打开运行”“无需编译或打包”或类似表述，只能把它解释为需要可启动的入口与可运行交付物。不要在用户未明确提出时，额外收紧资源组织、打包形式、文件数量、实现组织或交付形态；未经来源支撑的实现细节只能作为建议、设计选择或待确认问题。",
-                "If constraints say the project should open directly or run without build/packaging, interpret that only as requiring a launchable entry and a runnable deliverable. Do not further tighten packaging, resource organization, file count, implementation organization, or delivery shape unless those details are source-backed; unsupported implementation details must remain recommendations, design choices, or open questions."
+                "如果约束写的是“可直接打开运行”“无需编译或打包”或类似表述，只能把它解释为需要可启动的入口与可运行交付物。默认使用 runtime.entryPackagingMode=entry-with-local-dependencies，不要在用户未明确提出时额外收紧为 self-contained-entry，也不要擅自收紧资源组织、文件数量、实现组织或交付形态；未经来源支撑的实现细节只能作为建议、设计选择或待确认问题。",
+                "If constraints say the project should open directly or run without build/packaging, interpret that only as requiring a launchable entry and a runnable deliverable. Default to runtime.entryPackagingMode=entry-with-local-dependencies; do not tighten it to self-contained-entry unless the user explicitly requires that shape, and do not further tighten resource organization, file count, implementation organization, or delivery shape without source support. Unsupported implementation details must remain recommendations, design choices, or open questions."
         );
     }
 
@@ -102,6 +102,8 @@ final class ConstraintPromptCatalog {
         String keyLines = """
                 - %s: true|false
                 - %s: html-entry | main-script | main-class | command | http-endpoint | importable-api | unspecified
+                - %s: self-contained-entry | entry-with-local-dependencies | not-applicable
+                - %s: entry-owned | companion-owned | not-applicable
                 - %s: true|false
                 - %s: true|false
                 - %s: 使用英文短标识，逗号分隔，例如 %s
@@ -111,6 +113,8 @@ final class ConstraintPromptCatalog {
                 """.formatted(
                 ContractMetadataKeys.RUNTIME_ENTRY_REQUIRED,
                 ContractMetadataKeys.RUNTIME_ENTRY_KIND,
+                ContractMetadataKeys.RUNTIME_ENTRY_PACKAGING_MODE,
+                ContractMetadataKeys.RUNTIME_RUNTIME_OWNERSHIP_MODE,
                 ContractMetadataKeys.RUNTIME_LAUNCH_REQUIRED,
                 ContractMetadataKeys.RUNTIME_SURFACE_REQUIRED,
                 ContractMetadataKeys.RUNTIME_ACCEPTANCE_SIGNALS,
@@ -129,6 +133,8 @@ final class ConstraintPromptCatalog {
         String zhKeys = String.join("、",
                 ContractMetadataKeys.RUNTIME_ENTRY_REQUIRED,
                 ContractMetadataKeys.RUNTIME_ENTRY_KIND,
+                ContractMetadataKeys.RUNTIME_ENTRY_PACKAGING_MODE,
+                ContractMetadataKeys.RUNTIME_RUNTIME_OWNERSHIP_MODE,
                 ContractMetadataKeys.RUNTIME_LAUNCH_REQUIRED,
                 ContractMetadataKeys.RUNTIME_SURFACE_REQUIRED,
                 ContractMetadataKeys.RUNTIME_ACCEPTANCE_SIGNALS

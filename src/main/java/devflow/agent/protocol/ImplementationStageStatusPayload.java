@@ -11,6 +11,7 @@ public record ImplementationStageStatusPayload(
         boolean architectCheckPassed,
         String architectFailureReason,
         String architectFailureDetails,
+        String implementationPatchTarget,
         List<String> incompleteSubtasks
 ) {
     public ImplementationStageStatusPayload(
@@ -23,6 +24,7 @@ public record ImplementationStageStatusPayload(
                 stageReady,
                 planCompleted,
                 architectCheckPassed,
+                "",
                 "",
                 "",
                 incompleteSubtasks

@@ -84,6 +84,8 @@ final class CoderTurnCoordinator {
         ReusableImplementationState reusableState = implementationResumePolicy.loadReusableImplementationState(
                 previousStateJson,
                 executionContext.fixMode(),
+                executionContext.implementationPatchTarget(),
+                executionContext.overrideChanges(),
                 executionContext.language()
         );
         if (reusableState != null) {
@@ -110,6 +112,7 @@ final class CoderTurnCoordinator {
                 executionContext.fingerprint(),
                 executionContext.language(),
                 executionContext.fixMode(),
+                executionContext.implementationPatchTarget(),
                 executionContext.productRequirementCatalog(),
                 executionContext.continuationConstraints(),
                 eventJournal::append
@@ -137,7 +140,7 @@ final class CoderTurnCoordinator {
                         0,
                         0,
                         false,
-                        true,
+                        false,
                         false,
                         plan.subtasks().stream().map(Subtask::title).toList()
                 ),

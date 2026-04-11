@@ -37,11 +37,25 @@ public final class ImplementationStageReadinessParser {
             String evidence = incomplete == null || incomplete.isBlank()
                     ? "当前实现计划已执行完毕，但整体可运行契约或模块接线检查未通过。" + reason + details
                     : "当前实现计划已执行完毕，但整体可运行契约或模块接线检查未通过；报告中的未就绪项：" + incomplete.trim() + "。" + reason + details;
-            return ImplementationStageReadiness.architectCheckFailed(evidence);
+            return ImplementationStageReadiness.architectCheckFailed(
+                    evidence,
+                    parsePatchTarget(payload.implementationPatchTarget())
+            );
         }
         String normalizedIncomplete = incomplete == null || incomplete.isBlank()
                 ? "当前实现计划仍有未执行或未完成的子任务。"
                 : "未完成子任务：" + incomplete.trim();
         return ImplementationStageReadiness.incomplete(normalizedIncomplete);
+    }
+
+    private ImplementationPatchTarget parsePatchTarget(String value) {
+        if (value == null || value.isBlank()) {
+            return ImplementationPatchTarget.NONE;
+        }
+        try {
+            return ImplementationPatchTarget.valueOf(value.trim());
+        } catch (IllegalArgumentException ignored) {
+            return ImplementationPatchTarget.NONE;
+        }
     }
 }

@@ -63,7 +63,9 @@ public final class MarkdownSectionScanner {
             NumberedHeadingOccurrence current = headings.get(index);
             int start = current.startOffset();
             int end = index + 1 < headings.size() ? headings.get(index + 1).startOffset() : markdown.length();
-            String raw = markdown.substring(start, end).trim();
+            // raw 需要保留原始切片，供基于 offset 的重写链直接回写；
+            // 需要去头尾空白时应消费 body，而不是在这里 trim 掉章节边界。
+            String raw = markdown.substring(start, end);
             String body = stripHeadingLine(raw);
             sections.add(new NumberedSection(current.heading().numberPath(), current.heading().title(), start, end, raw, body));
         }
@@ -120,7 +122,9 @@ public final class MarkdownSectionScanner {
             HeadingOccurrence current = headings.get(index);
             int start = current.startOffset();
             int end = index + 1 < headings.size() ? headings.get(index + 1).startOffset() : markdown.length();
-            String raw = markdown.substring(start, end).trim();
+            // raw 需要保留原始切片，供基于 offset 的重写链直接回写；
+            // 需要去头尾空白时应消费 body，而不是在这里 trim 掉章节边界。
+            String raw = markdown.substring(start, end);
             String body = stripHeadingLine(raw);
             sections.add(new Section(current.heading().number(), current.heading().title(), start, end, raw, body));
         }

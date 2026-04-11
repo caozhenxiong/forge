@@ -12,6 +12,8 @@ record ImplementationStateSnapshot(
         boolean architectCheckPassed,
         String architectFailureReason,
         String architectFailureDetails,
+        String architectImplementationPatchTarget,
+        RuntimeContractState architectRuntimeContract,
         List<String> incompleteSubtasks
 ) {
 
@@ -35,6 +37,37 @@ record ImplementationStateSnapshot(
                 architectCheckPassed,
                 "",
                 "",
+                "",
+                null,
+                incompleteSubtasks
+        );
+    }
+
+    ImplementationStateSnapshot(
+            String summary,
+            List<PlannedSubtaskState> subtasks,
+            List<SubtaskExecutionStateSnapshot> reports,
+            List<EventState> events,
+            String currentSubtaskTitle,
+            boolean planCompleted,
+            boolean architectCheckPassed,
+            String architectFailureReason,
+            String architectFailureDetails,
+            String architectImplementationPatchTarget,
+            List<String> incompleteSubtasks
+    ) {
+        this(
+                summary,
+                subtasks,
+                reports,
+                events,
+                currentSubtaskTitle,
+                planCompleted,
+                architectCheckPassed,
+                architectFailureReason,
+                architectFailureDetails,
+                architectImplementationPatchTarget,
+                null,
                 incompleteSubtasks
         );
     }
@@ -57,15 +90,27 @@ record ImplementationStateSnapshot(
             String action,
             String reason,
             String editScope,
-            String runtimeOwnership
+            String runtimeOwnership,
+            boolean hostHtmlPatchRequired
     ) {
         FileChangeState(String path, String action, String reason) {
-            this(path, action, reason, FileEditScope.AUTO.name(), null);
+            this(path, action, reason, FileEditScope.AUTO.name(), null, false);
         }
 
         FileChangeState(String path, String action, String reason, String editScope) {
-            this(path, action, reason, editScope, null);
+            this(path, action, reason, editScope, null, false);
         }
+
+        FileChangeState(String path, String action, String reason, String editScope, String runtimeOwnership) {
+            this(path, action, reason, editScope, runtimeOwnership, false);
+        }
+    }
+
+    record RuntimeContractState(
+            String htmlEntryPath,
+            String runtimeOwnership,
+            List<String> runtimePaths
+    ) {
     }
 
     record SubtaskExecutionStateSnapshot(
@@ -74,14 +119,26 @@ record ImplementationStateSnapshot(
             List<SubtaskAttemptState> attempts,
             String deliveryMode,
             boolean preferPreciseEditing,
-            List<FilePatchProgressStateSnapshot> filePatchProgressStates
+            List<FilePatchProgressStateSnapshot> filePatchProgressStates,
+            List<FileChangeState> effectiveChanges
     ) {
         SubtaskExecutionStateSnapshot(
                 String title,
                 boolean completed,
                 List<SubtaskAttemptState> attempts
         ) {
-            this(title, completed, attempts, null, false, List.of());
+            this(title, completed, attempts, null, false, List.of(), List.of());
+        }
+
+        SubtaskExecutionStateSnapshot(
+                String title,
+                boolean completed,
+                List<SubtaskAttemptState> attempts,
+                String deliveryMode,
+                boolean preferPreciseEditing,
+                List<FilePatchProgressStateSnapshot> filePatchProgressStates
+        ) {
+            this(title, completed, attempts, deliveryMode, preferPreciseEditing, filePatchProgressStates, List.of());
         }
     }
 
@@ -113,6 +170,7 @@ record ImplementationStateSnapshot(
             String reviewChangeRequest,
             String reviewEvidence,
             String reviewActionItems,
+            String reviewImplementationPatchTarget,
             GenerationFailureState generationFailure,
             RecoveryDecisionState recoveryDecision
     ) {

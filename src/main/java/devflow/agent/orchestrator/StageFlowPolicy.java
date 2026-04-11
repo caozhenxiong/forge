@@ -41,11 +41,27 @@ public class StageFlowPolicy {
      * 这里保留 fixMode 参数，是为了后续扩展更细的回退策略，而不是让各处再额外分叉。
      */
     public StageType rerouteStage(StageType stageType, FixMode fixMode) {
-        if (stageType == StageType.ANALYSIS
-                || stageType == StageType.PRD
-                || stageType == StageType.DESIGN) {
-            return stageType;
+        StageType repairTarget = repairTarget(stageType);
+        return repairTarget == null ? stageType : repairTarget;
+    }
+
+    /**
+     * repair 路径是实现链路专属能力。
+     *
+     * <p>文档阶段出现重复问题时，只允许原阶段重试或按上游回滚，不允许跨阶段
+     * 直接跳到 IMPLEMENTATION 做 repair；否则会出现“没有 DESIGN 却进入 implementation patch”
+     * 的伪修复链路。
+     */
+    public StageType repairTarget(StageType stageType) {
+        if (stageType == StageType.IMPLEMENTATION
+                || stageType == StageType.CODE_REVIEW
+                || stageType == StageType.TEST) {
+            return StageType.IMPLEMENTATION;
         }
-        return StageType.IMPLEMENTATION;
+        return null;
+    }
+
+    public boolean supportsRepairRoute(StageType stageType) {
+        return repairTarget(stageType) != null;
     }
 }

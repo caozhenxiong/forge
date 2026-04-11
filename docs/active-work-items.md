@@ -85,13 +85,24 @@
 - [x] 将 `TestCasePlanner` 的输出预算改成动态 output ratio 驱动，去掉 testcase 规划固定 `1200` 上限
 - [x] 将 testcase required case 约束改成“覆盖 required capability surfaces”，不再在 prompt 里固定写 `2~5` 条
 - [x] 将 inline script repair validate 升级为“tree-sitter + JavaScript 结构 + scope”三层校验，并补宿主/脚本结构回归
+- [x] 收紧 `inline-script-workset` 的资格与续跑兼容性，删除单入口 `append/orchestrator` 骨架；失配旧 progress 直接丢弃并改走 `focused script region`
 - [ ] 收紧 `inline-style-workset` 的单元选择与收窄路径，避免宿主样式 patch 反复触发 `EDIT_UNIT_SCOPE_VIOLATION`
 - [x] 收紧 `precise-code` 深层单元的预算/拆分与收窄路径，避免 `index.app.js` 深层单元持续 `OUTPUT_TRUNCATED`
 - [x] 补单测与定向回归
 - [x] 删除主链兼容层与旧入口转发，测试改为直连真实 owner
+- [x] 将 review artifact 协议收口为 `REVIEW_RESULT` block-only，删除 key-value retrofit 与回写
+- [x] 将 runtime wiring retry 改为 `SubtaskRevisionDirective` 结构化 override，不再靠 prose change request 续跑
+- [x] 将 html-entry 计划 contract 显式化，要求 `editScope / runtimeOwnership / hostHtmlPatchRequired` 成组声明
+- [x] 将 `PATCH_EXISTING_IMPLEMENTATION` continuation / review / repair note 统一成结构化 `overrideChanges` 协议，不再允许空 scope 下的静默 replanning
+- [x] 将 runtime ownership / wiring 检查改成只认宿主显式接线与 inline module import，删除 `index.app.js` 默认根、basename 猜测与 orphan root ownership 推断
+- [x] 将静态 HTML 结构信号并入 `QualityPlan` runtime source，避免 implementation review 在缺少浏览器快照时漏判高风险内联交互页
+- [x] 删除 `StageReviewer` 兼容构造器，测试与装配改为直连真实依赖
 - [x] 删除 TSX heuristic symbol fallback，invalid parse 不再产出不稳定符号
 - [x] 将 validation / testcase planning 收成 deterministic primary path，不再保留 fallback 语义主路径
 - [x] 将 quality rules 加载改成严格资源默认 + 项目规则覆盖，配置错误直接失败
+- [x] 将 implementation review 改成 contract-first gate，不再因为 `single html / 外提脚本 / embedded dominance` 直接回退 `DESIGN`
+- [x] 将阶段 directive 从 canonical artifact 中移出，单独持久化到 `*_directive.md`
+- [x] 将结构风险 gate 降为 advisory，不再把“是否外提主逻辑”作为 implementation/completeness 的阻断条件
 - [ ] 重跑黄金路径集成测试
 - [x] 将 `IMPLEMENTATION` 未完成的 continuation 改成原生阶段流转，不再伪造 `ReviewResult / SupervisorDecision`
 - [ ] 根据集成结果更新 [current-state.md](/home/linus/workspace/forge/docs/current-state.md)
@@ -121,7 +132,13 @@
 - 测试主链已经切到 `step semantic / capability` 驱动，但还需要继续减少质量 gate 与规则层里的 capability 推断式阻断、Java 默认规则写死和 testcase 规划固定条数约束
 - 最近黄金路径已证明：HTML 入口未接入 `js/*.js` 运行脚本的问题已被 `runtime wiring gate` 拦住，但 repair validate 仍需继续收紧到“语法 + scope + 结构”全部通过
 - continuation/replanning 已切到原生 state 约束；当前最新代码尚未重跑黄金路径，下一步只剩集成验证
+- implementation state snapshot 已补齐 `architectImplementationPatchTarget / reviewImplementationPatchTarget`，恢复链不再从 `architectFailureReason` 反推 PATCH 语义
 - `IMPLEMENTATION` 未完成状态现在会直接走原生 continuation，不再伪造 review/supervisor 语义回流；对应单元测试已通过，集成尚未重跑
+- `PATCH_EXISTING_IMPLEMENTATION` 现在必须携带结构化 `overrideChanges`；review / revision note / repair note / continuation 已统一消费同一份文件级 patch scope
+- runtime ownership / wiring 现在只认宿主显式 `<script src>` 接线和 inline module import，不再从 orphan runtime 文件、basename 或默认 companion 路径反推 ownership
+- implementation review 已改成 contract-first：运行时所有权/入口接线不一致时修当前阶段，不再把实现形态问题粗暴上卷到 `DESIGN`
+- canonical stage artifact 不再承载修订 prose；当前 directive 已单独落到 `*_directive.md`
+- structure risk 已降为提示信息，不再作为 implementation/completeness 的独立阻断 gate
 
 因此当前主线调整为：
 

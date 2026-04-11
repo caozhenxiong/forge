@@ -19,6 +19,7 @@ import devflow.agent.quality.QualityIntent;
 import devflow.agent.quality.StructurePolicy;
 import devflow.agent.quality.StructureRiskLevel;
 import devflow.agent.quality.StructureRiskReport;
+import devflow.agent.review.ImplementationPatchTarget;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -33,7 +34,7 @@ class TestArtifactRendererTests {
         String markdown = renderer.renderExecution(
                 new CollectedTestEvidence(
                         new SelfCheckResult(true, "ok", "details"),
-                        new ArchitectIntegrationCheckResult(true, null, ""),
+                        ArchitectIntegrationCheckResult.success(),
                         null,
                         List.of(),
                         List.of(ToolResult.failure(
@@ -43,6 +44,8 @@ class TestArtifactRendererTests {
                                 "rerun tests"
                         ))
                 ),
+                UiRuntimeContract.empty(),
+                ExperienceFailureDisposition.pass(),
                 DocumentLanguage.EN
         );
 
@@ -73,7 +76,7 @@ class TestArtifactRendererTests {
         );
         return new CollectedTestEvidence(
                 new SelfCheckResult(true, "ok", "details"),
-                new ArchitectIntegrationCheckResult(true, null, ""),
+                ArchitectIntegrationCheckResult.success(),
                 null,
                 List.of(),
                 List.of(ToolResult.failure(

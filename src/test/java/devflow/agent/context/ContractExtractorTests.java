@@ -36,6 +36,8 @@ class ContractExtractorTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, mode-switch-works, puzzle-renders
@@ -67,6 +69,8 @@ class ContractExtractorTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, mode-switch-works, puzzle-renders
@@ -118,6 +122,8 @@ class ContractExtractorTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, keyboard-input-works
@@ -149,6 +155,8 @@ class ContractExtractorTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, play-surface-renders
@@ -189,6 +197,8 @@ class ContractExtractorTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: false
                 - runtime.surfaceRequired: false
                 - runtime.acceptanceSignals: runtime-surface-renders
@@ -304,6 +314,8 @@ class ContractExtractorTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, controls-work
@@ -337,6 +349,8 @@ class ContractExtractorTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, controls-work
@@ -379,6 +393,8 @@ class ContractExtractorTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, controls-work
@@ -410,6 +426,8 @@ class ContractExtractorTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, controls-work

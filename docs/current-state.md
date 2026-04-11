@@ -96,8 +96,14 @@
 
 - `Reviewer`
   - 已切到结构化 review 语义主路径
-  - 不再依赖 prose regex 猜阻塞语义
+  - review artifact 机器协议已收口为 `REVIEW_RESULT` block-only
+  - `ReviewResult / REVIEW_RESULT` 已显式携带 `implementationPatchTarget / overrideChanges / revisionRoute / reasonCode`
+  - 不再依赖 prose regex 猜阻塞语义，也不再接受 key-value retrofit
   - implementation review 会显式消费 `repair_brief.md` 和 `repair_alignment.md`
+  - implementation gate 已切成 contract-first：
+    - 不再因为 `single html / 外提脚本 / embedded dominance` 这类实现形态直接回退 `DESIGN`
+    - 只要 `DESIGN` contract 已冻结，`IMPLEMENTATION` 被打回时默认修当前阶段
+    - 入口接线、runtime ownership、可启动入口和可见运行表面都由确定性 architect check 驱动
 - `Tester`
   - 当前以确定性执行层为主
   - `TestToolSelector / TestRunner / TestArtifactRenderer` 已成为主链
@@ -105,20 +111,36 @@
 - `Supervisor`
   - 已明显收口为升级仲裁层
   - 不再充当常驻总导演
+  - 文档阶段重复问题现在只允许 `RETRY_STAGE / ROLLBACK_STAGE`，不会再把 `PRD/DESIGN` 误路由到 `IMPLEMENTATION repair`
 
 ## 代码现状
 
 ### 当前整体状态
 
-截至 `2026-04-11`：
+截至 `2026-04-12`：
 
 - 代码重构阶段：`100%`
 - 仓库级单测：已通过
   - `mvn -q clean test`
+  - `mvn -q test`
 - 正式黄金路径集成验收：最近一次稳定通过为 `v102`
 - `AGENTS` 合规收口主线：continuation、planning 约束、patch 主链入口和 quality rules 严格加载均已通过单元测试；黄金路径集成尚未用这版代码重跑
 
 这意味着底层重构主线已经完成正式业务验收；当前剩余工作主要是把最新这版合规收口结果拿到黄金路径验证。
+
+### 最近一次收口评审结论
+
+最近一次代码改动完成后，已经按约定执行了 `self-test + code review`。这轮 review 的结论是：
+
+- `TEST` 阶段评审不再只看 `REVIEW_RESULT`，还会显式消费 `QUALITY_LEDGER`；必需能力覆盖缺失时不能再被误判为通过
+- `uiRuntimeContract` 无效时，测试执行链不再短路成空结果，而会稳定产出 `TEST_CASE_EXECUTION` 的 blocked/skipped 证据
+- 测试侧与主链已经切到新的 runtime contract API，不再保留 `parseTestArtifact`、旧版 `renderExecution(...)`、旧版 `sanitize(...)` 这类旧入口双轨
+- 本轮 review 中发现的新增坏味道只有一个：`observation-contract-invalid` 曾以裸字符串存在；已在主代码中收成常量并复测通过
+
+当前结论：
+
+- 本轮代码收口在“方案执行 + 自测 + code review”三个维度上已经完成
+- 剩余未完成事项是黄金路径集成验证，而不是单测主链本身
 
 ### 当前编辑主链
 
@@ -135,6 +157,7 @@
 - provider 调用前会先做上下文压缩与预算裁剪
 - patch apply / local verify / test evidence 已收成结构化结果
 - 宿主 HTML、内联脚本、内联样式已经进入显式嵌入适配层
+- `inline-script-workset` 已收紧为“多稳定符号批次”专用骨架；单入口 bootstrap 脚本直接走 `focused script region`，失配旧 `INLINE_SCRIPT_WORKSET` progress 会被丢弃而不是强行续跑
 - diagnosis / repair 已能直接消费最新测试产物，不再只靠 review 摘要
 - `repair-before-regenerate` 已在黄金路径中真实生效：
   - `INVALID_PATCH_JSON` 会先进入 `deterministic-json-repair`
@@ -151,9 +174,24 @@
 - repair 链已经进入 `JSON + syntax + strict body + validate` 主路径；`precise-html` 宿主宽协议现在只打一枪，repair 后仍失败会直接收窄到 `focused-html-region`
 - `precise-code` 当前会在执行前把受限多符号父单元直接拆成 leaf unit，不再让 parent unit 先执行、再靠 scope failure 拆分补救
 - `IMPLEMENTATION` 未完成不再经过 fake review/supervisor continuation；当前剩余验证重点已回到真实 patch/repair 行为，而不是阶段流转语义本身
+- implementation state snapshot 已持久化 `architectImplementationPatchTarget / reviewImplementationPatchTarget`；completed-plan PATCH continuation 现在只消费结构化 target，不再根据 `architectFailureReason` 猜修复语义
+- runtime wiring retry 已改为 `SubtaskRevisionDirective` 结构化 override 驱动，失败后直接续跑当前子任务，不再靠 prose change request 猜下一轮 HTML scope
+- `PATCH_EXISTING_IMPLEMENTATION` 已统一成结构化 `overrideChanges` 协议；review、revision note、repair note 和 completed-plan continuation 现在都消费同一份文件级 patch scope，不再允许空 scope 静默 replanning
+- runtime ownership / wiring 检查只认宿主显式 `<script src>` 接线和 inline module import；`index.app.js` 默认 companion 路径、basename 猜测与 orphan root ownership 推断已从主链删除
+- html-entry planning contract 已显式化：`editScope / runtimeOwnership / hostHtmlPatchRequired` 必须成组声明，宿主 HTML 不再允许含混 `AUTO` scope
+- `QualityPlan` 现在会在浏览器 runtime snapshot 缺席时吸收静态 HTML 结构信号；`canvas/button` 这类宿主事实不会再在 implementation review 里被漏判成普通静态页
+- canonical stage artifact 已不再混入 `Current Notes / Revision Summary` 之类瞬时 prose：
+  - 阶段主产物只保留 canonical 内容
+  - 阶段 directive 现在单独落到 `*_directive.md`
+  - 历史旧稿中的 `Current Notes` 会在文档后处理阶段被清理掉，不再继续留在主文档
 - parser 主链已删除 TSX heuristic symbol fallback；invalid parse 不再产出不稳定符号
 - validation / testcase planning 已切到 deterministic primary path；模型失败时不再切另一套 fallback 语义主路径
 - quality rules 加载已切成“资源默认规则 + 项目规则覆盖”的严格模式，不再支持运行时临时覆写
+- structure risk 现在只保留为提示信息：
+  - 不再把“是否外提主逻辑”作为 implementation/completeness 的阻断条件
+  - 真正阻断只来自 contract、一致性检查和可运行性验证
+- `PRD/DESIGN` 的 `Contract Metadata` 章节现在会同时持久化 `runtime.*` 与 `validation.*`，validation authority 不再在 post-process 阶段丢失
+- `PRD` 的 `4.1 性能 / 5.2 质量验收` 已接入本地 authority canonicalization：无来源数值阈值会被删除；有 `hard.* / validation.*` 支撑的条目会被规范化保留
 
 ### 当前 agent / model 关系
 
@@ -233,6 +271,7 @@
 当前最新状态是：
 
 - continuation/replanning 已切到原生 state 约束，planner 会继承已有文件与 patch progress，不再把已有 `index.html` 错误降级成 `SKELETON/full rewrite`
+- completed-plan PATCH continuation 已改为显式读取 state snapshot 里的 patch target；runtime wiring / host externalization 不再依赖旧的 failureReason 推断
 - `precise-html` 和 `precise-code` 的主入口稳定性已完成单元测试收口
 - 主链兼容层与旧入口转发已删除，测试已改成真实 owner 装配
 - 仓库级单测已通过；黄金路径集成尚未用这版代码重跑

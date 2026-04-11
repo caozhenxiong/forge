@@ -52,17 +52,6 @@ final class HtmlFilePatchExecutor {
         FilePatchProgressState patchProgressState = request.patchProgressState();
         if (patchProgressState != null && patchProgressState.resumable()) {
             String strategyName = patchProgressState.strategyName();
-            if (FileEditStrategyNames.INLINE_SCRIPT_WORKSET.equals(strategyName)) {
-                return embeddedPatchExecutor.generate(
-                        htmlEditRoutingPolicy.inlineScriptAdapter(),
-                        patchRequestFactory.embedded(request),
-                        EmbeddedPatchKind.SCRIPT,
-                        "HTML 内联 script 未暴露稳定锚点或缺少可精确编辑的脚本符号。",
-                        "请改用 HTML 区块级改写，不要退回整文件重写。",
-                        "请保持主脚本工作集改写后的 HTML 整体可解析。",
-                        true
-                );
-            }
             if (FileEditStrategyNames.INLINE_STYLE_WORKSET.equals(strategyName)) {
                 return GeneratedFileOutput.primaryOnly(embeddedPatchExecutor.generate(
                         htmlEditRoutingPolicy.inlineStyleAdapter(),
@@ -127,7 +116,8 @@ final class HtmlFilePatchExecutor {
                 if (htmlEditRoutingPolicy.shouldUseFocusedScriptRegionEditing(
                         request.relativePath(),
                         request.executionState(),
-                        request.existingContent()
+                        request.existingContent(),
+                        request.scopedChange()
                 )) {
                     return GeneratedFileOutput.primaryOnly(hostHtmlPatchExecutor.generateFocusedRegion(
                             patchRequestFactory.hostHtml(request),
@@ -135,6 +125,19 @@ final class HtmlFilePatchExecutor {
                     ));
                 }
             }
+        }
+        // 对 inline script 来说，是否继续走 workset 必须先基于当前宿主内容重判。
+        // 不能因为旧 patchProgress 里残留着 inline-script-workset，就继续把已经失配的骨架强行续跑。
+        if (htmlEditRoutingPolicy.shouldUseFocusedScriptRegionEditing(
+                request.relativePath(),
+                request.executionState(),
+                request.existingContent(),
+                request.scopedChange()
+        )) {
+            return GeneratedFileOutput.primaryOnly(hostHtmlPatchExecutor.generateFocusedRegion(
+                    patchRequestFactory.hostHtml(request),
+                    HtmlEditRegion.SCRIPT
+            ));
         }
         if (htmlEditRoutingPolicy.shouldUseInlineStyleWorkingSetEditing(
                 request.relativePath(),
@@ -228,15 +231,15 @@ final class HtmlFilePatchExecutor {
         )) {
             return false;
         }
-        java.nio.file.Path extractedScriptPath = devflow.agent.util.ProjectPathSupport.extractedInlineScriptAssetPath(request.relativePath());
-        FileChange scopedChange = request.scopedChange();
-        if (scopedChange == null || scopedChange.runtimeOwnership() != RuntimeOwnershipMode.EXTERNAL_COMPANION) {
+        HtmlRuntimeOwnershipContract runtimeContract = request.runtimeContract();
+        if (runtimeContract == null || !runtimeContract.externalCompanion() || runtimeContract.runtimePaths().isEmpty()) {
             return false;
         }
         return request.subtask().changes() != null
                 && request.subtask().changes().stream()
                 .filter(change -> change != null && change.path() != null && !change.path().isBlank())
-                .anyMatch(change -> extractedScriptPath.equals(java.nio.file.Path.of(change.path()).normalize()));
+                .map(change -> java.nio.file.Path.of(change.path()).normalize())
+                .anyMatch(runtimeContract.runtimePaths()::contains);
     }
 
     private HtmlEditRegion parseFocusedRegion(String strategyName) {

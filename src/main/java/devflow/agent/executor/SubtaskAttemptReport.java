@@ -2,6 +2,7 @@ package devflow.agent.executor;
 
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.supervisor.GenerationRecoveryDecision;
@@ -43,7 +44,10 @@ record SubtaskAttemptReport(
                                 ReviewDecision.REVISION_REQUIRED,
                                 FixMode.PATCH,
                                 language.choose("代码生成失败", "Code generation failed"),
-                                language.choose("请缩小改动范围后重试", "Reduce the change scope and retry")
+                                language.choose("请缩小改动范围后重试", "Reduce the change scope and retry"),
+                                "",
+                                "",
+                                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
                         )
                         : generationFailure.toReviewResult(),
                 generationFailure,

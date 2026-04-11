@@ -1,5 +1,6 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.artifact.AuxiliaryArtifactNames;
 import devflow.agent.artifact.EventLogStore;
 import devflow.agent.artifact.FileArtifactStore;
 import java.time.Instant;
@@ -62,6 +63,13 @@ public class StageEntryExecutor {
                     note
             );
             String artifactPath = artifactStore.writeArtifact(runRecord.projectPath(), runRecord.runId(), stageType, artifactContent).toString();
+            artifactStore.writeAttemptScopedAuxiliaryArtifact(
+                    runRecord.projectPath(),
+                    runRecord.runId(),
+                    AuxiliaryArtifactNames.stageDirective(stageType),
+                    nextExecution.attempt(),
+                    note == null ? "" : note.trim()
+            );
             nextStates.put(
                     stageType,
                     nextExecution.withArtifactPath(artifactPath)

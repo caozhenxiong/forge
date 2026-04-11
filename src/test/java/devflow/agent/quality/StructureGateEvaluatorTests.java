@@ -2,13 +2,12 @@ package devflow.agent.quality;
 
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StructureGateEvaluatorTests {
 
     @Test
-    void blocksEmbeddedDominanceFromRiskReportWithoutCapabilityHeuristic() {
+    void structureRiskIsNowAdvisoryAndDoesNotBlockByItself() {
         QualityPlan qualityPlan = new QualityPlan(
                 new FeatureProfile(true, false, true, false, false, false, false, false, false),
                 QualityIntent.empty(),
@@ -28,7 +27,7 @@ class StructureGateEvaluatorTests {
 
         StructureGateOutcome outcome = new StructureGateEvaluator().evaluate(null, qualityPlan);
 
-        assertFalse(outcome.passed());
+        assertTrue(outcome.passed());
     }
 
     @Test

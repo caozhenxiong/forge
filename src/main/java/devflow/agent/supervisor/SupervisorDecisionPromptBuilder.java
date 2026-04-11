@@ -52,7 +52,8 @@ final class SupervisorDecisionPromptBuilder {
                 1. 你只负责流程决策，不直接写代码。
                 2. REVIEW 通过后，优先在 ADVANCE_STAGE、REQUEST_HUMAN_REVIEW、COMPLETE_RUN 中选择。
                 3. REVIEW 未通过时，优先在 RETRY_STAGE、ROUTE_TO_REPAIR、ROLLBACK_STAGE、FAIL_RUN 中选择。
-                4. ROUTE_TO_REPAIR 只在重复问题已明确、适合定点修补时使用。
+                4. ROUTE_TO_REPAIR 只在重复问题已明确、适合定点修补，且当前阶段属于 IMPLEMENTATION/CODE_REVIEW/TEST 时使用。
+                4.1 如果当前阶段是 ANALYSIS/PRD/DESIGN，绝对不要选择 ROUTE_TO_REPAIR；文档阶段只能 RETRY_STAGE 或 ROLLBACK_STAGE。
                 5. ROLLBACK_STAGE 只在根因明显属于上游文档或设计时使用。
                 6. 不要凭空跳过阶段，不要选择无效 targetStage。
                 7. reason/focus/constraints 必须简洁、可执行。
@@ -104,6 +105,9 @@ final class SupervisorDecisionPromptBuilder {
                 是否已识别为重复问题：
                 %s
 
+                当前阶段是否允许 repair route：
+                %s
+
                 Supervisor Context Slice：
                 %s
 
@@ -127,6 +131,9 @@ final class SupervisorDecisionPromptBuilder {
                 textSupport.blank(reviewResult.evidence()),
                 textSupport.blank(reviewResult.actionItems()),
                 repeatedIssue,
+                currentStage == StageType.IMPLEMENTATION
+                        || currentStage == StageType.CODE_REVIEW
+                        || currentStage == StageType.TEST,
                 projectedContext.toMarkdown(ContextAccessProfile.SUPERVISOR, language),
                 fallback.action(),
                 PlaceholderValues.orMachineNull(fallback.targetStage() == null ? null : fallback.targetStage().toString()),

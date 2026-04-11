@@ -19,13 +19,11 @@ public final class StructureRiskAnalyzer {
             hostRisk = StructureRiskLevel.MEDIUM;
             embeddedRisk = StructureRiskLevel.MEDIUM;
             boundaryRisk = StructureRiskLevel.MEDIUM;
-            preferLogicExternalization = rules.preferLogicExternalization();
         }
         if (profile.hasEmbeddedLogic() && (profile.hasDiscreteUserInput() || profile.hasCanvasSurface() || profile.hasBackgroundLoop())) {
             hostRisk = StructureRiskLevel.HIGH;
             embeddedRisk = StructureRiskLevel.HIGH;
             boundaryRisk = StructureRiskLevel.HIGH;
-            preferLogicExternalization = rules.preferLogicExternalization();
             justificationRequired = rules.blockOnUnjustifiedEmbeddedDominance();
         }
         if (profile.hasExternalLogicModule()) {

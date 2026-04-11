@@ -1,8 +1,11 @@
 package devflow.agent.executor;
 
 import devflow.agent.protocol.ExecutionDirectivePayload;
+import devflow.agent.protocol.FileChangePayload;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.util.EnumParsers;
+import java.util.List;
 
 /**
  * 统一解析 implementation 阶段的执行指令。
@@ -40,5 +43,34 @@ final class ImplementationDirectiveResolver {
 
     FixMode resolveFixMode(ExecutionDirectivePayload directives) {
         return EnumParsers.parseIgnoreCase(FixMode.class, directives.fixMode(), FixMode.NONE);
+    }
+
+    ImplementationPatchTarget resolveImplementationPatchTarget(ExecutionDirectivePayload directives) {
+        return EnumParsers.parseIgnoreCase(
+                ImplementationPatchTarget.class,
+                directives.implementationPatchTarget(),
+                ImplementationPatchTarget.NONE
+        );
+    }
+
+    List<FileChange> resolveOverrideChanges(ExecutionDirectivePayload directives) {
+        if (directives == null || directives.overrideChanges() == null || directives.overrideChanges().isEmpty()) {
+            return List.of();
+        }
+        return directives.overrideChanges().stream()
+                .filter(payload -> payload != null && payload.path() != null && !payload.path().isBlank())
+                .map(this::toFileChange)
+                .toList();
+    }
+
+    private FileChange toFileChange(FileChangePayload payload) {
+        return new FileChange(
+                payload.path(),
+                EnumParsers.parseIgnoreCase(ChangeAction.class, payload.action(), ChangeAction.WRITE),
+                payload.reason() == null ? "" : payload.reason(),
+                EnumParsers.parseIgnoreCase(FileEditScope.class, payload.editScope(), FileEditScope.AUTO),
+                EnumParsers.parseIgnoreCase(RuntimeOwnershipMode.class, payload.runtimeOwnership(), null),
+                Boolean.TRUE.equals(payload.hostHtmlPatchRequired())
+        );
     }
 }

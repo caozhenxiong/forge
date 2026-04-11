@@ -34,7 +34,7 @@ class ValidationStrategyPlannerTests {
     }
 
     @Test
-    void modelPlanIsSanitizedAgainstKnownCapabilities() {
+    void modelPlanCannotDropRequiredSmokeOrRuntimeChecks() {
         ValidationStrategyPlanner planner = new ValidationStrategyPlanner(new LlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, java.util.Map<String, Object> options) {
@@ -71,10 +71,17 @@ class ValidationStrategyPlannerTests {
         ValidationPlan plan = planner.plan(webProjectFingerprint());
 
         assertEquals("采用已有能力进行验证", plan.summary());
-        assertEquals(1, plan.steps().size());
-        assertEquals(ValidationCapability.WEB_RESOURCE_LINK_CHECK, plan.steps().getFirst().capability());
+        assertEquals(
+                List.of(
+                        ValidationCapability.WEB_RESOURCE_LINK_CHECK,
+                        ValidationCapability.WEB_RUNTIME_WIRING_CHECK,
+                        ValidationCapability.WEB_PLAYWRIGHT_SMOKE,
+                        ValidationCapability.WEB_JAVASCRIPT_SYNTAX_CHECK
+                ),
+                plan.steps().stream().map(ValidationStep::capability).toList()
+        );
         assertEquals("先验证静态资源", plan.steps().getFirst().reason());
-        assertTrue(plan.steps().getFirst().required());
+        assertTrue(plan.steps().stream().allMatch(ValidationStep::required));
     }
 
     private ProjectFingerprint webProjectFingerprint() {

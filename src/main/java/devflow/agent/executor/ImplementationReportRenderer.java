@@ -7,6 +7,7 @@ import devflow.agent.protocol.ExecutionDirectivePayload;
 import devflow.agent.protocol.ExecutionDirectiveProtocol;
 import devflow.agent.protocol.ImplementationStageStatusPayload;
 import devflow.agent.protocol.StructuredArtifactBlocks;
+import devflow.agent.review.ImplementationPatchTarget;
 import java.util.List;
 
 /**
@@ -36,6 +37,9 @@ final class ImplementationReportRenderer {
                                 ? ""
                                 : snapshot.architectCheckResult().failureReason().name(),
                         snapshot.architectCheckResult() == null ? "" : snapshot.architectCheckResult().details(),
+                        snapshot.architectCheckResult() == null
+                                ? ImplementationPatchTarget.NONE.name()
+                                : snapshot.architectCheckResult().implementationPatchTarget().name(),
                         stageStatus.incompleteSubtasks()
                 )
         );

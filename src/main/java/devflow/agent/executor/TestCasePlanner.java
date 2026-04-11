@@ -35,6 +35,7 @@ public class TestCasePlanner {
     private final TestCasePlanSanitizer planSanitizer;
     private final CapabilityCoverageBackfillSupport coverageBackfillSupport;
     private final QualityPlanFactory qualityPlanFactory;
+    private final UiRuntimeContractResolver uiRuntimeContractResolver;
 
     public TestCasePlanner(FileProjectWorkspace workspace, LlmProvider llmProvider, ObjectMapper objectMapper) {
         this(workspace, llmProvider, objectMapper, new TreeSitterSupport(), new ContractExtractor());
@@ -55,6 +56,7 @@ public class TestCasePlanner {
         this.planSanitizer = new TestCasePlanSanitizer();
         this.coverageBackfillSupport = new CapabilityCoverageBackfillSupport();
         this.qualityPlanFactory = new QualityPlanFactory();
+        this.uiRuntimeContractResolver = new UiRuntimeContractResolver(workspace, treeSitterSupport);
     }
 
     public TestCasePlan plan(
@@ -79,19 +81,36 @@ public class TestCasePlanner {
                 runtimeSnapshot,
                 java.util.List.of()
         );
+        UiRuntimeContract initialRuntimeContract = uiRuntimeContractResolver.resolve(
+                projectPath,
+                fingerprint,
+                qualityPlan,
+                runtimeSnapshot
+        );
         List<TestCaseSpec> baseCases = basePlanBuilder.build(
                 projectPath,
                 fingerprint,
                 validationMetadata,
                 qualityPlan,
                 runtimeSnapshot,
+                initialRuntimeContract,
                 language
         );
         if (llmProvider == null) {
+            List<TestCaseSpec> cases = coverageBackfillSupport.backfill(baseCases, baseCases, qualityPlan);
+            UiRuntimeContract enrichedContract = uiRuntimeContractResolver.enrichRunStateEntryTargets(initialRuntimeContract, cases);
+            UiRuntimeContractValidation validation = uiRuntimeContractResolver.validate(
+                    projectPath,
+                    qualityPlan,
+                    runtimeSnapshot,
+                    enrichedContract
+            );
             return new TestCasePlan(
                     language.choose("未配置模型，使用确定性基础测试用例。", "No model configured; using deterministic base test cases."),
-                    coverageBackfillSupport.backfill(baseCases, baseCases, qualityPlan),
-                    qualityPlan
+                    cases,
+                    qualityPlan,
+                    enrichedContract,
+                    validation
             );
         }
 
@@ -105,7 +124,8 @@ public class TestCasePlanner {
                     design,
                     implementationReport,
                     runtimeSnapshot,
-                    qualityPlan
+                    qualityPlan,
+                    initialRuntimeContract
             );
             String response = llmProvider.generate(
                     prompt.systemPrompt(),
@@ -114,23 +134,86 @@ public class TestCasePlanner {
                     ModelRole.TEST_CASE_DESIGN
             );
             PlannedTestCasesPayload payload = structuredPayloadReader.readJsonObject(response, PlannedTestCasesPayload.class);
-            List<TestCaseSpec> planned = planSanitizer.sanitize(payload.cases(), baseCases, detectedEntry, runtimeSnapshot);
+            List<TestCaseSpec> planned = planSanitizer.sanitize(
+                    payload.cases(),
+                    baseCases,
+                    detectedEntry,
+                    runtimeSnapshot,
+                    initialRuntimeContract
+            );
             planned = coverageBackfillSupport.backfill(planned, baseCases, qualityPlan);
             if (!planned.isEmpty()) {
+                UiRuntimeContract enrichedContract = uiRuntimeContractResolver.enrichRunStateEntryTargets(initialRuntimeContract, planned);
+                UiRuntimeContractValidation validation = uiRuntimeContractResolver.validate(
+                        projectPath,
+                        qualityPlan,
+                        runtimeSnapshot,
+                        enrichedContract
+                );
                 String summary = payload.summary() == null || payload.summary().isBlank()
                         ? (payload.cases() == null || payload.cases().isEmpty()
                         ? language.choose("使用确定性基础测试用例。", "Using deterministic base test cases.")
                         : language.choose("模型基于当前实现生成测试用例。", "The model generated test cases based on the current implementation."))
                         : payload.summary();
-                return new TestCasePlan(summary, planned, qualityPlan);
+                return new TestCasePlan(summary, planned, qualityPlan, enrichedContract, validation);
             }
         } catch (Exception ignored) {
         }
 
+        List<TestCaseSpec> cases = coverageBackfillSupport.backfill(baseCases, baseCases, qualityPlan);
+        UiRuntimeContract enrichedContract = uiRuntimeContractResolver.enrichRunStateEntryTargets(initialRuntimeContract, cases);
+        UiRuntimeContractValidation validation = uiRuntimeContractResolver.validate(
+                projectPath,
+                qualityPlan,
+                runtimeSnapshot,
+                enrichedContract
+        );
         return new TestCasePlan(
                 language.choose("使用确定性基础测试用例。", "Using deterministic base test cases."),
-                coverageBackfillSupport.backfill(baseCases, baseCases, qualityPlan),
-                qualityPlan
+                cases,
+                qualityPlan,
+                enrichedContract,
+                validation
+        );
+    }
+
+    TestCasePlan planForImplementationVerification(
+            Path projectPath,
+            ProjectFingerprint fingerprint,
+            QualityPlan qualityPlan,
+            RuntimeSnapshot runtimeSnapshot,
+            DocumentLanguage language
+    ) {
+        QualityPlan resolvedQualityPlan = qualityPlan == null ? QualityPlan.empty() : qualityPlan;
+        UiRuntimeContract initialRuntimeContract = uiRuntimeContractResolver.resolve(
+                projectPath,
+                fingerprint,
+                resolvedQualityPlan,
+                runtimeSnapshot
+        );
+        List<TestCaseSpec> baseCases = basePlanBuilder.build(
+                projectPath,
+                fingerprint,
+                ValidationMetadata.empty(),
+                resolvedQualityPlan,
+                runtimeSnapshot,
+                initialRuntimeContract,
+                language
+        );
+        List<TestCaseSpec> cases = coverageBackfillSupport.backfill(baseCases, baseCases, resolvedQualityPlan);
+        UiRuntimeContract enrichedContract = uiRuntimeContractResolver.enrichRunStateEntryTargets(initialRuntimeContract, cases);
+        UiRuntimeContractValidation validation = uiRuntimeContractResolver.validate(
+                projectPath,
+                resolvedQualityPlan,
+                runtimeSnapshot,
+                enrichedContract
+        );
+        return new TestCasePlan(
+                language.choose("实现阶段确定性功能验证用例。", "Deterministic implementation-stage functional verification cases."),
+                cases,
+                resolvedQualityPlan,
+                enrichedContract,
+                validation
         );
     }
 

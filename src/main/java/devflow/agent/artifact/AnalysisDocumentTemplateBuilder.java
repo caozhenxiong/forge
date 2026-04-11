@@ -73,10 +73,6 @@ final class AnalysisDocumentTemplateBuilder {
                 %s
 
                 %s
-
-                %s
-
-                %s
                 """.formatted(
                 runRecord.runId(),
                 runRecord.goal(),
@@ -84,9 +80,7 @@ final class AnalysisDocumentTemplateBuilder {
                 generatedAtLabel,
                 support.now(),
                 support.numberedSourceMetadataHeading(7, language),
-                support.sourceMetadataTemplateBlock(),
-                support.numberedCurrentNotesHeading(8, language),
-                note
+                support.sourceMetadataTemplateBlock()
         ) : """
                 # Requirements Analysis And Research
 
@@ -142,10 +136,6 @@ final class AnalysisDocumentTemplateBuilder {
                 %s
 
                 %s
-
-                %s
-
-                %s
                 """.formatted(
                 runRecord.runId(),
                 runRecord.goal(),
@@ -153,9 +143,7 @@ final class AnalysisDocumentTemplateBuilder {
                 generatedAtLabel,
                 support.now(),
                 support.numberedSourceMetadataHeading(7, language),
-                support.sourceMetadataTemplateBlock(),
-                support.numberedCurrentNotesHeading(8, language),
-                note
+                support.sourceMetadataTemplateBlock()
         );
     }
 }

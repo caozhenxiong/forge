@@ -3,6 +3,7 @@ package devflow.agent.executor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -79,6 +80,8 @@ class ImplementationResumePolicyTests {
         ReusableImplementationState reusableState = policy.loadReusableImplementationState(
                 previousStateJson,
                 FixMode.PATCH,
+                ImplementationPatchTarget.NONE,
+                List.of(),
                 DocumentLanguage.ZH
         );
 
@@ -131,21 +134,87 @@ class ImplementationResumePolicyTests {
                 false,
                 ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID.name(),
                 "index.app.js 存在，但 index.html 未接线",
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                new ImplementationStateSnapshot.RuntimeContractState(
+                        "index.html",
+                        RuntimeOwnershipMode.EXTERNAL_COMPANION.name(),
+                        List.of("index.app.js")
+                ),
                 List.of()
         ));
 
         ReusableImplementationState reusableState = policy.loadReusableImplementationState(
                 previousStateJson,
                 FixMode.PATCH,
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                List.of(),
                 DocumentLanguage.ZH
         );
 
         assertNotNull(reusableState);
         Subtask continuation = reusableState.plan().subtasks().getLast();
         assertEquals(DeliveryMode.PATCH, continuation.deliveryMode());
-        assertEquals(2, continuation.changes().size());
+        assertEquals(1, continuation.changes().size());
         assertEquals(RuntimeOwnershipMode.EXTERNAL_COMPANION, continuation.changes().getFirst().runtimeOwnership());
         assertEquals("index.html", continuation.changes().getFirst().path());
-        assertEquals("index.app.js", continuation.changes().get(1).path());
+    }
+
+    @Test
+    void runtimeWiringContinuationPrefersExplicitRuntimeContractOverOlderInlineOwnership() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        ImplementationResumePolicy policy = new ImplementationResumePolicy(objectMapper);
+        String previousStateJson = objectMapper.writeValueAsString(new ImplementationStateSnapshot(
+                "外提宿主运行时",
+                List.of(new ImplementationStateSnapshot.PlannedSubtaskState(
+                        "建立入口",
+                        "先完成可运行的内联宿主入口",
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of("入口可运行"),
+                        true,
+                        "PATCH",
+                        List.of(new ImplementationStateSnapshot.FileChangeState(
+                                "index.html",
+                                "WRITE",
+                                "补齐宿主入口",
+                                FileEditScope.HOST_HTML_PATCH.name(),
+                                RuntimeOwnershipMode.INLINE_HOST.name()
+                        ))
+                )),
+                List.of(new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot(
+                        "建立入口",
+                        true,
+                        List.of()
+                )),
+                List.of(),
+                null,
+                true,
+                true,
+                "",
+                "",
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                new ImplementationStateSnapshot.RuntimeContractState(
+                        "index.html",
+                        RuntimeOwnershipMode.EXTERNAL_COMPANION.name(),
+                        List.of("index.app.js")
+                ),
+                List.of()
+        ));
+
+        ReusableImplementationState reusableState = policy.loadReusableImplementationState(
+                previousStateJson,
+                FixMode.PATCH,
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                List.of(),
+                DocumentLanguage.ZH
+        );
+
+        assertNotNull(reusableState);
+        Subtask continuation = reusableState.plan().subtasks().getLast();
+        assertEquals(DeliveryMode.PATCH, continuation.deliveryMode());
+        assertEquals(1, continuation.changes().size());
+        assertEquals("index.html", continuation.changes().getFirst().path());
+        assertEquals(RuntimeOwnershipMode.EXTERNAL_COMPANION, continuation.changes().getFirst().runtimeOwnership());
     }
 }

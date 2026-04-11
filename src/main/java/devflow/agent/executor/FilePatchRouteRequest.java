@@ -26,6 +26,7 @@ record FilePatchRouteRequest(
         ContractView contractView,
         ProjectFingerprint fingerprint,
         ImplementationEventJournal eventJournal,
-        FileChange scopedChange
+        FileChange scopedChange,
+        HtmlRuntimeOwnershipContract runtimeContract
 ) {
 }

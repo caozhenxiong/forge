@@ -13,25 +13,28 @@ import java.util.Set;
  */
 final class HtmlStructureCaseBuilder {
 
-    void appendCanvasCases(
+    private final UiRuntimeObservationPolicy observationPolicy = new UiRuntimeObservationPolicy();
+
+    void appendPrimarySurfaceCases(
             List<TestCaseSpec> cases,
             String entry,
-            HtmlStructureSnapshot htmlSnapshot,
+            UiRuntimeContract runtimeContract,
             DocumentLanguage language
     ) {
-        if (!htmlSnapshot.hasCanvas()) {
+        UiObservationTarget target = observationPolicy.requiredTarget(runtimeContract, CapabilitySurface.PRIMARY_VISUAL_SURFACE);
+        if (target == null) {
             return;
         }
         cases.add(new TestCaseSpec(
-                "TC-SMOKE-CANVAS",
-                language.choose("主画布存在", "Primary canvas exists"),
+                "TC-SMOKE-SURFACE",
+                language.choose("主观测面存在", "Primary observation surface exists"),
                 "smoke",
                 true,
                 entry,
                 "",
-                language.choose("页面应渲染至少一个 canvas。", "The page should render at least one canvas."),
+                language.choose("页面应渲染主观测面并保持可运行。", "The page should render the primary observation surface and remain runnable."),
                 List.of(
-                        new TestStepSpec(TestStepAction.ASSERT_CANVAS_MIN, null, null, 1, null, null, false),
+                        observationPolicy.presenceAssertion(target),
                         new TestStepSpec(TestStepAction.ASSERT_NO_ERRORS, null, null, null, null, null, false)
                 ),
                 List.of(CapabilitySurface.PRIMARY_VISUAL_SURFACE, CapabilitySurface.RUNTIME_STABILITY)
@@ -43,6 +46,7 @@ final class HtmlStructureCaseBuilder {
             String entry,
             HtmlStructureSnapshot htmlSnapshot,
             RuntimeSnapshot runtimeSnapshot,
+            UiRuntimeContract runtimeContract,
             DocumentLanguage language
     ) {
         Set<String> selectors = collectSelectors(htmlSnapshot, runtimeSnapshot);
@@ -72,7 +76,10 @@ final class HtmlStructureCaseBuilder {
 
         String interactionSelector = selectInteractionSelector(selectors);
         if (interactionSelector != null) {
-            cases.add(buildObservedInteractionCase(entry, interactionSelector, htmlSnapshot.hasCanvas(), language));
+            TestCaseSpec observedCase = buildObservedInteractionCase(entry, interactionSelector, runtimeContract, language);
+            if (observedCase != null) {
+                cases.add(observedCase);
+            }
         }
     }
 
@@ -105,22 +112,28 @@ final class HtmlStructureCaseBuilder {
     private TestCaseSpec buildObservedInteractionCase(
             String entry,
             String selector,
-            boolean preferCanvasObservation,
+            UiRuntimeContract runtimeContract,
             DocumentLanguage language
     ) {
+        UiObservationTarget target = observationPolicy.requiredTarget(runtimeContract, CapabilitySurface.PRIMARY_INTERACTION);
+        if (target == null) {
+            return null;
+        }
         List<TestStepSpec> steps = new ArrayList<>();
         steps.add(new TestStepSpec(TestStepAction.ASSERT_SELECTOR, selector, null, null, null, null, false, TestStepSemantic.PRIMARY_CONTROL));
-        if (preferCanvasObservation) {
-            steps.add(new TestStepSpec(TestStepAction.ASSERT_CANVAS_MIN, null, null, 1, null, null, false, TestStepSemantic.PRIMARY_SURFACE));
-            steps.add(new TestStepSpec(TestStepAction.SNAPSHOT_CANVAS_HASH, "canvas", null, null, null, "interactive-surface", false, TestStepSemantic.PRIMARY_SURFACE));
-        } else {
-            steps.add(new TestStepSpec(TestStepAction.SNAPSHOT_DOM_SIGNATURE, "body", null, null, null, "interactive-surface", false, TestStepSemantic.PRIMARY_SURFACE));
-        }
+        steps.add(observationPolicy.presenceAssertion(target));
+        steps.add(observationPolicy.snapshotStep(target, "interactive-surface", false));
         steps.add(new TestStepSpec(TestStepAction.CLICK, selector, null, null, null, null, false, TestStepSemantic.PRIMARY_CONTROL));
-        steps.add(new TestStepSpec(TestStepAction.WAIT, null, null, null, TestPlanningPolicy.observedInteractionWaitMs(), null, false));
-        steps.add(preferCanvasObservation
-                ? new TestStepSpec(TestStepAction.ASSERT_CANVAS_HASH_CHANGED, "canvas", null, null, null, "interactive-surface", false, TestStepSemantic.PRIMARY_SURFACE)
-                : new TestStepSpec(TestStepAction.ASSERT_DOM_SIGNATURE_CHANGED, "body", null, null, null, "interactive-surface", false, TestStepSemantic.PRIMARY_SURFACE));
+        steps.add(new TestStepSpec(
+                TestStepAction.WAIT,
+                null,
+                null,
+                null,
+                observationPolicy.observationWaitMs(List.of(CapabilitySurface.PRIMARY_INTERACTION)),
+                null,
+                false
+        ));
+        steps.add(observationPolicy.changedAssertion(target, "interactive-surface", false));
         steps.add(new TestStepSpec(TestStepAction.ASSERT_NO_ERRORS, null, null, null, null, null, false));
         return new TestCaseSpec(
                 "TC-FUNC-INTERACTIVE-STATE",

@@ -44,6 +44,13 @@ class HtmlInlineScriptWorkingSetResolver {
         if (!targetContext.hasInsertableTargets()) {
             return null;
         }
+        // workset 主链现在只负责“已经具备稳定符号批次”的脚本。
+        // 只有单一入口符号的 bootstrap 型脚本，通常还需要同时补顶层 helper 与入口编排；
+        // 把它继续塞进 symbol-batch workset，只会把主链重新拖回 append/orchestrator 旧骨架。
+        // 这类脚本应直接交给 focused script region，避免旧骨架继续进入主路径。
+        if (targetContext.insertableTargetNames().size() < 2) {
+            return null;
+        }
         return new InlineScriptWorkingSet(syntheticPath, scriptContent);
     }
 

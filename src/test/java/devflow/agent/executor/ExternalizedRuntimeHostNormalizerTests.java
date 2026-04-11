@@ -15,6 +15,7 @@ class ExternalizedRuntimeHostNormalizerTests {
     void removesInlineAppScriptWhenCompanionRuntimeIsAlreadyReferenced() {
         String normalized = normalizer.normalize(
                 Path.of("index.html"),
+                HtmlRuntimeOwnershipContract.externalCompanion(Path.of("index.html"), java.util.List.of(Path.of("index.app.js"))),
                 """
                         <!DOCTYPE html>
                         <html>
@@ -46,7 +47,7 @@ class ExternalizedRuntimeHostNormalizerTests {
                 </html>
                 """;
 
-        String normalized = normalizer.normalize(Path.of("index.html"), html);
+        String normalized = normalizer.normalize(Path.of("index.html"), null, html);
 
         assertTrue(normalized.contains("id=\"app-script\""));
     }
@@ -55,6 +56,7 @@ class ExternalizedRuntimeHostNormalizerTests {
     void deduplicatesRuntimeReferencesAndDuplicateIds() {
         String normalized = normalizer.normalize(
                 Path.of("main.html"),
+                HtmlRuntimeOwnershipContract.externalCompanion(Path.of("main.html"), java.util.List.of(Path.of("main.app.js"))),
                 """
                         <!DOCTYPE html>
                         <html>

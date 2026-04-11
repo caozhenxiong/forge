@@ -37,6 +37,7 @@ final class TestCaseBasePlanBuilder {
             ValidationMetadata validationMetadata,
             QualityPlan qualityPlan,
             RuntimeSnapshot runtimeSnapshot,
+            UiRuntimeContract runtimeContract,
             DocumentLanguage language
     ) {
         List<TestCaseSpec> cases = new ArrayList<>();
@@ -61,8 +62,8 @@ final class TestCaseBasePlanBuilder {
             if (fingerprint.hasResolvedHtmlEntry()) {
                 String html = workspace.readFile(projectPath, Path.of(entry));
                 HtmlStructureSnapshot htmlSnapshot = treeSitterSupport.inspectHtml(html);
-                htmlStructureCaseBuilder.appendCanvasCases(cases, entry, htmlSnapshot, language);
-                htmlStructureCaseBuilder.appendButtonCases(cases, entry, htmlSnapshot, runtimeSnapshot, language);
+                htmlStructureCaseBuilder.appendPrimarySurfaceCases(cases, entry, runtimeContract, language);
+                htmlStructureCaseBuilder.appendButtonCases(cases, entry, htmlSnapshot, runtimeSnapshot, runtimeContract, language);
                 performanceCaseBuilder.appendPerformanceCases(cases, entry, runtimeSnapshot, validationMetadata, language);
             }
         } catch (Exception ignored) {

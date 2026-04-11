@@ -38,32 +38,9 @@ class EditUnitPlanner {
     }
 
     List<EditUnit> planInlineScriptUnits(Path syntheticPath, String source) {
-        List<String> symbols = targetLocator.locate(syntheticPath, source).insertableTargetNames();
         String labelPrefix = syntheticPath + "#inline-unit";
-        if (symbols.isEmpty()) {
-            return List.of(new EditUnit(
-                    EditUnitKind.INLINE_SCRIPT_SYMBOL_BATCH,
-                    labelPrefix + "-append",
-                    List.of(),
-                    EditUnitPlanningPolicy.inlineAppendSymbolBudget()
-            ));
-        }
-        if (symbols.size() == 1) {
-            // 内联脚本骨架经常只有一个初始化入口函数。
-            // 这类脚本如果直接把全部实现压进单个符号 body，仍然会把“局部编辑”退化成大块输出。
-            // 因此这里固定拆成两步：
-            // 1. append-only：先追加最小必要的顶层辅助函数；
-            // 2. orchestrator：再让现有入口符号只负责调用/编排。
-            return List.of(
-                    new EditUnit(
-                            EditUnitKind.INLINE_SCRIPT_SYMBOL_BATCH,
-                            labelPrefix + "-append",
-                            List.of(),
-                            EditUnitPlanningPolicy.inlineAppendSymbolBudget()
-                    ),
-                    new EditUnit(EditUnitKind.INLINE_SCRIPT_SYMBOL_BATCH, labelPrefix + "-orchestrator", List.of(symbols.get(0)))
-            );
-        }
+        // inline-script workset 不再承担 bootstrap 任务；
+        // 这里只负责已经具备稳定符号批次的脚本，避免 planner 再次偷偷生成 append/orchestrator 旧骨架。
         return batchInsertableSymbols(
                 syntheticPath,
                 source,
@@ -139,7 +116,7 @@ class EditUnitPlanner {
     ) {
         List<String> symbols = targetLocator.locate(relativePath, source).insertableTargetNames();
         if (symbols.isEmpty()) {
-            return List.of(new EditUnit(kind, labelPrefix + "-all", List.of()));
+            return List.of();
         }
         if (symbols.size() <= maxSymbolsPerUnit) {
             return List.of(new EditUnit(kind, labelPrefix + "-all", symbols));

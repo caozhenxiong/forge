@@ -20,6 +20,10 @@ class ReviewDecisionArtifactParserTests {
                         new ReviewArtifactPayload(
                                 "APPROVED",
                                 "NONE",
+                                ImplementationPatchTarget.NONE.name(),
+                                java.util.List.of(),
+                                "PATCH_CURRENT_STAGE",
+                                "NONE",
                                 "looks good",
                                 "implement update()",
                                 "",
@@ -39,11 +43,27 @@ class ReviewDecisionArtifactParserTests {
 
     @Test
     void testArtifactApprovesWhenExitCodeIsZero() {
-        ReviewResult result = parser.parseTestArtifact(
+        ReviewResult result = parser.parseDecisionArtifact(
                 StructuredArtifactBlocks.renderJsonBlock(
                         ArtifactBlockKind.REVIEW_RESULT,
-                        new ReviewArtifactPayload("APPROVED", "NONE", "测试通过", "", "", "", false, 0, 0)
-                )
+                        new ReviewArtifactPayload(
+                                "APPROVED",
+                                "NONE",
+                                ImplementationPatchTarget.NONE.name(),
+                                java.util.List.of(),
+                                "PATCH_CURRENT_STAGE",
+                                "NONE",
+                                "测试通过",
+                                "",
+                                "",
+                                "",
+                                false,
+                                0,
+                                0
+                        )
+                ),
+                ReviewDecision.REJECTED,
+                "测试失败，需要修复并重新执行。"
         );
 
         assertEquals(ReviewDecision.APPROVED, result.decision());
@@ -52,11 +72,27 @@ class ReviewDecisionArtifactParserTests {
 
     @Test
     void testArtifactRejectsWhenExitCodeIsNonZero() {
-        ReviewResult result = parser.parseTestArtifact(
+        ReviewResult result = parser.parseDecisionArtifact(
                 StructuredArtifactBlocks.renderJsonBlock(
                         ArtifactBlockKind.REVIEW_RESULT,
-                        new ReviewArtifactPayload("REJECTED", "PATCH", "测试失败", "修复测试", "", "", true, 1, 1)
-                )
+                        new ReviewArtifactPayload(
+                                "REJECTED",
+                                "PATCH",
+                                ImplementationPatchTarget.NONE.name(),
+                                java.util.List.of(),
+                                "PATCH_CURRENT_STAGE",
+                                "NONE",
+                                "测试失败",
+                                "修复测试",
+                                "",
+                                "",
+                                true,
+                                1,
+                                1
+                        )
+                ),
+                ReviewDecision.REJECTED,
+                "测试失败，需要修复并重新执行。"
         );
 
         assertEquals(ReviewDecision.REJECTED, result.decision());
@@ -64,24 +100,19 @@ class ReviewDecisionArtifactParserTests {
     }
 
     @Test
-    void parseDecisionArtifactSupportsExplicitKeyValuePayload() {
-        ReviewResult result = parser.parseDecisionArtifact("""
-                - decision: APPROVED
-                - fixMode: NONE
-                - summary: looks good
-                - changeRequest:
-                - evidence:
-                - actionItems:
-                - blockingFindings: false
-                - findingCount: 0
-
+    void parseDecisionArtifactFallsBackWhenStructuredBlockMissing() {
+        ReviewResult result = parser.parseDecisionArtifact(
+                """
                 ## Findings
 
-                无
-                """, ReviewDecision.REVISION_REQUIRED, "默认修改请求");
+                - 无结构化 review block
+                """,
+                ReviewDecision.REVISION_REQUIRED,
+                "默认修改请求"
+        );
 
-        assertEquals(ReviewDecision.APPROVED, result.decision());
-        assertEquals(FixMode.NONE, result.fixMode());
-        assertEquals("looks good", result.summary());
+        assertEquals(ReviewDecision.REVISION_REQUIRED, result.decision());
+        assertEquals(FixMode.PATCH, result.fixMode());
+        assertEquals("阶段产物未给出明确 decision。", result.summary());
     }
 }

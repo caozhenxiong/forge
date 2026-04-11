@@ -115,6 +115,8 @@ public class ContractExtractor {
             return new ExecutionContract(
                     listSupport.parseBoolean(metadata.get(ContractMetadataKeys.RUNTIME_ENTRY_REQUIRED), false),
                     listSupport.blank(metadata.get(ContractMetadataKeys.RUNTIME_ENTRY_KIND)),
+                    listSupport.blank(metadata.get(ContractMetadataKeys.RUNTIME_ENTRY_PACKAGING_MODE)),
+                    listSupport.blank(metadata.get(ContractMetadataKeys.RUNTIME_RUNTIME_OWNERSHIP_MODE)),
                     listSupport.parseBoolean(metadata.get(ContractMetadataKeys.RUNTIME_LAUNCH_REQUIRED), false),
                     listSupport.parseBoolean(metadata.get(ContractMetadataKeys.RUNTIME_SURFACE_REQUIRED), false),
                     listSupport.parseList(metadata.get(ContractMetadataKeys.RUNTIME_ACCEPTANCE_SIGNALS))

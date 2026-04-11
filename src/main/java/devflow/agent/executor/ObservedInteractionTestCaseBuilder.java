@@ -15,7 +15,9 @@ import java.util.Set;
  */
 final class ObservedInteractionTestCaseBuilder {
 
-    List<TestCaseSpec> strengthenCases(List<TestCaseSpec> cases, RuntimeSnapshot runtimeSnapshot) {
+    private final UiRuntimeObservationPolicy observationPolicy = new UiRuntimeObservationPolicy();
+
+    List<TestCaseSpec> strengthenCases(List<TestCaseSpec> cases, UiRuntimeContract runtimeContract) {
         if (cases == null || cases.isEmpty()) {
             return List.of();
         }
@@ -26,7 +28,7 @@ final class ObservedInteractionTestCaseBuilder {
             if (testCase.required() && isInteractive(steps)) {
                 hasRequiredInteractiveCase = true;
                 if (!hasObservablePostcondition(steps)) {
-                    steps = addObservablePostcondition(steps, runtimeSnapshot, testCase.id());
+                    steps = addObservablePostcondition(steps, runtimeContract, testCase.id(), testCase.capabilities());
                 }
             }
             strengthened.add(new TestCaseSpec(
@@ -42,14 +44,17 @@ final class ObservedInteractionTestCaseBuilder {
             ));
         }
         if (!hasRequiredInteractiveCase) {
-            String selector = selectInteractionSelector(runtimeSnapshot == null ? Set.of() : new LinkedHashSet<>(runtimeSnapshot.selectors()));
+            String selector = selectInteractionSelector(extractSelectors(cases));
             if (selector != null) {
-                strengthened.add(buildObservedInteractionCase(
+                TestCaseSpec observedCase = buildObservedInteractionCase(
                         cases.getFirst().entry(),
                         selector,
-                        runtimeSnapshot != null && runtimeSnapshot.canvasCount() > 0,
+                        runtimeContract,
                         DocumentLanguage.detect(cases.getFirst().title(), cases.getFirst().expected())
-                ));
+                );
+                if (observedCase != null) {
+                    strengthened.add(observedCase);
+                }
             }
         }
         return List.copyOf(strengthened);
@@ -63,7 +68,12 @@ final class ObservedInteractionTestCaseBuilder {
         return steps.stream().anyMatch(step -> step.action() != null && step.action().isObservablePostcondition());
     }
 
-    private List<TestStepSpec> addObservablePostcondition(List<TestStepSpec> steps, RuntimeSnapshot runtimeSnapshot, String caseId) {
+    private List<TestStepSpec> addObservablePostcondition(
+            List<TestStepSpec> steps,
+            UiRuntimeContract runtimeContract,
+            String caseId,
+            List<devflow.agent.quality.CapabilitySurface> capabilities
+    ) {
         List<TestStepSpec> strengthened = new ArrayList<>(steps);
         int firstInteractionIndex = -1;
         for (int index = 0; index < strengthened.size(); index++) {
@@ -76,11 +86,17 @@ final class ObservedInteractionTestCaseBuilder {
         if (firstInteractionIndex < 0) {
             return strengthened;
         }
+        UiObservationTarget target = observationPolicy.requiredTarget(
+                runtimeContract,
+                capabilities != null && capabilities.contains(devflow.agent.quality.CapabilitySurface.TIMED_STATE_PROGRESSION)
+                        ? devflow.agent.quality.CapabilitySurface.TIMED_STATE_PROGRESSION
+                        : devflow.agent.quality.CapabilitySurface.PRIMARY_INTERACTION
+        );
+        if (target == null) {
+            return strengthened;
+        }
         String snapshotKey = "observed-" + caseId;
-        boolean preferCanvas = runtimeSnapshot != null && runtimeSnapshot.canvasCount() > 0;
-        strengthened.add(firstInteractionIndex, preferCanvas
-                ? new TestStepSpec(TestStepAction.SNAPSHOT_CANVAS_HASH, "canvas", null, null, null, snapshotKey, false, TestStepSemantic.PRIMARY_SURFACE)
-                : new TestStepSpec(TestStepAction.SNAPSHOT_DOM_SIGNATURE, "body", null, null, null, snapshotKey, false, TestStepSemantic.PRIMARY_SURFACE));
+        strengthened.add(firstInteractionIndex, observationPolicy.snapshotStep(target, snapshotKey, false));
         if (strengthened.stream().noneMatch(step -> step.action() == TestStepAction.WAIT
                 && step.ms() != null
                 && step.ms() >= TestPlanningPolicy.defaultStepWaitMs())) {
@@ -89,15 +105,32 @@ final class ObservedInteractionTestCaseBuilder {
                     null,
                     null,
                     null,
-                    TestPlanningPolicy.strengthenedInteractionWaitMs(),
+                    observationPolicy.observationWaitMs(capabilities),
                     null,
                     false
             ));
         }
-        strengthened.add(preferCanvas
-                ? new TestStepSpec(TestStepAction.ASSERT_CANVAS_HASH_CHANGED, "canvas", null, null, null, snapshotKey, false, TestStepSemantic.PRIMARY_SURFACE)
-                : new TestStepSpec(TestStepAction.ASSERT_DOM_SIGNATURE_CHANGED, "body", null, null, null, snapshotKey, false, TestStepSemantic.PRIMARY_SURFACE));
+        strengthened.add(observationPolicy.changedAssertion(target, snapshotKey, false));
         return strengthened;
+    }
+
+    private Set<String> extractSelectors(List<TestCaseSpec> cases) {
+        Set<String> selectors = new LinkedHashSet<>();
+        if (cases == null || cases.isEmpty()) {
+            return selectors;
+        }
+        for (TestCaseSpec testCase : cases) {
+            if (testCase == null || testCase.steps() == null) {
+                continue;
+            }
+            for (TestStepSpec step : testCase.steps()) {
+                if (step == null || step.selector() == null || step.selector().isBlank()) {
+                    continue;
+                }
+                selectors.add(step.selector().trim());
+            }
+        }
+        return selectors;
     }
 
     private String selectInteractionSelector(Set<String> selectors) {
@@ -116,22 +149,28 @@ final class ObservedInteractionTestCaseBuilder {
     private TestCaseSpec buildObservedInteractionCase(
             String entry,
             String selector,
-            boolean preferCanvasObservation,
+            UiRuntimeContract runtimeContract,
             DocumentLanguage language
     ) {
+        UiObservationTarget target = observationPolicy.requiredTarget(runtimeContract, CapabilitySurface.PRIMARY_INTERACTION);
+        if (target == null) {
+            return null;
+        }
         List<TestStepSpec> steps = new ArrayList<>();
         steps.add(new TestStepSpec(TestStepAction.ASSERT_SELECTOR, selector, null, null, null, null, false, TestStepSemantic.PRIMARY_CONTROL));
-        if (preferCanvasObservation) {
-            steps.add(new TestStepSpec(TestStepAction.ASSERT_CANVAS_MIN, null, null, 1, null, null, false, TestStepSemantic.PRIMARY_SURFACE));
-            steps.add(new TestStepSpec(TestStepAction.SNAPSHOT_CANVAS_HASH, "canvas", null, null, null, "interactive-surface", false, TestStepSemantic.PRIMARY_SURFACE));
-        } else {
-            steps.add(new TestStepSpec(TestStepAction.SNAPSHOT_DOM_SIGNATURE, "body", null, null, null, "interactive-surface", false, TestStepSemantic.PRIMARY_SURFACE));
-        }
+        steps.add(observationPolicy.presenceAssertion(target));
+        steps.add(observationPolicy.snapshotStep(target, "interactive-surface", false));
         steps.add(new TestStepSpec(TestStepAction.CLICK, selector, null, null, null, null, false, TestStepSemantic.PRIMARY_CONTROL));
-        steps.add(new TestStepSpec(TestStepAction.WAIT, null, null, null, TestPlanningPolicy.observedInteractionWaitMs(), null, false));
-        steps.add(preferCanvasObservation
-                ? new TestStepSpec(TestStepAction.ASSERT_CANVAS_HASH_CHANGED, "canvas", null, null, null, "interactive-surface", false, TestStepSemantic.PRIMARY_SURFACE)
-                : new TestStepSpec(TestStepAction.ASSERT_DOM_SIGNATURE_CHANGED, "body", null, null, null, "interactive-surface", false, TestStepSemantic.PRIMARY_SURFACE));
+        steps.add(new TestStepSpec(
+                TestStepAction.WAIT,
+                null,
+                null,
+                null,
+                observationPolicy.observationWaitMs(List.of(CapabilitySurface.PRIMARY_INTERACTION)),
+                null,
+                false
+        ));
+        steps.add(observationPolicy.changedAssertion(target, "interactive-surface", false));
         steps.add(new TestStepSpec(TestStepAction.ASSERT_NO_ERRORS, null, null, null, null, null, false));
         return new TestCaseSpec(
                 "TC-FUNC-INTERACTIVE-STATE",

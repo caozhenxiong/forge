@@ -53,14 +53,6 @@ final class ArtifactTemplateSupport {
                 .orElse("");
     }
 
-    String numberedCurrentNotesHeading(int sectionNumber, DocumentLanguage language) {
-        return ArtifactLabels.numberedCurrentNotesHeading(sectionNumber, language);
-    }
-
-    String currentNotesHeading(DocumentLanguage language) {
-        return ArtifactLabels.currentNotesHeading(language);
-    }
-
     String numberedSourceMetadataHeading(int sectionNumber, DocumentLanguage language) {
         return ArtifactLabels.numberedHeading(sectionNumber, ArtifactLabels.sourceMetadata(language));
     }

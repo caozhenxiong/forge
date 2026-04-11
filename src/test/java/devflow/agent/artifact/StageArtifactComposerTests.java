@@ -2,6 +2,7 @@ package devflow.agent.artifact;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.context.ContractExtractor;
+import devflow.agent.context.ValidationMetadata;
 import devflow.agent.executor.ImplementationExecutor;
 import devflow.agent.executor.LlmProvider;
 import devflow.agent.executor.ModelRole;
@@ -17,9 +18,15 @@ import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.project.WorkspaceSnapshotStore;
 import devflow.agent.protocol.ExecutionDirectivePayload;
 import devflow.agent.protocol.ExecutionDirectiveProtocol;
+import devflow.agent.protocol.ArtifactBlockKind;
+import devflow.agent.protocol.ReviewArtifactPayload;
+import devflow.agent.protocol.StructuredArtifactBlocks;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
+import devflow.agent.review.ReviewSemantics;
+import devflow.agent.review.StructuredReviewResult;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.EnumMap;
@@ -30,6 +37,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -72,7 +80,7 @@ class StageArtifactComposerTests {
         runRepository.initialize(tempDir);
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
         FileProjectWorkspace workspace = new FileProjectWorkspace();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, ModelRole.PRD);
@@ -157,6 +165,8 @@ class StageArtifactComposerTests {
                 StageType.PRD,
                 ExecutionDirectiveProtocol.renderBlock(new ExecutionDirectivePayload(
                         null,
+                        null,
+                        List.of(),
                         false,
                         false,
                         null,
@@ -189,7 +199,7 @@ class StageArtifactComposerTests {
         assertTrue(result.contains("## 1. 产品目标"));
         assertTrue(result.contains("## 5. 验收标准"));
         assertTrue(result.contains("## 6. 不做什么"));
-        assertTrue(result.contains("## 7. Current Notes"));
+        assertFalse(result.contains("## 7. Current Notes"));
     }
 
     @Test
@@ -198,7 +208,7 @@ class StageArtifactComposerTests {
         runRepository.initialize(tempDir);
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
         FileProjectWorkspace workspace = new FileProjectWorkspace();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, ModelRole.ANALYSIS);
@@ -293,7 +303,7 @@ class StageArtifactComposerTests {
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         AtomicReference<String> capturedUserPrompt = new AtomicReference<>("");
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, ModelRole.DESIGN);
@@ -330,6 +340,8 @@ class StageArtifactComposerTests {
                             ## 8. Contract Metadata
                             - runtime.entryRequired: true
                             - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                             - runtime.launchRequired: true
                             - runtime.surfaceRequired: true
                             - runtime.acceptanceSignals: page-opens, puzzle-renders
@@ -402,7 +414,7 @@ class StageArtifactComposerTests {
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         AtomicReference<String> capturedUserPrompt = new AtomicReference<>("");
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, ModelRole.DESIGN);
@@ -438,6 +450,8 @@ class StageArtifactComposerTests {
                         ## 8. Contract Metadata
                         - runtime.entryRequired: true
                         - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                         - runtime.launchRequired: true
                         - runtime.surfaceRequired: true
                         - runtime.acceptanceSignals: page-opens
@@ -499,6 +513,8 @@ class StageArtifactComposerTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens
@@ -520,7 +536,7 @@ class StageArtifactComposerTests {
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         AtomicReference<String> capturedUserPrompt = new AtomicReference<>("");
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, ModelRole.PRD);
@@ -554,6 +570,8 @@ class StageArtifactComposerTests {
                             ## 7. Contract Metadata
                             - runtime.entryRequired: true
                             - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                             - runtime.launchRequired: true
                             - runtime.surfaceRequired: true
                             - runtime.acceptanceSignals: page-opens
@@ -598,7 +616,8 @@ class StageArtifactComposerTests {
         RunRecord runRecord = runRecord(runId, tempDir.resolve(".devflow/runs").resolve(runId.toString()).resolve("prd.md"));
         composer.compose(tempDir, runRecord, StageType.PRD, "保持纯网页版、可直接打开运行");
 
-        assertTrue(capturedUserPrompt.get().contains("不要在用户未明确提出时，额外收紧资源组织、打包形式、文件数量、实现组织或交付形态"));
+        assertTrue(capturedUserPrompt.get().contains("默认使用 runtime.entryPackagingMode=entry-with-local-dependencies"));
+        assertTrue(capturedUserPrompt.get().contains("不要在用户未明确提出时额外收紧为 self-contained-entry"));
         assertTrue(capturedUserPrompt.get().contains("未经来源支撑的实现细节只能作为建议、设计选择或待确认问题"));
     }
 
@@ -608,7 +627,7 @@ class StageArtifactComposerTests {
         runRepository.initialize(tempDir);
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
         FileProjectWorkspace workspace = new FileProjectWorkspace();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, ModelRole.PRD);
@@ -640,6 +659,8 @@ class StageArtifactComposerTests {
                         ## 7. Contract Metadata
                         - runtime.entryRequired: true
                         - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                         - runtime.launchRequired: false
                         - runtime.surfaceRequired: true
                         - runtime.acceptanceSignals: page-opens, input-works
@@ -725,7 +746,7 @@ class StageArtifactComposerTests {
         runRepository.initialize(tempDir);
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
         FileProjectWorkspace workspace = new FileProjectWorkspace();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return """
@@ -804,7 +825,7 @@ class StageArtifactComposerTests {
         runRepository.initialize(tempDir);
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
         FileProjectWorkspace workspace = new FileProjectWorkspace();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return """
@@ -883,7 +904,7 @@ class StageArtifactComposerTests {
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         AtomicReference<String> capturedUserPrompt = new AtomicReference<>("");
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 capturedUserPrompt.set(userPrompt);
@@ -911,6 +932,8 @@ class StageArtifactComposerTests {
                         ## 7. Contract Metadata
                         - runtime.entryRequired: true
                         - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                         - runtime.launchRequired: true
                         - runtime.surfaceRequired: true
                         - runtime.acceptanceSignals: page-opens
@@ -1001,7 +1024,7 @@ class StageArtifactComposerTests {
         AtomicReference<String> analysisPrompt = new AtomicReference<>("");
         AtomicReference<String> prdPrompt = new AtomicReference<>("");
         AtomicReference<String> designPrompt = new AtomicReference<>("");
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -1062,6 +1085,8 @@ class StageArtifactComposerTests {
                             ## 7. Contract Metadata
                             - runtime.entryRequired: true
                             - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                             - runtime.launchRequired: true
                             - runtime.surfaceRequired: true
                             - runtime.acceptanceSignals: page-opens
@@ -1099,6 +1124,8 @@ class StageArtifactComposerTests {
                             ## 8. Contract Metadata
                             - runtime.entryRequired: true
                             - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                             - runtime.launchRequired: true
                             - runtime.surfaceRequired: true
                             - runtime.acceptanceSignals: page-opens
@@ -1171,7 +1198,7 @@ class StageArtifactComposerTests {
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         AtomicReference<String> capturedUserPrompt = new AtomicReference<>("");
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, ModelRole.CODE_REVIEW);
@@ -1181,14 +1208,7 @@ class StageArtifactComposerTests {
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.CODE_REVIEW) {
                     capturedUserPrompt.set(userPrompt);
-                    return """
-                            - decision: APPROVED
-                            - fixMode: NONE
-                            - summary: ok
-                            - changeRequest:
-                            - evidence:
-                            - actionItems:
-                            """;
+                    return approvedReviewArtifact("ok");
                 }
                 return "";
             }
@@ -1240,6 +1260,8 @@ class StageArtifactComposerTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, game-surface-renders
@@ -1271,6 +1293,8 @@ class StageArtifactComposerTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, game-surface-renders
@@ -1299,7 +1323,7 @@ class StageArtifactComposerTests {
         runRepository.initialize(tempDir);
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
         FileProjectWorkspace workspace = new FileProjectWorkspace();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, ModelRole.ANALYSIS);
@@ -1403,7 +1427,7 @@ class StageArtifactComposerTests {
         runRepository.initialize(tempDir);
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
         FileProjectWorkspace workspace = new FileProjectWorkspace();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, ModelRole.ANALYSIS);
@@ -1499,7 +1523,7 @@ class StageArtifactComposerTests {
         runRepository.initialize(tempDir);
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
         FileProjectWorkspace workspace = new FileProjectWorkspace();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, ModelRole.DESIGN);
@@ -1535,6 +1559,8 @@ class StageArtifactComposerTests {
                             ## 8. Contract Metadata
                             - runtime.entryRequired: true
                             - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                             - runtime.launchRequired: true
                             - runtime.surfaceRequired: true
                             - runtime.acceptanceSignals: page-opens
@@ -1598,6 +1624,8 @@ class StageArtifactComposerTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens
@@ -1617,7 +1645,7 @@ class StageArtifactComposerTests {
         runRepository.initialize(tempDir);
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
         FileProjectWorkspace workspace = new FileProjectWorkspace();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, ModelRole.PRD);
@@ -1650,6 +1678,8 @@ class StageArtifactComposerTests {
                             ## 7. Contract Metadata
                             - runtime.entryRequired: true
                             - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                             - runtime.launchRequired: true
                             - runtime.surfaceRequired: true
                             - runtime.acceptanceSignals: page-opens
@@ -1740,7 +1770,7 @@ class StageArtifactComposerTests {
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -1887,6 +1917,127 @@ class StageArtifactComposerTests {
         assertFalse(java.nio.file.Files.readString(
                 tempDir.resolve(".devflow/runs").resolve(runId.toString()).resolve("implementation_events.md")
         ).isBlank());
+    }
+
+    @Test
+    void prdComposeKeepsValidationMetadataAndDropsUnsourcedThresholds() {
+        FileRunRepository runRepository = new FileRunRepository();
+        runRepository.initialize(tempDir);
+        FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
+        FileProjectWorkspace workspace = new FileProjectWorkspace();
+        ObjectMapper objectMapper = new ObjectMapper();
+        LlmProvider provider = new StructuredTestLlmProvider() {
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
+                return generate(systemPrompt, userPrompt, options, ModelRole.PRD);
+            }
+
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
+                if (role != ModelRole.PRD) {
+                    return "";
+                }
+                return """
+                        # 产品需求文档
+
+                        ## 1. 产品目标
+                        - 游戏可直接通过浏览器打开运行
+
+                        ## 2. 目标用户与使用场景
+                        - 用户打开网页即可开始游戏
+
+                        ## 3. 功能范围
+                        - 支持开始、暂停、重开
+
+                        ## 4. 非功能要求
+
+                        ### 4.1 性能
+                        - 页面加载时间小于 2 秒
+                        - 键盘响应延迟不超过 120 ms
+                        - 支持主流浏览器运行
+
+                        ### 4.2 可用性与交互
+                        - 支持键盘方向键控制
+
+                        ### 4.3 兼容性与部署约束
+                        - 可直接通过浏览器打开运行
+
+                        ## 5. 验收标准
+
+                        ### 5.1 功能验收
+                        - [ ] 点击开始后游戏可正常运行
+
+                        ### 5.2 质量验收
+                        - [ ] 页面加载时间不超过 2 秒
+                        - [ ] 键盘响应延迟不超过 120 ms
+                        - [ ] 游戏在主流浏览器中可正常运行
+
+                        ## 6. 不做什么
+                        - 联网功能
+
+                        ## 7. Contract Metadata
+                        - runtime.entryRequired: true
+                        - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
+                        - runtime.launchRequired: true
+                        - runtime.surfaceRequired: true
+                        - runtime.acceptanceSignals: page-opens, input-works
+                        - validation.performanceMeasurementRequired: true
+                        - validation.pageLoadMaxMs: 2000
+                        - validation.interactionMaxMs: (none)
+
+                        ## 8. Source Metadata
+                        - hard.userRequirements: 实现一个可玩的网页版俄罗斯方块, 需要纯网页版、可直接打开运行、像素风、支持开始/暂停/重开、方向键控制、显示得分和下一个方块预览
+                        - hard.upstreamFacts: 实现一个可玩的网页版俄罗斯方块, 需要纯网页版、可直接打开运行、像素风、支持开始/暂停/重开、方向键控制、显示得分和下一个方块预览
+                        - soft.inferences: (none)
+                        - soft.designDecisions: (none)
+                        - soft.recommendations: (none)
+                        - open.questions: (none)
+                        """;
+            }
+
+            @Override
+            public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
+                return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
+            }
+
+            @Override
+            public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options, ModelRole role) {
+                return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
+            }
+        };
+
+        TestExecutor testExecutor = new TestExecutor(workspace, provider, objectMapper);
+        StageArtifactComposer composer = newStageArtifactComposer(
+                new ArtifactTemplateFactory(),
+                artifactStore,
+                provider,
+                new ImplementationExecutor(provider, workspace, objectMapper, testExecutor),
+                testExecutor,
+                new WorkspaceSnapshotStore(runRepository, workspace),
+                new ContractExtractor()
+        );
+
+        UUID runId = UUID.randomUUID();
+        Path analysisPath = artifactStore.writeArtifact(tempDir, runId, StageType.ANALYSIS, """
+                # 需求分析与调研
+
+                ## 1. 背景与问题定义
+                需要一个纯网页版俄罗斯方块。
+                """);
+
+        String result = composer.compose(tempDir, prdRunRecord(runId, analysisPath), StageType.PRD, "");
+        ValidationMetadata validationMetadata = StructuredArtifactBlocks.readFirstJsonBlock(
+                result,
+                ArtifactBlockKind.VALIDATION_METADATA,
+                ValidationMetadata.class
+        );
+
+        assertEquals(new ValidationMetadata(true, 2000, null), validationMetadata);
+        assertTrue(result.contains("validation.pageLoadMaxMs: 2000"));
+        assertTrue(result.contains("页面加载时间不超过 2 秒"));
+        assertFalse(result.contains("键盘响应延迟不超过 120 ms"));
     }
 
     private RunRecord runRecord(UUID runId, Path prdPath) {
@@ -2111,6 +2262,33 @@ class StageArtifactComposerTests {
         );
     }
 
+
+    private String approvedReviewArtifact(String summary) {
+        return StructuredArtifactBlocks.renderJsonBlock(
+                ArtifactBlockKind.REVIEW_RESULT,
+                new ReviewArtifactPayload(
+                        ReviewDecision.APPROVED.name(),
+                        FixMode.NONE.name(),
+                        ImplementationPatchTarget.NONE.name(),
+                        List.of(),
+                        "PATCH_CURRENT_STAGE",
+                        "NONE",
+                        summary,
+                        "",
+                        "",
+                        "",
+                        false,
+                        0,
+                        null
+                )
+        ) + """
+
+                ## Findings
+
+                - 无阻塞问题
+                """;
+    }
+
     private RunRecord codeReviewRunRecord(UUID runId, Path prdPath, Path designPath, Path implementationPath) {
         EnumMap<StageType, StageExecution> states = new EnumMap<>(StageType.class);
         for (StageType stageType : StageType.values()) {
@@ -2155,5 +2333,33 @@ class StageArtifactComposerTests {
                 Instant.now(),
                 Instant.now()
         );
+    }
+
+    private abstract static class StructuredTestLlmProvider implements LlmProvider {
+
+        @Override
+        public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
+            return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
+        }
+
+        @Override
+        public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options, ModelRole role) {
+            return review(systemPrompt, candidateContent, options);
+        }
+
+        @Override
+        public StructuredReviewResult reviewStructured(String systemPrompt, String candidateContent, Map<String, Object> options) {
+            return new StructuredReviewResult(review(systemPrompt, candidateContent, options), ReviewSemantics.empty());
+        }
+
+        @Override
+        public StructuredReviewResult reviewStructured(
+                String systemPrompt,
+                String candidateContent,
+                Map<String, Object> options,
+                ModelRole role
+        ) {
+            return new StructuredReviewResult(review(systemPrompt, candidateContent, options, role), ReviewSemantics.empty());
+        }
     }
 }

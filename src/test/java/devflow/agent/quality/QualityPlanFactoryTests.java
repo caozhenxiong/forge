@@ -1,7 +1,9 @@
 package devflow.agent.quality;
 
 import devflow.agent.context.ConstraintSourceMetadata;
+import devflow.agent.context.ContractRuntimeOwnershipMode;
 import devflow.agent.context.ContractView;
+import devflow.agent.context.EntryPackagingMode;
 import devflow.agent.context.ExecutionContract;
 import devflow.agent.context.ValidationMetadata;
 import devflow.agent.executor.RuntimeSnapshot;
@@ -44,6 +46,8 @@ class QualityPlanFactoryTests {
                 new ExecutionContract(
                         true,
                         "html-entry",
+                        EntryPackagingMode.ENTRY_WITH_LOCAL_DEPENDENCIES.wireValue(),
+                        ContractRuntimeOwnershipMode.COMPANION_OWNED.wireValue(),
                         true,
                         true,
                         List.of("page-opens", "runtime-surface-renders")
@@ -65,8 +69,8 @@ class QualityPlanFactoryTests {
         QualityPlan plan = new QualityPlanFactory().build(fingerprint, contractView, metadata, snapshot, List.of());
 
         assertTrue(plan.structureRiskReport().embeddedLogicRisk().atLeast(StructureRiskLevel.HIGH));
-        assertTrue(plan.qualityIntent().structureIntent().preferLogicExternalization());
-        assertTrue(plan.qualityIntent().structureIntent().requireStructureJustification());
+        assertFalse(plan.qualityIntent().structureIntent().preferLogicExternalization());
+        assertFalse(plan.qualityIntent().structureIntent().requireStructureJustification());
         assertTrue(plan.capabilityMatrix().requires(CapabilitySurface.PAGE_LOAD));
         assertTrue(plan.capabilityMatrix().requires(CapabilitySurface.RUNTIME_STABILITY));
         assertTrue(plan.capabilityMatrix().requires(CapabilitySurface.PRIMARY_VISUAL_SURFACE));
@@ -140,5 +144,67 @@ class QualityPlanFactoryTests {
         assertEquals(StructureRiskLevel.HIGH, plan.structurePolicy().maxHostDocumentRisk());
         assertEquals(5, plan.coveragePolicy().minimumRequiredCases());
         assertTrue(plan.qualityIntent().requiredCapabilitySurfaces().contains(CapabilitySurface.VISIBLE_PROGRESS_SIGNAL));
+    }
+
+    @Test
+    void factoryPromotesStaticHtmlRuntimeSignalsWhenBrowserSnapshotIsMissing() throws Exception {
+        Files.writeString(
+                tempDir.resolve("index.html"),
+                """
+                <!DOCTYPE html>
+                <html lang="zh-CN">
+                <body>
+                  <canvas id="board"></canvas>
+                  <button id="startBtn">开始</button>
+                  <script>
+                    console.log('inline runtime');
+                  </script>
+                </body>
+                </html>
+                """
+        );
+
+        ProjectFingerprint fingerprint = new ProjectFingerprint(
+                "static-web",
+                "none",
+                false,
+                false,
+                false,
+                false,
+                true,
+                false,
+                false,
+                "index.html",
+                Set.of("index.html"),
+                List.of()
+        );
+        ContractView contractView = new ContractView(
+                null,
+                null,
+                new ExecutionContract(
+                        true,
+                        "html-entry",
+                        EntryPackagingMode.ENTRY_WITH_LOCAL_DEPENDENCIES.wireValue(),
+                        ContractRuntimeOwnershipMode.NOT_APPLICABLE.wireValue(),
+                        true,
+                        true,
+                        List.of("page-opens", "runtime-surface-renders")
+                ).normalized(),
+                ConstraintSourceMetadata.empty()
+        );
+
+        QualityPlan plan = new QualityPlanFactory().build(
+                tempDir,
+                fingerprint,
+                contractView,
+                ValidationMetadata.empty(),
+                null,
+                List.of()
+        );
+
+        assertTrue(plan.featureProfile().hasCanvasSurface());
+        assertTrue(plan.featureProfile().hasDiscreteUserInput());
+        assertTrue(plan.structureRiskReport().embeddedLogicRisk().atLeast(StructureRiskLevel.HIGH));
+        assertFalse(plan.structurePolicy().blockOnUnjustifiedEmbeddedDominance());
     }
 }

@@ -20,8 +20,11 @@ import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.protocol.ExecutionDirectivePayload;
 import devflow.agent.protocol.ExecutionDirectiveProtocol;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
+import devflow.agent.review.ReviewSemantics;
+import devflow.agent.review.StructuredReviewResult;
 import devflow.agent.supervisor.SupervisorAgent;
 import devflow.agent.supervisor.SupervisorFallbackPolicy;
 import java.nio.file.Files;
@@ -52,7 +55,7 @@ class ImplementationExecutorTests {
     void fileScopedFeedbackDoesNotLeakSiblingSymbolFixesIntoOtherFiles() throws Exception {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -138,7 +141,7 @@ class ImplementationExecutorTests {
         ObjectMapper objectMapper = new ObjectMapper();
         AtomicReference<String> capturedFileSystemPrompt = new AtomicReference<>("");
         AtomicInteger implementationCalls = new AtomicInteger();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -160,7 +163,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "创建网页入口",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 },
@@ -174,7 +179,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "补齐入口行为",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 }
@@ -273,6 +280,8 @@ class ImplementationExecutorTests {
 
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, surface-renders
@@ -284,6 +293,8 @@ class ImplementationExecutorTests {
 
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, surface-renders
@@ -303,7 +314,7 @@ class ImplementationExecutorTests {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
         AtomicInteger implementationCalls = new AtomicInteger();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -328,7 +339,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "创建页面入口",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 },
@@ -344,7 +357,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "补齐交互逻辑",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 }
@@ -414,6 +429,8 @@ class ImplementationExecutorTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens
@@ -424,6 +441,8 @@ class ImplementationExecutorTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens
@@ -442,7 +461,7 @@ class ImplementationExecutorTests {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
         AtomicInteger implementationCalls = new AtomicInteger();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -468,7 +487,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "建立网页入口",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 },
@@ -484,7 +505,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "补齐运行逻辑",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 }
@@ -558,6 +581,8 @@ class ImplementationExecutorTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, game-starts
@@ -568,6 +593,8 @@ class ImplementationExecutorTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, game-starts
@@ -586,7 +613,7 @@ class ImplementationExecutorTests {
     void planningCoverageFailureIsRenderedAsRecoverableImplementationArtifact() {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -612,7 +639,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "建立网页入口",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 }
@@ -657,6 +686,8 @@ class ImplementationExecutorTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, game-starts
@@ -667,6 +698,8 @@ class ImplementationExecutorTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, game-starts
@@ -684,7 +717,7 @@ class ImplementationExecutorTests {
         ObjectMapper objectMapper = new ObjectMapper();
         AtomicInteger planningCalls = new AtomicInteger();
         AtomicInteger generationCalls = new AtomicInteger();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -798,17 +831,59 @@ class ImplementationExecutorTests {
                                 new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot(
                                         "建立入口",
                                         true,
-                                        List.of(new ImplementationStateSnapshot.SubtaskAttemptState(1, true, "ok", "", "APPROVED", "NONE", "ok", "", "", "", null, null))
+                                        List.of(new ImplementationStateSnapshot.SubtaskAttemptState(
+                                                1,
+                                                true,
+                                                "ok",
+                                                "",
+                                                "APPROVED",
+                                                "NONE",
+                                                "ok",
+                                                "",
+                                                "",
+                                                "",
+                                                ImplementationPatchTarget.NONE.name(),
+                                                null,
+                                                null
+                                        ))
                                 ),
                                 new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot(
                                         "实现核心逻辑",
                                         true,
-                                        List.of(new ImplementationStateSnapshot.SubtaskAttemptState(1, true, "ok", "", "APPROVED", "NONE", "ok", "", "", "", null, null))
+                                        List.of(new ImplementationStateSnapshot.SubtaskAttemptState(
+                                                1,
+                                                true,
+                                                "ok",
+                                                "",
+                                                "APPROVED",
+                                                "NONE",
+                                                "ok",
+                                                "",
+                                                "",
+                                                "",
+                                                ImplementationPatchTarget.NONE.name(),
+                                                null,
+                                                null
+                                        ))
                                 ),
                                 new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot(
                                         "实现渲染层",
                                         true,
-                                        List.of(new ImplementationStateSnapshot.SubtaskAttemptState(1, true, "ok", "", "APPROVED", "NONE", "ok", "", "", "", null, null))
+                                        List.of(new ImplementationStateSnapshot.SubtaskAttemptState(
+                                                1,
+                                                true,
+                                                "ok",
+                                                "",
+                                                "APPROVED",
+                                                "NONE",
+                                                "ok",
+                                                "",
+                                                "",
+                                                "",
+                                                ImplementationPatchTarget.NONE.name(),
+                                                null,
+                                                null
+                                        ))
                                 )
                         ),
                         List.of(),
@@ -817,6 +892,12 @@ class ImplementationExecutorTests {
                         false,
                         ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID.name(),
                         "入口页缺少稳定 runtime wiring。",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                        new ImplementationStateSnapshot.RuntimeContractState(
+                                "index.html",
+                                RuntimeOwnershipMode.EXTERNAL_COMPANION.name(),
+                                List.of("index.app.js")
+                        ),
                         List.of()
                 )
         );
@@ -831,6 +912,8 @@ class ImplementationExecutorTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens
@@ -841,6 +924,8 @@ class ImplementationExecutorTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens
@@ -859,7 +944,7 @@ class ImplementationExecutorTests {
         );
         assertEquals(1, continuation.changes().size());
         assertEquals("index.html", continuation.changes().getFirst().path());
-        assertEquals(RuntimeOwnershipMode.INLINE_HOST, continuation.changes().getFirst().runtimeOwnership());
+        assertEquals(RuntimeOwnershipMode.EXTERNAL_COMPANION, continuation.changes().getFirst().runtimeOwnership());
     }
 
     @Test
@@ -868,7 +953,7 @@ class ImplementationExecutorTests {
         ObjectMapper objectMapper = new ObjectMapper();
         AtomicReference<String> capturedUserPrompt = new AtomicReference<>("");
         AtomicInteger implementationCalls = new AtomicInteger();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -893,7 +978,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "创建页面入口",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 },
@@ -909,7 +996,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "补齐交互逻辑",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 }
@@ -987,7 +1076,7 @@ class ImplementationExecutorTests {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
         AtomicReference<String> capturedPlanningPrompt = new AtomicReference<>("");
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -1011,7 +1100,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "创建入口",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 }
@@ -1071,7 +1162,7 @@ class ImplementationExecutorTests {
     void implementationAcceptsBrowserEsModuleJavaScriptGeneration() {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -1194,7 +1285,7 @@ class ImplementationExecutorTests {
         ObjectMapper objectMapper = new ObjectMapper();
         AtomicInteger planningCalls = new AtomicInteger();
         AtomicInteger generationCalls = new AtomicInteger();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -1208,27 +1299,20 @@ class ImplementationExecutorTests {
                 }
                 if (role == ModelRole.IMPLEMENTATION) {
                     if (systemPrompt.contains("当前 HTML 入口文件里的主脚本已被抽成独立代码工作集")) {
+                        throw new AssertionError("single-entry inline script patch should not use inline-script workset");
+                    }
+                    if (systemPrompt.contains("请只改写 HTML 中 <script id=\"app-script\"> 的内部 JavaScript。")) {
                         return """
-                                {
-                                  "operations": [
-                                    {
-                                      "action": "APPEND_FILE",
-                                      "targetSymbol": null,
-                                      "targetKind": null,
-                                      "contentLines": [
-                                        "document.addEventListener('DOMContentLoaded', () => {",
-                                        "  const button = document.getElementById('start-btn');",
-                                        "  const status = document.getElementById('status');",
-                                        "  if (button && status) {",
-                                        "    button.addEventListener('click', () => {",
-                                        "      status.textContent = 'started';",
-                                        "    });",
-                                        "  }",
-                                        "});"
-                                      ]
-                                    }
-                                  ]
-                                }
+                                document.addEventListener('DOMContentLoaded', () => {
+                                  const button = document.getElementById('start-btn');
+                                  const status = document.getElementById('status');
+                                  if (button && status) {
+                                    button.textContent = '开始';
+                                    button.addEventListener('click', () => {
+                                      status.textContent = 'started';
+                                    });
+                                  }
+                                });
                                 """;
                     }
                     if (systemPrompt.contains("请对现有 HTML 页面做“精确改写”")) {
@@ -1378,6 +1462,7 @@ class ImplementationExecutorTests {
                                                         "",
                                                         "",
                                                         "",
+                                                        ImplementationPatchTarget.NONE.name(),
                                                         null,
                                                         null
                                                 )
@@ -1398,6 +1483,7 @@ class ImplementationExecutorTests {
                                                         "请补齐开始按钮行为。",
                                                         "",
                                                         "",
+                                                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION.name(),
                                                         null,
                                                         null
                                                 )
@@ -1422,6 +1508,8 @@ class ImplementationExecutorTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, runtime-surface-renders
@@ -1432,6 +1520,8 @@ class ImplementationExecutorTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, runtime-surface-renders
@@ -1442,9 +1532,8 @@ class ImplementationExecutorTests {
         );
 
         assertEquals(0, planningCalls.get());
+        assertEquals(0, generationCalls.get());
         assertTrue(bundle.implementationMarkdown().contains("- plannedSubtasks: 2"));
-        assertTrue(bundle.implementationMarkdown().contains("- completedSubtasks: 1"));
-        assertTrue(bundle.implementationMarkdown().contains("- stageReady: false"));
         assertTrue(Files.readString(tempDir.resolve("index.html")).contains("status.textContent = 'started';"));
     }
 
@@ -1452,7 +1541,7 @@ class ImplementationExecutorTests {
     void implementationPlanMustCoverRunnableEntryForPureWebGoal() {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -1552,6 +1641,8 @@ class ImplementationExecutorTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, game-surface-renders
@@ -1583,6 +1674,8 @@ class ImplementationExecutorTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, game-surface-renders
@@ -1598,7 +1691,7 @@ class ImplementationExecutorTests {
     void implementationPlanCannotStopAtSkeletonWhenRunnableBehaviorIsRequired() {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -1621,7 +1714,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "创建入口和表面",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 }
@@ -1644,7 +1739,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "继续保留壳层",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 }
@@ -1682,6 +1779,8 @@ class ImplementationExecutorTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, surface-renders, behavior-works
@@ -1692,6 +1791,8 @@ class ImplementationExecutorTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, surface-renders, behavior-works
@@ -1708,7 +1809,7 @@ class ImplementationExecutorTests {
     void implementationPlanRejectsSubtasksThatTouchTooManyFiles() {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -1751,7 +1852,7 @@ class ImplementationExecutorTests {
     void malformedHtmlGeneratedDuringImplementationReturnsFailedReportInsteadOfThrowing() {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -1774,7 +1875,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "创建页面入口",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 }
@@ -1840,7 +1943,7 @@ class ImplementationExecutorTests {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
         List<ImplementationExecutionBundle> snapshots = new ArrayList<>();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -1863,7 +1966,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "创建入口",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 },
@@ -1960,7 +2065,7 @@ class ImplementationExecutorTests {
     void nonSkeletonSubtaskCannotPassWhenBehaviorIsStillPlaceholderOnly() {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -1983,7 +2088,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "创建入口骨架",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 },
@@ -1997,7 +2104,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "在现有入口中补齐行为",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 }
@@ -2073,6 +2182,8 @@ class ImplementationExecutorTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, surface-renders, behavior-works
@@ -2083,6 +2194,8 @@ class ImplementationExecutorTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, surface-renders, behavior-works
@@ -2100,7 +2213,7 @@ class ImplementationExecutorTests {
         ObjectMapper objectMapper = new ObjectMapper();
         AtomicInteger implementationCalls = new AtomicInteger();
         AtomicReference<String> firstReviewCandidate = new AtomicReference<>("");
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -2125,7 +2238,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "创建入口骨架",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 },
@@ -2141,7 +2256,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "在入口文件内补齐行为",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 }
@@ -2265,6 +2382,8 @@ class ImplementationExecutorTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, surface-renders, behavior-works
@@ -2275,6 +2394,8 @@ class ImplementationExecutorTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, surface-renders, behavior-works
@@ -2316,7 +2437,7 @@ class ImplementationExecutorTests {
 
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -2340,7 +2461,9 @@ class ImplementationExecutorTests {
                                       "action": "WRITE",
                                       "reason": "在稳定锚点内精确更新内容",
                                       "editScope": "HOST_HTML_PATCH",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 }
@@ -2416,7 +2539,7 @@ class ImplementationExecutorTests {
 
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -2510,7 +2633,7 @@ class ImplementationExecutorTests {
 
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -2604,7 +2727,7 @@ class ImplementationExecutorTests {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
         AtomicReference<Integer> patchCalls = new AtomicReference<>(0);
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -2720,7 +2843,7 @@ class ImplementationExecutorTests {
 
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -2824,7 +2947,7 @@ class ImplementationExecutorTests {
 
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -2848,7 +2971,9 @@ class ImplementationExecutorTests {
                                       "action": "WRITE",
                                       "reason": "对现有 HTML 入口做精确改写",
                                       "editScope": "INLINE_SCRIPT_PATCH",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 }
@@ -2906,6 +3031,8 @@ class ImplementationExecutorTests {
 
                         - runtime.entryRequired: true
                         - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                         - runtime.launchRequired: true
                         - runtime.surfaceRequired: true
                         """,
@@ -2916,6 +3043,8 @@ class ImplementationExecutorTests {
 
                         - runtime.entryRequired: true
                         - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                         - runtime.launchRequired: true
                         - runtime.surfaceRequired: true
                         """,
@@ -2960,7 +3089,7 @@ class ImplementationExecutorTests {
         java.util.concurrent.atomic.AtomicInteger preciseHtmlCalls = new java.util.concurrent.atomic.AtomicInteger();
         java.util.concurrent.atomic.AtomicInteger inlineScriptCalls = new java.util.concurrent.atomic.AtomicInteger();
         java.util.concurrent.atomic.AtomicInteger codeFileCalls = new java.util.concurrent.atomic.AtomicInteger();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -2984,7 +3113,9 @@ class ImplementationExecutorTests {
                                       "action": "WRITE",
                                       "reason": "对现有 HTML 入口做精确改写",
                                       "editScope": "HOST_HTML_PATCH",
-                                      "runtimeOwnership": "EXTERNAL_COMPANION"
+                                      "editScope": "HOST_HTML_PATCH",
+                                      "runtimeOwnership": "EXTERNAL_COMPANION",
+                                      "hostHtmlPatchRequired": true
                                     },
                                     {
                                       "path": "index.app.js",
@@ -3126,6 +3257,8 @@ class ImplementationExecutorTests {
 
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 """,
@@ -3136,6 +3269,8 @@ class ImplementationExecutorTests {
 
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 """,
@@ -3158,7 +3293,7 @@ class ImplementationExecutorTests {
     void explicitContractViewIsPreservedEvenWhenPromptArtifactsAreSanitized() {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -3183,7 +3318,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "创建入口文件",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 }
@@ -3251,7 +3388,7 @@ class ImplementationExecutorTests {
     void newHtmlEntryGenerationAcceptsStructuredDraftInsteadOfFullDocument() throws Exception {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -3276,7 +3413,9 @@ class ImplementationExecutorTests {
                                       "path": "index.html",
                                       "action": "WRITE",
                                       "reason": "创建入口文件",
-                                    "runtimeOwnership": "INLINE_HOST"
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
                                     }
                                   ]
                                 }
@@ -3331,6 +3470,8 @@ class ImplementationExecutorTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, surface-renders, behavior-works
@@ -3341,6 +3482,8 @@ class ImplementationExecutorTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, surface-renders, behavior-works
@@ -3368,7 +3511,7 @@ class ImplementationExecutorTests {
                       "goal": "同时改 3 个文件",
                       "acceptanceCriteria": ["会被实现器拒绝"],
                       "changes": [
-                        {"path": "index.html", "action": "WRITE", "reason": "a", "runtimeOwnership": "INLINE_HOST"},
+                        {"path": "index.html", "action": "WRITE", "reason": "a", "editScope": "HOST_HTML_PATCH", "runtimeOwnership": "INLINE_HOST", "hostHtmlPatchRequired": true},
                         {"path": "styles.css", "action": "WRITE", "reason": "b"},
                         {"path": "game.js", "action": "WRITE", "reason": "c"}
                       ]
@@ -3393,6 +3536,8 @@ class ImplementationExecutorTests {
     private String executionDirectiveNote(FixMode fixMode, Integer deliveryMaxFiles, String message) {
         String block = ExecutionDirectiveProtocol.renderBlock(new ExecutionDirectivePayload(
                 fixMode == null ? null : fixMode.name(),
+                null,
+                List.of(),
                 null,
                 null,
                 null,
@@ -3463,5 +3608,33 @@ class ImplementationExecutorTests {
                 stageFlowPolicy,
                 new SupervisorFallbackPolicy(stageFlowPolicy)
         );
+    }
+
+    private abstract static class StructuredTestLlmProvider implements LlmProvider {
+
+        @Override
+        public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
+            return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
+        }
+
+        @Override
+        public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options, ModelRole role) {
+            return review(systemPrompt, candidateContent, options);
+        }
+
+        @Override
+        public StructuredReviewResult reviewStructured(String systemPrompt, String candidateContent, Map<String, Object> options) {
+            return new StructuredReviewResult(review(systemPrompt, candidateContent, options), ReviewSemantics.empty());
+        }
+
+        @Override
+        public StructuredReviewResult reviewStructured(
+                String systemPrompt,
+                String candidateContent,
+                Map<String, Object> options,
+                ModelRole role
+        ) {
+            return new StructuredReviewResult(review(systemPrompt, candidateContent, options, role), ReviewSemantics.empty());
+        }
     }
 }

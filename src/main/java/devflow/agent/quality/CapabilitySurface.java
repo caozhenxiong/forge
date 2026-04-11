@@ -42,6 +42,24 @@ public enum CapabilitySurface {
         return category == CapabilitySurfaceCategory.EXPERIENCE;
     }
 
+    /**
+     * 当前能力是否需要显式 UI 观测 target。
+     *
+     * <p>这里只覆盖“必须绑定到某个页面表面或可见信号才能验证”的能力。
+     * PAGE_LOAD / RUNTIME_STABILITY 这类基础能力仍走自检与工具结果，不在这里声明 target。
+     */
+    public boolean requiresObservationTarget() {
+        return switch (this) {
+            case PRIMARY_VISUAL_SURFACE,
+                    PRIMARY_INTERACTION,
+                    PAUSE_FREEZE,
+                    RESET_RESTORES_INITIAL_STATE,
+                    TIMED_STATE_PROGRESSION,
+                    VISIBLE_PROGRESS_SIGNAL -> true;
+            default -> false;
+        };
+    }
+
     public static String wireCatalog() {
         return Arrays.stream(values())
                 .map(CapabilitySurface::wireValue)

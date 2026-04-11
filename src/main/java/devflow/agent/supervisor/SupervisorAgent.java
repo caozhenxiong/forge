@@ -58,7 +58,7 @@ public class SupervisorAgent {
         this.stageFlowPolicy = stageFlowPolicy;
         this.supervisorFallbackPolicy = supervisorFallbackPolicy;
         this.artifactRenderer = new SupervisorArtifactRenderer();
-        this.decisionSanitizer = new SupervisorDecisionSanitizer(supervisorFallbackPolicy);
+        this.decisionSanitizer = new SupervisorDecisionSanitizer(stageFlowPolicy, supervisorFallbackPolicy);
         this.promptAssembler = new SupervisorPromptAssembler(artifactRenderer);
         this.structuredPayloadReader = new StructuredPayloadReader(objectMapper);
     }

@@ -50,9 +50,40 @@ class StageReviewerTests {
     @TempDir
     Path tempDir;
 
+    private StageReviewer newStageReviewer(LlmProvider provider) {
+        return newStageReviewer(
+                provider,
+                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
+                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
+        );
+    }
+
+    private StageReviewer newStageReviewer(LlmProvider provider, TestExecutor testExecutor) {
+        return newStageReviewer(
+                provider,
+                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
+                testExecutor
+        );
+    }
+
+    private StageReviewer newStageReviewer(
+            LlmProvider provider,
+            WorkspaceSnapshotStore snapshotStore,
+            TestExecutor testExecutor
+    ) {
+        return new StageReviewer(
+                provider,
+                snapshotStore,
+                testExecutor,
+                new devflow.agent.prompt.PromptTemplateCatalog(),
+                new devflow.agent.i18n.LanguagePolicy(),
+                new devflow.agent.loop.AgentTurnLoop()
+        );
+    }
+
     @Test
     void documentReviewFailsWhenOllamaReturnsEmptyContentAfterRetries() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -69,11 +100,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         IllegalStateException exception = assertThrows(IllegalStateException.class, () -> reviewer.review(tempDir, dummyRun(), StageType.ANALYSIS, """
                 # 需求分析与调研
@@ -103,7 +130,7 @@ class StageReviewerTests {
 
     @Test
     void documentReviewRejectsWhenRequiredSectionsAreMissing() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -120,11 +147,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, """
                 # 产品需求文档
@@ -144,7 +167,7 @@ class StageReviewerTests {
 
     @Test
     void documentReviewRejectsWhenSectionBodyIsEmptyShell() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -161,11 +184,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.ANALYSIS, """
                 # 需求分析与调研
@@ -195,7 +214,7 @@ class StageReviewerTests {
     @Test
     void documentReviewPromptsCheckSourceAndConstraintPromotion() {
         AtomicReference<String> capturedSystemPrompt = new AtomicReference<>("");
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -214,11 +233,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         reviewer.review(tempDir, dummyRun(), StageType.DESIGN, """
                 # 技术方案设计
@@ -247,6 +262,8 @@ class StageReviewerTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens
@@ -259,7 +276,7 @@ class StageReviewerTests {
 
     @Test
     void analysisDraftWithRequiredSectionsCanPassDeterministicGuard() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -276,11 +293,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.ANALYSIS, """
                 # 需求分析与调研
@@ -318,7 +331,7 @@ class StageReviewerTests {
 
     @Test
     void analysisReviewDoesNotBlockOnOpenQuestionsThatAreAlreadyExplicitlyTracked() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -347,11 +360,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.ANALYSIS, """
                 # 需求分析与调研
@@ -393,7 +402,7 @@ class StageReviewerTests {
 
     @Test
     void documentReviewRejectsInconsistentContractMetadata() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -410,11 +419,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.DESIGN, """
                 # 技术方案设计
@@ -443,6 +448,8 @@ class StageReviewerTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: false
                 - runtime.surfaceRequired: false
                 - runtime.acceptanceSignals: runtime-surface-renders
@@ -455,7 +462,7 @@ class StageReviewerTests {
 
     @Test
     void documentReviewDoesNotRejectExplicitlyLabeledDesignChoiceAsHardConstraint() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -482,11 +489,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.DESIGN, """
                 # 技术方案设计
@@ -515,6 +518,8 @@ class StageReviewerTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens
@@ -526,7 +531,7 @@ class StageReviewerTests {
 
     @Test
     void documentReviewRelaxesNumberedLocalizedDesignChoiceFalsePositive() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -553,11 +558,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.DESIGN, """
                 # 技术方案设计
@@ -588,6 +589,8 @@ class StageReviewerTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens
@@ -599,7 +602,7 @@ class StageReviewerTests {
 
     @Test
     void documentReviewRelaxesNumberedEnglishDesignChoiceFalsePositive() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -626,11 +629,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.DESIGN, """
                 # Technical Design
@@ -661,6 +660,8 @@ class StageReviewerTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens
@@ -672,7 +673,7 @@ class StageReviewerTests {
 
     @Test
     void approvedDocumentReviewDoesNotCarryImplementationActionItemsForward() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -701,11 +702,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.ANALYSIS, """
                 # 需求分析与调研
@@ -735,7 +732,7 @@ class StageReviewerTests {
 
     @Test
     void documentReviewNoLongerGuessesUnsourcedBindingImplementationConstraintFromBodyText() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -752,11 +749,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.DESIGN, """
                 # 技术方案设计
@@ -786,6 +779,8 @@ class StageReviewerTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens
@@ -805,7 +800,7 @@ class StageReviewerTests {
 
     @Test
     void documentReviewNoLongerGuessesBindingImplementationConstraintFromGenericLaunchTerms() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -822,11 +817,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.DESIGN, """
                 # 技术方案设计
@@ -856,6 +847,8 @@ class StageReviewerTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens
@@ -875,7 +868,7 @@ class StageReviewerTests {
 
     @Test
     void documentReviewNoLongerGuessesDeclarativeTechnicalConstraintFromBodyPresentation() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -892,11 +885,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.DESIGN, """
                 # 技术方案设计
@@ -925,6 +914,8 @@ class StageReviewerTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens
@@ -944,7 +935,7 @@ class StageReviewerTests {
 
     @Test
     void documentReviewAllowsExplicitlyLabeledDesignChoices() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -961,11 +952,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.DESIGN, """
                 # 技术方案设计
@@ -995,6 +982,8 @@ class StageReviewerTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens
@@ -1013,7 +1002,7 @@ class StageReviewerTests {
 
     @Test
     void documentReviewAllowsExplicitlyLabeledQuantitativeRecommendations() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -1030,11 +1019,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, """
                 # 产品需求文档
@@ -1060,6 +1045,8 @@ class StageReviewerTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens
@@ -1078,7 +1065,7 @@ class StageReviewerTests {
 
     @Test
     void documentReviewIgnoresUnsupportedHardeningRequestsFromReviewer() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -1107,11 +1094,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.ANALYSIS, """
                 # 需求分析与调研
@@ -1151,7 +1134,7 @@ class StageReviewerTests {
 
     @Test
     void analysisReviewIgnoresDownstreamDesignDetailsAsBlockingIssues() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -1180,11 +1163,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.ANALYSIS, """
                 # 需求分析与调研
@@ -1215,7 +1194,7 @@ class StageReviewerTests {
 
     @Test
     void analysisReviewIgnoresBusinessRulesAndLayoutSpecsAsBlockingIssues() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -1244,11 +1223,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.ANALYSIS, """
                 # 需求分析与调研
@@ -1279,7 +1254,7 @@ class StageReviewerTests {
 
     @Test
     void prdReviewIgnoresDownstreamTechnicalDetailsAsBlockingIssues() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -1308,11 +1283,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, """
                 # 产品需求文档
@@ -1338,6 +1309,8 @@ class StageReviewerTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, puzzle-renders
@@ -1350,7 +1323,7 @@ class StageReviewerTests {
 
     @Test
     void prdReviewIgnoresDeferredBusinessRuleFormulasAsBlockingIssues() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -1379,11 +1352,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, """
                 # 产品需求文档
@@ -1421,6 +1390,8 @@ class StageReviewerTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, input-works
@@ -1433,7 +1404,7 @@ class StageReviewerTests {
 
     @Test
     void documentReviewRejectsUnsourcedQuantitativeHardConstraints() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -1455,11 +1426,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, """
                 # Product Requirements Document
@@ -1487,6 +1454,8 @@ class StageReviewerTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, input-works
@@ -1506,7 +1475,7 @@ class StageReviewerTests {
 
     @Test
     void documentReviewRejectsMalformedPrdStructure() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -1528,11 +1497,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, """
                 # 产品需求文档
@@ -1558,6 +1523,8 @@ class StageReviewerTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, puzzle-renders
@@ -1571,7 +1538,7 @@ class StageReviewerTests {
 
     @Test
     void documentReviewAllowsExtraWellFormedTopLevelSection() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -1593,11 +1560,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.ANALYSIS, """
                 # 需求分析与调研
@@ -1630,7 +1593,7 @@ class StageReviewerTests {
 
     @Test
     void prdReviewIgnoresTrailingProcessNotesWhenMainSectionsAreComplete() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -1652,11 +1615,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, """
                 # Product Requirements Document
@@ -1689,6 +1648,8 @@ class StageReviewerTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, input-works
@@ -1713,7 +1674,7 @@ class StageReviewerTests {
 
     @Test
     void prdReviewDoesNotTreatNormalFutureExtensionBulletsAsTruncatedTail() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -1735,11 +1696,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, """
                 # 产品需求文档
@@ -1772,6 +1729,8 @@ class StageReviewerTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, input-works
@@ -1783,7 +1742,7 @@ class StageReviewerTests {
 
     @Test
     void implementationReviewDefersUnsupportedPerformanceClaimToTestStage() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -1797,7 +1756,13 @@ class StageReviewerTests {
                         "数独算法存在性能问题，无法满足500ms验收标准",
                         "重构算法引擎，优化回溯和唯一解检测逻辑，提升执行效率",
                         "",
-                        ""
+                        "",
+                        ImplementationPatchTarget.NONE,
+                        java.util.List.of(new devflow.agent.executor.FileChange(
+                                "sudoku-engine.js",
+                                devflow.agent.executor.ChangeAction.WRITE,
+                                "补充性能测量与优化"
+                        ))
                 );
             }
 
@@ -1819,11 +1784,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                testExecutor
-        );
+        StageReviewer reviewer = newStageReviewer(provider, testExecutor);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.IMPLEMENTATION, "# 代码实现");
 
@@ -1837,7 +1798,7 @@ class StageReviewerTests {
 
     @Test
     void implementationReviewRequestsMeasurementWhenDesignRequiresIt() throws Exception {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -1851,7 +1812,13 @@ class StageReviewerTests {
                         "数独算法存在性能问题，无法满足500ms验收标准",
                         "重构算法引擎，优化回溯和唯一解检测逻辑，提升执行效率",
                         "",
-                        ""
+                        "",
+                        ImplementationPatchTarget.NONE,
+                        java.util.List.of(new devflow.agent.executor.FileChange(
+                                "sudoku-engine.js",
+                                devflow.agent.executor.ChangeAction.WRITE,
+                                "补充性能测量与优化"
+                        ))
                 );
             }
 
@@ -1883,11 +1850,7 @@ class StageReviewerTests {
                 """);
         RunRecord runRecord = dummyRunWithDesign(designPath);
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                testExecutor
-        );
+        StageReviewer reviewer = newStageReviewer(provider, testExecutor);
 
         ReviewResult result = reviewer.review(tempDir, runRecord, StageType.IMPLEMENTATION, "# 代码实现");
 
@@ -1899,7 +1862,7 @@ class StageReviewerTests {
 
     @Test
     void implementationReviewDoesNotBlockOnGenericDesignValidationLanguage() throws Exception {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -1913,7 +1876,8 @@ class StageReviewerTests {
                         "存在性能风险，但缺少数据",
                         "请补性能测量",
                         "",
-                        ""
+                        "",
+                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
                 );
             }
 
@@ -1946,11 +1910,7 @@ class StageReviewerTests {
                 """);
         RunRecord runRecord = dummyRunWithDesign(designPath);
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                testExecutor
-        );
+        StageReviewer reviewer = newStageReviewer(provider, testExecutor);
 
         ReviewResult result = reviewer.review(tempDir, runRecord, StageType.IMPLEMENTATION, "# 代码实现");
 
@@ -1961,7 +1921,7 @@ class StageReviewerTests {
 
     @Test
     void implementationReviewBackfillsEvidenceAndActionItemsWhenMissing() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -1975,7 +1935,13 @@ class StageReviewerTests {
                         "入口接线不完整",
                         "修复入口接线并重新验证",
                         "",
-                        ""
+                        "",
+                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                        java.util.List.of(new devflow.agent.executor.FileChange(
+                                "index.html",
+                                devflow.agent.executor.ChangeAction.WRITE,
+                                "修复入口接线"
+                        ))
                 );
             }
 
@@ -1992,11 +1958,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                testExecutor
-        );
+        StageReviewer reviewer = newStageReviewer(provider, testExecutor);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.IMPLEMENTATION, "# 代码实现");
 
@@ -2009,7 +1971,7 @@ class StageReviewerTests {
     @Test
     void implementationReviewIncludesRepairBriefAndAlignmentArtifacts() {
         AtomicReference<String> capturedCandidate = new AtomicReference<>("");
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -2046,7 +2008,7 @@ class StageReviewerTests {
         artifactStore.writeAuxiliaryArtifact(tempDir, runRecord.runId(), AuxiliaryArtifactNames.REPAIR_BRIEF, "必须优先修复入口接线");
         artifactStore.writeAuxiliaryArtifact(tempDir, runRecord.runId(), AuxiliaryArtifactNames.REPAIR_ALIGNMENT, "本轮修复已覆盖 must-fix-first 和 acceptance checks");
 
-        StageReviewer reviewer = new StageReviewer(
+        StageReviewer reviewer = newStageReviewer(
                 provider,
                 new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
                 testExecutor
@@ -2065,7 +2027,7 @@ class StageReviewerTests {
 
     @Test
     void codeReviewApprovedWithStructuredBlockingMetadataIsDowngraded() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -2082,11 +2044,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.CODE_REVIEW, """
                 %s
@@ -2097,6 +2055,10 @@ class StageReviewerTests {
                         ArtifactBlockKind.REVIEW_RESULT,
                         new ReviewArtifactPayload(
                                 "APPROVED",
+                                "NONE",
+                                ImplementationPatchTarget.NONE.name(),
+                                java.util.List.of(),
+                                "PATCH_CURRENT_STAGE",
                                 "NONE",
                                 "基础结构已经建立。",
                                 "请补齐得分更新与方块移动/旋转行为。",
@@ -2115,7 +2077,7 @@ class StageReviewerTests {
 
     @Test
     void codeReviewApprovedWithStructuredBlockingEvidenceIsDowngraded() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -2132,11 +2094,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.CODE_REVIEW, """
                 %s
@@ -2145,6 +2103,10 @@ class StageReviewerTests {
                         ArtifactBlockKind.REVIEW_RESULT,
                         new ReviewArtifactPayload(
                                 "APPROVED",
+                                "NONE",
+                                ImplementationPatchTarget.NONE.name(),
+                                java.util.List.of(),
+                                "PATCH_CURRENT_STAGE",
                                 "NONE",
                                 "代码实现了基础俄罗斯方块游戏的HTML结构、CSS样式和初始游戏逻辑，符合设计与实现目标。",
                                 "请补齐暂停恢复、移动旋转与消行逻辑。",
@@ -2163,7 +2125,7 @@ class StageReviewerTests {
 
     @Test
     void codeReviewApprovedWithBlockingEvidenceIsDowngraded() {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";
@@ -2180,11 +2142,7 @@ class StageReviewerTests {
             }
         };
 
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.CODE_REVIEW, """
                 %s
@@ -2195,6 +2153,10 @@ class StageReviewerTests {
                         ArtifactBlockKind.REVIEW_RESULT,
                         new ReviewArtifactPayload(
                                 "APPROVED",
+                                "NONE",
+                                ImplementationPatchTarget.NONE.name(),
+                                java.util.List.of(),
+                                "PATCH_CURRENT_STAGE",
                                 "NONE",
                                 "主流程已搭好。",
                                 "",
@@ -2212,7 +2174,26 @@ class StageReviewerTests {
     }
 
     @Test
-    void implementationReviewRejectsHighRiskEmbeddedInteractiveHtml() throws Exception {
+    void implementationReviewShortCircuitsOnFailedSelfCheck() {
+        LlmProvider provider = new NoopReviewProvider();
+        TestExecutor testExecutor = new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()) {
+            @Override
+            public devflow.agent.executor.SelfCheckResult selfCheck(Path projectPath) {
+                return new devflow.agent.executor.SelfCheckResult(false, "项目自测失败。", "存在语法错误。");
+            }
+        };
+        StageReviewer reviewer = newStageReviewer(provider, testExecutor);
+
+        ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.IMPLEMENTATION, "# 代码实现");
+
+        assertEquals(ReviewDecision.REVISION_REQUIRED, result.decision());
+        assertEquals(FixMode.PATCH, result.fixMode());
+        assertEquals("项目自测失败。", result.summary());
+        assertEquals("存在语法错误。", result.changeRequest());
+    }
+
+    @Test
+    void implementationReviewPatchesCurrentStageWhenRuntimeOwnershipViolatesApprovedContract() throws Exception {
         Files.writeString(
                 tempDir.resolve("index.html"),
                 """
@@ -2237,6 +2218,8 @@ class StageReviewerTests {
                         ## 8. Contract Metadata
                         - runtime.entryRequired: true
                         - runtime.entryKind: html-entry
+                        - runtime.entryPackagingMode: entry-with-local-dependencies
+                        - runtime.runtimeOwnershipMode: companion-owned
                         - runtime.launchRequired: true
                         - runtime.surfaceRequired: true
                         - runtime.acceptanceSignals: page-opens, runtime-surface-renders
@@ -2244,11 +2227,7 @@ class StageReviewerTests {
         );
 
         LlmProvider provider = new NoopReviewProvider();
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         ReviewResult result = reviewer.review(
                 tempDir,
@@ -2261,22 +2240,26 @@ class StageReviewerTests {
         );
 
         assertEquals(ReviewDecision.REVISION_REQUIRED, result.decision());
-        assertTrue(result.summary().contains("宿主文档内联逻辑") || result.summary().contains("结构风险"));
+        assertEquals(FixMode.PATCH, result.fixMode());
+        assertEquals(ReviewRevisionRoute.PATCH_CURRENT_STAGE, result.revisionRoute());
+        assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, result.implementationPatchTarget());
+        assertEquals(ReviewReasonCode.RUNTIME_WIRING_GAP, result.reasonCode());
+        assertTrue(result.summary().contains("approved contract"));
     }
 
     @Test
     void testReviewRejectsWhenRequiredExperienceCoverageIsMissing() {
         LlmProvider provider = new NoopReviewProvider();
-        StageReviewer reviewer = new StageReviewer(
-                provider,
-                new WorkspaceSnapshotStore(new FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
-        );
+        StageReviewer reviewer = newStageReviewer(provider);
 
         String artifact = StructuredArtifactBlocks.renderJsonBlock(
                 ArtifactBlockKind.REVIEW_RESULT,
                 new ReviewArtifactPayload(
                         "APPROVED",
+                        "NONE",
+                        ImplementationPatchTarget.NONE.name(),
+                        java.util.List.of(),
+                        "PATCH_CURRENT_STAGE",
                         "NONE",
                         "测试通过。",
                         "",
@@ -2306,10 +2289,49 @@ class StageReviewerTests {
     }
 
     private StructuredReviewResult structured(ReviewResult result, ReviewSemantics semantics) {
+        if (result.fixMode() == FixMode.PATCH && result.implementationPatchTarget() == ImplementationPatchTarget.NONE) {
+            result = new ReviewResult(
+                    result.decision(),
+                    result.fixMode(),
+                    result.summary(),
+                    result.changeRequest(),
+                    result.evidence(),
+                    result.actionItems(),
+                    ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
+            );
+        }
         return new StructuredReviewResult(result, semantics);
     }
 
-    private static final class NoopReviewProvider implements LlmProvider {
+
+    private abstract static class StructuredTestLlmProvider implements LlmProvider {
+        @Override
+        public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
+            return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
+        }
+
+        @Override
+        public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options, ModelRole role) {
+            return review(systemPrompt, candidateContent, options);
+        }
+
+        @Override
+        public StructuredReviewResult reviewStructured(String systemPrompt, String candidateContent, Map<String, Object> options) {
+            return new StructuredReviewResult(review(systemPrompt, candidateContent, options), ReviewSemantics.empty());
+        }
+
+        @Override
+        public StructuredReviewResult reviewStructured(
+                String systemPrompt,
+                String candidateContent,
+                Map<String, Object> options,
+                ModelRole role
+        ) {
+            return new StructuredReviewResult(review(systemPrompt, candidateContent, options, role), ReviewSemantics.empty());
+        }
+    }
+
+    private static final class NoopReviewProvider extends StructuredTestLlmProvider {
         @Override
         public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
             return "";

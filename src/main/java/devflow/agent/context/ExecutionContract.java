@@ -9,6 +9,8 @@ import java.util.Locale;
 public record ExecutionContract(
         boolean entryRequired,
         String entryKind,
+        String entryPackagingMode,
+        String runtimeOwnershipMode,
         boolean launchRequired,
         boolean surfaceRequired,
         List<String> acceptanceSignals
@@ -16,7 +18,20 @@ public record ExecutionContract(
 
     public ExecutionContract {
         entryKind = normalizeEntryKindValue(entryKind);
+        entryPackagingMode = normalizePackagingModeValue(entryPackagingMode);
+        runtimeOwnershipMode = normalizeRuntimeOwnershipModeValue(runtimeOwnershipMode);
         acceptanceSignals = normalizeAcceptanceSignals(acceptanceSignals);
+    }
+
+    public ExecutionContract(
+            boolean entryRequired,
+            String entryKind,
+            boolean launchRequired,
+            boolean surfaceRequired,
+            List<String> acceptanceSignals
+    ) {
+        this(entryRequired, entryKind, EntryPackagingMode.NOT_APPLICABLE.wireValue(),
+                ContractRuntimeOwnershipMode.NOT_APPLICABLE.wireValue(), launchRequired, surfaceRequired, acceptanceSignals);
     }
 
     public String toMarkdown() {
@@ -31,6 +46,8 @@ public record ExecutionContract(
 
                 - entryRequired: %s
                 - entryKind: %s
+                - entryPackagingMode: %s
+                - runtimeOwnershipMode: %s
                 - launchRequired: %s
                 - surfaceRequired: %s
 
@@ -41,36 +58,12 @@ public record ExecutionContract(
                 language.choose("这一节定义后续实现、review 与测试必须满足的最小可运行/可启动约束。", "This section defines the minimum runnable / launchable constraints that downstream implementation, review, and testing must satisfy."),
                 entryRequired,
                 blank(entryKind, language),
+                blank(entryPackagingMode, language),
+                blank(runtimeOwnershipMode, language),
                 launchRequired,
                 surfaceRequired,
                 language.choose("验收信号", "Acceptance Signals"),
                 bullets(acceptanceSignals, language)
-        ).trim();
-    }
-
-    public String toMetadataSectionMarkdown(int sectionNumber) {
-        return """
-                ## %d. Contract Metadata
-
-                - %s: %s
-                - %s: %s
-                - %s: %s
-                - %s: %s
-                - %s: %s
-                """.formatted(
-                sectionNumber,
-                ContractMetadataKeys.RUNTIME_ENTRY_REQUIRED,
-                entryRequired,
-                ContractMetadataKeys.RUNTIME_ENTRY_KIND,
-                blank(entryKind, DocumentLanguage.EN),
-                ContractMetadataKeys.RUNTIME_LAUNCH_REQUIRED,
-                launchRequired,
-                ContractMetadataKeys.RUNTIME_SURFACE_REQUIRED,
-                surfaceRequired,
-                ContractMetadataKeys.RUNTIME_ACCEPTANCE_SIGNALS,
-                acceptanceSignals == null || acceptanceSignals.isEmpty()
-                        ? PlaceholderValues.machineNone()
-                        : String.join(", ", acceptanceSignals)
         ).trim();
     }
 
@@ -86,8 +79,30 @@ public record ExecutionContract(
         return ExecutionEntryKind.fromWireValue(normalizedEntryKind());
     }
 
+    public String normalizedEntryPackagingMode() {
+        return entryPackagingMode == null ? "" : entryPackagingMode.trim().toLowerCase(Locale.ROOT);
+    }
+
+    public EntryPackagingMode normalizedEntryPackagingModeEnum() {
+        return EntryPackagingMode.fromWireValue(normalizedEntryPackagingMode());
+    }
+
+    public String normalizedRuntimeOwnershipMode() {
+        return runtimeOwnershipMode == null ? "" : runtimeOwnershipMode.trim().toLowerCase(Locale.ROOT);
+    }
+
+    public ContractRuntimeOwnershipMode normalizedRuntimeOwnershipModeEnum() {
+        return ContractRuntimeOwnershipMode.fromWireValue(normalizedRuntimeOwnershipMode());
+    }
+
     public ExecutionContract normalized() {
         ExecutionEntryKind normalizedEntryKind = normalizedEntryKindEnum();
+        EntryPackagingMode normalizedPackagingMode = normalizeEntryPackagingMode(normalizedEntryKind, normalizedEntryPackagingModeEnum());
+        ContractRuntimeOwnershipMode normalizedOwnershipMode = normalizeRuntimeOwnershipMode(
+                normalizedEntryKind,
+                normalizedPackagingMode,
+                normalizedRuntimeOwnershipModeEnum()
+        );
         boolean normalizedEntryRequired = entryRequired || normalizedEntryKind != ExecutionEntryKind.UNSPECIFIED;
         boolean normalizedLaunchRequired = launchRequired
                 || normalizedEntryKind.impliesLaunchableEntry()
@@ -109,6 +124,8 @@ public record ExecutionContract(
         return new ExecutionContract(
                 normalizedEntryRequired,
                 normalizedEntryKind.wireValue(),
+                normalizedPackagingMode.wireValue(),
+                normalizedOwnershipMode.wireValue(),
                 normalizedLaunchRequired,
                 normalizedSurfaceRequired,
                 normalizedSignals
@@ -149,6 +166,14 @@ public record ExecutionContract(
         return value.trim().toLowerCase(Locale.ROOT);
     }
 
+    private static String normalizePackagingModeValue(String value) {
+        return EntryPackagingMode.fromWireValue(value).wireValue();
+    }
+
+    private static String normalizeRuntimeOwnershipModeValue(String value) {
+        return ContractRuntimeOwnershipMode.fromWireValue(value).wireValue();
+    }
+
     private static List<String> normalizeAcceptanceSignals(List<String> items) {
         if (items == null || items.isEmpty()) {
             return List.of();
@@ -184,5 +209,32 @@ public record ExecutionContract(
         if (!values.contains(normalized)) {
             values.add(normalized);
         }
+    }
+
+    private static EntryPackagingMode normalizeEntryPackagingMode(
+            ExecutionEntryKind entryKind,
+            EntryPackagingMode packagingMode
+    ) {
+        if (packagingMode != null && packagingMode != EntryPackagingMode.NOT_APPLICABLE) {
+            return packagingMode;
+        }
+        if (entryKind == ExecutionEntryKind.HTML_ENTRY) {
+            return EntryPackagingMode.ENTRY_WITH_LOCAL_DEPENDENCIES;
+        }
+        return EntryPackagingMode.NOT_APPLICABLE;
+    }
+
+    private static ContractRuntimeOwnershipMode normalizeRuntimeOwnershipMode(
+            ExecutionEntryKind entryKind,
+            EntryPackagingMode packagingMode,
+            ContractRuntimeOwnershipMode runtimeOwnershipMode
+    ) {
+        if (runtimeOwnershipMode != null && runtimeOwnershipMode != ContractRuntimeOwnershipMode.NOT_APPLICABLE) {
+            return runtimeOwnershipMode;
+        }
+        if (entryKind == ExecutionEntryKind.HTML_ENTRY && packagingMode == EntryPackagingMode.SELF_CONTAINED_ENTRY) {
+            return ContractRuntimeOwnershipMode.ENTRY_OWNED;
+        }
+        return ContractRuntimeOwnershipMode.NOT_APPLICABLE;
     }
 }

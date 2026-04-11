@@ -72,7 +72,8 @@ final class HtmlEditRoutingPolicy {
         if (!supportsIncrementalHtmlEditing(relativePath, executionState)) {
             return false;
         }
-        if (scopedChange != null && scopedChange.effectiveEditScope() == FileEditScope.HOST_HTML_PATCH) {
+        if (scopedChange != null && (scopedChange.hostHtmlPatchRequired()
+                || scopedChange.effectiveEditScope() == FileEditScope.HOST_HTML_PATCH)) {
             return false;
         }
         if (scopedChange != null && scopedChange.effectiveEditScope() == FileEditScope.INLINE_STYLE_PATCH) {
@@ -90,7 +91,8 @@ final class HtmlEditRoutingPolicy {
         if (!supportsIncrementalHtmlEditing(relativePath, executionState)) {
             return false;
         }
-        if (scopedChange != null && scopedChange.effectiveEditScope() == FileEditScope.HOST_HTML_PATCH) {
+        if (scopedChange != null && (scopedChange.hostHtmlPatchRequired()
+                || scopedChange.effectiveEditScope() == FileEditScope.HOST_HTML_PATCH)) {
             return false;
         }
         if (scopedChange != null && scopedChange.effectiveEditScope() == FileEditScope.INLINE_SCRIPT_PATCH) {
@@ -105,9 +107,17 @@ final class HtmlEditRoutingPolicy {
     boolean shouldUseFocusedScriptRegionEditing(
             Path relativePath,
             SubtaskExecutionState executionState,
-            String existingContent
+            String existingContent,
+            FileChange scopedChange
     ) {
         if (!supportsIncrementalHtmlEditing(relativePath, executionState)) {
+            return false;
+        }
+        if (scopedChange != null && (scopedChange.hostHtmlPatchRequired()
+                || scopedChange.effectiveEditScope() == FileEditScope.HOST_HTML_PATCH)) {
+            return false;
+        }
+        if (scopedChange != null && scopedChange.effectiveEditScope() == FileEditScope.INLINE_STYLE_PATCH) {
             return false;
         }
         return htmlFocusedRegionResolver.hasEditableRegion(existingContent, HtmlEditRegion.SCRIPT);

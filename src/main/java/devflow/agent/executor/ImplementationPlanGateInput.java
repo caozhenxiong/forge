@@ -2,6 +2,7 @@ package devflow.agent.executor;
 
 import devflow.agent.context.ContractView;
 import devflow.agent.quality.QualityPlan;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.validation.ProjectFingerprint;
 import java.util.List;
 
@@ -21,6 +22,7 @@ record ImplementationPlanGateInput(
         boolean hasRunnableMilestone,
         boolean hasNonSkeletonRunnableMilestone,
         QualityPlan qualityPlan,
+        ImplementationPatchTarget implementationPatchTarget,
         ImplementationContinuationConstraints continuationConstraints,
         List<Subtask> subtasks
 ) {

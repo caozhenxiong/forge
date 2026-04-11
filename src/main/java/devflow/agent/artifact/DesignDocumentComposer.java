@@ -3,6 +3,7 @@ package devflow.agent.artifact;
 import devflow.agent.context.ConstraintSourceMetadata;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ExecutionContract;
+import devflow.agent.context.ValidationMetadata;
 import devflow.agent.executor.ModelRole;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.orchestrator.RunRecord;
@@ -63,19 +64,19 @@ final class DesignDocumentComposer {
         String generated = generationSupport.generate(prompt, context.mode(), ModelRole.DESIGN);
         generated = postProcessor.stabilizeSourceMetadata(generated, context.authoritativeSourceMetadata(), 9, language);
         String merged = draftAssembler.mergeDocumentDraft(StageType.DESIGN, context.previousDraft(), generated, context.targetSections());
+        ValidationMetadata validationMetadata = contractExtractor.extractValidationMetadata(merged);
         ExecutionContract executionContract = contractExtractor.extractExecutionContract(
                 runRecord.goal(),
                 runRecord.constraints(),
                 prd,
                 merged
         );
-        merged = postProcessor.stabilizeExecutionContractMetadata(merged, executionContract, 8);
+        merged = postProcessor.stabilizeContractMetadata(merged, executionContract, validationMetadata, 8);
         String sanitized = postProcessor.sanitizeDocumentConstraintEscalation(
-                runRecord,
                 StageType.DESIGN,
                 merged,
                 context.authoritativeSourceMetadata(),
-                executionContract,
+                validationMetadata,
                 language
         );
         return postProcessor.upsertDocumentBlocks(

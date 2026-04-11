@@ -6,6 +6,7 @@ import devflow.agent.i18n.PlaceholderValues;
 import devflow.agent.orchestrator.RunRecord;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.text.TextCanonicalizer;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Path;
@@ -48,6 +49,7 @@ class ImplementationPlanningRetryPolicy {
             ProjectFingerprint fingerprint,
             DocumentLanguage language,
             FixMode fixMode,
+            ImplementationPatchTarget implementationPatchTarget,
             String requirementCatalog,
             ImplementationContinuationConstraints continuationConstraints,
             Consumer<String> retryEventPublisher
@@ -73,6 +75,7 @@ class ImplementationPlanningRetryPolicy {
                         fingerprint,
                         language,
                         fixMode,
+                        implementationPatchTarget,
                         requirementCatalog,
                         continuationConstraints
                 );

@@ -14,6 +14,7 @@ import devflow.agent.protocol.ReviewHistoryEntryPayload;
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.StructuredArtifactBlocks;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import java.nio.file.Path;
@@ -56,7 +57,7 @@ class DiagnosisAgentTests {
                 StageType.IMPLEMENTATION,
                 StructuredArtifactBlocks.renderJsonBlock(
                         ArtifactBlockKind.REVIEW_HISTORY_ENTRY,
-                        new ReviewHistoryEntryPayload(2, "agent", "IMPLEMENTATION", "REVISION_REQUIRED", "PATCH", "实现没有收敛", "请修复同一处问题", "", "")
+                        new ReviewHistoryEntryPayload(2, "agent", "IMPLEMENTATION", "REVISION_REQUIRED", "PATCH", ImplementationPatchTarget.NONE.name(), "实现没有收敛", "请修复同一处问题", "", "")
                 )
         );
         artifactStore.appendReviewHistory(
@@ -65,7 +66,7 @@ class DiagnosisAgentTests {
                 StageType.IMPLEMENTATION,
                 StructuredArtifactBlocks.renderJsonBlock(
                         ArtifactBlockKind.REVIEW_HISTORY_ENTRY,
-                        new ReviewHistoryEntryPayload(3, "agent", "IMPLEMENTATION", "REVISION_REQUIRED", "PATCH", "实现没有收敛", "请修复同一处问题", "", "")
+                        new ReviewHistoryEntryPayload(3, "agent", "IMPLEMENTATION", "REVISION_REQUIRED", "PATCH", ImplementationPatchTarget.NONE.name(), "实现没有收敛", "请修复同一处问题", "", "")
                 )
         );
         artifactStore.appendReviewHistory(
@@ -74,7 +75,7 @@ class DiagnosisAgentTests {
                 StageType.IMPLEMENTATION,
                 StructuredArtifactBlocks.renderJsonBlock(
                         ArtifactBlockKind.REVIEW_HISTORY_ENTRY,
-                        new ReviewHistoryEntryPayload(4, "agent", "IMPLEMENTATION", "REVISION_REQUIRED", "PATCH", "实现没有收敛", "请修复同一处问题", "", "")
+                        new ReviewHistoryEntryPayload(4, "agent", "IMPLEMENTATION", "REVISION_REQUIRED", "PATCH", ImplementationPatchTarget.NONE.name(), "实现没有收敛", "请修复同一处问题", "", "")
                 )
         );
 
@@ -150,6 +151,7 @@ class DiagnosisAgentTests {
                                 "IMPLEMENTATION",
                                 "REVISION_REQUIRED",
                                 "PATCH",
+                                ImplementationPatchTarget.NONE.name(),
                                 "实现没有收敛",
                                 "请修复入口接线",
                                 "证据：启动按钮点击后没有进入 running 状态",

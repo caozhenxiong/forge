@@ -44,6 +44,7 @@ final class StructuredHtmlPatchExecutor {
     String generate(HostHtmlPatchRequest request) {
         PatchGenerationPrompt generationPrompt = StructuredHtmlDraftPromptAssembler.assemble(
                 request.relativePath(),
+                request.runtimeContract(),
                 request.planSummary(),
                 request.taskPackageMarkdown(),
                 executionSupport.nullToEmpty(request.coderContextMarkdown()),
@@ -77,7 +78,13 @@ final class StructuredHtmlPatchExecutor {
                         );
                         String assembled = assembleStructuredHtmlDocument(request.relativePath(), generated);
                         GateReport validationReport = generatedContentGate.evaluate(
-                                new GeneratedContentGateInput(request.projectPath(), request.relativePath(), assembled)
+                                new GeneratedContentGateInput(
+                                        request.projectPath(),
+                                        request.relativePath(),
+                                        assembled,
+                                        request.runtimeContract(),
+                                        request.runtimeContract() == null ? java.util.List.of() : request.runtimeContract().runtimePaths()
+                                )
                         );
                         if (validationReport.passed()) {
                             return GenerationAttemptResult.success(assembled);

@@ -28,16 +28,23 @@ class TestArtifactRenderer {
         return testCaseArtifactRenderer.render(plan, language);
     }
 
-    String renderExecution(CollectedTestEvidence evidence, DocumentLanguage language) {
-        return testExecutionArtifactRenderer.render(evidence, language);
+    String renderExecution(
+            CollectedTestEvidence evidence,
+            UiRuntimeContract runtimeContract,
+            ExperienceFailureDisposition disposition,
+            DocumentLanguage language
+    ) {
+        return testExecutionArtifactRenderer.render(evidence, runtimeContract, disposition, language);
     }
 
     String renderReport(
             String note,
             CollectedTestEvidence evidence,
             TestEvidenceGateOutcome evidenceOutcome,
+            UiRuntimeContract runtimeContract,
+            ExperienceFailureDisposition disposition,
             DocumentLanguage language
     ) {
-        return testReportArtifactRenderer.render(note, evidence, evidenceOutcome, language);
+        return testReportArtifactRenderer.render(note, evidence, evidenceOutcome, runtimeContract, disposition, language);
     }
 }

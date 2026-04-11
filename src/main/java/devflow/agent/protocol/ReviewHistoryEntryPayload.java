@@ -12,6 +12,7 @@ public record ReviewHistoryEntryPayload(
         String stage,
         String decision,
         String fixMode,
+        String implementationPatchTarget,
         String summary,
         String changeRequest,
         String evidence,

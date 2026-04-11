@@ -15,6 +15,7 @@ import devflow.agent.protocol.ExecutionDirectiveProtocol;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.quality.CapabilitySurface;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.validation.ProjectInspector;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -83,6 +84,8 @@ class ImplementationContextResolverTests {
                 ExecutionDirectiveProtocol.renderBlock(
                         new ExecutionDirectivePayload(
                                 "PATCH",
+                                devflow.agent.review.ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION.name(),
+                                List.of(),
                                 false,
                                 false,
                                 "SKELETON",
@@ -140,10 +143,11 @@ class ImplementationContextResolverTests {
 
         assertSame(authoritativeContract, context.contractView());
         assertEquals(FixMode.PATCH, context.fixMode());
+        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, context.implementationPatchTarget());
         assertEquals(DeliveryMode.SKELETON, context.deliveryPolicy().mode());
         assertEquals(3, context.deliveryPolicy().maxFiles());
         assertEquals(6, context.deliveryPolicy().maxSymbols());
-        assertTrue(context.preferSkeletonFlow());
+        assertEquals(false, context.preferSkeletonFlow());
         assertTrue(context.sharedContextBundle().mustFixFirst().contains("先给出最小可运行入口"));
         assertTrue(context.sharedContextBundle().forbiddenDirections().contains("不要引入后端"));
         assertTrue(context.sharedContextBundle().requiredEvidence().contains("页面可打开"));

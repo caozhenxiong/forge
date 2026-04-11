@@ -127,6 +127,6 @@ class ValidationExecutorTests {
         SelfCheckResult result = executor.execute(tempDir, null, plan);
 
         assertFalse(result.passed());
-        assertTrue(result.details().contains("companion runtime"));
+        assertTrue(result.details().contains("接入运行时") || result.details().contains("运行脚本"));
     }
 }

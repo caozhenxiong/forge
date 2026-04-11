@@ -7,6 +7,7 @@ import devflow.agent.executor.ModelRole;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.orchestrator.RunRecord;
 import devflow.agent.orchestrator.StageType;
+import devflow.agent.protocol.ReviewArtifactPayload;
 import devflow.agent.protocol.ReviewArtifactPayloadSupport;
 import devflow.agent.project.WorkspaceSnapshotStore;
 import org.springframework.lang.Nullable;
@@ -52,6 +53,10 @@ final class CodeReviewStageComposer {
                 devflow.agent.executor.LlmOptions.outputBudgetRatio(GenerationBudgetProfile.codeReviewOutputRatio()),
                 ModelRole.CODE_REVIEW
         );
-        return ReviewArtifactPayloadSupport.upsertReviewResultBlock(content);
+        ReviewArtifactPayload payload = ReviewArtifactPayloadSupport.readFirstPayload(content);
+        if (payload == null || payload.decision() == null || payload.decision().isBlank()) {
+            throw new IllegalStateException("CODE_REVIEW artifact must contain a REVIEW_RESULT block");
+        }
+        return content;
     }
 }

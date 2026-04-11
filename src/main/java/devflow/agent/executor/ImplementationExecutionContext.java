@@ -5,6 +5,7 @@ import devflow.agent.context.SharedContextBundle;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.validation.ProjectFingerprint;
 
 /**
@@ -21,6 +22,8 @@ record ImplementationExecutionContext(
         String performanceValidationGuidance,
         DeliveryPolicyEnvelope deliveryPolicy,
         FixMode fixMode,
+        ImplementationPatchTarget implementationPatchTarget,
+        java.util.List<FileChange> overrideChanges,
         ProjectFingerprint fingerprint,
         ContractView contractView,
         QualityPlan qualityPlan,

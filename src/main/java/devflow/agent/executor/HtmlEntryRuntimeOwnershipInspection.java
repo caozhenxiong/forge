@@ -10,9 +10,11 @@ import java.util.List;
  * “到底是 orphan companion、还是 dual-track、还是 wiring 缺失”。
  */
 record HtmlEntryRuntimeOwnershipInspection(
-        RuntimeOwnershipMode expectedMode,
-        Path htmlEntryPath,
-        Path companionRuntimePath,
+        HtmlRuntimeOwnershipContract runtimeContract,
+        List<Path> referencedRuntimePaths,
+        List<Path> availableRuntimePaths,
+        boolean keepsInlineAnchor,
+        boolean keepsNonEmptyInlineScript,
         List<String> issues,
         List<String> evidence
 ) {
@@ -42,21 +44,46 @@ record HtmlEntryRuntimeOwnershipInspection(
         return builder.toString();
     }
 
+    RuntimeOwnershipMode expectedMode() {
+        return runtimeContract == null ? null : runtimeContract.runtimeOwnership();
+    }
+
+
     static HtmlEntryRuntimeOwnershipInspection success(
-            RuntimeOwnershipMode expectedMode,
-            Path htmlEntryPath,
-            Path companionRuntimePath
+            HtmlRuntimeOwnershipContract runtimeContract,
+            List<Path> referencedRuntimePaths,
+            List<Path> availableRuntimePaths,
+            boolean keepsInlineAnchor,
+            boolean keepsNonEmptyInlineScript
     ) {
-        return new HtmlEntryRuntimeOwnershipInspection(expectedMode, htmlEntryPath, companionRuntimePath, List.of(), List.of());
+        return new HtmlEntryRuntimeOwnershipInspection(
+                runtimeContract,
+                referencedRuntimePaths == null ? List.of() : List.copyOf(referencedRuntimePaths),
+                availableRuntimePaths == null ? List.of() : List.copyOf(availableRuntimePaths),
+                keepsInlineAnchor,
+                keepsNonEmptyInlineScript,
+                List.of(),
+                List.of()
+        );
     }
 
     static HtmlEntryRuntimeOwnershipInspection failure(
-            RuntimeOwnershipMode expectedMode,
-            Path htmlEntryPath,
-            Path companionRuntimePath,
+            HtmlRuntimeOwnershipContract runtimeContract,
+            List<Path> referencedRuntimePaths,
+            List<Path> availableRuntimePaths,
+            boolean keepsInlineAnchor,
+            boolean keepsNonEmptyInlineScript,
             List<String> issues,
             List<String> evidence
     ) {
-        return new HtmlEntryRuntimeOwnershipInspection(expectedMode, htmlEntryPath, companionRuntimePath, List.copyOf(issues), List.copyOf(evidence));
+        return new HtmlEntryRuntimeOwnershipInspection(
+                runtimeContract,
+                referencedRuntimePaths == null ? List.of() : List.copyOf(referencedRuntimePaths),
+                availableRuntimePaths == null ? List.of() : List.copyOf(availableRuntimePaths),
+                keepsInlineAnchor,
+                keepsNonEmptyInlineScript,
+                List.copyOf(issues),
+                List.copyOf(evidence)
+        );
     }
 }

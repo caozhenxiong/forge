@@ -18,6 +18,9 @@ final class ImplementationProgressRenderer {
         String currentSubtaskTitle = runtimeSnapshot.currentSubtaskTitle();
         DocumentLanguage language = runtimeSnapshot.language();
         ImplementationStageStatus stageStatus = runtimeSnapshot.stageStatus();
+        boolean architectCheckPassed = runtimeSnapshot.architectCheckResult() != null
+                ? runtimeSnapshot.architectCheckResult().passed()
+                : stageStatus != null && stageStatus.architectCheckPassed();
         StringBuilder builder = new StringBuilder("# ")
                 .append(language.choose("实现进度", "Implementation Progress"))
                 .append("\n\n");
@@ -29,7 +32,7 @@ final class ImplementationProgressRenderer {
                 .append('\n');
         builder.append("- stageReady: ").append(stageStatus.stageReady()).append('\n');
         builder.append("- planCompleted: ").append(stageStatus.planCompleted()).append('\n');
-        builder.append("- architectCheckPassed: ").append(stageStatus.architectCheckPassed()).append('\n');
+        builder.append("- architectCheckPassed: ").append(architectCheckPassed).append('\n');
         if (runtimeSnapshot.architectCheckResult() != null && !runtimeSnapshot.architectCheckResult().passed()) {
             builder.append("- architectFailureReason: ").append(runtimeSnapshot.architectCheckResult().failureReason()).append('\n');
             builder.append("- architectFailureDetails: ").append(runtimeSnapshot.architectCheckResult().details()).append('\n');
@@ -49,12 +52,21 @@ final class ImplementationProgressRenderer {
                     .append('\n');
             builder.append("- ").append(language.choose("目标", "Goal")).append(": ").append(subtask.goal()).append('\n');
             builder.append("- ").append(language.choose("交付模式", "Delivery Mode")).append(": ").append(subtask.deliveryMode()).append('\n');
-            builder.append("- ").append(language.choose("文件", "Files")).append(": ").append(ImplementationArtifactRenderSupport.renderChangeList(subtask.changes())).append('\n');
+            builder.append("- ").append(language.choose("文件", "Files")).append(": ")
+                    .append(ImplementationArtifactRenderSupport.renderChangeList(
+                            report == null ? subtask.changes() : report.effectiveChanges()
+                    ))
+                    .append('\n');
             if (report != null && !report.attempts().isEmpty()) {
                 SubtaskAttemptReport latest = report.attempts().get(report.attempts().size() - 1);
                 builder.append("- ").append(language.choose("最新验证", "Latest Review")).append(": ")
                         .append(latest.review().decision()).append(" / ")
                         .append(ImplementationArtifactRenderSupport.blankIfNull(latest.review().summary())).append('\n');
+                if (!ImplementationArtifactRenderSupport.blankIfNull(latest.review().changeRequest()).isBlank()) {
+                    builder.append("- ").append(language.choose("最新修改要求", "Latest Change Request")).append(": ")
+                            .append(latest.review().changeRequest())
+                            .append('\n');
+                }
             }
             builder.append('\n');
         }

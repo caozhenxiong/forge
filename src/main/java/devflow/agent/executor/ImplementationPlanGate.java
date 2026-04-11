@@ -1,5 +1,6 @@
 package devflow.agent.executor;
 
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.util.ProjectPathSupport;
 import java.util.ArrayList;
 import java.util.List;
@@ -164,31 +165,50 @@ class ImplementationPlanGate implements DeterministicGate<ImplementationPlanGate
         if (htmlEntryPath == null) {
             return List.of();
         }
-        java.nio.file.Path companionRuntimePath = devflow.agent.util.ProjectPathSupport.extractedInlineScriptAssetPath(htmlEntryPath).normalize();
         List<GateIssue> issues = new ArrayList<>();
         int issueIndex = 1;
-        RuntimeOwnershipMode protectedOwnership = input.continuationConstraints() == null
+        HtmlRuntimeOwnershipContract protectedContract = input.continuationConstraints() == null
                 ? null
-                : input.continuationConstraints().protectedRuntimeOwnership(htmlEntryPath.toString());
-        RuntimeOwnershipMode planOwnership = protectedOwnership;
-        boolean companionTouched = false;
+                : input.continuationConstraints().protectedRuntimeContract(htmlEntryPath.toString());
+        RuntimeOwnershipMode planOwnership = protectedContract == null ? null : protectedContract.runtimeOwnership();
+        List<java.nio.file.Path> touchedRuntimeScripts = new ArrayList<>();
         for (Subtask subtask : input.subtasks()) {
             if (subtask == null || subtask.changes() == null || subtask.changes().isEmpty()) {
                 continue;
             }
             RuntimeOwnershipMode htmlChangeOwnership = null;
-            boolean subtaskTouchesCompanion = false;
+            List<java.nio.file.Path> runtimeScriptChanges = collectRuntimeScriptChanges(htmlEntryPath, subtask);
+            touchedRuntimeScripts.addAll(runtimeScriptChanges);
             for (FileChange change : subtask.changes()) {
                 if (change == null || change.path() == null || change.path().isBlank()) {
                     continue;
                 }
                 java.nio.file.Path normalizedPath = java.nio.file.Path.of(change.path()).normalize();
-                if (companionRuntimePath.equals(normalizedPath) && change.action() != ChangeAction.DELETE) {
-                    companionTouched = true;
-                    subtaskTouchesCompanion = true;
-                }
                 if (!htmlEntryPath.equals(normalizedPath) || change.action() == ChangeAction.DELETE) {
                     continue;
+                }
+                if (change.effectiveEditScope() == FileEditScope.AUTO) {
+                    issues.add(new GateIssue(
+                            "PLAN_RUNTIME_" + issueIndex++,
+                            "HTML 入口变更不能使用 AUTO editScope，必须显式声明宿主或内联作用域: " + change.path(),
+                            GateFailureDisposition.REPLAN_CURRENT_STAGE
+                    ));
+                }
+                if (change.effectiveEditScope() == FileEditScope.HOST_HTML_PATCH && !change.hostHtmlPatchRequired()) {
+                    issues.add(new GateIssue(
+                            "PLAN_RUNTIME_" + issueIndex++,
+                            "HOST_HTML_PATCH 必须同时声明 hostHtmlPatchRequired=true: " + change.path(),
+                            GateFailureDisposition.REPLAN_CURRENT_STAGE
+                    ));
+                }
+                if ((change.effectiveEditScope() == FileEditScope.INLINE_SCRIPT_PATCH
+                        || change.effectiveEditScope() == FileEditScope.INLINE_STYLE_PATCH)
+                        && change.hostHtmlPatchRequired()) {
+                    issues.add(new GateIssue(
+                            "PLAN_RUNTIME_" + issueIndex++,
+                            "INLINE_*_PATCH 不能同时声明 hostHtmlPatchRequired=true: " + change.path(),
+                            GateFailureDisposition.REPLAN_CURRENT_STAGE
+                    ));
                 }
                 if (change.runtimeOwnership() == null) {
                     issues.add(new GateIssue(
@@ -209,32 +229,50 @@ class ImplementationPlanGate implements DeterministicGate<ImplementationPlanGate
                 }
                 planOwnership = change.runtimeOwnership();
             }
-            if (htmlChangeOwnership == RuntimeOwnershipMode.EXTERNAL_COMPANION && !subtaskTouchesCompanion) {
+            if (htmlChangeOwnership == RuntimeOwnershipMode.EXTERNAL_COMPANION
+                    && (protectedContract == null || !protectedContract.externalCompanion())
+                    && runtimeScriptChanges.isEmpty()) {
                 issues.add(new GateIssue(
                         "PLAN_RUNTIME_" + issueIndex++,
-                        "EXTERNAL_COMPANION 子任务必须同步声明 companion runtime 文件: %s"
-                                .formatted(companionRuntimePath.toString().replace('\\', '/')),
+                        "EXTERNAL_COMPANION 子任务必须同步声明 external runtime root 文件，不能只改宿主 HTML。",
                         GateFailureDisposition.REPLAN_CURRENT_STAGE
                 ));
             }
-            if (htmlChangeOwnership == RuntimeOwnershipMode.INLINE_HOST && subtaskTouchesCompanion) {
-                issues.add(new GateIssue(
-                        "PLAN_RUNTIME_" + issueIndex++,
-                        "INLINE_HOST 子任务不能同时引入 companion runtime 文件: %s"
-                                .formatted(companionRuntimePath.toString().replace('\\', '/')),
-                        GateFailureDisposition.REPLAN_CURRENT_STAGE
-                ));
-            }
-        }
-        if (companionTouched && planOwnership != RuntimeOwnershipMode.EXTERNAL_COMPANION) {
-            issues.add(new GateIssue(
-                    "PLAN_RUNTIME_" + issueIndex++,
-                    "计划涉及 companion runtime 文件，但 HTML 入口没有稳定的 EXTERNAL_COMPANION 所有权声明: "
-                            + companionRuntimePath.toString().replace('\\', '/'),
-                    GateFailureDisposition.REPLAN_CURRENT_STAGE
-            ));
         }
         return issues;
+    }
+
+    private List<java.nio.file.Path> collectRuntimeScriptChanges(java.nio.file.Path htmlEntryPath, Subtask subtask) {
+        if (subtask == null || subtask.changes() == null || subtask.changes().isEmpty()) {
+            return List.of();
+        }
+        List<java.nio.file.Path> runtimeScripts = new ArrayList<>();
+        for (FileChange change : subtask.changes()) {
+            if (change == null || change.path() == null || change.path().isBlank() || change.action() == ChangeAction.DELETE) {
+                continue;
+            }
+            java.nio.file.Path normalizedPath = java.nio.file.Path.of(change.path()).normalize();
+            if (!ProjectPathSupport.isRuntimeScript(normalizedPath) || !isUnderHtmlEntryTree(htmlEntryPath, normalizedPath)) {
+                continue;
+            }
+            runtimeScripts.add(normalizedPath);
+        }
+        return runtimeScripts.stream().distinct().toList();
+    }
+
+    private boolean isUnderHtmlEntryTree(java.nio.file.Path htmlEntryPath, java.nio.file.Path candidatePath) {
+        java.nio.file.Path entryParent = htmlEntryPath.getParent() == null ? java.nio.file.Path.of("") : htmlEntryPath.getParent().normalize();
+        java.nio.file.Path candidateParent = candidatePath.getParent() == null ? java.nio.file.Path.of("") : candidatePath.getParent().normalize();
+        return candidateParent.equals(entryParent) || candidateParent.startsWith(entryParent);
+    }
+
+    private String describePaths(List<java.nio.file.Path> paths) {
+        return paths.stream()
+                .map(path -> path.toString().replace('\\', '/'))
+                .distinct()
+                .sorted()
+                .reduce((left, right) -> left + ", " + right)
+                .orElse("");
     }
 
     private java.nio.file.Path resolveHtmlEntryPath(ImplementationPlanGateInput input) {

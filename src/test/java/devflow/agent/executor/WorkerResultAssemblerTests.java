@@ -7,6 +7,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WorkerResultAssemblerTests {
 
@@ -51,5 +52,49 @@ class WorkerResultAssemblerTests {
         assertEquals(2, results.size());
         assertEquals("COMPLETED", results.getFirst().status());
         assertEquals("RUNNING", results.get(1).status());
+    }
+
+    @Test
+    void completedReportUsesEffectiveChangesAndDoesNotAutoFillAcceptance() {
+        WorkerResultAssembler assembler = new WorkerResultAssembler();
+        Subtask subtask = new Subtask(
+                "修接线",
+                "改成只修宿主 HTML",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("入口接线完成"),
+                true,
+                DeliveryMode.PATCH,
+                List.of(
+                        new FileChange("js/game-engine.js", ChangeAction.WRITE, "旧计划"),
+                        new FileChange("js/renderer.js", ChangeAction.WRITE, "旧计划")
+                )
+        );
+        SubtaskExecutionState executionState = new SubtaskExecutionState(DeliveryMode.PATCH, true);
+        executionState.setEffectiveChanges(List.of(new FileChange(
+                "index.html",
+                ChangeAction.WRITE,
+                "只修宿主接线",
+                FileEditScope.HOST_HTML_PATCH,
+                RuntimeOwnershipMode.EXTERNAL_COMPANION,
+                true
+        )));
+        SubtaskExecutionReport report = new SubtaskExecutionReport(
+                subtask,
+                true,
+                List.of(SubtaskAttemptReport.fromVerification(
+                        1,
+                        new SelfCheckResult(true, "ok", ""),
+                        new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "通过", "")
+                )),
+                executionState
+        );
+
+        List<WorkerResult> results = assembler.buildWorkerResults(new ImplementationPlan("summary", List.of(subtask)), List.of(report), null);
+
+        assertEquals(List.of("index.html"), results.getFirst().ownedFiles());
+        assertTrue(results.getFirst().fulfilledAcceptance().isEmpty());
+        assertTrue(results.getFirst().residualRisks().stream().anyMatch(item -> item.contains("fulfilledAcceptance")));
     }
 }

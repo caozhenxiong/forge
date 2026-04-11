@@ -4,7 +4,9 @@ import devflow.agent.review.FixMode;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StageFlowPolicyTests {
 
@@ -28,5 +30,17 @@ class StageFlowPolicyTests {
         assertEquals(StageType.IMPLEMENTATION, stageFlowPolicy.rerouteStage(StageType.IMPLEMENTATION, FixMode.PATCH));
         assertEquals(StageType.IMPLEMENTATION, stageFlowPolicy.rerouteStage(StageType.CODE_REVIEW, FixMode.REWORK));
         assertEquals(StageType.IMPLEMENTATION, stageFlowPolicy.rerouteStage(StageType.TEST, FixMode.PATCH));
+    }
+
+    @Test
+    void repairRouteBelongsOnlyToImplementationChain() {
+        assertFalse(stageFlowPolicy.supportsRepairRoute(StageType.ANALYSIS));
+        assertFalse(stageFlowPolicy.supportsRepairRoute(StageType.PRD));
+        assertFalse(stageFlowPolicy.supportsRepairRoute(StageType.DESIGN));
+        assertTrue(stageFlowPolicy.supportsRepairRoute(StageType.IMPLEMENTATION));
+        assertTrue(stageFlowPolicy.supportsRepairRoute(StageType.CODE_REVIEW));
+        assertTrue(stageFlowPolicy.supportsRepairRoute(StageType.TEST));
+        assertNull(stageFlowPolicy.repairTarget(StageType.PRD));
+        assertEquals(StageType.IMPLEMENTATION, stageFlowPolicy.repairTarget(StageType.CODE_REVIEW));
     }
 }

@@ -5,6 +5,7 @@ import devflow.agent.quality.QualityPlan;
 import devflow.agent.quality.StructureGateEvaluator;
 import devflow.agent.quality.StructureGateOutcome;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import java.nio.file.Path;
@@ -86,7 +87,8 @@ class ImplementationCompletenessGate {
                         "Replace empty implementations, TODOs, placeholders, or no-op handlers with real behavior instead of leaving only a runnable shell."
                 ),
                 outcome == null || outcome.inspection() == null ? "" : outcome.inspection().evidenceMarkdown(),
-                outcome == null || outcome.inspection() == null ? "" : outcome.inspection().actionItemsMarkdown()
+                outcome == null || outcome.inspection() == null ? "" : outcome.inspection().actionItemsMarkdown(),
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
         );
     }
 

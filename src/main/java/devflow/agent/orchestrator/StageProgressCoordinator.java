@@ -153,7 +153,10 @@ public class StageProgressCoordinator {
                 current,
                 stageType,
                 readiness.summary(),
-                readiness.changeRequest()
+                readiness.changeRequest(),
+                readiness.evidence(),
+                readiness.actionItems(),
+                readiness.implementationPatchTarget()
         );
         return new LoopStepResult(next, transitionDecision, flowController.shouldContinue(next));
     }

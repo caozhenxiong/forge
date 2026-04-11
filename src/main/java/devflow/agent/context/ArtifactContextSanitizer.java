@@ -10,8 +10,7 @@ public final class ArtifactContextSanitizer {
 
     private static final EnumSet<ArtifactSectionKind> FILTERED_SECTIONS = EnumSet.of(
             ArtifactSectionKind.SOURCE_METADATA,
-            ArtifactSectionKind.CONTRACT_METADATA,
-            ArtifactSectionKind.CURRENT_NOTES
+            ArtifactSectionKind.CONTRACT_METADATA
     );
 
     private ArtifactContextSanitizer() {

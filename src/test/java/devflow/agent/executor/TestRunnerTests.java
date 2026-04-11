@@ -10,6 +10,7 @@ import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class TestRunnerTests {
 
@@ -89,5 +90,53 @@ class TestRunnerTests {
         assertNull(captureResult.runtimeSnapshot());
         assertEquals(ToolStatus.SKIPPED, captureResult.toolResult().status());
         assertEquals(ToolName.RUNTIME_SNAPSHOT_CAPTURE, captureResult.toolResult().toolName());
+    }
+
+    @Test
+    void runtimeSnapshotFailureIsReportedAsToolFailureWhenProbeDidNotCaptureFacts() {
+        TestRunner runner = new TestRunner(new FailingPlaywrightCaseExecutor());
+
+        RuntimeSnapshotCaptureResult captureResult = runner.captureRuntimeSnapshotDetailed(
+                tempDir,
+                new TestToolSelection(
+                        TestExecutionTool.PLAYWRIGHT,
+                        null,
+                        "可执行",
+                        "使用 Playwright",
+                        "index.html"
+                )
+        );
+
+        assertNotNull(captureResult.runtimeSnapshot());
+        assertEquals(RuntimeSnapshotCaptureStatus.COLLECTOR_FAILED, captureResult.runtimeSnapshot().captureStatus());
+        assertEquals(ToolStatus.FAILED, captureResult.toolResult().status());
+        assertEquals(ToolFailureCode.RUNTIME_SNAPSHOT_CAPTURE_FAILED, captureResult.toolResult().failureCode());
+        assertTrue(captureResult.toolResult().evidence().contains("probe crashed"));
+    }
+
+    private static final class FailingPlaywrightCaseExecutor extends PlaywrightCaseExecutor {
+
+        FailingPlaywrightCaseExecutor() {
+            super(new FileProjectWorkspace(), new ObjectMapper());
+        }
+
+        @Override
+        public RuntimeSnapshot captureRuntimeSnapshot(Path projectPath, String entry) {
+            return new RuntimeSnapshot(
+                    entry,
+                    "",
+                    null,
+                    0,
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    RuntimeSnapshotCaptureStatus.COLLECTOR_FAILED,
+                    RuntimeSnapshotFailureCode.COLLECTOR_EXECUTION_FAILED,
+                    List.of("probe crashed")
+            );
+        }
     }
 }

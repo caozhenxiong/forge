@@ -94,6 +94,8 @@ final class SubtaskRecoverySupport {
         String directiveBlock = ExecutionDirectiveProtocol.renderBlock(
                 new ExecutionDirectivePayload(
                         FixMode.PATCH.name(),
+                        null,
+                        java.util.List.of(),
                         false,
                         false,
                         policy.mode() == null ? null : policy.mode().wireValue(),

@@ -1,13 +1,19 @@
 package devflow.agent.executor;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import devflow.agent.executor.ChangeAction;
+import devflow.agent.executor.FileChange;
+import devflow.agent.executor.FileEditScope;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.review.ReviewSemantics;
 import devflow.agent.review.StructuredReviewResult;
 import devflow.agent.text.TextCanonicalizer;
+import devflow.agent.util.EnumParsers;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -42,6 +48,17 @@ final class OllamaStructuredReviewExecutor {
                 {
                   "decision": "APPROVED|REVISION_REQUIRED|REJECTED",
                   "fixMode": "NONE|PATCH|REWORK",
+                  "implementationPatchTarget": "NONE|PATCH_EXISTING_IMPLEMENTATION|PATCH_RUNTIME_WIRING",
+                  "overrideChanges": [
+                    {
+                      "path": "index.html",
+                      "action": "WRITE",
+                      "reason": "简短原因",
+                      "editScope": "AUTO|HOST_HTML_PATCH|INLINE_SCRIPT_PATCH|INLINE_STYLE_PATCH",
+                      "runtimeOwnership": "INLINE_HOST|EXTERNAL_COMPANION|null",
+                      "hostHtmlPatchRequired": true
+                    }
+                  ],
                   "summary": "不超过60字",
                   "changeRequest": "不超过120字，无则返回空字符串",
                   "evidence": "不超过160字，写清关键证据，无则返回空字符串",
@@ -68,6 +85,13 @@ final class OllamaStructuredReviewExecutor {
                 3. 如果通过，fixMode 必须为 NONE，changeRequest 必须为空字符串
                 4. 如果不通过，fixMode 必须明确选择 PATCH 或 REWORK
                 5. PATCH 表示只做局部修补，REWORK 表示允许较大范围重构
+                5.1 非 implementation review 或 fixMode!=PATCH 时，implementationPatchTarget 必须返回 NONE
+                5.2 implementation review 且 fixMode=PATCH 时，implementationPatchTarget 必须返回具体值：
+                    - 一般基于现有实现补局部能力/修编译或测试问题，用 PATCH_EXISTING_IMPLEMENTATION
+                    - 已有运行时结构下的接线/引用/初始化问题，用 PATCH_RUNTIME_WIRING
+                5.3 implementationPatchTarget=PATCH_EXISTING_IMPLEMENTATION 时，overrideChanges 必须非空，且只列本轮需要 patch 的文件
+                5.4 implementationPatchTarget=PATCH_RUNTIME_WIRING 时，overrideChanges 必须为空数组
+                5.5 decision=APPROVED 或 fixMode=REWORK 时，overrideChanges 必须为空数组
                 6. evidence 必须写清支持结论的代码/测试/自检证据
                 7. actionItems 必须是可执行动作，优先写文件、函数、模块、验证步骤
                 8. semantics 必须是你对本次审阅语义的结构化判断，不要省略任何字段
@@ -100,7 +124,9 @@ final class OllamaStructuredReviewExecutor {
                             payload.summary(),
                             payload.changeRequest(),
                             payload.evidence(),
-                            payload.actionItems()
+                            payload.actionItems(),
+                            parsePatchTarget(payload.implementationPatchTarget()),
+                            parseOverrideChanges(payload.overrideChanges())
                     ),
                     payload.semantics() == null ? ReviewSemantics.empty() : payload.semantics().toReviewSemantics()
             );
@@ -124,9 +150,22 @@ final class OllamaStructuredReviewExecutor {
         return decision == ReviewDecision.APPROVED ? FixMode.NONE : FixMode.PATCH;
     }
 
+    private ImplementationPatchTarget parsePatchTarget(String value) {
+        if (value == null || value.isBlank()) {
+            return ImplementationPatchTarget.NONE;
+        }
+        try {
+            return ImplementationPatchTarget.valueOf(value.trim());
+        } catch (IllegalArgumentException ignored) {
+            return ImplementationPatchTarget.NONE;
+        }
+    }
+
     private record ReviewPayload(
             @JsonProperty("decision") String decision,
             @JsonProperty("fixMode") String fixMode,
+            @JsonProperty("implementationPatchTarget") String implementationPatchTarget,
+            @JsonProperty("overrideChanges") List<FileChangePayload> overrideChanges,
             @JsonProperty("summary") String summary,
             @JsonProperty("changeRequest") String changeRequest,
             @JsonProperty("evidence") String evidence,
@@ -166,5 +205,32 @@ final class OllamaStructuredReviewExecutor {
                     Boolean.TRUE.equals(unsupportedImplementationConstraintPresent)
             );
         }
+    }
+
+    private List<FileChange> parseOverrideChanges(List<FileChangePayload> payloads) {
+        if (payloads == null || payloads.isEmpty()) {
+            return List.of();
+        }
+        return payloads.stream()
+                .filter(payload -> payload != null && payload.path() != null && !payload.path().isBlank())
+                .map(payload -> new FileChange(
+                        payload.path(),
+                        EnumParsers.parseIgnoreCase(ChangeAction.class, payload.action(), ChangeAction.WRITE),
+                        payload.reason() == null ? "" : payload.reason(),
+                        EnumParsers.parseIgnoreCase(FileEditScope.class, payload.editScope(), FileEditScope.AUTO),
+                        EnumParsers.parseIgnoreCase(RuntimeOwnershipMode.class, payload.runtimeOwnership(), null),
+                        Boolean.TRUE.equals(payload.hostHtmlPatchRequired())
+                ))
+                .toList();
+    }
+
+    private record FileChangePayload(
+            @JsonProperty("path") String path,
+            @JsonProperty("action") String action,
+            @JsonProperty("reason") String reason,
+            @JsonProperty("editScope") String editScope,
+            @JsonProperty("runtimeOwnership") String runtimeOwnership,
+            @JsonProperty("hostHtmlPatchRequired") Boolean hostHtmlPatchRequired
+    ) {
     }
 }

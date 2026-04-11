@@ -1,35 +1,30 @@
 package devflow.agent.review;
 
-import devflow.agent.artifact.ArtifactSectionKind;
-import devflow.agent.artifact.ArtifactSectionSupport;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.LanguagePolicy;
+import devflow.agent.executor.ArchitectIntegrationCheck;
+import devflow.agent.executor.ArchitectIntegrationCheckResult;
+import devflow.agent.executor.ArchitectIntegrationFailureReason;
 import devflow.agent.executor.GenerationBudgetProfile;
 import devflow.agent.executor.LlmProvider;
 import devflow.agent.executor.SelfCheckResult;
 import devflow.agent.executor.TestExecutor;
 import devflow.agent.context.ContractExtractor;
-import devflow.agent.context.ContractView;
-import devflow.agent.context.ValidationMetadata;
+import devflow.agent.context.ExecutionContract;
 import devflow.agent.loop.AgentTurnLoop;
 import devflow.agent.orchestrator.RunRecord;
 import devflow.agent.orchestrator.StageType;
 import devflow.agent.prompt.PromptTemplateCatalog;
-import devflow.agent.protocol.StructuredArtifactBlocks;
 import devflow.agent.project.FileProjectWorkspace;
-import devflow.agent.quality.ExperienceGateEvaluator;
-import devflow.agent.quality.ExperienceGateOutcome;
-import devflow.agent.quality.QualityLedger;
-import devflow.agent.quality.QualityPlan;
-import devflow.agent.quality.QualityPlanFactory;
-import devflow.agent.quality.StructureGateEvaluator;
-import devflow.agent.quality.StructureGateOutcome;
-import devflow.agent.validation.ProjectInspector;
-import devflow.agent.project.WorkspaceSnapshotStore;
 import devflow.agent.protocol.ArtifactBlockKind;
+import devflow.agent.protocol.StructuredArtifactBlocks;
+import devflow.agent.quality.CapabilitySurface;
+import devflow.agent.quality.CoverageLedger;
+import devflow.agent.quality.QualityLedger;
+import devflow.agent.project.WorkspaceSnapshotStore;
+import devflow.agent.parsing.TreeSitterSupport;
 import java.nio.file.Path;
-import java.util.EnumSet;
-import java.util.Map;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -41,7 +36,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class StageReviewer {
 
-    private static final EnumSet<ArtifactSectionKind> STRIPPED_REVIEW_SECTIONS = EnumSet.of(ArtifactSectionKind.CURRENT_NOTES);
     private final LlmProvider llmProvider;
     private final WorkspaceSnapshotStore snapshotStore;
     private final TestExecutor testExecutor;
@@ -54,11 +48,8 @@ public class StageReviewer {
     private final ReviewArtifactLoader reviewArtifactLoader;
     private final DocumentReviewTurnExecutor documentReviewTurnExecutor;
     private final ImplementationReviewTurnExecutor implementationReviewTurnExecutor;
-    private final ProjectInspector projectInspector;
     private final ContractExtractor contractExtractor;
-    private final QualityPlanFactory qualityPlanFactory;
-    private final StructureGateEvaluator structureGateEvaluator;
-    private final ExperienceGateEvaluator experienceGateEvaluator;
+    private final ArchitectIntegrationCheck architectIntegrationCheck;
 
     @Autowired
     public StageReviewer(
@@ -87,18 +78,8 @@ public class StageReviewer {
                 reviewArtifactLoader
         );
         FileProjectWorkspace workspace = new FileProjectWorkspace();
-        this.projectInspector = new ProjectInspector(workspace);
         this.contractExtractor = new ContractExtractor();
-        this.qualityPlanFactory = new QualityPlanFactory();
-        this.structureGateEvaluator = new StructureGateEvaluator();
-        this.experienceGateEvaluator = new ExperienceGateEvaluator();
-    }
-
-    /**
-     * 兼容旧的直接构造方式，避免测试和轻量装配在这一轮重构中全部联动。
-     */
-    public StageReviewer(LlmProvider llmProvider, WorkspaceSnapshotStore snapshotStore, TestExecutor testExecutor) {
-        this(llmProvider, snapshotStore, testExecutor, new PromptTemplateCatalog(), new LanguagePolicy(), new AgentTurnLoop());
+        this.architectIntegrationCheck = new ArchitectIntegrationCheck(workspace, new TreeSitterSupport());
     }
 
     public ReviewResult review(Path projectPath, RunRecord runRecord, StageType stageType, String artifactContent) {
@@ -121,8 +102,12 @@ public class StageReviewer {
                     "代码审阅发现问题，需要修改。"
             );
         }
-        ReviewResult testResult = reviewDecisionArtifactParser.parseTestArtifact(artifactContent);
-        return enforceExperienceGate(artifactContent, testResult);
+        ReviewResult parsed = reviewDecisionArtifactParser.parseDecisionArtifact(
+                artifactContent,
+                ReviewDecision.REJECTED,
+                "测试失败，需要修复并重新执行。"
+        );
+        return enforceStructuredTestCoverageGate(artifactContent, parsed);
     }
 
     public devflow.agent.executor.GenerationTelemetry consumeLastTelemetry() {
@@ -158,13 +143,13 @@ public class StageReviewer {
             return new ReviewResult(
                     ReviewDecision.REVISION_REQUIRED,
                     FixMode.PATCH,
-                selfCheck.summary(),
-                selfCheck.details()
+                    selfCheck.summary(),
+                    selfCheck.details()
             );
         }
-        ReviewResult structureGateResult = enforceStructureGate(projectPath, runRecord);
-        if (structureGateResult != null) {
-            return structureGateResult;
+        ReviewResult contractGateResult = enforceImplementationContractGate(projectPath, runRecord);
+        if (contractGateResult != null) {
+            return contractGateResult;
         }
 
         String changes = snapshotStore.renderChanges(projectPath, runRecord.runId(), 8, 5000);
@@ -179,55 +164,115 @@ public class StageReviewer {
         return implementationReviewTurnExecutor.run(runRecord, candidate, reviewerContext);
     }
 
-    private ReviewResult enforceStructureGate(Path projectPath, RunRecord runRecord) {
+    /**
+     * IMPLEMENTATION 阶段只校验“当前实现是否满足已冻结 contract”，
+     * 不再根据 single html / externalized script 这类交付形态直接越权打回 DESIGN。
+     * 只要 DESIGN 已经把 contract 冻结清楚，当前阶段就只能补齐实现。
+     */
+    private ReviewResult enforceImplementationContractGate(Path projectPath, RunRecord runRecord) {
         String prd = reviewArtifactLoader.readStageArtifact(runRecord, StageType.PRD);
         String design = reviewArtifactLoader.readStageArtifact(runRecord, StageType.DESIGN);
-        ContractView contractView = contractExtractor.extractContractView(runRecord.goal(), runRecord.constraints(), "", prd, design);
-        ValidationMetadata validationMetadata = contractExtractor.extractValidationMetadata(prd, design);
-        QualityPlan qualityPlan = qualityPlanFactory.build(
-                projectPath,
-                projectInspector.inspect(projectPath),
-                contractView,
-                validationMetadata,
-                null,
-                java.util.List.of()
+        ExecutionContract executionContract = contractExtractor.extractExecutionContract(
+                runRecord.goal(),
+                runRecord.constraints(),
+                prd,
+                design
         );
-        StructureGateOutcome gateOutcome = structureGateEvaluator.evaluate(projectInspector.inspect(projectPath), qualityPlan);
-        if (gateOutcome.passed()) {
+        ArchitectIntegrationCheckResult architectCheckResult = architectIntegrationCheck.verify(projectPath, executionContract);
+        if (architectCheckResult.passed()) {
             return null;
         }
+        ReviewReasonCode reasonCode = mapImplementationReasonCode(architectCheckResult);
+        String summary = buildImplementationGateSummary(architectCheckResult);
+        String changeRequest = buildImplementationGateChangeRequest(architectCheckResult);
         return new ReviewResult(
                 ReviewDecision.REVISION_REQUIRED,
                 FixMode.PATCH,
-                gateOutcome.summary(),
-                gateOutcome.changeRequest(),
-                gateOutcome.evidence(),
-                ""
+                summary,
+                changeRequest,
+                architectCheckResult.details(),
+                "",
+                architectCheckResult.implementationPatchTarget(),
+                java.util.List.of(),
+                ReviewRevisionRoute.PATCH_CURRENT_STAGE,
+                reasonCode
         );
     }
 
-    private ReviewResult enforceExperienceGate(String artifactContent, ReviewResult current) {
+    private String stripProcessNoteSection(String content) {
+        return StructuredArtifactBlocks.stripAllKnownBlocks(content).trim();
+    }
+
+    private ReviewResult enforceStructuredTestCoverageGate(String artifactContent, ReviewResult parsed) {
+        if (parsed == null || parsed.decision() != ReviewDecision.APPROVED) {
+            return parsed;
+        }
         QualityLedger qualityLedger = StructuredArtifactBlocks.readFirstJsonBlock(
                 artifactContent,
                 ArtifactBlockKind.QUALITY_LEDGER,
                 QualityLedger.class
         );
-        ExperienceGateOutcome gateOutcome = experienceGateEvaluator.evaluate(qualityLedger);
-        if (gateOutcome.passed()) {
-            return current;
+        CoverageLedger coverageLedger = qualityLedger == null ? null : qualityLedger.coverageLedger();
+        if (coverageLedger == null || !coverageLedger.hasMissingRequiredCoverage()) {
+            return parsed;
         }
+        String missingSurfaces = coverageLedger.missingRequiredSurfaces().stream()
+                .map(CapabilitySurface::wireValue)
+                .sorted()
+                .collect(Collectors.joining(", "));
+        String evidence = missingSurfaces.isBlank()
+                ? "quality-ledger reports missing required coverage"
+                : "missingRequiredCoverage=" + missingSurfaces;
         return new ReviewResult(
                 ReviewDecision.REJECTED,
                 FixMode.PATCH,
-                gateOutcome.summary(),
-                gateOutcome.changeRequest(),
-                gateOutcome.evidence(),
-                ""
+                "测试阶段仍缺少必需能力的通过证据。",
+                "请补齐缺失的体验能力覆盖并重新执行测试。",
+                evidence,
+                "",
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                java.util.List.of(),
+                ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET,
+                ReviewReasonCode.IMPLEMENTATION_GAP
         );
     }
 
-    private String stripProcessNoteSection(String content) {
-        String withoutNotes = ArtifactSectionSupport.removeSections(content, STRIPPED_REVIEW_SECTIONS);
-        return StructuredArtifactBlocks.stripAllKnownBlocks(withoutNotes).trim();
+    private ReviewReasonCode mapImplementationReasonCode(ArchitectIntegrationCheckResult architectCheckResult) {
+        if (architectCheckResult == null || architectCheckResult.failureReason() == null) {
+            return ReviewReasonCode.NONE;
+        }
+        if (architectCheckResult.failureReason() == ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID
+                && architectCheckResult.implementationPatchTarget() == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
+            return ReviewReasonCode.RUNTIME_WIRING_GAP;
+        }
+        return ReviewReasonCode.IMPLEMENTATION_GAP;
+    }
+
+    private String buildImplementationGateSummary(ArchitectIntegrationCheckResult architectCheckResult) {
+        if (architectCheckResult == null || architectCheckResult.failureReason() == null) {
+            return "当前实现未满足 approved contract。";
+        }
+        return switch (architectCheckResult.failureReason()) {
+            case ENTRY_MISSING -> "当前实现缺少 approved contract 要求的可启动入口。";
+            case RUNTIME_WIRING_INVALID -> "当前实现的入口接线或运行时所有权未满足 approved contract。";
+            case SURFACE_MISSING -> "当前实现缺少 approved contract 要求的可见运行表面。";
+            case IMPLEMENTATION_INCOMPLETE -> "当前实现仍未补齐 approved contract 要求的能力。";
+        };
+    }
+
+    private String buildImplementationGateChangeRequest(ArchitectIntegrationCheckResult architectCheckResult) {
+        if (architectCheckResult == null || architectCheckResult.failureReason() == null) {
+            return "请在当前 IMPLEMENTATION 阶段继续补齐实现，并保持 approved contract 不变。";
+        }
+        return switch (architectCheckResult.failureReason()) {
+            case ENTRY_MISSING ->
+                    "请在当前 IMPLEMENTATION 阶段补齐可启动入口，不要回退或重写已批准的设计契约。";
+            case RUNTIME_WIRING_INVALID ->
+                    "请在当前 IMPLEMENTATION 阶段修复入口接线与运行时所有权，使交付结果满足 approved contract。";
+            case SURFACE_MISSING ->
+                    "请在当前 IMPLEMENTATION 阶段补齐可见运行表面，并保持 approved contract 不变。";
+            case IMPLEMENTATION_INCOMPLETE ->
+                    "请在当前 IMPLEMENTATION 阶段补齐缺失实现，不要把当前缺口回退成设计问题。";
+        };
     }
 }

@@ -11,6 +11,8 @@ import java.util.List;
  */
 public record ExecutionDirectivePayload(
         String fixMode,
+        String implementationPatchTarget,
+        List<FileChangePayload> overrideChanges,
         Boolean repairBriefPresent,
         Boolean repairBriefEnforced,
         String deliveryMode,
@@ -42,6 +44,8 @@ public record ExecutionDirectivePayload(
     public static ExecutionDirectivePayload empty() {
         return new ExecutionDirectivePayload(
                 null,
+                null,
+                List.of(),
                 false,
                 false,
                 null,
@@ -77,6 +81,8 @@ public record ExecutionDirectivePayload(
         }
         return new ExecutionDirectivePayload(
                 chooseText(fixMode, override.fixMode),
+                chooseText(implementationPatchTarget, override.implementationPatchTarget),
+                chooseFileChanges(overrideChanges, override.overrideChanges),
                 chooseBoolean(repairBriefPresent, override.repairBriefPresent),
                 chooseBoolean(repairBriefEnforced, override.repairBriefEnforced),
                 chooseText(deliveryMode, override.deliveryMode),
@@ -104,6 +110,13 @@ public record ExecutionDirectivePayload(
                 chooseText(generationFailureEvidence, override.generationFailureEvidence),
                 chooseText(generationFailureRetryHint, override.generationFailureRetryHint)
         );
+    }
+
+    private static List<FileChangePayload> chooseFileChanges(List<FileChangePayload> base, List<FileChangePayload> override) {
+        if (override != null && !override.isEmpty()) {
+            return List.copyOf(override);
+        }
+        return base == null ? List.of() : List.copyOf(base);
     }
 
     private static String chooseText(String base, String override) {

@@ -2,6 +2,7 @@ package devflow.agent.executor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.validation.ProjectFingerprint;
+import java.nio.file.Path;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -14,9 +15,11 @@ import java.util.Set;
 final class ImplementationContinuationConstraintResolver {
 
     private final ObjectMapper objectMapper;
+    private final ImplementationRuntimeContractResolver runtimeContractResolver;
 
     ImplementationContinuationConstraintResolver(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
+        this.runtimeContractResolver = new ImplementationRuntimeContractResolver();
     }
 
     ImplementationContinuationConstraints resolve(String previousStateJson, ProjectFingerprint fingerprint) {
@@ -24,8 +27,7 @@ final class ImplementationContinuationConstraintResolver {
             return ImplementationContinuationConstraints.empty();
         }
         try {
-            ImplementationStateSnapshot snapshot =
-                    objectMapper.readValue(previousStateJson, ImplementationStateSnapshot.class);
+            ImplementationStateSnapshot snapshot = objectMapper.readValue(previousStateJson, ImplementationStateSnapshot.class);
             return derive(snapshot, fingerprint);
         } catch (Exception ignored) {
             return ImplementationContinuationConstraints.empty();
@@ -48,78 +50,58 @@ final class ImplementationContinuationConstraintResolver {
         for (int index = 0; index < limit; index++) {
             ImplementationStateSnapshot.PlannedSubtaskState subtask = plannedSubtasks.get(index);
             ImplementationStateSnapshot.SubtaskExecutionStateSnapshot report = reports.get(index);
-            if (report != null && report.completed() && subtask != null && subtask.changes() != null) {
-                for (ImplementationStateSnapshot.FileChangeState change : subtask.changes()) {
+            List<ImplementationStateSnapshot.FileChangeState> effectiveChanges = effectiveChanges(subtask, report);
+            if (report != null && report.completed() && !effectiveChanges.isEmpty()) {
+                for (ImplementationStateSnapshot.FileChangeState change : effectiveChanges) {
                     if (change != null && change.path() != null && !change.path().isBlank()) {
-                        existingPaths.add(change.path());
+                        existingPaths.add(normalize(change.path()));
                     }
                 }
             }
             if (report != null && report.filePatchProgressStates() != null) {
                 for (ImplementationStateSnapshot.FilePatchProgressStateSnapshot progress : report.filePatchProgressStates()) {
                     if (progress != null && progress.relativePath() != null && !progress.relativePath().isBlank()) {
-                        existingPaths.add(progress.relativePath());
+                        existingPaths.add(normalize(progress.relativePath()));
                     }
                 }
             }
         }
-        Set<String> protectedHtmlEntryPaths = new LinkedHashSet<>();
-        RuntimeOwnershipMode protectedRuntimeOwnership = null;
-        String resolvedHtmlEntryPath = fingerprint == null ? "" : fingerprint.resolvedHtmlEntryPath();
-        if (fingerprint != null && fingerprint.hasResolvedHtmlEntry()) {
-            protectedHtmlEntryPaths.add(resolvedHtmlEntryPath);
+        String resolvedHtmlEntryPath = fingerprint == null ? "" : normalize(fingerprint.resolvedHtmlEntryPath());
+        if (!resolvedHtmlEntryPath.isBlank()) {
             existingPaths.add(resolvedHtmlEntryPath);
         }
-        if (!resolvedHtmlEntryPath.isBlank()) {
-            for (int index = 0; index < limit; index++) {
-                ImplementationStateSnapshot.PlannedSubtaskState subtask = plannedSubtasks.get(index);
-                ImplementationStateSnapshot.SubtaskExecutionStateSnapshot report = reports.get(index);
-                if (report == null || !report.completed() || subtask == null || subtask.changes() == null) {
-                    continue;
-                }
-                for (ImplementationStateSnapshot.FileChangeState change : subtask.changes()) {
-                    if (change == null || change.path() == null || change.path().isBlank()) {
-                        continue;
-                    }
-                    String normalizedPath = normalize(change.path());
-                    if (!resolvedHtmlEntryPath.equals(normalizedPath)) {
-                        continue;
-                    }
-                    protectedRuntimeOwnership = parseRuntimeOwnership(change.runtimeOwnership());
-                }
-            }
-        }
-        if (existingPaths.isEmpty() && protectedHtmlEntryPaths.isEmpty()) {
+        HtmlRuntimeOwnershipContract protectedRuntimeContract = runtimeContractResolver.resolve(
+                snapshot,
+                resolvedHtmlEntryPath
+        );
+        if (existingPaths.isEmpty() && protectedRuntimeContract == null) {
             return ImplementationContinuationConstraints.empty();
         }
-        List<ImplementationContinuationConstraints.ProtectedHtmlEntryConstraint> protectedEntries = new java.util.ArrayList<>();
-        for (String path : protectedHtmlEntryPaths) {
-            protectedEntries.add(new ImplementationContinuationConstraints.ProtectedHtmlEntryConstraint(
-                    path,
-                    protectedRuntimeOwnership
-            ));
+        List<ImplementationContinuationConstraints.ProtectedHtmlEntryConstraint> protectedEntries =
+                resolvedHtmlEntryPath.isBlank()
+                        ? List.of()
+                        : List.of(new ImplementationContinuationConstraints.ProtectedHtmlEntryConstraint(
+                                resolvedHtmlEntryPath,
+                                protectedRuntimeContract
+                        ));
+        return new ImplementationContinuationConstraints(List.copyOf(existingPaths), protectedEntries);
+    }
+
+    private List<ImplementationStateSnapshot.FileChangeState> effectiveChanges(
+            ImplementationStateSnapshot.PlannedSubtaskState subtask,
+            ImplementationStateSnapshot.SubtaskExecutionStateSnapshot report
+    ) {
+        if (report != null && report.effectiveChanges() != null && !report.effectiveChanges().isEmpty()) {
+            return report.effectiveChanges();
         }
-        return new ImplementationContinuationConstraints(
-                List.copyOf(existingPaths),
-                List.copyOf(protectedEntries)
-        );
+        return subtask == null || subtask.changes() == null ? List.of() : subtask.changes();
     }
 
     private String normalize(String path) {
         if (path == null || path.isBlank()) {
             return "";
         }
-        return java.nio.file.Path.of(path).normalize().toString().replace('\\', '/');
+        return Path.of(path).normalize().toString().replace('\\', '/');
     }
 
-    private RuntimeOwnershipMode parseRuntimeOwnership(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        try {
-            return RuntimeOwnershipMode.valueOf(value.trim());
-        } catch (IllegalArgumentException exception) {
-            return null;
-        }
-    }
 }

@@ -13,6 +13,7 @@ import java.util.EnumMap;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ArtifactTemplateFactoryTests {
@@ -26,7 +27,8 @@ class ArtifactTemplateFactoryTests {
         assertTrue(template.contains("# 产品需求文档"));
         assertTrue(template.contains("## 7. Contract Metadata"));
         assertTrue(template.contains("## 8. Source Metadata"));
-        assertTrue(template.contains("当前备注"));
+        assertFalse(template.contains("当前备注"));
+        assertFalse(template.contains("Current Notes"));
     }
 
     @Test
@@ -36,7 +38,8 @@ class ArtifactTemplateFactoryTests {
         assertTrue(template.contains("# Test Report"));
         assertTrue(template.contains("## Test Plan"));
         assertTrue(template.contains("## Test Results"));
-        assertTrue(template.contains("Current Notes"));
+        assertFalse(template.contains("Current notes"));
+        assertFalse(template.contains("Current Notes"));
     }
 
     private RunRecord runRecord() {

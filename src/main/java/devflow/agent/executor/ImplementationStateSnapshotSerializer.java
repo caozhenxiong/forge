@@ -12,33 +12,82 @@ import java.util.List;
 final class ImplementationStateSnapshotSerializer {
 
     private final ObjectMapper objectMapper;
+    private final ImplementationRuntimeContractResolver runtimeContractResolver;
 
     ImplementationStateSnapshotSerializer(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
+        this.runtimeContractResolver = new ImplementationRuntimeContractResolver();
     }
 
     String renderStateJson(ImplementationRuntimeSnapshot runtimeSnapshot) {
         try {
-            ImplementationStateSnapshot snapshot = new ImplementationStateSnapshot(
+            List<ImplementationStateSnapshot.PlannedSubtaskState> subtasks =
+                    serializeSubtasks(runtimeSnapshot.plan() == null ? List.of() : runtimeSnapshot.plan().subtasks());
+            List<ImplementationStateSnapshot.SubtaskExecutionStateSnapshot> reports = serializeReports(runtimeSnapshot.reports());
+            List<ImplementationStateSnapshot.EventState> events = serializeEvents(runtimeSnapshot.events());
+            ImplementationStateSnapshot snapshotWithoutResolvedContract = new ImplementationStateSnapshot(
                     runtimeSnapshot.plan() == null ? "" : ImplementationArtifactRenderSupport.blankIfNull(runtimeSnapshot.plan().summary()),
-                    serializeSubtasks(runtimeSnapshot.plan() == null ? List.of() : runtimeSnapshot.plan().subtasks()),
-                    serializeReports(runtimeSnapshot.reports()),
-                    serializeEvents(runtimeSnapshot.events()),
+                    subtasks,
+                    reports,
+                    events,
                     ImplementationArtifactRenderSupport.blankIfNull(runtimeSnapshot.currentSubtaskTitle()),
                     runtimeSnapshot.stageStatus() != null && runtimeSnapshot.stageStatus().planCompleted(),
-                    runtimeSnapshot.stageStatus() == null || runtimeSnapshot.stageStatus().architectCheckPassed(),
+                    runtimeSnapshot.architectCheckResult() != null
+                            ? runtimeSnapshot.architectCheckResult().passed()
+                            : runtimeSnapshot.stageStatus() != null && runtimeSnapshot.stageStatus().architectCheckPassed(),
                     runtimeSnapshot.architectCheckResult() == null || runtimeSnapshot.architectCheckResult().failureReason() == null
                             ? ""
                             : runtimeSnapshot.architectCheckResult().failureReason().name(),
                     runtimeSnapshot.architectCheckResult() == null
                             ? ""
                             : ImplementationArtifactRenderSupport.blankIfNull(runtimeSnapshot.architectCheckResult().details()),
+                    runtimeSnapshot.architectCheckResult() == null
+                            || runtimeSnapshot.architectCheckResult().implementationPatchTarget() == null
+                            ? ""
+                            : runtimeSnapshot.architectCheckResult().implementationPatchTarget().name(),
+                    explicitRuntimeContractState(runtimeSnapshot.architectCheckResult()),
                     runtimeSnapshot.stageStatus() == null ? List.of() : runtimeSnapshot.stageStatus().incompleteSubtasks()
+            );
+            ImplementationStateSnapshot snapshot = new ImplementationStateSnapshot(
+                    snapshotWithoutResolvedContract.summary(),
+                    snapshotWithoutResolvedContract.subtasks(),
+                    snapshotWithoutResolvedContract.reports(),
+                    snapshotWithoutResolvedContract.events(),
+                    snapshotWithoutResolvedContract.currentSubtaskTitle(),
+                    snapshotWithoutResolvedContract.planCompleted(),
+                    snapshotWithoutResolvedContract.architectCheckPassed(),
+                    snapshotWithoutResolvedContract.architectFailureReason(),
+                    snapshotWithoutResolvedContract.architectFailureDetails(),
+                    snapshotWithoutResolvedContract.architectImplementationPatchTarget(),
+                    serializeRuntimeContract(runtimeContractResolver.resolve(snapshotWithoutResolvedContract)),
+                    snapshotWithoutResolvedContract.incompleteSubtasks()
             );
             return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(snapshot);
         } catch (Exception exception) {
             throw new IllegalStateException("Failed to render implementation state: " + exception.getMessage(), exception);
         }
+    }
+
+    private ImplementationStateSnapshot.RuntimeContractState explicitRuntimeContractState(
+            ArchitectIntegrationCheckResult architectCheckResult
+    ) {
+        if (architectCheckResult == null) {
+            return null;
+        }
+        return serializeRuntimeContract(architectCheckResult.runtimeContract());
+    }
+
+    private ImplementationStateSnapshot.RuntimeContractState serializeRuntimeContract(
+            HtmlRuntimeOwnershipContract runtimeContract
+    ) {
+        if (runtimeContract == null || !runtimeContract.active()) {
+            return null;
+        }
+        return new ImplementationStateSnapshot.RuntimeContractState(
+                runtimeContract.htmlEntryPath() == null ? null : runtimeContract.htmlEntryPath().toString(),
+                runtimeContract.runtimeOwnership() == null ? null : runtimeContract.runtimeOwnership().name(),
+                runtimeContract.runtimePaths().stream().map(path -> path.toString().replace('\\', '/')).toList()
+        );
     }
 
     private List<ImplementationStateSnapshot.EventState> serializeEvents(List<ImplementationEventEntry> events) {
@@ -73,7 +122,8 @@ final class ImplementationStateSnapshotSerializer {
                                         change.action().name(),
                                         change.reason(),
                                         change.effectiveEditScope().name(),
-                                        change.runtimeOwnership() == null ? null : change.runtimeOwnership().name()
+                                        change.runtimeOwnership() == null ? null : change.runtimeOwnership().name(),
+                                        change.hostHtmlPatchRequired()
                                 ))
                                 .toList()
                 ))
@@ -94,7 +144,8 @@ final class ImplementationStateSnapshotSerializer {
                                 .toList(),
                         report.executionState() == null ? null : report.executionState().deliveryMode().name(),
                         report.executionState() != null && report.executionState().preferPreciseEditing(),
-                        serializeFilePatchProgressStates(report.executionState())
+                        serializeFilePatchProgressStates(report.executionState()),
+                        serializeEffectiveChanges(report.executionState())
                 ))
                 .toList();
     }
@@ -119,6 +170,24 @@ final class ImplementationStateSnapshotSerializer {
                                         unit.splitDepth()
                                 ))
                                 .toList()
+                ))
+                .toList();
+    }
+
+    private List<ImplementationStateSnapshot.FileChangeState> serializeEffectiveChanges(
+            SubtaskExecutionState executionState
+    ) {
+        if (executionState == null) {
+            return List.of();
+        }
+        return executionState.effectiveChanges().stream()
+                .map(change -> new ImplementationStateSnapshot.FileChangeState(
+                        change.path(),
+                        change.action().name(),
+                        change.reason(),
+                        change.effectiveEditScope().name(),
+                        change.runtimeOwnership() == null ? null : change.runtimeOwnership().name(),
+                        change.hostHtmlPatchRequired()
                 ))
                 .toList();
     }
@@ -157,6 +226,9 @@ final class ImplementationStateSnapshotSerializer {
                 attempt.review().changeRequest(),
                 attempt.review().evidence(),
                 attempt.review().actionItems(),
+                attempt.review().implementationPatchTarget() == null
+                        ? null
+                        : attempt.review().implementationPatchTarget().name(),
                 failureState,
                 recoveryState
         );

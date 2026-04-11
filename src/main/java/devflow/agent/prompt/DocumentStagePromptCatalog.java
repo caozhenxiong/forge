@@ -131,7 +131,8 @@ final class DocumentStagePromptCatalog {
                     2. 是否把上游文档中的推断、建议或技术倾向错误升级成了硬约束。
                     3. 是否把设计选择伪装成用户要求或既定事实。
                     4. 文档内部是否自洽，模块划分、运行形态与交付方式不能互相冲突。
-                    5. 是否在没有 hard.* 或 Contract Metadata.validation.* 来源支撑时，自行发明页面加载时间、响应延迟、FPS 等量化性能指标。
+                    5. 是否在没有 hard.* 或结构化 Contract Metadata 来源支撑时，自行收紧入口打包形态、文件组织或主运行时所有权。
+                    6. 是否在没有 hard.* 或 Contract Metadata.validation.* 来源支撑时，自行发明页面加载时间、响应延迟、FPS 等量化性能指标。
                     """.trim(),
                     """
                     You are a senior architecture reviewer. Check whether the design is implementable and whether risks are explained sufficiently.
@@ -140,7 +141,8 @@ final class DocumentStagePromptCatalog {
                     2. Whether upstream inferences, recommendations, or technical preferences were wrongly promoted into hard constraints.
                     3. Whether design choices are disguised as user requirements or established facts.
                     4. Whether the document is internally consistent: module boundaries, runtime shape, and delivery form must not conflict.
-                    5. Whether the design invents quantified performance targets such as load time, response latency, or FPS without explicit support from hard.* metadata or Contract Metadata.validation.*.
+                    5. Whether the design tightens entry packaging, file organization, or primary runtime ownership without support from hard.* or structured Contract Metadata.
+                    6. Whether the design invents quantified performance targets such as load time, response latency, or FPS without explicit support from hard.* metadata or Contract Metadata.validation.*.
                     """.trim()
             );
             default -> language.choose("你是资深评审。", "You are a senior reviewer.");

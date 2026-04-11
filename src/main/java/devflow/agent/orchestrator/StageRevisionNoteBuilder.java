@@ -2,7 +2,10 @@ package devflow.agent.orchestrator;
 
 import devflow.agent.protocol.ExecutionDirectiveNarrativeRenderer;
 import devflow.agent.protocol.ExecutionDirectivePayload;
+import devflow.agent.protocol.FileChangePayload;
+import devflow.agent.executor.FileChange;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.supervisor.DeliveryPolicy;
 import devflow.agent.supervisor.DeliveryPolicyMode;
 import devflow.agent.supervisor.SupervisorDecision;
@@ -18,10 +21,12 @@ final class StageRevisionNoteBuilder {
 
     String build(
             FixMode fixMode,
+            ImplementationPatchTarget implementationPatchTarget,
             String summary,
             String changeRequest,
             String evidence,
             String actionItems,
+            List<FileChange> overrideChanges,
             SupervisorDecision supervisorDecision,
             List<String> requiredCapabilitySurfaces
     ) {
@@ -31,6 +36,8 @@ final class StageRevisionNoteBuilder {
         return ExecutionDirectiveNarrativeRenderer.renderRevisionNote(
                 new ExecutionDirectivePayload(
                         (fixMode == null ? FixMode.PATCH : fixMode).name(),
+                        implementationPatchTarget == null ? ImplementationPatchTarget.NONE.name() : implementationPatchTarget.name(),
+                        overrideChanges == null ? java.util.List.<FileChangePayload>of() : overrideChanges.stream().map(this::toPayload).toList(),
                         false,
                         false,
                         deliveryPolicy.mode() == null ? null : deliveryPolicy.mode().wireValue(),
@@ -67,5 +74,19 @@ final class StageRevisionNoteBuilder {
 
     private String nullToEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    private FileChangePayload toPayload(FileChange change) {
+        if (change == null) {
+            return null;
+        }
+        return new FileChangePayload(
+                change.path(),
+                change.action() == null ? null : change.action().name(),
+                nullToEmpty(change.reason()),
+                change.effectiveEditScope().name(),
+                change.runtimeOwnership() == null ? null : change.runtimeOwnership().name(),
+                change.hostHtmlPatchRequired()
+        );
     }
 }

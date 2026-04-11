@@ -22,10 +22,11 @@ final class TestCasePlanSanitizer {
             List<PlannedTestCasePayload> rawCases,
             List<TestCaseSpec> baseCases,
             String defaultEntry,
-            RuntimeSnapshot runtimeSnapshot
+            RuntimeSnapshot runtimeSnapshot,
+            UiRuntimeContract runtimeContract
     ) {
         if (rawCases == null || rawCases.isEmpty()) {
-            return observedInteractionTestCaseBuilder.strengthenCases(baseCases, runtimeSnapshot);
+            return observedInteractionTestCaseBuilder.strengthenCases(baseCases, runtimeContract);
         }
         List<TestCaseSpec> result = new ArrayList<>();
         for (PlannedTestCasePayload raw : rawCases) {
@@ -48,8 +49,8 @@ final class TestCasePlanSanitizer {
                     parseCapabilities(raw.capabilities())
             ));
         }
-        List<TestCaseSpec> repaired = behaviorRepairSupport.repairCases(result.isEmpty() ? baseCases : result, runtimeSnapshot);
-        return observedInteractionTestCaseBuilder.strengthenCases(inferCapabilities(repaired), runtimeSnapshot);
+        List<TestCaseSpec> repaired = behaviorRepairSupport.repairCases(result.isEmpty() ? baseCases : result, runtimeSnapshot, runtimeContract);
+        return observedInteractionTestCaseBuilder.strengthenCases(inferCapabilities(repaired), runtimeContract);
     }
 
     private String blank(String value) {

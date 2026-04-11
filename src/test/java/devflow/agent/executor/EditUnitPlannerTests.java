@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EditUnitPlannerTests {
 
     @Test
-    void singleInlineScriptEntrySymbolIsSplitIntoAppendAndOrchestratorUnits() {
+    void singleInlineScriptEntrySymbolUsesSingleRestrictedUnit() {
         EditUnitPlanner planner = new EditUnitPlanner(
                 new TreeSitterTargetLocator(new TreeSitterSupport())
         );
@@ -26,11 +26,9 @@ class EditUnitPlannerTests {
                 """
         );
 
-        assertEquals(2, units.size());
-        assertTrue(units.get(0).allowedSymbols().isEmpty(), "第一步应先建立 append-only 辅助符号单元");
-        assertEquals(List.of("bootstrap"), units.get(1).allowedSymbols(), "第二步应只让入口符号负责编排");
-        assertTrue(units.get(0).label().endsWith("-append"));
-        assertTrue(units.get(1).label().endsWith("-orchestrator"));
+        assertEquals(1, units.size());
+        assertEquals(List.of("bootstrap"), units.getFirst().allowedSymbols());
+        assertTrue(units.getFirst().label().endsWith("-all"));
     }
 
     @Test

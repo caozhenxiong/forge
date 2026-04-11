@@ -8,10 +8,12 @@ import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.StructuredArtifactBlocks;
 import devflow.agent.quality.CapabilitySurface;
 import devflow.agent.quality.QualityLedger;
+import devflow.agent.executor.FileChange;
 import devflow.agent.repair.DiagnosisAgent;
 import devflow.agent.repair.RepairAgent;
 import devflow.agent.repair.RepairBrief;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.supervisor.SupervisorDecision;
 import java.nio.file.Path;
 import java.util.List;
@@ -50,10 +52,12 @@ final class StageRevisionRepairSupport {
             StageType sourceStage,
             StageType rerouteStage,
             FixMode fixMode,
+            ImplementationPatchTarget implementationPatchTarget,
             String summary,
             String changeRequest,
             String evidence,
             String actionItems,
+            List<FileChange> overrideChanges,
             SupervisorDecision supervisorDecision,
             boolean forceRepair,
             boolean repeatedIssue
@@ -61,10 +65,12 @@ final class StageRevisionRepairSupport {
         List<String> requiredCapabilitySurfaces = loadRequiredCapabilitySurfaces(projectPath, runRecord, sourceStage);
         String revisionNote = stageRevisionNoteBuilder.build(
                 fixMode,
+                implementationPatchTarget,
                 summary,
                 changeRequest,
                 evidence,
                 actionItems,
+                overrideChanges,
                 supervisorDecision,
                 requiredCapabilitySurfaces
         );
@@ -93,10 +99,12 @@ final class StageRevisionRepairSupport {
         );
         return repairAgent.buildRepairNote(
                 fixMode,
+                implementationPatchTarget,
                 summary,
                 changeRequest,
                 evidence,
                 actionItems,
+                overrideChanges,
                 requiredCapabilitySurfaces,
                 repairBrief,
                 language

@@ -20,10 +20,12 @@ final class GeneratedFileCommitSupport {
 
     private final FileProjectWorkspace workspace;
     private final GeneratedContentGate generatedContentGate;
+    private final RuntimeScriptGraphInspector runtimeScriptGraphInspector;
 
     GeneratedFileCommitSupport(FileProjectWorkspace workspace, GeneratedContentGate generatedContentGate) {
         this.workspace = workspace;
         this.generatedContentGate = generatedContentGate;
+        this.runtimeScriptGraphInspector = new RuntimeScriptGraphInspector(workspace);
     }
 
     void commitGeneratedOutput(Path projectPath, Subtask subtask, FileChange primaryChange, GeneratedFileOutput output) {
@@ -85,7 +87,7 @@ final class GeneratedFileCommitSupport {
                 projectPath,
                 relativePath,
                 content,
-                primaryChange == null ? null : primaryChange.runtimeOwnership(),
+                resolveRuntimeContract(projectPath, relativePath, primaryChange, relatedPaths),
                 List.copyOf(relatedPaths)
         );
     }
@@ -102,7 +104,7 @@ final class GeneratedFileCommitSupport {
                 gateInput.projectPath(),
                 gateInput.relativePath(),
                 stagedContent,
-                gateInput.runtimeOwnership(),
+                gateInput.runtimeContract(),
                 gateInput.relatedPaths()
         ));
         if (!validationReport.passed()) {
@@ -113,5 +115,40 @@ final class GeneratedFileCommitSupport {
             );
         }
         return transaction;
+    }
+
+    private HtmlRuntimeOwnershipContract resolveRuntimeContract(
+            Path projectPath,
+            Path relativePath,
+            FileChange primaryChange,
+            List<Path> relatedPaths
+    ) {
+        if (relativePath == null || primaryChange == null || !devflow.agent.util.ProjectPathSupport.isHtml(relativePath)) {
+            return null;
+        }
+        RuntimeOwnershipMode runtimeOwnership = primaryChange.runtimeOwnership();
+        if (runtimeOwnership == null) {
+            return null;
+        }
+        if (runtimeOwnership == RuntimeOwnershipMode.INLINE_HOST) {
+            return HtmlRuntimeOwnershipContract.inlineHost(relativePath);
+        }
+        List<Path> declaredRuntimeScripts = relatedPaths.stream()
+                .filter(path -> path != null && isUnderHtmlEntryTree(relativePath, path))
+                .filter(devflow.agent.util.ProjectPathSupport::isRuntimeScript)
+                .distinct()
+                .toList();
+        List<Path> runtimeRoots = runtimeScriptGraphInspector.selectDeclaredRoots(projectPath, declaredRuntimeScripts);
+        if (runtimeRoots.isEmpty()) {
+            RuntimeScriptGraphInspector.RuntimeScriptGraph graph = runtimeScriptGraphInspector.inspectProject(projectPath, relativePath);
+            runtimeRoots = runtimeScriptGraphInspector.selectRootScripts(graph.runtimeScripts(), graph);
+        }
+        return HtmlRuntimeOwnershipContract.externalCompanion(relativePath, runtimeRoots);
+    }
+
+    private boolean isUnderHtmlEntryTree(Path htmlEntryPath, Path candidatePath) {
+        Path entryParent = htmlEntryPath.getParent() == null ? Path.of("") : htmlEntryPath.getParent().normalize();
+        Path candidateParent = candidatePath.getParent() == null ? Path.of("") : candidatePath.getParent().normalize();
+        return candidateParent.equals(entryParent) || candidateParent.startsWith(entryParent);
     }
 }

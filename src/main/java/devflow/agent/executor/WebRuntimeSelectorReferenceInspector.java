@@ -24,11 +24,18 @@ final class WebRuntimeSelectorReferenceInspector {
             Path projectPath,
             Path htmlEntryPath,
             String htmlSource,
-            List<String> referencedScripts,
+            List<Path> referencedRuntimePaths,
+            List<Path> availableRuntimePaths,
             List<String> issues,
             List<String> evidence
     ) {
-        SelectorReferences references = collectSelectorReferences(projectPath, htmlEntryPath, htmlSource, referencedScripts);
+        SelectorReferences references = collectSelectorReferences(
+                projectPath,
+                htmlEntryPath,
+                htmlSource,
+                referencedRuntimePaths,
+                availableRuntimePaths
+        );
         if (!references.missingIds().isEmpty()) {
             issues.add("运行脚本引用了 HTML 中不存在的 id 选择器。");
             references.missingIds().forEach(item -> evidence.add("missing id selector: #" + item));
@@ -43,7 +50,8 @@ final class WebRuntimeSelectorReferenceInspector {
             Path projectPath,
             Path htmlEntryPath,
             String htmlSource,
-            List<String> referencedScripts
+            List<Path> referencedRuntimePaths,
+            List<Path> availableRuntimePaths
     ) {
         Set<String> htmlIds = new LinkedHashSet<>(HtmlDocumentInspector.idSelectors(htmlSource));
         Set<String> htmlClasses = new LinkedHashSet<>(HtmlDocumentInspector.classSelectors(htmlSource));
@@ -54,13 +62,11 @@ final class WebRuntimeSelectorReferenceInspector {
             extractSelectorReferences(inlineScript, referencedIds, referencedClasses);
         }
 
-        Path htmlParent = htmlEntryPath.getParent() == null ? Path.of("") : htmlEntryPath.getParent().normalize();
-        for (String scriptPath : referencedScripts) {
-            Path resolved = htmlParent.resolve(scriptPath).normalize();
-            if (!Files.exists(projectPath.resolve(resolved).normalize())) {
+        for (Path runtimePath : resolveReachableRuntimeScripts(projectPath, htmlEntryPath, referencedRuntimePaths, availableRuntimePaths)) {
+            if (!Files.exists(projectPath.resolve(runtimePath).normalize())) {
                 continue;
             }
-            extractSelectorReferences(workspace.readFile(projectPath, resolved), referencedIds, referencedClasses);
+            extractSelectorReferences(workspace.readFile(projectPath, runtimePath), referencedIds, referencedClasses);
         }
 
         Set<String> missingIds = referencedIds.stream()
@@ -70,6 +76,56 @@ final class WebRuntimeSelectorReferenceInspector {
                 .filter(className -> !htmlClasses.contains(className))
                 .collect(LinkedHashSet::new, LinkedHashSet::add, LinkedHashSet::addAll);
         return new SelectorReferences(missingIds, missingClasses);
+    }
+
+    private Set<Path> resolveReachableRuntimeScripts(
+            Path projectPath,
+            Path htmlEntryPath,
+            List<Path> referencedRuntimePaths,
+            List<Path> availableRuntimePaths
+    ) {
+        if (projectPath == null || htmlEntryPath == null || referencedRuntimePaths == null || referencedRuntimePaths.isEmpty()) {
+            return Set.of();
+        }
+        Set<Path> candidates = new LinkedHashSet<>();
+        if (availableRuntimePaths != null) {
+            availableRuntimePaths.stream()
+                    .filter(java.util.Objects::nonNull)
+                    .map(Path::normalize)
+                    .forEach(candidates::add);
+        }
+        referencedRuntimePaths.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(Path::normalize)
+                .forEach(candidates::add);
+        Set<Path> reachable = new LinkedHashSet<>();
+        java.util.ArrayDeque<Path> pending = new java.util.ArrayDeque<>();
+        referencedRuntimePaths.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(Path::normalize)
+                .forEach(pending::addLast);
+        while (!pending.isEmpty()) {
+            Path current = pending.removeFirst();
+            if (!reachable.add(current) || !Files.exists(projectPath.resolve(current).normalize())) {
+                continue;
+            }
+            Path parent = current.getParent() == null ? Path.of("") : current.getParent().normalize();
+            String source = workspace.readFile(projectPath, current);
+            for (String specifier : JavaScriptLiteralScanner.extractImportSpecifiers(source)) {
+                if (specifier == null || specifier.isBlank()) {
+                    continue;
+                }
+                String normalizedSpecifier = specifier.trim();
+                if (devflow.agent.util.ProjectPathSupport.isExternalReference(normalizedSpecifier)) {
+                    continue;
+                }
+                Path resolved = parent.resolve(normalizedSpecifier).normalize();
+                if (candidates.contains(resolved)) {
+                    pending.addLast(resolved);
+                }
+            }
+        }
+        return Set.copyOf(reachable);
     }
 
     private void extractSelectorReferences(String source, Set<String> ids, Set<String> classes) {

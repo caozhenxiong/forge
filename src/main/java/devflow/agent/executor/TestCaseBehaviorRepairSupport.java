@@ -19,14 +19,16 @@ import java.util.Set;
  */
 final class TestCaseBehaviorRepairSupport {
 
-    List<TestCaseSpec> repairCases(List<TestCaseSpec> cases, RuntimeSnapshot runtimeSnapshot) {
+    private final UiRuntimeObservationPolicy observationPolicy = new UiRuntimeObservationPolicy();
+
+    List<TestCaseSpec> repairCases(List<TestCaseSpec> cases, RuntimeSnapshot runtimeSnapshot, UiRuntimeContract runtimeContract) {
         if (cases == null || cases.isEmpty()) {
             return List.of();
         }
-        SemanticSelectorCatalog selectorCatalog = SemanticSelectorCatalog.fromCases(cases);
+        SemanticSelectorCatalog selectorCatalog = SemanticSelectorCatalog.fromCases(cases, runtimeContract);
         List<TestCaseSpec> repaired = new ArrayList<>();
         for (TestCaseSpec testCase : cases) {
-            repaired.add(repairCase(testCase, runtimeSnapshot, selectorCatalog));
+            repaired.add(repairCase(testCase, runtimeSnapshot, runtimeContract, selectorCatalog));
         }
         return List.copyOf(repaired);
     }
@@ -34,13 +36,14 @@ final class TestCaseBehaviorRepairSupport {
     private TestCaseSpec repairCase(
             TestCaseSpec testCase,
             RuntimeSnapshot runtimeSnapshot,
+            UiRuntimeContract runtimeContract,
             SemanticSelectorCatalog selectorCatalog
     ) {
         List<TestStepSpec> steps = new ArrayList<>(testCase.steps() == null ? List.of() : testCase.steps());
-        normalizeObservationSurface(steps, runtimeSnapshot);
+        normalizeObservationSurface(steps, testCase, runtimeContract);
         repairKeyboardSetup(steps);
         injectRunningStartPreconditions(steps, testCase, selectorCatalog);
-        repairObservableSequences(steps, runtimeSnapshot);
+        repairObservableSequences(steps, testCase, runtimeContract);
         softenBrittleScoreAssertions(steps);
         softenBrittleControlAssertions(steps);
         return new TestCaseSpec(
@@ -145,60 +148,51 @@ final class TestCaseBehaviorRepairSupport {
         steps.addAll(insertIndex, injected);
     }
 
-    private void repairObservableSequences(List<TestStepSpec> steps, RuntimeSnapshot runtimeSnapshot) {
+    private void repairObservableSequences(List<TestStepSpec> steps, TestCaseSpec testCase, UiRuntimeContract runtimeContract) {
         for (int index = 0; index < steps.size(); index++) {
             TestStepAction action = steps.get(index).action();
             if (action == null || !action.isObservablePostcondition()) {
                 continue;
             }
-            repairObservableSequence(steps, runtimeSnapshot, action, index);
+            repairObservableSequence(steps, testCase, runtimeContract, action, index);
         }
     }
 
-    private void normalizeObservationSurface(List<TestStepSpec> steps, RuntimeSnapshot runtimeSnapshot) {
-        if (runtimeSnapshot == null || runtimeSnapshot.canvasCount() > 0 || steps.isEmpty()) {
+    private void normalizeObservationSurface(List<TestStepSpec> steps, TestCaseSpec testCase, UiRuntimeContract runtimeContract) {
+        if (steps.isEmpty()) {
             return;
         }
-        String domSelector = preferredDomObservationSelector(runtimeSnapshot);
+        UiObservationTarget target = observationTarget(testCase, runtimeContract);
+        if (target == null) {
+            return;
+        }
         for (int index = 0; index < steps.size(); index++) {
             TestStepSpec step = steps.get(index);
-            if (step.action() == TestStepAction.SNAPSHOT_CANVAS_HASH) {
-                steps.set(index, new TestStepSpec(
-                        TestStepAction.SNAPSHOT_DOM_SIGNATURE,
-                        domSelector,
-                        null,
-                        null,
-                        null,
-                        blank(step.text()),
-                        step.optional(),
-                        TestStepSemantic.PRIMARY_SURFACE
-                ));
+            if (step.action() == TestStepAction.SNAPSHOT_CANVAS_HASH
+                    || step.action() == TestStepAction.SNAPSHOT_DOM_SIGNATURE) {
+                steps.set(index, observationPolicy.snapshotStep(target, blank(step.text()), step.optional()));
                 continue;
             }
-            if (step.action() == TestStepAction.ASSERT_CANVAS_HASH_CHANGED) {
-                steps.set(index, new TestStepSpec(
-                        TestStepAction.ASSERT_DOM_SIGNATURE_CHANGED,
-                        domSelector,
-                        null,
-                        null,
-                        null,
-                        blank(step.text()),
-                        step.optional(),
-                        TestStepSemantic.PRIMARY_SURFACE
-                ));
+            if (step.action() == TestStepAction.ASSERT_CANVAS_HASH_CHANGED
+                    || step.action() == TestStepAction.ASSERT_DOM_SIGNATURE_CHANGED) {
+                steps.set(index, observationPolicy.changedAssertion(target, blank(step.text()), step.optional()));
                 continue;
             }
-            if (step.action() == TestStepAction.ASSERT_CANVAS_MIN) {
-                steps.set(index, new TestStepSpec(
-                        TestStepAction.ASSERT_SELECTOR,
-                        domSelector,
-                        null,
-                        null,
-                        null,
-                        null,
-                        step.optional(),
-                        TestStepSemantic.PRIMARY_SURFACE
-                ));
+            if (step.action() == TestStepAction.ASSERT_CANVAS_MIN
+                    || (step.action() == TestStepAction.ASSERT_SELECTOR && step.semantic() == TestStepSemantic.PRIMARY_SURFACE)) {
+                TestStepSpec presenceAssertion = observationPolicy.presenceAssertion(target);
+                if (presenceAssertion != null) {
+                    steps.set(index, new TestStepSpec(
+                            presenceAssertion.action(),
+                            presenceAssertion.selector(),
+                            null,
+                            null,
+                            null,
+                            null,
+                            step.optional(),
+                            TestStepSemantic.PRIMARY_SURFACE
+                    ));
+                }
             }
         }
     }
@@ -254,7 +248,8 @@ final class TestCaseBehaviorRepairSupport {
 
     private void repairObservableSequence(
             List<TestStepSpec> steps,
-            RuntimeSnapshot runtimeSnapshot,
+            TestCaseSpec testCase,
+            UiRuntimeContract runtimeContract,
             TestStepAction assertAction,
             int assertIndex
     ) {
@@ -268,7 +263,7 @@ final class TestCaseBehaviorRepairSupport {
         }
         int snapshotIndex = findPreviousActionIndex(steps, assertIndex, snapshotAction);
         if (snapshotIndex < 0) {
-            steps.add(interactiveIndex, buildSnapshotStep(assertAction, steps.get(assertIndex), runtimeSnapshot));
+            steps.add(interactiveIndex, buildSnapshotStep(assertAction, steps.get(assertIndex), testCase, runtimeContract));
             assertIndex++;
         } else if (snapshotIndex > interactiveIndex) {
             TestStepSpec snapshotStep = steps.remove(snapshotIndex);
@@ -278,7 +273,7 @@ final class TestCaseBehaviorRepairSupport {
             }
             assertIndex = indexOfReference(steps, steps.get(assertIndex));
         }
-        ensureWaitBetweenInteractionAndAssertion(steps, assertAction, assertIndex);
+        ensureWaitBetweenInteractionAndAssertion(steps, testCase, assertAction, assertIndex);
     }
 
     private void softenBrittleScoreAssertions(List<TestStepSpec> steps) {
@@ -315,7 +310,12 @@ final class TestCaseBehaviorRepairSupport {
         }
     }
 
-    private void ensureWaitBetweenInteractionAndAssertion(List<TestStepSpec> steps, TestStepAction assertAction, int assertIndex) {
+    private void ensureWaitBetweenInteractionAndAssertion(
+            List<TestStepSpec> steps,
+            TestCaseSpec testCase,
+            TestStepAction assertAction,
+            int assertIndex
+    ) {
         int interactiveIndex = findPreviousInteractiveIndex(steps, assertIndex);
         if (interactiveIndex < 0) {
             return;
@@ -333,7 +333,7 @@ final class TestCaseBehaviorRepairSupport {
                     null,
                     null,
                     null,
-                    TestPlanningPolicy.strengthenedInteractionWaitMs(),
+                    observationPolicy.observationWaitMs(testCase == null ? List.of() : testCase.capabilities()),
                     null,
                     false
             ));
@@ -343,47 +343,14 @@ final class TestCaseBehaviorRepairSupport {
     private TestStepSpec buildSnapshotStep(
             TestStepAction assertAction,
             TestStepSpec assertStep,
-            RuntimeSnapshot runtimeSnapshot
+            TestCaseSpec testCase,
+            UiRuntimeContract runtimeContract
     ) {
-        if (assertAction == TestStepAction.ASSERT_CANVAS_HASH_CHANGED) {
-            String selector = blank(assertStep.selector()).isBlank() ? defaultCanvasSelector() : assertStep.selector();
-            return new TestStepSpec(
-                    TestStepAction.SNAPSHOT_CANVAS_HASH,
-                    selector,
-                    null,
-                    null,
-                    null,
-                    blank(assertStep.text()),
-                    false,
-                    TestStepSemantic.PRIMARY_SURFACE
-            );
+        UiObservationTarget target = observationTarget(testCase, runtimeContract);
+        if (target == null) {
+            return assertStep;
         }
-        String selector = blank(assertStep.selector()).isBlank() ? preferredDomObservationSelector(runtimeSnapshot) : assertStep.selector();
-        return new TestStepSpec(
-                TestStepAction.SNAPSHOT_DOM_SIGNATURE,
-                selector,
-                null,
-                null,
-                null,
-                blank(assertStep.text()),
-                false,
-                TestStepSemantic.PRIMARY_SURFACE
-        );
-    }
-
-    private String defaultCanvasSelector() {
-        return "canvas";
-    }
-
-    private String preferredDomObservationSelector(RuntimeSnapshot runtimeSnapshot) {
-        if (runtimeSnapshot == null || runtimeSnapshot.selectors() == null || runtimeSnapshot.selectors().isEmpty()) {
-            return "body";
-        }
-        return runtimeSnapshot.selectors().stream()
-                .filter(selector -> selector != null && !selector.isBlank())
-                .filter(selector -> selector.startsWith("#") || selector.startsWith("."))
-                .findFirst()
-                .orElse("body");
+        return observationPolicy.snapshotStep(target, blank(assertStep.text()), false);
     }
 
     private boolean requiresRunningState(TestCaseSpec testCase, List<TestStepSpec> steps) {
@@ -600,11 +567,26 @@ final class TestCaseBehaviorRepairSupport {
         return value == null ? "" : value;
     }
 
+    private UiObservationTarget observationTarget(TestCaseSpec testCase, UiRuntimeContract runtimeContract) {
+        if (testCase != null
+                && testCase.capabilities() != null
+                && testCase.capabilities().contains(CapabilitySurface.TIMED_STATE_PROGRESSION)) {
+            UiObservationTarget timedTarget = observationPolicy.requiredTarget(
+                    runtimeContract,
+                    CapabilitySurface.TIMED_STATE_PROGRESSION
+            );
+            if (timedTarget != null) {
+                return timedTarget;
+            }
+        }
+        return observationPolicy.requiredTarget(runtimeContract, CapabilitySurface.PRIMARY_INTERACTION);
+    }
+
     private record SemanticSelectorCatalog(String runStateEntrySelector) {
 
-        static SemanticSelectorCatalog fromCases(List<TestCaseSpec> cases) {
+        static SemanticSelectorCatalog fromCases(List<TestCaseSpec> cases, UiRuntimeContract runtimeContract) {
             if (cases == null || cases.isEmpty()) {
-                return new SemanticSelectorCatalog("");
+                return new SemanticSelectorCatalog(firstContractRunStateEntry(runtimeContract));
             }
             for (TestCaseSpec testCase : cases) {
                 if (testCase == null || testCase.steps() == null) {
@@ -618,11 +600,20 @@ final class TestCaseBehaviorRepairSupport {
                     }
                 }
             }
-            return new SemanticSelectorCatalog("");
+            return new SemanticSelectorCatalog(firstContractRunStateEntry(runtimeContract));
         }
 
         private static String blankValue(String value) {
             return value == null ? "" : value;
+        }
+
+        private static String firstContractRunStateEntry(UiRuntimeContract runtimeContract) {
+            if (runtimeContract == null
+                    || runtimeContract.runStateEntryTargets() == null
+                    || runtimeContract.runStateEntryTargets().isEmpty()) {
+                return "";
+            }
+            return blankValue(runtimeContract.runStateEntryTargets().getFirst());
         }
     }
 }

@@ -7,7 +7,7 @@ package devflow.agent.executor;
  * 当前文件更适合先走宿主级 patch，还是直接进入宿主内部的嵌入 patch。
  * 这样路由决策就不再依赖 prose 猜测或隐式结构启发。
  */
-enum FileEditScope {
+public enum FileEditScope {
     AUTO,
     HOST_HTML_PATCH,
     INLINE_SCRIPT_PATCH,

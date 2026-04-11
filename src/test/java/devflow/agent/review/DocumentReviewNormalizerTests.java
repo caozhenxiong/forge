@@ -13,6 +13,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DocumentReviewNormalizerTests {
 
@@ -166,6 +168,48 @@ class DocumentReviewNormalizerTests {
 
         assertEquals(ReviewDecision.REVISION_REQUIRED, result.decision());
         assertEquals(FixMode.PATCH, result.fixMode());
+        assertTrue(result.changeRequest().contains("量化指标"));
+        assertTrue(result.actionItems().contains("不要新增新的 hard.* 或 validation.*"));
+    }
+
+    @Test
+    void rewritesContradictoryActionItemsWhenUnsupportedQuantitativeConstraintIsPresent() {
+        ReviewResult result = normalizer.normalize(
+                dummyRun(),
+                StageType.PRD,
+                """
+                # 产品需求文档
+
+                ## 4. 非功能要求
+                - 页面加载时间不超过 2 秒
+                """,
+                new ReviewResult(
+                        ReviewDecision.REVISION_REQUIRED,
+                        FixMode.PATCH,
+                        "文档包含无来源量化指标。",
+                        "请删除这些量化指标。",
+                        "页面加载时间 2 秒没有 authority。",
+                        "更新Source Metadata增加hard.performance.pageLoadTime: <2s"
+                ),
+                new ReviewSemantics(
+                        true,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        true,
+                        false
+                )
+        );
+
+        assertTrue(result.actionItems().contains("删除候选文档中无来源支撑的量化阈值"));
+        assertFalse(result.actionItems().contains("hard.performance.pageLoadTime"));
     }
 
     private RunRecord dummyRun() {

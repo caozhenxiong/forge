@@ -7,6 +7,7 @@ import devflow.agent.loop.AgentTurnLoop;
 import devflow.agent.orchestrator.RunRecord;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Path;
 
@@ -66,6 +67,7 @@ class ImplementationPlanner {
             ProjectFingerprint fingerprint,
             DocumentLanguage language,
             FixMode fixMode,
+            ImplementationPatchTarget implementationPatchTarget,
             String requirementCatalog,
             ImplementationContinuationConstraints continuationConstraints
     ) {
@@ -86,6 +88,7 @@ class ImplementationPlanner {
                     qualityPlan,
                     language,
                     fixMode,
+                    implementationPatchTarget,
                     requirementCatalog,
                     continuationConstraints,
                     planningFeedback
@@ -100,6 +103,7 @@ class ImplementationPlanner {
                     contractView,
                     qualityPlan,
                     fingerprint,
+                    implementationPatchTarget,
                     continuationConstraints
             );
             ImplementationPlan plan = planningTurnOutcome.plan();

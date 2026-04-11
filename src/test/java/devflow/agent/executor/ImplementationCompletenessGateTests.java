@@ -184,7 +184,7 @@ class ImplementationCompletenessGateTests {
     }
 
     @Test
-    void structureRiskBlocksEmbeddedInteractiveHtmlBeforeLateReview() throws Exception {
+    void structureRiskNoLongerBlocksSubtaskBeforeContractOrRunnableChecks() throws Exception {
         Files.writeString(
                 tempDir.resolve("index.html"),
                 """
@@ -258,7 +258,6 @@ class ImplementationCompletenessGateTests {
                 true
         ));
 
-        assertFalse(outcome.report().passed());
-        assertEquals("SUBTASK_STRUCTURE_RISK", outcome.report().issues().getFirst().code());
+        assertTrue(outcome.report().passed());
     }
 }

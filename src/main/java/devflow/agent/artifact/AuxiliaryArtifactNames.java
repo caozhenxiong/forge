@@ -1,5 +1,7 @@
 package devflow.agent.artifact;
 
+import devflow.agent.orchestrator.StageType;
+
 /**
  * 集中维护 run 目录下的辅助产物文件名。
  *
@@ -32,5 +34,16 @@ public final class AuxiliaryArtifactNames {
     public static final String TEST_EXECUTION = "test_execution.md";
 
     private AuxiliaryArtifactNames() {
+    }
+
+    public static String stageDirective(StageType stageType) {
+        return switch (stageType) {
+            case ANALYSIS -> "analysis_directive.md";
+            case PRD -> "prd_directive.md";
+            case DESIGN -> "design_directive.md";
+            case IMPLEMENTATION -> "implementation_directive.md";
+            case CODE_REVIEW -> "code_review_directive.md";
+            case TEST -> "test_directive.md";
+        };
     }
 }

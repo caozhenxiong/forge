@@ -17,6 +17,7 @@ final class WholeFilePromptAssembler {
     static PatchGenerationPrompt assemble(
             Path relativePath,
             DeliveryMode deliveryMode,
+            HtmlRuntimeOwnershipContract runtimeContract,
             String planSummary,
             String taskPackageMarkdown,
             String reason,
@@ -58,6 +59,15 @@ final class WholeFilePromptAssembler {
                     4. 主脚本使用 <script id="app-script">...</script>
                     5. 后续精确改写会依赖这些稳定锚点，请保持这些 id 不变
                     """;
+            if (runtimeContract != null && runtimeContract.active() && runtimeContract.externalCompanion()) {
+                system = system + """
+
+                        当前 runtime contract：
+                        1. 宿主 HTML 不得承载主运行时
+                        2. 不要输出 app-script 主逻辑
+                        3. 只能接入这些 runtime 根脚本：%s
+                        """.formatted(String.join(", ", runtimeContract.runtimePathStrings()));
+            }
         }
         String user = """
                 总体实现摘要：

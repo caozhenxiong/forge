@@ -2,6 +2,7 @@ package devflow.agent.executor;
 
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;
+import devflow.agent.review.ImplementationPatchTarget;
 
 /**
  * 负责 implementation 主报告里的阶段完成状态 section。
@@ -26,6 +27,12 @@ final class ImplementationStageStatusSectionRenderer {
         if (architectCheckResult != null && !architectCheckResult.passed()) {
             builder.append("- architectFailureReason: ").append(architectCheckResult.failureReason()).append('\n');
             builder.append("- architectFailureDetails: ").append(architectCheckResult.details()).append('\n');
+            if (architectCheckResult.implementationPatchTarget() != null
+                    && architectCheckResult.implementationPatchTarget() != ImplementationPatchTarget.NONE) {
+                builder.append("- implementationPatchTarget: ")
+                        .append(architectCheckResult.implementationPatchTarget())
+                        .append('\n');
+            }
         }
         builder.append("- incompleteSubtasks: ").append(stageStatus.incompleteSubtasks().isEmpty()
                 ? PlaceholderValues.machineNone()

@@ -18,6 +18,8 @@ public final class QualityPlanFactory {
     private final FeatureProfiler featureProfiler = new FeatureProfiler();
     private final QualityIntentResolver qualityIntentResolver = new QualityIntentResolver();
     private final QualityPolicyResolver qualityPolicyResolver = new QualityPolicyResolver();
+    private final HtmlStructureRuntimeSignalResolver htmlStructureRuntimeSignalResolver =
+            new HtmlStructureRuntimeSignalResolver();
 
     public QualityPlan build(
             Path projectPath,
@@ -28,9 +30,14 @@ public final class QualityPlanFactory {
             Collection<String> requiredCapabilitySurfaces
     ) {
         QualityRules rules = qualityRulesLoader.load(projectPath);
+        RuntimeSnapshot normalizedRuntimeSnapshot = htmlStructureRuntimeSignalResolver.resolve(
+                projectPath,
+                fingerprint,
+                runtimeSnapshot
+        );
         return qualityPolicyResolver.resolve(
                 rules,
-                featureProfiler.profile(fingerprint, contractView, validationMetadata, runtimeSnapshot),
+                featureProfiler.profile(fingerprint, contractView, validationMetadata, normalizedRuntimeSnapshot),
                 qualityIntentResolver.resolve(rules, contractView, validationMetadata, requiredCapabilitySurfaces),
                 contractView,
                 validationMetadata

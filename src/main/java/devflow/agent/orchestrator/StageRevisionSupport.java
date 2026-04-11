@@ -6,6 +6,7 @@ import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.repair.DiagnosisAgent;
 import devflow.agent.repair.RepairAgent;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.supervisor.SupervisorDecision;
@@ -88,10 +89,12 @@ public class StageRevisionSupport {
                 stageType,
                 ReviewDecision.REJECTED,
                 FixMode.REWORK,
+                ImplementationPatchTarget.NONE,
                 "Rejected by " + reviewer,
                 reason,
                 "",
                 "",
+                java.util.List.of(),
                 null,
                 stageFlowPolicy.rerouteStage(stageType, FixMode.REWORK),
                 false,
@@ -109,10 +112,12 @@ public class StageRevisionSupport {
             StageType stageType,
             ReviewDecision decision,
             FixMode fixMode,
+            ImplementationPatchTarget implementationPatchTarget,
             String summary,
             String changeRequest,
             String evidence,
             String actionItems,
+            java.util.List<devflow.agent.executor.FileChange> overrideChanges,
             SupervisorDecision supervisorDecision,
             StageType rerouteStage,
             boolean forceRepair,
@@ -138,10 +143,12 @@ public class StageRevisionSupport {
                 stageType,
                 rerouteStage,
                 fixMode,
+                implementationPatchTarget,
                 summary,
                 changeRequest,
                 evidence,
                 actionItems,
+                overrideChanges,
                 supervisorDecision,
                 forceRepair,
                 repeatedIssue

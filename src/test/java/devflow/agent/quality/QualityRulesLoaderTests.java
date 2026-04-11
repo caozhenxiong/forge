@@ -52,7 +52,7 @@ class QualityRulesLoaderTests {
     void resourceDefaultsRemainAvailableWithoutProjectRuleFile() {
         QualityRules rules = new QualityRulesLoader().load(tempDir);
 
-        assertTrue(rules.structureRules().preferLogicExternalization());
+        assertFalse(rules.structureRules().preferLogicExternalization());
         assertEquals(3, rules.verificationRules().minimumRequiredCases());
         assertTrue(rules.experienceRules().gateOnMissingRequiredExperienceCoverage());
         assertTrue(rules.experienceRules().promoteTimedProgressionCoverageFromFeatureProfile());

@@ -31,6 +31,8 @@ final class SupervisorGuidanceRenderer {
         String directiveBlock = ExecutionDirectiveProtocol.renderBlock(
                 new ExecutionDirectivePayload(
                         null,
+                        null,
+                        java.util.List.of(),
                         false,
                         false,
                         supervisorDecision.deliveryPolicy().mode() == null ? null : supervisorDecision.deliveryPolicy().mode().wireValue(),

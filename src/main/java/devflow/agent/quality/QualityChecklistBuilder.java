@@ -13,13 +13,6 @@ public final class QualityChecklistBuilder {
             return QualityChecklist.empty();
         }
         List<String> structureChecks = new ArrayList<>();
-        if (plan.structurePolicy().preferLogicExternalization() && plan.structureRiskReport().preferLogicExternalization()) {
-            structureChecks.add("主要交互逻辑应优先外提到独立运行脚本/模块，而不是继续堆在宿主文档里。");
-        }
-        if (plan.structurePolicy().blockOnUnjustifiedEmbeddedDominance()
-                && plan.structureRiskReport().justificationRequired()) {
-            structureChecks.add("如果继续保留嵌入式主逻辑，必须给出明确结构性 justification。");
-        }
 
         List<String> coverageChecks = new ArrayList<>();
         for (CapabilitySurface surface : plan.capabilityMatrix().requiredSurfaces()) {

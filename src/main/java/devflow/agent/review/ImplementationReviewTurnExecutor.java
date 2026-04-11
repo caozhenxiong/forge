@@ -33,6 +33,11 @@ final class ImplementationReviewTurnExecutor {
             7. 只有在结构明显错误、重复实现、入口未接线、模块边界混乱时才使用 REWORK；其余优先 PATCH。
             8. 如果输入里带有 Repair Brief 或 Repair Alignment，必须把它们视为当前轮修复契约，逐项检查 must-fix-first、forbidden directions 和 acceptance checks 是否满足。
             9. 如果 Repair Brief 明确要求的关键修复项仍未落实，不要批准当前实现。
+            10. implementation 阶段若给出 PATCH，必须同时给出 implementationPatchTarget：
+                - PATCH_EXISTING_IMPLEMENTATION：现有实现存在局部能力缺口、编译/测试失败或遗漏，需基于现有文件继续补齐
+                - PATCH_RUNTIME_WIRING：主运行时结构已定，只需修复入口接线、资源引用、初始化或模块连通
+            11. 若 implementationPatchTarget=PATCH_EXISTING_IMPLEMENTATION，必须额外返回结构化 overrideChanges，明确每个受影响文件的 path/action/reason/editScope/runtimeOwnership/hostHtmlPatchRequired。
+            12. 若 decision=APPROVED 或 fixMode=REWORK，implementationPatchTarget 必须为 NONE，overrideChanges 必须为空。
             """;
 
     private final LlmProvider llmProvider;

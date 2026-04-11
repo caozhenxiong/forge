@@ -47,7 +47,7 @@ class GeneratedContentGate implements DeterministicGate<GeneratedContentGateInpu
                 input.projectPath(),
                 input.relativePath(),
                 input.content(),
-                input.runtimeOwnership(),
+                input.runtimeContract(),
                 input.relatedPaths()
         );
         if (validationFailure == null) {
@@ -91,7 +91,7 @@ class GeneratedContentGate implements DeterministicGate<GeneratedContentGateInpu
             Path projectPath,
             Path relativePath,
             String content,
-            RuntimeOwnershipMode runtimeOwnership,
+            HtmlRuntimeOwnershipContract runtimeContract,
             List<Path> relatedPaths
     ) {
         if (content == null || content.isBlank()) {
@@ -114,7 +114,7 @@ class GeneratedContentGate implements DeterministicGate<GeneratedContentGateInpu
                     projectPath,
                     relativePath,
                     content,
-                    runtimeOwnership,
+                    runtimeContract,
                     relatedPaths
             );
             if (htmlFailure != null) {

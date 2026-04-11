@@ -117,7 +117,7 @@ class GeneratedContentGateTests {
                         </body>
                         </html>
                         """,
-                RuntimeOwnershipMode.EXTERNAL_COMPANION,
+                HtmlRuntimeOwnershipContract.externalCompanion(Path.of("index.html"), List.of(Path.of("index.app.js"))),
                 List.of(Path.of("index.app.js"))
         ));
 
@@ -145,7 +145,7 @@ class GeneratedContentGateTests {
                         </body>
                         </html>
                         """,
-                RuntimeOwnershipMode.EXTERNAL_COMPANION,
+                HtmlRuntimeOwnershipContract.externalCompanion(Path.of("index.html"), List.of(Path.of("index.app.js"))),
                 List.of(Path.of("index.app.js"))
         ));
 

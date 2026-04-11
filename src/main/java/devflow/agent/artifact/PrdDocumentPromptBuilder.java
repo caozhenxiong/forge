@@ -1,5 +1,6 @@
 package devflow.agent.artifact;
 
+import devflow.agent.context.ContractMetadataKeys;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.orchestrator.RunRecord;
 import devflow.agent.orchestrator.StageType;
@@ -29,6 +30,7 @@ final class PrdDocumentPromptBuilder {
     ) {
         DocumentLanguage language = context.language();
         String system = promptTemplateCatalog.documentGenerationSystemPrompt(StageType.PRD, language);
+        String performanceGuidance = prdPerformanceGuidance();
         String user = switch (context.mode()) {
             case FULL_DRAFT -> """
                     基于下面的需求分析内容，输出《产品需求文档》。
@@ -64,6 +66,7 @@ final class PrdDocumentPromptBuilder {
                     16. %s
                     17. %s
                     18. %s
+                    19. %s
 
                     输出模板：
                     %s
@@ -74,6 +77,7 @@ final class PrdDocumentPromptBuilder {
                     DocumentPromptValueSupport.blankIfNull(context.previousDraft()),
                     promptTemplateCatalog.contractMetadataRequirement(language, 7, "page-opens, input-works"),
                     language.proseInstruction(),
+                    performanceGuidance,
                     promptTemplateCatalog.directLaunchClarification(language),
                     promptTemplateCatalog.sourceAndConstraintGuidance(language, StageType.PRD),
                     promptTemplateCatalog.sourceMetadataRequirement(language, 8),
@@ -110,6 +114,7 @@ final class PrdDocumentPromptBuilder {
                     9. %s
                     10. %s
                     11. %s
+                    12. %s
                     """.formatted(
                     analysisForPrompt,
                     note,
@@ -118,6 +123,7 @@ final class PrdDocumentPromptBuilder {
                     draftAssembler.renderRequestedSections(context.targetSections()),
                     promptTemplateCatalog.contractMetadataRuntimeKeyReminder(language),
                     language.proseInstruction(),
+                    performanceGuidance,
                     promptTemplateCatalog.directLaunchClarification(language),
                     promptTemplateCatalog.sourceAndConstraintGuidance(language, StageType.PRD),
                     promptTemplateCatalog.sourceMetadataRequirement(language, 8),
@@ -150,12 +156,14 @@ final class PrdDocumentPromptBuilder {
                     9. %s
                     10. %s
                     11. %s
+                    12. %s
                     """.formatted(
                     analysisForPrompt,
                     note,
                     context.authoritativeSourceMetadataBlock(),
                     DocumentPromptValueSupport.blankIfNull(context.previousOutline()),
                     language.proseInstruction(),
+                    performanceGuidance,
                     promptTemplateCatalog.directLaunchClarification(language),
                     promptTemplateCatalog.sourceAndConstraintGuidance(language, StageType.PRD),
                     promptTemplateCatalog.sourceMetadataRequirement(language, 8),
@@ -163,5 +171,12 @@ final class PrdDocumentPromptBuilder {
             );
         };
         return new DocumentGenerationPrompt(system, user);
+    }
+
+    String prdPerformanceGuidance() {
+        return "只有在上游已经通过 Contract Metadata.validation.* 或明确的 hard.* 约束声明了页面加载/交互响应等量化门槛时，才允许把它们写进 ## 4.1 性能 或 ## 5.2 质量验收；否则必须保持定性表达，不要自行发明 %s、%s、FPS 等数值阈值。".formatted(
+                ContractMetadataKeys.VALIDATION_PAGE_LOAD_MAX_MS,
+                ContractMetadataKeys.VALIDATION_INTERACTION_MAX_MS
+        );
     }
 }

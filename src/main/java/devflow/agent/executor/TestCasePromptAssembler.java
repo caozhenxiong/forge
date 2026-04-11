@@ -40,7 +40,8 @@ final class TestCasePromptAssembler {
             String design,
             String implementationReport,
             RuntimeSnapshot runtimeSnapshot,
-            QualityPlan qualityPlan
+            QualityPlan qualityPlan,
+            UiRuntimeContract runtimeContract
     ) {
         ContractView contractView = contractExtractor.extractContractView(goal, constraints, "", prd, design);
         String context = workspace.collectContext(projectPath, 8, 2400, 9000);
@@ -138,6 +139,9 @@ final class TestCasePromptAssembler {
                 运行时快照：
                 %s
 
+                运行时观测契约：
+                %s
+
                 当前代码上下文：
                 %s
                 """.formatted(
@@ -153,6 +157,7 @@ final class TestCasePromptAssembler {
                 TestStepSemantic.wireCatalog(),
                 shrink(implementationReport),
                 runtimeSnapshot == null ? "" : runtimeSnapshot.toMarkdown(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints)),
+                runtimeContract == null ? "" : runtimeContract.toMarkdown(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints)),
                 context
         );
         return new TestCaseGenerationPrompt(systemPrompt, userPrompt);

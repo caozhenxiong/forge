@@ -2,6 +2,7 @@ package devflow.agent.executor;
 
 import devflow.agent.context.ContractView;
 import devflow.agent.quality.QualityPlan;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.validation.ProjectFingerprint;
 import java.util.List;
 import java.util.stream.Stream;
@@ -19,6 +20,7 @@ final class ImplementationPlanGateInputBuilder {
             ProjectFingerprint fingerprint,
             ContractView contractView,
             QualityPlan qualityPlan,
+            ImplementationPatchTarget implementationPatchTarget,
             ImplementationContinuationConstraints continuationConstraints,
             ImplementationPlan plan
     ) {
@@ -49,6 +51,7 @@ final class ImplementationPlanGateInputBuilder {
                 plan.subtasks().stream().anyMatch(subtask ->
                         subtask.runnableMilestone() && subtask.deliveryMode() != DeliveryMode.SKELETON),
                 qualityPlan,
+                implementationPatchTarget,
                 continuationConstraints,
                 plan.subtasks()
         );

@@ -1,10 +1,14 @@
 package devflow.agent.repair;
 
+import devflow.agent.executor.FileChange;
 import devflow.agent.i18n.ArtifactLabels;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.protocol.ExecutionDirectivePayload;
 import devflow.agent.protocol.ExecutionDirectiveProtocol;
+import devflow.agent.protocol.FileChangePayload;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
+import java.util.List;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -12,11 +16,13 @@ public class RepairAgent {
 
     public String buildRepairNote(
             FixMode requestedMode,
+            ImplementationPatchTarget implementationPatchTarget,
             String summary,
             String changeRequest,
             String evidence,
             String actionItems,
-            java.util.List<String> requiredCapabilitySurfaces,
+            List<FileChange> overrideChanges,
+            List<String> requiredCapabilitySurfaces,
             RepairBrief repairBrief,
             DocumentLanguage language
     ) {
@@ -26,6 +32,8 @@ public class RepairAgent {
         String directiveBlock = ExecutionDirectiveProtocol.renderBlock(
                 new ExecutionDirectivePayload(
                         effectiveMode.name(),
+                        implementationPatchTarget == null ? ImplementationPatchTarget.NONE.name() : implementationPatchTarget.name(),
+                        overrideChanges == null ? List.<FileChangePayload>of() : overrideChanges.stream().map(this::toPayload).toList(),
                         true,
                         true,
                         null,
@@ -34,20 +42,20 @@ public class RepairAgent {
                         null,
                         null,
                         null,
-                        java.util.List.of(),
+                        List.of(),
                         repairBrief.mustFixFirst(),
                         repairBrief.forbiddenDirections(),
                         repairBrief.acceptanceChecks(),
-                        requiredCapabilitySurfaces == null ? java.util.List.of() : requiredCapabilitySurfaces,
-                        java.util.List.of(),
+                        requiredCapabilitySurfaces == null ? List.of() : requiredCapabilitySurfaces,
+                        List.of(),
                         summary,
                         changeRequest,
                         evidence,
                         actionItems,
                         null,
                         null,
-                        java.util.List.of(),
-                        java.util.List.of(),
+                        List.of(),
+                        List.of(),
                         null,
                         null,
                         null,
@@ -123,5 +131,19 @@ public class RepairAgent {
                 .map(value -> "- " + value.trim())
                 .reduce((left, right) -> left + "\n" + right)
                 .orElse("-");
+    }
+
+    private FileChangePayload toPayload(FileChange change) {
+        if (change == null) {
+            return null;
+        }
+        return new FileChangePayload(
+                change.path(),
+                change.action() == null ? null : change.action().name(),
+                blank(change.reason()),
+                change.effectiveEditScope().name(),
+                change.runtimeOwnership() == null ? null : change.runtimeOwnership().name(),
+                change.hostHtmlPatchRequired()
+        );
     }
 }

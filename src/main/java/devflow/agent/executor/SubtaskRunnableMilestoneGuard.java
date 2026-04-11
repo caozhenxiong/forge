@@ -3,6 +3,7 @@ package devflow.agent.executor;
 import devflow.agent.context.ContractView;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import java.nio.file.Path;
@@ -43,7 +44,10 @@ final class SubtaskRunnableMilestoneGuard {
                 language.choose("当前可运行里程碑尚未满足执行契约。", "The current runnable milestone does not yet satisfy the execution contract."),
                 language.choose("请补齐入口接线、运行时初始化或模块集成，使当前交付物达到可启动、可验证状态。", "Add the missing entry wiring, runtime initialization, or module integration so the deliverable becomes launchable and verifiable."),
                 runnableCheck.details(),
-                language.choose("优先修复入口接线、模块加载和运行时初始化，不要停留在静态骨架。", "Prioritize entry wiring, module loading, and runtime initialization instead of stopping at a static shell.")
+                language.choose("优先修复入口接线、模块加载和运行时初始化，不要停留在静态骨架。", "Prioritize entry wiring, module loading, and runtime initialization instead of stopping at a static shell."),
+                runnableCheck == null
+                        ? ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
+                        : runnableCheck.implementationPatchTarget()
         );
     }
 }

@@ -19,6 +19,7 @@ import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.quality.QualityPlanFactory;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.validation.ProjectFingerprint;
 import devflow.agent.validation.ProjectInspector;
 import java.nio.file.Path;
@@ -76,6 +77,9 @@ class ImplementationContextResolver {
         ExecutionDirectivePayload directives = ExecutionDirectiveProtocol.parseMerged(note);
         DeliveryPolicyEnvelope deliveryPolicy = directiveResolver.resolveDeliveryPolicy(directives);
         FixMode fixMode = directiveResolver.resolveFixMode(directives);
+        ImplementationPatchTarget implementationPatchTarget =
+                directiveResolver.resolveImplementationPatchTarget(directives);
+        java.util.List<FileChange> overrideChanges = directiveResolver.resolveOverrideChanges(directives);
         ProjectFingerprint fingerprint = projectInspector.inspect(projectPath);
         ContractView contractView = authoritativeContractView == null
                 ? contractExtractor.extractContractView(runRecord.goal(), runRecord.constraints(), analysis, prd, design)
@@ -91,9 +95,9 @@ class ImplementationContextResolver {
         );
         ImplementationContinuationConstraints continuationConstraints =
                 continuationConstraintResolver.resolve(previousStateJson, fingerprint);
-        boolean preferSkeletonFlow = deliveryPolicy.mode() == DeliveryMode.SKELETON
+        boolean preferSkeletonFlow = fixMode != FixMode.PATCH && (deliveryPolicy.mode() == DeliveryMode.SKELETON
                 || (deliveryPolicy.forceBacklogSplit() && deliveryPolicy.mode() != DeliveryMode.PATCH)
-                || shouldPreferProgressiveDelivery(contractView, fingerprint);
+                || shouldPreferProgressiveDelivery(contractView, fingerprint));
         SharedContextBundle sharedContextBundle = sharedContextFactory.build(
                 runRecord,
                 note,
@@ -122,6 +126,8 @@ class ImplementationContextResolver {
                 performanceValidationGuidance,
                 deliveryPolicy,
                 fixMode,
+                implementationPatchTarget,
+                overrideChanges,
                 fingerprint,
                 contractView,
                 qualityPlan,

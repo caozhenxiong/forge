@@ -9,19 +9,24 @@ import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ContextProjector;
 import devflow.agent.executor.ImplementationExecutor;
 import devflow.agent.executor.GenerationTelemetry;
+import devflow.agent.executor.ModelRole;
 import devflow.agent.executor.LlmProvider;
 import devflow.agent.executor.TestExecutor;
 import devflow.agent.loop.AgentLoop;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.project.WorkspaceSnapshotStore;
 import devflow.agent.protocol.ArtifactBlockKind;
+import devflow.agent.protocol.ReviewArtifactPayload;
 import devflow.agent.protocol.ReviewHistoryEntryPayload;
 import devflow.agent.protocol.StructuredArtifactBlocks;
 import devflow.agent.repair.DiagnosisAgent;
 import devflow.agent.repair.RepairAgent;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
+import devflow.agent.review.ReviewSemantics;
+import devflow.agent.review.StructuredReviewResult;
 import devflow.agent.review.StageReviewer;
 import devflow.agent.supervisor.SupervisorFallbackPolicy;
 import devflow.agent.supervisor.SupervisorAgent;
@@ -90,6 +95,17 @@ class DefaultWorkflowEngineTests {
         );
     }
 
+    private StageReviewer newStageReviewer(LlmProvider provider, WorkspaceSnapshotStore snapshotStore, TestExecutor testExecutor) {
+        return new StageReviewer(
+                provider,
+                snapshotStore,
+                testExecutor,
+                new devflow.agent.prompt.PromptTemplateCatalog(),
+                new devflow.agent.i18n.LanguagePolicy(),
+                new devflow.agent.loop.AgentTurnLoop()
+        );
+    }
+
     private DefaultWorkflowEngine newWorkflowEngine(
             FileRunRepository runRepository,
             FileArtifactStore artifactStore,
@@ -142,7 +158,7 @@ class DefaultWorkflowEngineTests {
                         runRepository,
                         artifactStore,
                         stageArtifactComposer,
-                        new StageReviewer(provider, snapshotStore, testExecutor),
+                        newStageReviewer(provider, snapshotStore, testExecutor),
                         new EventLogStore(runRepository),
                         snapshotStore,
                         new DiagnosisAgent(provider, artifactStore, new ObjectMapper()),
@@ -187,7 +203,7 @@ class DefaultWorkflowEngineTests {
                         runRepository,
                         artifactStore,
                         stageArtifactComposer,
-                        new StageReviewer(provider, snapshotStore, testExecutor),
+                        newStageReviewer(provider, snapshotStore, testExecutor),
                         eventLogStore,
                         snapshotStore,
                         new DiagnosisAgent(provider, artifactStore, new ObjectMapper()),
@@ -239,7 +255,7 @@ class DefaultWorkflowEngineTests {
                         runRepository,
                         artifactStore,
                         stageArtifactComposer,
-                        new StageReviewer(provider, snapshotStore, testExecutor),
+                        newStageReviewer(provider, snapshotStore, testExecutor),
                         eventLogStore,
                         snapshotStore,
                         new DiagnosisAgent(provider, artifactStore, new ObjectMapper()),
@@ -283,7 +299,7 @@ class DefaultWorkflowEngineTests {
                         runRepository,
                         artifactStore,
                         stageArtifactComposer,
-                        new StageReviewer(provider, snapshotStore, testExecutor),
+                        newStageReviewer(provider, snapshotStore, testExecutor),
                         eventLogStore,
                         snapshotStore,
                         new DiagnosisAgent(provider, artifactStore, new ObjectMapper()),
@@ -326,7 +342,7 @@ class DefaultWorkflowEngineTests {
                         runRepository,
                         artifactStore,
                         stageArtifactComposer,
-                        new StageReviewer(provider, snapshotStore, testExecutor),
+                        newStageReviewer(provider, snapshotStore, testExecutor),
                         new EventLogStore(runRepository),
                         snapshotStore,
                         new DiagnosisAgent(provider, artifactStore, new ObjectMapper()),
@@ -405,7 +421,7 @@ class DefaultWorkflowEngineTests {
                         runRepository,
                         artifactStore,
                         stageArtifactComposer,
-                        new StageReviewer(provider, snapshotStore, testExecutor),
+                        newStageReviewer(provider, snapshotStore, testExecutor),
                         new EventLogStore(runRepository),
                         snapshotStore,
                         new DiagnosisAgent(provider, artifactStore, new ObjectMapper()),
@@ -449,7 +465,11 @@ class DefaultWorkflowEngineTests {
                         new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
                         new ContractExtractor()
                 ),
-                new StageReviewer(provider, new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()), new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())),
+                newStageReviewer(
+                        provider,
+                        new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
+                        new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
+                ),
                 new EventLogStore(runRepository),
                 new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
                 diagnosisAgent,
@@ -504,7 +524,11 @@ class DefaultWorkflowEngineTests {
                         new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
                         new ContractExtractor()
                 ),
-                new StageReviewer(provider, new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()), new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())),
+                newStageReviewer(
+                        provider,
+                        new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
+                        new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
+                ),
                 new EventLogStore(runRepository),
                 new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
                 diagnosisAgent,
@@ -544,7 +568,7 @@ class DefaultWorkflowEngineTests {
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         WorkspaceSnapshotStore snapshotStore = new WorkspaceSnapshotStore(runRepository, workspace);
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 if (userPrompt.contains("目标：")) {
@@ -574,7 +598,7 @@ class DefaultWorkflowEngineTests {
                         runRepository,
                         artifactStore,
                         stageArtifactComposer,
-                        new StageReviewer(provider, snapshotStore, testExecutor),
+                        newStageReviewer(provider, snapshotStore, testExecutor),
                         new EventLogStore(runRepository),
                         snapshotStore,
                         new DiagnosisAgent(provider, artifactStore, new ObjectMapper()),
@@ -602,7 +626,7 @@ class DefaultWorkflowEngineTests {
     void diagnosisAgentCanUseModelToRecognizeSemanticallySameIssue() {
         FileRunRepository runRepository = new FileRunRepository();
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 if (systemPrompt.contains("FailureSimilarityJudge")) {
@@ -650,7 +674,11 @@ class DefaultWorkflowEngineTests {
                         new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
                         new ContractExtractor()
                 ),
-                new StageReviewer(provider, new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()), new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())),
+                newStageReviewer(
+                        provider,
+                        new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
+                        new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
+                ),
                 new EventLogStore(runRepository),
                 new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
                 diagnosisAgent,
@@ -685,7 +713,7 @@ class DefaultWorkflowEngineTests {
     }
 
     private LlmProvider fakeProvider() {
-        return new LlmProvider() {
+        return new StructuredTestLlmProvider() {
             private final AtomicReference<GenerationTelemetry> telemetryRef = new AtomicReference<>();
 
             @Override
@@ -816,6 +844,8 @@ class DefaultWorkflowEngineTests {
                             ## 7. Contract Metadata
                             - runtime.entryRequired: true
                             - runtime.entryKind: main-class
+                            - runtime.entryPackagingMode: not-applicable
+                            - runtime.runtimeOwnershipMode: not-applicable
                             - runtime.launchRequired: true
                             - runtime.surfaceRequired: false
                             - runtime.acceptanceSignals: cli-starts
@@ -857,6 +887,8 @@ class DefaultWorkflowEngineTests {
                             ## 8. Contract Metadata
                             - runtime.entryRequired: true
                             - runtime.entryKind: main-class
+                            - runtime.entryPackagingMode: not-applicable
+                            - runtime.runtimeOwnershipMode: not-applicable
                             - runtime.launchRequired: true
                             - runtime.surfaceRequired: false
                             - runtime.acceptanceSignals: cli-starts
@@ -871,16 +903,7 @@ class DefaultWorkflowEngineTests {
                             """;
                 }
                 if (systemPrompt.contains("资深代码审阅者")) {
-                    return """
-                            - decision: APPROVED
-                            - fixMode: NONE
-                            - summary: 变更简单且可接受
-                            - changeRequest:
-
-                            ## Findings
-
-                            - 无阻塞问题
-                            """;
+                    return approvedReviewArtifact("变更简单且可接受");
                 }
                 return """
                         # 默认内容
@@ -918,7 +941,7 @@ class DefaultWorkflowEngineTests {
         String currentStage = extractPromptValue(userPrompt, "当前阶段：");
         String nextStage = extractPromptValue(userPrompt, "下一阶段：");
         String gate = extractPromptValue(userPrompt, "当前阶段 gate：");
-        boolean approved = userPrompt.contains("- decision: APPROVED");
+        boolean approved = "APPROVED".equals(extractReviewDecision(userPrompt));
         if (approved && "AGENT_PLUS_HUMAN".equals(gate)) {
             return """
                     {
@@ -1007,6 +1030,14 @@ class DefaultWorkflowEngineTests {
                 """.formatted(currentStage);
     }
 
+    private String extractReviewDecision(String prompt) {
+        int reviewStart = prompt.indexOf("review 结论：");
+        if (reviewStart < 0) {
+            return "";
+        }
+        return extractPromptValue(prompt.substring(reviewStart), "- decision:");
+    }
+
     private String extractPromptValue(String prompt, String label) {
         int start = prompt.indexOf(label);
         if (start < 0) {
@@ -1017,7 +1048,7 @@ class DefaultWorkflowEngineTests {
     }
 
     private LlmProvider failingImplementationProvider() {
-        return new LlmProvider() {
+        return new StructuredTestLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 if (systemPrompt.contains("拆成可落地、可验证的子步骤")) {
@@ -1138,6 +1169,8 @@ class DefaultWorkflowEngineTests {
                             ## 7. Contract Metadata
                             - runtime.entryRequired: true
                             - runtime.entryKind: main-class
+                            - runtime.entryPackagingMode: not-applicable
+                            - runtime.runtimeOwnershipMode: not-applicable
                             - runtime.launchRequired: true
                             - runtime.surfaceRequired: false
                             - runtime.acceptanceSignals: cli-starts
@@ -1179,6 +1212,8 @@ class DefaultWorkflowEngineTests {
                             ## 8. Contract Metadata
                             - runtime.entryRequired: true
                             - runtime.entryKind: main-class
+                            - runtime.entryPackagingMode: not-applicable
+                            - runtime.runtimeOwnershipMode: not-applicable
                             - runtime.launchRequired: true
                             - runtime.surfaceRequired: false
                             - runtime.acceptanceSignals: cli-starts
@@ -1193,16 +1228,7 @@ class DefaultWorkflowEngineTests {
                             """;
                 }
                 if (systemPrompt.contains("资深代码审阅者")) {
-                    return """
-                            - decision: APPROVED
-                            - fixMode: NONE
-                            - summary: 变更简单且可接受
-                            - changeRequest:
-
-                            ## Findings
-
-                            - 无阻塞问题
-                            """;
+                    return approvedReviewArtifact("变更简单且可接受");
                 }
                 return "# 默认内容";
             }
@@ -1218,6 +1244,33 @@ class DefaultWorkflowEngineTests {
                 return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
             }
         };
+    }
+
+
+    private String approvedReviewArtifact(String summary) {
+        return StructuredArtifactBlocks.renderJsonBlock(
+                ArtifactBlockKind.REVIEW_RESULT,
+                new ReviewArtifactPayload(
+                        ReviewDecision.APPROVED.name(),
+                        FixMode.NONE.name(),
+                        ImplementationPatchTarget.NONE.name(),
+                        java.util.List.of(),
+                        "PATCH_CURRENT_STAGE",
+                        "NONE",
+                        summary,
+                        "",
+                        "",
+                        "",
+                        false,
+                        0,
+                        null
+                )
+        ) + """
+
+                ## Findings
+
+                - 无阻塞问题
+                """;
     }
 
     private String reviewHistoryEntry(
@@ -1237,11 +1290,40 @@ class DefaultWorkflowEngineTests {
                         stageType.name(),
                         decision,
                         fixMode,
+                        ImplementationPatchTarget.NONE.name(),
                         summary,
                         changeRequest,
                         "",
                         ""
                 )
         );
+    }
+
+    private abstract static class StructuredTestLlmProvider implements LlmProvider {
+
+        @Override
+        public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
+            return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
+        }
+
+        @Override
+        public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options, ModelRole role) {
+            return review(systemPrompt, candidateContent, options);
+        }
+
+        @Override
+        public StructuredReviewResult reviewStructured(String systemPrompt, String candidateContent, Map<String, Object> options) {
+            return new StructuredReviewResult(review(systemPrompt, candidateContent, options), ReviewSemantics.empty());
+        }
+
+        @Override
+        public StructuredReviewResult reviewStructured(
+                String systemPrompt,
+                String candidateContent,
+                Map<String, Object> options,
+                ModelRole role
+        ) {
+            return new StructuredReviewResult(review(systemPrompt, candidateContent, options, role), ReviewSemantics.empty());
+        }
     }
 }

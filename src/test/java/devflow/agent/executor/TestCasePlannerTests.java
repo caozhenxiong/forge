@@ -212,6 +212,8 @@ class TestCasePlannerTests {
                 12,
                 1,
                 java.util.List.of("body", "canvas", "#startBtn", "button"),
+                java.util.List.of(new RuntimeSurfaceCandidate("canvas", UiObservationMode.CANVAS_HASH, 160000)),
+                java.util.List.of(),
                 java.util.List.of(),
                 java.util.List.of(),
                 java.util.List.of()
@@ -302,6 +304,8 @@ class TestCasePlannerTests {
                 12,
                 0,
                 java.util.List.of("body", "#startBtn", "#status", "button"),
+                java.util.List.of(new RuntimeSurfaceCandidate("body", UiObservationMode.DOM_SIGNATURE, 480000)),
+                java.util.List.of(),
                 java.util.List.of(),
                 java.util.List.of(),
                 java.util.List.of()
@@ -432,6 +436,8 @@ class TestCasePlannerTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, surface-renders
@@ -442,6 +448,8 @@ class TestCasePlannerTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, surface-renders

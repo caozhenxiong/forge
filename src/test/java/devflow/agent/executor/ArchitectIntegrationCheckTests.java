@@ -11,6 +11,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ArchitectIntegrationCheckTests {
@@ -53,6 +54,10 @@ class ArchitectIntegrationCheckTests {
 
         assertFalse(result.passed());
         assertEquals(ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID, result.failureReason());
+        assertEquals(devflow.agent.review.ImplementationPatchTarget.PATCH_RUNTIME_WIRING, result.implementationPatchTarget());
+        assertNotNull(result.runtimeContract());
+        assertTrue(result.runtimeContract().externalCompanion());
+        assertEquals(List.of(Path.of("game.js")), result.runtimeContract().runtimePaths());
         assertTrue(result.details().contains("运行时脚本接线") || result.details().contains("脚本资源"));
     }
 

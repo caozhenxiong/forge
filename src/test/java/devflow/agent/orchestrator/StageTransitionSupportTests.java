@@ -3,6 +3,8 @@ package devflow.agent.orchestrator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.artifact.EventLogStore;
 import devflow.agent.artifact.FileArtifactStore;
+import devflow.agent.executor.ChangeAction;
+import devflow.agent.executor.FileChange;
 import devflow.agent.executor.LlmProvider;
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.ExecutionDirectivePayload;
@@ -18,6 +20,7 @@ import devflow.agent.quality.StructureRiskReport;
 import devflow.agent.repair.DiagnosisAgent;
 import devflow.agent.repair.RepairAgent;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.supervisor.DeliveryPolicy;
@@ -42,6 +45,10 @@ class StageTransitionSupportTests {
 
     @TempDir
     Path tempDir;
+
+    private java.util.List<FileChange> patchExistingOverrideChanges() {
+        return java.util.List.of(new FileChange("index.html", ChangeAction.WRITE, "补齐现有实现缺口"));
+    }
 
     @Test
     void onStageApprovedUsesStageEntryActionForNextStage() {
@@ -110,10 +117,12 @@ class StageTransitionSupportTests {
                 StageType.IMPLEMENTATION,
                 ReviewDecision.REVISION_REQUIRED,
                 FixMode.PATCH,
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
                 "summary",
                 "change",
                 "evidence",
                 "items",
+                patchExistingOverrideChanges(),
                 null,
                 StageType.IMPLEMENTATION,
                 false,
@@ -153,6 +162,9 @@ class StageTransitionSupportTests {
                 StageType.IMPLEMENTATION,
                 "实现仍处于阶段中间态",
                 "继续完成剩余子任务",
+                "",
+                "",
+                ImplementationPatchTarget.NONE,
                 (draft, stageType, runStatus, note) -> {
                     capturedStage.set(stageType);
                     capturedNote.set(note);
@@ -191,10 +203,12 @@ class StageTransitionSupportTests {
                 StageType.IMPLEMENTATION,
                 ReviewDecision.REVISION_REQUIRED,
                 FixMode.PATCH,
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
                 "实现阶段未完成",
                 "继续完成剩余子任务",
                 "缺少核心逻辑证据",
                 support.mergeActionItems("继续补齐未完成项", supervisorDecision),
+                patchExistingOverrideChanges(),
                 supervisorDecision,
                 StageType.IMPLEMENTATION,
                 false,
@@ -263,10 +277,12 @@ class StageTransitionSupportTests {
                 StageType.TEST,
                 ReviewDecision.REJECTED,
                 FixMode.PATCH,
+                ImplementationPatchTarget.NONE,
                 "测试缺失能力覆盖",
                 "补齐时间驱动进度",
                 "missingExperienceCoverage=timed-state-progression",
                 "补齐实现并重测",
+                java.util.List.of(),
                 null,
                 StageType.IMPLEMENTATION,
                 false,

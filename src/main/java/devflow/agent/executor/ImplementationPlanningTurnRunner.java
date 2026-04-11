@@ -7,6 +7,7 @@ import devflow.agent.loop.AgentTurnState;
 import devflow.agent.loop.AgentTurnStepResult;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.validation.ProjectFingerprint;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -47,6 +48,7 @@ final class ImplementationPlanningTurnRunner {
             ContractView contractView,
             QualityPlan qualityPlan,
             ProjectFingerprint fingerprint,
+            ImplementationPatchTarget implementationPatchTarget,
             ImplementationContinuationConstraints continuationConstraints
     ) {
         AtomicReference<String> responseRef = new AtomicReference<>("");
@@ -90,6 +92,7 @@ final class ImplementationPlanningTurnRunner {
                                         fingerprint,
                                         contractView,
                                         qualityPlan,
+                                        implementationPatchTarget,
                                         continuationConstraints,
                                         planRef.get()
                                 )

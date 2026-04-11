@@ -24,7 +24,8 @@ final class HostHtmlPatchRequestBuilder {
             DeliveryMode deliveryMode,
             ImplementationEventJournal eventJournal,
             String existingContent,
-            FilePatchProgressState patchProgressState
+            FilePatchProgressState patchProgressState,
+            HtmlRuntimeOwnershipContract runtimeContract
     ) {
         PatchRequestContext context = patchRequestContextFactory.hostHtml(taskPackage);
         return new HostHtmlPatchRequest(
@@ -39,7 +40,8 @@ final class HostHtmlPatchRequestBuilder {
                 existingContent,
                 deliveryMode,
                 eventJournal,
-                patchProgressState
+                patchProgressState,
+                runtimeContract
         );
     }
 }

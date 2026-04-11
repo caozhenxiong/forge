@@ -5,6 +5,7 @@ import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.orchestrator.RunRecord;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 
 /**
  * implementation 计划提示词组装器。
@@ -40,6 +41,7 @@ final class ImplementationPlanningPromptAssembler {
             QualityPlan qualityPlan,
             DocumentLanguage language,
             FixMode fixMode,
+            ImplementationPatchTarget implementationPatchTarget,
             String requirementCatalog,
             ImplementationContinuationConstraints continuationConstraints,
             String planningFeedback
@@ -50,6 +52,7 @@ final class ImplementationPlanningPromptAssembler {
                 preferSkeletonFlow,
                 deliveryPolicy,
                 fixMode,
+                implementationPatchTarget,
                 continuationConstraints
         );
         String user = userPromptBuilder.build(

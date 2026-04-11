@@ -248,7 +248,7 @@ class TestExecutorTests {
 
         assertTrue(bundle.executionMarkdown().contains("未执行"));
         assertTrue(bundle.executionMarkdown().contains("tool=TEST_CASE_EXECUTION"));
-        assertTrue(bundle.reportMarkdown().contains("decision: REJECTED"));
+        assertTrue(bundle.reportMarkdown().contains("决策：REJECTED"));
     }
 
     @Test
@@ -328,6 +328,8 @@ class TestExecutorTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, game-surface-renders
@@ -359,6 +361,8 @@ class TestExecutorTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, game-surface-renders
@@ -368,7 +372,7 @@ class TestExecutorTests {
         );
 
         assertTrue(bundle.executionMarkdown().contains("failureReason: entry-missing"), bundle.executionMarkdown());
-        assertTrue(bundle.reportMarkdown().contains("decision: REJECTED"), bundle.reportMarkdown());
+        assertTrue(bundle.reportMarkdown().contains("决策：REJECTED"), bundle.reportMarkdown());
     }
 
     @Test
@@ -496,6 +500,8 @@ class TestExecutorTests {
                 ## 7. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, runtime-surface-renders
@@ -527,6 +533,8 @@ class TestExecutorTests {
                 ## 8. Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, runtime-surface-renders, game-starts
@@ -538,7 +546,7 @@ class TestExecutorTests {
         assertTrue(bundle.executionMarkdown().contains("Architect Runnable Check")
                 || bundle.executionMarkdown().contains("整体可运行检查"));
         assertTrue(bundle.executionMarkdown().contains("implementation-incomplete") || bundle.executionMarkdown().contains("implementation incomplete"));
-        assertTrue(bundle.reportMarkdown().contains("architectCheckPassed: false"), bundle.reportMarkdown());
-        assertTrue(bundle.reportMarkdown().contains("decision: REJECTED"), bundle.reportMarkdown());
+        assertTrue(bundle.reportMarkdown().contains("架构检查通过：false"), bundle.reportMarkdown());
+        assertTrue(bundle.reportMarkdown().contains("决策：REJECTED"), bundle.reportMarkdown());
     }
 }

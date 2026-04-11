@@ -8,6 +8,7 @@ import devflow.agent.orchestrator.StageType;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
+import devflow.agent.review.ReviewRevisionRoute;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -78,7 +79,49 @@ final class SupervisorStageFallbackSupport {
         }
 
         StageType retryStage = stageFlowPolicy.rerouteStage(currentStage, reviewResult.fixMode());
-        SupervisorAction action = repeatedIssue && retryStage == StageType.IMPLEMENTATION
+        StageType repairTarget = stageFlowPolicy.repairTarget(currentStage);
+        if (reviewResult.revisionRoute() == ReviewRevisionRoute.REQUEST_HUMAN) {
+            return new SupervisorDecision(
+                    SupervisorAction.REQUEST_HUMAN_REVIEW,
+                    currentStage,
+                    reviewResult.fixMode(),
+                    "当前 review 要求人工决策后再继续。",
+                    mergeNonBlank(reviewResult.summary(), reviewResult.changeRequest()),
+                    List.of("不要继续自动修改，先等待人工确认"),
+                    buildRequiredEvidence(reviewResult),
+                    DeliveryPolicy.balanced(DeliveryPolicyMode.NONE),
+                    true
+            );
+        }
+        if (reviewResult.revisionRoute() == ReviewRevisionRoute.ROLLBACK_TO_DESIGN) {
+            return new SupervisorDecision(
+                    SupervisorAction.RETRY_STAGE,
+                    StageType.DESIGN,
+                    FixMode.REWORK,
+                    "当前问题已经越过 approved contract 边界，必须回退 DESIGN 重新冻结方案。",
+                    mergeNonBlank(reviewResult.summary(), reviewResult.changeRequest()),
+                    List.of("不要在 IMPLEMENTATION 阶段继续改变入口打包形态或主运行时所有权"),
+                    buildRequiredEvidence(reviewResult),
+                    DeliveryPolicy.reworkSafe(),
+                    false
+            );
+        }
+        if (reviewResult.revisionRoute() == ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET) {
+            return new SupervisorDecision(
+                    SupervisorAction.ROUTE_TO_REPAIR,
+                    repairTarget == null ? retryStage : repairTarget,
+                    reviewResult.fixMode(),
+                    "当前 review 已给出明确 owner 与 patch scope，直接进入 repair 路径。",
+                    mergeNonBlank(reviewResult.summary(), reviewResult.changeRequest()),
+                    List.of("只允许修复结构化 disposition 指向的问题"),
+                    buildRequiredEvidence(reviewResult),
+                    reviewResult.fixMode() == FixMode.PATCH
+                            ? DeliveryPolicy.implementationPatch(reviewResult.implementationPatchTarget())
+                            : DeliveryPolicy.patchSafe(),
+                    false
+            );
+        }
+        SupervisorAction action = repeatedIssue && repairTarget != null
                 ? SupervisorAction.ROUTE_TO_REPAIR
                 : SupervisorAction.RETRY_STAGE;
         String reason = repeatedIssue
@@ -86,7 +129,9 @@ final class SupervisorStageFallbackSupport {
                 : "当前问题仍可收敛，先按既定回退路径继续修订。";
         DeliveryPolicy deliveryPolicy;
         if (reviewResult.fixMode() == FixMode.PATCH) {
-            deliveryPolicy = DeliveryPolicy.patchSafe();
+            deliveryPolicy = currentStage == StageType.IMPLEMENTATION
+                    ? DeliveryPolicy.implementationPatch(reviewResult.implementationPatchTarget())
+                    : DeliveryPolicy.patchSafe();
         } else if (reviewResult.fixMode() == FixMode.REWORK) {
             deliveryPolicy = DeliveryPolicy.reworkSafe();
         } else {
@@ -94,7 +139,7 @@ final class SupervisorStageFallbackSupport {
         }
         return new SupervisorDecision(
                 action,
-                retryStage,
+                action == SupervisorAction.ROUTE_TO_REPAIR ? repairTarget : retryStage,
                 reviewResult.fixMode(),
                 reason,
                 mergeNonBlank(reviewResult.summary(), reviewResult.changeRequest()),

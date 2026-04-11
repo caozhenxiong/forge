@@ -83,7 +83,7 @@ class PlaywrightCaseExecutorTests {
 
         @Override
         public CommandResult runCommand(Path projectPath, List<String> command, Duration timeout) {
-            int tempIndex = command.contains("--snapshot") ? 3 : 2;
+            int tempIndex = command.contains("--probe") ? 3 : 2;
             lastTempFile = Path.of(command.get(tempIndex));
             throw new IllegalStateException("boom");
         }
@@ -97,7 +97,7 @@ class PlaywrightCaseExecutorTests {
             this.lastCommand = command;
             return new CommandResult(
                     0,
-                    "{\"cases\":[]}",
+                    "{\"status\":\"ok\",\"probe\":null,\"errors\":[],\"cases\":[]}",
                     ""
             );
         }

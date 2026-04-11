@@ -12,7 +12,8 @@ import java.util.Set;
  *
  * <p>这层只表达上一轮 implementation 已经确定的文件事实：
  * 1. 哪些文件已经存在，不能再退回 SKELETON；
- * 2. 哪些 HTML 入口已经稳定存在，不能再退回整页重写。
+ * 2. 哪些 HTML 入口已经稳定存在，不能再退回整页重写；
+ * 3. 哪些 HTML 入口已经确定了 runtime contract，后续必须沿用。
  */
 record ImplementationContinuationConstraints(
         List<String> existingPaths,
@@ -42,8 +43,13 @@ record ImplementationContinuationConstraints(
     }
 
     RuntimeOwnershipMode protectedRuntimeOwnership(String path) {
+        HtmlRuntimeOwnershipContract contract = protectedRuntimeContract(path);
+        return contract == null ? null : contract.runtimeOwnership();
+    }
+
+    HtmlRuntimeOwnershipContract protectedRuntimeContract(String path) {
         ProtectedHtmlEntryConstraint entry = protectedHtmlEntry(path);
-        return entry == null ? null : entry.runtimeOwnership();
+        return entry == null ? null : entry.runtimeContract();
     }
 
     String toMarkdown(DocumentLanguage language) {
@@ -64,8 +70,12 @@ record ImplementationContinuationConstraints(
             builder.append(language.choose("受保护的 HTML 入口（不得退回整页重写 / REWORK）：", "Protected HTML entry files (must not regress to full rewrite / REWORK):"));
             for (ProtectedHtmlEntryConstraint entry : protectedHtmlEntries) {
                 builder.append('\n').append("- ").append(entry.path());
-                if (entry.runtimeOwnership() != null) {
-                    builder.append(" [runtimeOwnership=").append(entry.runtimeOwnership()).append(']');
+                HtmlRuntimeOwnershipContract runtimeContract = entry.runtimeContract();
+                if (runtimeContract != null && runtimeContract.runtimeOwnership() != null) {
+                    builder.append(" [runtimeOwnership=").append(runtimeContract.runtimeOwnership()).append(']');
+                }
+                if (runtimeContract != null && !runtimeContract.runtimePaths().isEmpty()) {
+                    builder.append(" [runtimePaths=").append(String.join(", ", runtimeContract.runtimePathStrings())).append(']');
                 }
             }
         }
@@ -101,7 +111,15 @@ record ImplementationContinuationConstraints(
             if (path.isBlank()) {
                 continue;
             }
-            normalized.put(path, new ProtectedHtmlEntryConstraint(path, entry.runtimeOwnership()));
+            HtmlRuntimeOwnershipContract runtimeContract = entry.runtimeContract();
+            if (runtimeContract != null && runtimeContract.runtimeOwnership() != null) {
+                runtimeContract = new HtmlRuntimeOwnershipContract(
+                        Path.of(path),
+                        runtimeContract.runtimeOwnership(),
+                        runtimeContract.runtimePaths()
+                );
+            }
+            normalized.put(path, new ProtectedHtmlEntryConstraint(path, runtimeContract));
         }
         return List.copyOf(normalized.values());
     }
@@ -126,11 +144,22 @@ record ImplementationContinuationConstraints(
 
     record ProtectedHtmlEntryConstraint(
             String path,
-            RuntimeOwnershipMode runtimeOwnership
+            HtmlRuntimeOwnershipContract runtimeContract
     ) {
 
         ProtectedHtmlEntryConstraint(String path) {
-            this(path, null);
+            this(path, (HtmlRuntimeOwnershipContract) null);
+        }
+
+        ProtectedHtmlEntryConstraint(String path, RuntimeOwnershipMode runtimeOwnership) {
+            this(
+                    path,
+                    runtimeOwnership == null ? null : new HtmlRuntimeOwnershipContract(Path.of(path), runtimeOwnership, List.of())
+            );
+        }
+
+        RuntimeOwnershipMode runtimeOwnership() {
+            return runtimeContract == null ? null : runtimeContract.runtimeOwnership();
         }
     }
 }

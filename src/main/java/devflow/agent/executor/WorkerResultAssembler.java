@@ -19,10 +19,11 @@ final class WorkerResultAssembler {
         List<WorkerResult> results = new ArrayList<>();
         for (SubtaskExecutionReport report : reports) {
             SubtaskAttemptReport lastAttempt = report.attempts().isEmpty() ? null : report.attempts().get(report.attempts().size() - 1);
-            List<String> fulfilledAcceptance = report.completed()
-                    ? safeList(report.subtask().acceptanceCriteria())
-                    : List.of();
+            List<String> fulfilledAcceptance = List.of();
             List<String> residualRisks = new ArrayList<>();
+            if (report.completed() && !safeList(report.subtask().acceptanceCriteria()).isEmpty()) {
+                residualRisks.add("当前不再根据计划文本自动投影 fulfilledAcceptance；需要显式验证证据后才会宣称满足验收。");
+            }
             if (lastAttempt != null && lastAttempt.generationFailure() != null) {
                 residualRisks.add(lastAttempt.generationFailure().failureType() + ": " + blankIfNull(lastAttempt.generationFailure().summary()));
             }
@@ -33,7 +34,7 @@ final class WorkerResultAssembler {
                     report.subtask().title(),
                     report.completed() ? "COMPLETED" : "FAILED",
                     report.subtask().runnableMilestone(),
-                    report.subtask().changes().stream().map(FileChange::path).toList(),
+                    report.effectiveChanges().stream().map(FileChange::path).toList(),
                     safeList(report.subtask().coverageRefs()),
                     safeList(report.subtask().ownedCapabilities()),
                     safeList(report.subtask().deferredCapabilities()),

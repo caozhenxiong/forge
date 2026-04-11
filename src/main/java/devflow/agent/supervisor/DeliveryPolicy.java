@@ -1,5 +1,7 @@
 package devflow.agent.supervisor;
 
+import devflow.agent.review.ImplementationPatchTarget;
+
 public record DeliveryPolicy(
         DeliveryPolicyMode mode,
         Integer maxFiles,
@@ -15,6 +17,13 @@ public record DeliveryPolicy(
 
     public static DeliveryPolicy patchSafe() {
         return new DeliveryPolicy(DeliveryPolicyMode.PATCH, 1, 2, true, false, true);
+    }
+
+    public static DeliveryPolicy implementationPatch(ImplementationPatchTarget implementationPatchTarget) {
+        if (implementationPatchTarget == ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION) {
+            return new DeliveryPolicy(DeliveryPolicyMode.PATCH, 2, 3, true, false, true);
+        }
+        return new DeliveryPolicy(DeliveryPolicyMode.PATCH, 2, 4, true, false, true);
     }
 
     public static DeliveryPolicy recoverySafe() {

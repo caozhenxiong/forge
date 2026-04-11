@@ -41,9 +41,9 @@ final class PlaywrightCaseRunSupport {
             if (result.exitCode() != 0 && (result.stdout() == null || result.stdout().isBlank())) {
                 return List.of(blockedExecutorResult(support.trim(result.stderr()), "executor-failure"));
             }
-            ExecutionPayload payload = objectMapper.readValue(support.nonBlank(result.stdout(), result.stderr()), ExecutionPayload.class);
+            ExecutionEnvelope payload = objectMapper.readValue(support.nonBlank(result.stdout(), result.stderr()), ExecutionEnvelope.class);
             if (payload.cases() == null) {
-                return List.of(blockedExecutorResult("未返回测试结果。", "missing-results"));
+                return List.of(blockedExecutorResult(missingResultsMessage(payload), "missing-results"));
             }
             return payload.cases().stream()
                     .map(caseResult -> new TestCaseResult(
@@ -75,7 +75,23 @@ final class PlaywrightCaseRunSupport {
         );
     }
 
-    private record ExecutionPayload(
+    private String missingResultsMessage(ExecutionEnvelope payload) {
+        if (payload == null) {
+            return "未返回测试结果。";
+        }
+        StringBuilder builder = new StringBuilder("未返回测试结果。");
+        if (payload.status() != null && !payload.status().isBlank()) {
+            builder.append(" status=").append(payload.status());
+        }
+        if (payload.errors() != null && !payload.errors().isEmpty()) {
+            builder.append(" errors=").append(String.join(" | ", payload.errors()));
+        }
+        return builder.toString();
+    }
+
+    private record ExecutionEnvelope(
+            @JsonProperty("status") String status,
+            @JsonProperty("errors") List<String> errors,
             @JsonProperty("cases") List<ExecutionCasePayload> cases
     ) {
     }

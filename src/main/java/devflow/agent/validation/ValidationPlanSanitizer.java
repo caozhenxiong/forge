@@ -42,29 +42,39 @@ final class ValidationPlanSanitizer {
                         (left, right) -> left,
                         java.util.LinkedHashMap::new
                 ));
-        List<ValidationStep> result = new ArrayList<>();
-        if (plannedSteps == null) {
-            return result;
+        Map<ValidationCapability, ValidationStep> modelSelections = new java.util.LinkedHashMap<>();
+        if (plannedSteps != null) {
+            for (ValidationPlannedStep plannedStep : plannedSteps) {
+                if (plannedStep.capability() == null) {
+                    continue;
+                }
+                ValidationCapability capability;
+                try {
+                    capability = ValidationCapability.valueOf(plannedStep.capability());
+                } catch (IllegalArgumentException exception) {
+                    continue;
+                }
+                ValidationStep candidate = candidateMap.get(capability);
+                if (candidate == null) {
+                    continue;
+                }
+                modelSelections.put(capability, new ValidationStep(
+                        capability,
+                        plannedStep.reason() == null || plannedStep.reason().isBlank() ? candidate.reason() : plannedStep.reason(),
+                        plannedStep.required() == null ? candidate.required() : plannedStep.required()
+                ));
+            }
         }
-        for (ValidationPlannedStep plannedStep : plannedSteps) {
-            if (plannedStep.capability() == null) {
+        List<ValidationStep> result = new ArrayList<>();
+        for (ValidationStep candidate : candidates) {
+            ValidationStep selected = modelSelections.get(candidate.capability());
+            if (selected != null) {
+                result.add(selected);
                 continue;
             }
-            ValidationCapability capability;
-            try {
-                capability = ValidationCapability.valueOf(plannedStep.capability());
-            } catch (IllegalArgumentException exception) {
-                continue;
+            if (candidate.required()) {
+                result.add(candidate);
             }
-            ValidationStep candidate = candidateMap.get(capability);
-            if (candidate == null) {
-                continue;
-            }
-            result.add(new ValidationStep(
-                    capability,
-                    plannedStep.reason() == null || plannedStep.reason().isBlank() ? candidate.reason() : plannedStep.reason(),
-                    plannedStep.required() == null ? candidate.required() : plannedStep.required()
-            ));
         }
         return dedupe(result);
     }

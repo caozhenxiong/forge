@@ -19,6 +19,7 @@ import java.util.List;
 class TestRunner {
 
     private static final String EXECUTOR_CASE_ID = "EXECUTOR";
+    private static final String OBSERVATION_CONTRACT_INVALID_REASON = "observation-contract-invalid";
 
     private final PlaywrightCaseExecutor playwrightCaseExecutor;
 
@@ -78,6 +79,35 @@ class TestRunner {
         );
     }
 
+    TestRunReport blockedByValidation(TestCasePlan plan, UiRuntimeContractValidation validation) {
+        String details = validation != null && validation.kind() == UiRuntimeContractValidationKind.PROBE_INVALID
+                ? "浏览器 runtime probe 无效，测试用例未执行。"
+                : "运行时观测契约无效，测试用例未执行。";
+        String evidence = validation == null || validation.evidence().isBlank()
+                ? "UI runtime contract is invalid."
+                : validation.evidence();
+        List<TestCaseSpec> plannedCases = plan == null || plan.cases() == null ? List.of() : plan.cases();
+        List<TestCaseResult> caseResults = plannedCases.stream()
+                .map(testCase -> new TestCaseResult(
+                        testCase.id(),
+                        testCase.title(),
+                        testCase.required() ? TestCaseStatus.BLOCKED : TestCaseStatus.FAILED,
+                        testCase.required(),
+                        details,
+                        OBSERVATION_CONTRACT_INVALID_REASON,
+                        evidence
+                ))
+                .toList();
+        return new TestRunReport(
+                caseResults,
+                List.of(ToolResult.skipped(
+                        ToolName.TEST_CASE_EXECUTION,
+                        details + " " + evidence,
+                        null
+                ))
+        );
+    }
+
     RuntimeSnapshot captureRuntimeSnapshot(Path projectPath, TestToolSelection toolSelection) {
         return captureRuntimeSnapshotDetailed(projectPath, toolSelection).runtimeSnapshot();
     }
@@ -94,13 +124,18 @@ class TestRunner {
             );
         }
         RuntimeSnapshot runtimeSnapshot = playwrightCaseExecutor.captureRuntimeSnapshot(projectPath, toolSelection.runtimeSnapshotEntry());
-        if (runtimeSnapshot == null) {
+        if (runtimeSnapshot == null || !runtimeSnapshot.probeCaptured()) {
+            String evidence = runtimeSnapshot == null
+                    ? "运行时快照执行器未返回任何结果。"
+                    : runtimeSnapshot.captureErrors() == null || runtimeSnapshot.captureErrors().isEmpty()
+                    ? "运行时快照采集失败。"
+                    : String.join(" | ", runtimeSnapshot.captureErrors());
             return new RuntimeSnapshotCaptureResult(
-                    null,
+                    runtimeSnapshot,
                     ToolResult.failure(
                             ToolName.RUNTIME_SNAPSHOT_CAPTURE,
                             ToolFailureCode.RUNTIME_SNAPSHOT_CAPTURE_FAILED,
-                            "运行时快照执行器未返回任何结果。",
+                            evidence,
                             null
                     )
             );

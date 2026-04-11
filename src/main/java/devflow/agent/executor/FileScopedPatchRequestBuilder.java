@@ -32,7 +32,8 @@ final class FileScopedPatchRequestBuilder {
             ContractView contractView,
             ProjectFingerprint fingerprint,
             ImplementationEventJournal eventJournal,
-            FilePatchProgressState patchProgressState
+            FilePatchProgressState patchProgressState,
+            HtmlRuntimeOwnershipContract runtimeContract
     ) {
         PatchRequestContext context = buildContext(projectPath, relativePath, subtask, taskPackage, contractView, fingerprint);
         return new EmbeddedPatchRequest(
@@ -47,7 +48,8 @@ final class FileScopedPatchRequestBuilder {
                 coderContextMarkdown,
                 deliveryMode,
                 eventJournal,
-                patchProgressState
+                patchProgressState,
+                runtimeContract
         );
     }
 
@@ -98,7 +100,8 @@ final class FileScopedPatchRequestBuilder {
             DeliveryMode deliveryMode,
             ContractView contractView,
             ProjectFingerprint fingerprint,
-            ImplementationEventJournal eventJournal
+            ImplementationEventJournal eventJournal,
+            HtmlRuntimeOwnershipContract runtimeContract
     ) {
         PatchRequestContext context = buildContext(projectPath, relativePath, subtask, taskPackage, contractView, fingerprint);
         return new WholeFilePatchRequest(
@@ -111,7 +114,8 @@ final class FileScopedPatchRequestBuilder {
                 reason,
                 existingContent,
                 deliveryMode,
-                eventJournal
+                eventJournal,
+                runtimeContract
         );
     }
 

@@ -1,0 +1,17 @@
+package devflow.agent.review;
+
+/**
+ * review 主结论的稳定 reason code。
+ */
+public enum ReviewReasonCode {
+    NONE,
+    CONTRACT_BOUNDARY_VIOLATION,
+    DESIGN_OVERCONSTRAINED,
+    RUNTIME_WIRING_GAP,
+    RUNTIME_PROBE_INVALID,
+    ORPHAN_RUNTIME_ASSET,
+    IMPLEMENTATION_GAP,
+    TEST_CASE_INCOMPLETE,
+    OBSERVATION_CONTRACT_INVALID,
+    TEST_FAILURE_UNKNOWN
+}

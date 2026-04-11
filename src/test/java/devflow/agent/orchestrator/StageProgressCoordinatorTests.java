@@ -17,6 +17,7 @@ import devflow.agent.protocol.StructuredArtifactBlocks;
 import devflow.agent.repair.DiagnosisAgent;
 import devflow.agent.repair.RepairAgent;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.review.StageReviewer;
@@ -112,7 +113,10 @@ class StageProgressCoordinatorTests {
                     RunRecord currentRun,
                     StageType stageType,
                     String summary,
-                    String changeRequest
+                    String changeRequest,
+                    String evidence,
+                    String actionItems,
+                    ImplementationPatchTarget implementationPatchTarget
             ) {
                 continuationSummary.set(summary);
                 continuationChangeRequest.set(changeRequest);
@@ -152,7 +156,10 @@ class StageProgressCoordinatorTests {
         return new StageReviewer(
                 provider,
                 new devflow.agent.project.WorkspaceSnapshotStore(new FileRunRepository(), new FileProjectWorkspace()),
-                new devflow.agent.executor.TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
+                new devflow.agent.executor.TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()),
+                new devflow.agent.prompt.PromptTemplateCatalog(),
+                new devflow.agent.i18n.LanguagePolicy(),
+                new devflow.agent.loop.AgentTurnLoop()
         ) {
             @Override
             public ReviewResult review(Path projectPath, RunRecord runRecord, StageType stageType, String artifactContent) {

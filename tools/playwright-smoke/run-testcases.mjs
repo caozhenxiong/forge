@@ -7,22 +7,56 @@ import crypto from 'node:crypto';
 import { startStaticServer } from './static-server.mjs';
 
 async function main() {
-  const snapshotMode = process.argv[2] === '--snapshot';
-  const planPath = snapshotMode ? process.argv[3] : process.argv[2];
-  const rootDirArg = snapshotMode ? process.argv[4] : process.argv[3];
+  const probeMode = process.argv[2] === '--probe';
+  const planPath = probeMode ? process.argv[3] : process.argv[2];
+  const rootDirArg = probeMode ? process.argv[4] : process.argv[3];
   if (!planPath || !rootDirArg) {
-    console.error(JSON.stringify({ error: 'usage: run-testcases.mjs <plan.json> <projectDir>' }));
-    process.exit(2);
+    emitAndExit(2, {
+      status: 'usage_error',
+      probe: null,
+      errors: ['usage: run-testcases.mjs [--probe] <plan.json> <projectDir>'],
+      cases: [],
+    });
+    return;
   }
 
-  const raw = await readFile(planPath, 'utf8');
-  const plan = JSON.parse(raw);
-  const firstCase = snapshotMode
+  let raw;
+  try {
+    raw = await readFile(planPath, 'utf8');
+  } catch (error) {
+    emitAndExit(1, {
+      status: 'plan_read_failed',
+      probe: null,
+      errors: [String(error?.message || error)],
+      cases: [],
+    });
+    return;
+  }
+
+  let plan;
+  try {
+    plan = JSON.parse(raw);
+  } catch (error) {
+    emitAndExit(1, {
+      status: 'plan_invalid',
+      probe: null,
+      errors: [String(error?.message || error)],
+      cases: [],
+    });
+    return;
+  }
+
+  const firstCase = probeMode
     ? { entry: plan.entry || (plan.cases || [])[0]?.entry }
     : (plan.cases || [])[0];
   if (!firstCase?.entry) {
-    console.error(JSON.stringify({ error: 'missing entry in test cases' }));
-    process.exit(2);
+    emitAndExit(2, {
+      status: 'missing_entry',
+      probe: null,
+      errors: ['missing entry in test cases'],
+      cases: [],
+    });
+    return;
   }
 
   const rootDir = path.resolve(rootDirArg);
@@ -30,25 +64,47 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
 
   try {
-    if (snapshotMode) {
-      const snapshot = await captureSnapshot(browser, server.port, firstCase.entry);
-      console.log(JSON.stringify(snapshot, null, 2));
-      process.exit(0);
+    const probe = await probePage(browser, server.port, firstCase.entry);
+    if (probeMode) {
+      emitAndExit(0, {
+        status: 'ok',
+        probe,
+        errors: [],
+        cases: [],
+      });
+      return;
     }
+
     const results = [];
     for (const testCase of plan.cases || []) {
       results.push(await runCase(browser, server.port, testCase));
     }
     const failed = results.some((item) => item.required && !item.passed);
-    console.log(JSON.stringify({ cases: results }, null, 2));
-    process.exit(failed ? 1 : 0);
+    emitAndExit(failed ? 1 : 0, {
+      status: failed ? 'required_cases_failed' : 'ok',
+      probe,
+      errors: [],
+      cases: results,
+    });
+  } catch (error) {
+    emitAndExit(1, {
+      status: 'probe_failed',
+      probe: null,
+      errors: [String(error?.message || error)],
+      cases: [],
+    });
   } finally {
     await browser.close();
     await new Promise((resolve) => server.server.close(resolve));
   }
 }
 
-async function captureSnapshot(browser, port, entry) {
+function emitAndExit(code, payload) {
+  console.log(JSON.stringify(payload, null, 2));
+  process.exit(code);
+}
+
+async function probePage(browser, port, entry) {
   const page = await browser.newPage();
   const consoleErrors = [];
   const pageErrors = [];
@@ -62,41 +118,126 @@ async function captureSnapshot(browser, port, entry) {
   });
   try {
     await page.goto(`http://127.0.0.1:${port}/${entry}`, { waitUntil: 'load', timeout: 15000 });
+    await page.waitForTimeout(1000);
+    const domProbe = await page.evaluate(() => {
+      function selectorForElement(element) {
+        if (element === document.body) {
+          return 'body';
+        }
+        if (element.id) {
+          return `#${element.id}`;
+        }
+        if (element.classList && element.classList.length > 0) {
+          return `.${Array.from(element.classList)[0]}`;
+        }
+        if (element instanceof HTMLCanvasElement) {
+          return 'canvas';
+        }
+        if (element.tagName && element.tagName.toLowerCase() === 'main') {
+          return 'main';
+        }
+        return '';
+      }
+
+      function captureSurfaceCandidates() {
+        const seen = new Set();
+        const candidates = [];
+        const all = [document.body, ...document.querySelectorAll('canvas, main, [id], [class]')];
+        for (const element of all) {
+          if (!(element instanceof HTMLElement)) {
+            continue;
+          }
+          if (element.tagName && ['BUTTON', 'INPUT', 'TEXTAREA', 'SCRIPT', 'STYLE', 'LINK', 'META'].includes(element.tagName)) {
+            continue;
+          }
+          const selector = selectorForElement(element);
+          if (!selector || seen.has(selector)) {
+            continue;
+          }
+          const rect = element.getBoundingClientRect();
+          const area = Math.max(0, Math.round(rect.width * rect.height));
+          if (area <= 0) {
+            continue;
+          }
+          const visible = rect.width > 0 && rect.height > 0 && window.getComputedStyle(element).display !== 'none';
+          if (!visible) {
+            continue;
+          }
+          const mode = element instanceof HTMLCanvasElement ? 'CANVAS_HASH' : 'DOM_SIGNATURE';
+          seen.add(selector);
+          candidates.push({ selector, mode, area });
+        }
+        return candidates.sort((left, right) => right.area - left.area);
+      }
+
+      function captureControlCandidates() {
+        const seen = new Set();
+        const candidates = [];
+        for (const element of document.querySelectorAll('button, input[type="button"], input[type="submit"], [role="button"]')) {
+          if (!(element instanceof HTMLElement)) {
+            continue;
+          }
+          const selector = selectorForElement(element);
+          if (!selector || seen.has(selector)) {
+            continue;
+          }
+          const rect = element.getBoundingClientRect();
+          if (rect.width <= 0 || rect.height <= 0) {
+            continue;
+          }
+          seen.add(selector);
+          candidates.push({
+            selector,
+            text: (element.innerText || element.getAttribute('value') || '').replace(/\s+/g, ' ').trim(),
+          });
+        }
+        return candidates;
+      }
+
+      const collected = new Set(['body']);
+      for (const element of document.querySelectorAll('button, input, canvas, main, [id], [class]')) {
+        const tag = element.tagName.toLowerCase();
+        if (element.id) {
+          collected.add(`#${element.id}`);
+        }
+        if (tag === 'button') {
+          collected.add('button');
+        }
+        if (tag === 'input') {
+          collected.add('input');
+        }
+        if (tag === 'canvas') {
+          collected.add('canvas');
+        }
+        for (const className of Array.from(element.classList || []).slice(0, 2)) {
+          collected.add(`.${className}`);
+        }
+      }
+
+      const root = window.__devflowMetrics;
+      const exposedMetricKeys = !root || typeof root !== 'object' || Array.isArray(root)
+        ? []
+        : Object.keys(root).filter((key) => typeof key === 'string' && key.trim()).sort();
+
+      return {
+        selectors: Array.from(collected).sort(),
+        surfaceCandidates: captureSurfaceCandidates(),
+        controlCandidates: captureControlCandidates(),
+        exposedMetricKeys,
+      };
+    });
+
     return {
       pageTitle: await page.title(),
       pageLoadMs: await readPageLoadMs(page),
+      bodyTextLength: ((await page.locator('body').textContent()) || '').trim().length,
       canvasCount: await page.locator('canvas').count(),
-      selectors: await page.evaluate(() => {
-        const collected = new Set(['body']);
-        for (const element of document.querySelectorAll('button, input, canvas, main, [id], [class]')) {
-          const tag = element.tagName.toLowerCase();
-          if (element.id) {
-            collected.add(`#${element.id}`);
-          }
-          if (tag === 'button') {
-            collected.add('button');
-          }
-          if (tag === 'input') {
-            collected.add('input');
-          }
-          if (tag === 'canvas') {
-            collected.add('canvas');
-          }
-          for (const className of Array.from(element.classList || []).slice(0, 2)) {
-            collected.add(`.${className}`);
-          }
-        }
-        return Array.from(collected).sort();
-      }),
-      exposedMetricKeys: await page.evaluate(() => {
-        const root = window.__devflowMetrics;
-        if (!root || typeof root !== 'object' || Array.isArray(root)) {
-          return [];
-        }
-        return Object.keys(root).filter((key) => typeof key === 'string' && key.trim()).sort();
-      }),
+      surfaceCandidates: domProbe.surfaceCandidates,
+      controlCandidates: domProbe.controlCandidates,
+      selectors: domProbe.selectors,
+      exposedMetricKeys: domProbe.exposedMetricKeys,
       consoleErrors,
-      pageErrors
+      pageErrors,
     };
   } finally {
     await page.close();
@@ -168,7 +309,7 @@ async function runCase(browser, port, testCase) {
     passed,
     details: details.join('\n'),
     failureReason,
-    evidence: details.join('\n')
+    evidence: details.join('\n'),
   };
 }
 
@@ -351,7 +492,7 @@ async function readDomSignature(page, selector) {
       text: (element.innerText || '').replace(/\s+/g, ' ').trim(),
       childCount: element.childElementCount,
       className: element.className || '',
-      html: element.outerHTML || ''
+      html: element.outerHTML || '',
     };
   }, selector || null);
   if (!snapshot) {
@@ -361,6 +502,10 @@ async function readDomSignature(page, selector) {
 }
 
 main().catch((error) => {
-  console.error(JSON.stringify({ error: error.message }, null, 2));
-  process.exit(1);
+  emitAndExit(1, {
+    status: 'executor_failed',
+    probe: null,
+    errors: [String(error?.message || error)],
+    cases: [],
+  });
 });

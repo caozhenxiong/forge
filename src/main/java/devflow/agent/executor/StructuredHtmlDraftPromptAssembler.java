@@ -15,6 +15,7 @@ final class StructuredHtmlDraftPromptAssembler {
 
     static PatchGenerationPrompt assemble(
             Path relativePath,
+            HtmlRuntimeOwnershipContract runtimeContract,
             String planSummary,
             String taskPackageMarkdown,
             String coderContextMarkdown,
@@ -44,7 +45,7 @@ final class StructuredHtmlDraftPromptAssembler {
                 7. 如果当前子任务只负责入口、表面或接线，请保留清晰扩展点，但不要在当前负责能力范围内留下 TODO、空实现或 no-op
                 8. scriptJs 的首轮骨架必须优先生成“命名的顶层函数/类”和一个很薄的 bootstrap 调用，不要把复杂逻辑直接塞进匿名回调或大段 DOMContentLoaded 处理器
                 9. 事件绑定、渲染、状态更新如果需要占位，请拆成独立命名函数，便于后续按符号继续增量修改
-                """;
+                """ + runtimeContractGuidance(runtimeContract);
         String user = """
                 总体实现摘要：
                 %s
@@ -76,5 +77,26 @@ final class StructuredHtmlDraftPromptAssembler {
                 targetedContext
         );
         return new PatchGenerationPrompt(system, user);
+    }
+
+    private static String runtimeContractGuidance(HtmlRuntimeOwnershipContract runtimeContract) {
+        if (runtimeContract == null || !runtimeContract.active()) {
+            return "";
+        }
+        if (runtimeContract.externalCompanion()) {
+            return """
+
+                    当前 runtime contract：
+                    1. 新的 HTML 宿主不能内联主运行时
+                    2. scriptJs 必须为 null
+                    3. 宿主只负责接入这些 runtime 根脚本：%s
+                    """.formatted(String.join(", ", runtimeContract.runtimePathStrings()));
+        }
+        return """
+
+                当前 runtime contract：
+                1. HTML 宿主继续持有主运行时
+                2. scriptJs 应作为主入口脚本生成在宿主中
+                """;
     }
 }

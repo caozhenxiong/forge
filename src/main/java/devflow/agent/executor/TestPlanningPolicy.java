@@ -1,5 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.quality.CapabilitySurface;
+import java.util.List;
+
 /**
  * 测试用例规划阶段的稳定策略参数。
  *
@@ -11,10 +14,12 @@ public final class TestPlanningPolicy {
     private static final int DEFAULT_STEP_WAIT_MS = 150;
     private static final int DEFAULT_STRENGTHENED_INTERACTION_WAIT_MS = 250;
     private static final int DEFAULT_OBSERVED_INTERACTION_WAIT_MS = 300;
+    private static final int DEFAULT_TIMED_STATE_OBSERVATION_WAIT_MS = 1200;
     private static final double DEFAULT_CASE_PLAN_OUTPUT_RATIO = 1.0d;
     private static final String DEFAULT_STEP_WAIT_MS_KEY = "devflow.test-planning.default-step-wait-ms";
     private static final String STRENGTHENED_INTERACTION_WAIT_MS_KEY = "devflow.test-planning.strengthened-interaction-wait-ms";
     private static final String OBSERVED_INTERACTION_WAIT_MS_KEY = "devflow.test-planning.observed-interaction-wait-ms";
+    private static final String TIMED_STATE_OBSERVATION_WAIT_MS_KEY = "devflow.test-planning.timed-state-observation-wait-ms";
     private static final String CASE_PLAN_OUTPUT_RATIO_KEY = "devflow.test-planning.case-plan-output-ratio";
 
     private TestPlanningPolicy() {
@@ -36,6 +41,22 @@ public final class TestPlanningPolicy {
                 OBSERVED_INTERACTION_WAIT_MS_KEY,
                 DEFAULT_OBSERVED_INTERACTION_WAIT_MS
         );
+    }
+
+    public static int timedStateObservationWaitMs() {
+        return readPositiveInt(
+                TIMED_STATE_OBSERVATION_WAIT_MS_KEY,
+                DEFAULT_TIMED_STATE_OBSERVATION_WAIT_MS
+        );
+    }
+
+    public static int observationWaitMs(List<CapabilitySurface> capabilities) {
+        if (capabilities == null || capabilities.isEmpty()) {
+            return observedInteractionWaitMs();
+        }
+        return capabilities.stream().anyMatch(surface -> surface == CapabilitySurface.TIMED_STATE_PROGRESSION)
+                ? timedStateObservationWaitMs()
+                : observedInteractionWaitMs();
     }
 
     public static double casePlanOutputRatio() {

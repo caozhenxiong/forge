@@ -1,21 +1,16 @@
 package devflow.agent.artifact;
 
-import devflow.agent.context.ConstraintAuthoritySupport;
 import devflow.agent.context.ConstraintSourceMetadata;
 import devflow.agent.context.ContractExtractor;
-import devflow.agent.context.ContractMetadataKeys;
 import devflow.agent.context.ExecutionContract;
 import devflow.agent.context.ProductContract;
-import devflow.agent.context.SourceMetadataKeys;
 import devflow.agent.context.ValidationMetadata;
 import devflow.agent.i18n.ArtifactLabels;
 import devflow.agent.i18n.DocumentLanguage;
-import devflow.agent.orchestrator.RunRecord;
 import devflow.agent.orchestrator.StageType;
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.StructuredArtifactBlocks;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.EnumSet;
 
 /**
  * 文档阶段生成后的本地稳定化处理。
@@ -25,12 +20,19 @@ import java.util.List;
  */
 final class DocumentStagePostProcessor {
 
+    private static final EnumSet<ArtifactSectionKind> TRANSIENT_CANONICAL_SECTIONS =
+            EnumSet.of(ArtifactSectionKind.CURRENT_NOTES);
+
     private final ContractExtractor contractExtractor;
     private final DocumentDraftAssembler draftAssembler;
+    private final ContractMetadataSectionRenderer contractMetadataSectionRenderer;
+    private final PrdQuantitativeConstraintCanonicalizer prdQuantitativeConstraintCanonicalizer;
 
     DocumentStagePostProcessor(ContractExtractor contractExtractor, DocumentDraftAssembler draftAssembler) {
         this.contractExtractor = contractExtractor;
         this.draftAssembler = draftAssembler;
+        this.contractMetadataSectionRenderer = new ContractMetadataSectionRenderer();
+        this.prdQuantitativeConstraintCanonicalizer = new PrdQuantitativeConstraintCanonicalizer();
     }
 
     String stabilizeSourceMetadata(
@@ -55,54 +57,42 @@ final class DocumentStagePostProcessor {
         );
     }
 
-    String stabilizeExecutionContractMetadata(
+    String stabilizeContractMetadata(
             String markdown,
             ExecutionContract executionContract,
+            ValidationMetadata validationMetadata,
             int sectionNumber
     ) {
-        if (markdown == null || markdown.isBlank() || executionContract == null) {
+        if (markdown == null || markdown.isBlank()) {
             return markdown;
         }
         return draftAssembler.replaceTitledSection(
                 markdown,
                 ArtifactLabels.contractMetadata(DocumentLanguage.EN),
-                executionContract.normalized().toMetadataSectionMarkdown(sectionNumber)
+                contractMetadataSectionRenderer.render(sectionNumber, executionContract, validationMetadata)
         );
     }
 
     String sanitizeDocumentConstraintEscalation(
-            RunRecord runRecord,
             StageType stageType,
             String markdown,
             ConstraintSourceMetadata authoritativeSourceMetadata,
-            ExecutionContract executionContract,
+            ValidationMetadata validationMetadata,
             DocumentLanguage language
     ) {
-        if (markdown == null || markdown.isBlank()) {
+        String canonicalMarkdown = stripTransientCanonicalSections(markdown);
+        if (canonicalMarkdown == null || canonicalMarkdown.isBlank()) {
             return markdown;
         }
-        String authorityCorpus = ConstraintAuthoritySupport.buildAuthorityCorpus(
-                runRecord.goal(),
-                runRecord.constraints(),
-                authoritativeSourceMetadata,
-                executionContract
-        );
-        List<DocumentSectionBlock> sections = draftAssembler.parseTopLevelSections(markdown);
-        if (sections.isEmpty()) {
-            return markdown;
+        if (stageType == StageType.PRD) {
+            return prdQuantitativeConstraintCanonicalizer.canonicalize(
+                    canonicalMarkdown,
+                    authoritativeSourceMetadata,
+                    validationMetadata,
+                    language
+            );
         }
-        StringBuilder rebuilt = new StringBuilder();
-        int cursor = 0;
-        for (DocumentSectionBlock section : sections) {
-            rebuilt.append(markdown, cursor, section.start());
-            String raw = section.raw();
-            rebuilt.append(shouldSkipConstraintSanitization(raw)
-                    ? raw
-                    : sanitizeSectionContent(raw, stageType, authorityCorpus, language));
-            cursor = section.end();
-        }
-        rebuilt.append(markdown.substring(cursor));
-        return rebuilt.toString().trim() + "\n";
+        return canonicalMarkdown.trim() + "\n";
     }
 
     String upsertDocumentBlocks(
@@ -128,57 +118,10 @@ final class DocumentStagePostProcessor {
         return rendered;
     }
 
-    private boolean shouldSkipConstraintSanitization(String rawSection) {
-        String firstLine = rawSection == null ? "" : rawSection.lines().findFirst().orElse("");
-        ArtifactSectionKind sectionKind = ArtifactSectionSupport.classifySecondLevelHeading(firstLine);
-        return sectionKind == ArtifactSectionKind.SOURCE_METADATA
-                || sectionKind == ArtifactSectionKind.CONTRACT_METADATA
-                || sectionKind == ArtifactSectionKind.CURRENT_NOTES;
-    }
-
-    private String sanitizeSectionContent(
-            String rawSection,
-            StageType stageType,
-            String authorityCorpus,
-            DocumentLanguage language
-    ) {
-        int lineBreak = rawSection.indexOf('\n');
-        if (lineBreak < 0) {
-            return rawSection;
+    private String stripTransientCanonicalSections(String markdown) {
+        if (markdown == null || markdown.isBlank()) {
+            return markdown;
         }
-        String heading = rawSection.substring(0, lineBreak);
-        String body = rawSection.substring(lineBreak + 1);
-        List<String> rewrittenLines = new ArrayList<>();
-        /*
-         * 这里不能用 String.lines()。
-         *
-         * String.lines() 会丢掉结尾的空行，而顶层章节之间本来就依赖这些空行来保持
-         * heading 分隔；一旦在净化阶段吞掉结尾空行，后续章节标题会直接贴在上一节正文后面。
-         */
-        for (String line : body.split("\n", -1)) {
-            rewrittenLines.add(sanitizeConstraintLine(line));
-        }
-        return heading + "\n" + String.join("\n", rewrittenLines);
-    }
-
-    private String sanitizeConstraintLine(String line) {
-        String trimmed = line.trim();
-        if (trimmed.isBlank()
-                || trimmed.startsWith("#")
-                || trimmed.startsWith(SourceMetadataKeys.markdownLinePrefix(SourceMetadataKeys.HARD_USER_REQUIREMENTS))
-                || trimmed.startsWith(SourceMetadataKeys.markdownLinePrefix(SourceMetadataKeys.HARD_UPSTREAM_FACTS))
-                || trimmed.startsWith(SourceMetadataKeys.markdownLinePrefix(SourceMetadataKeys.SOFT_INFERENCES))
-                || trimmed.startsWith(SourceMetadataKeys.markdownLinePrefix(SourceMetadataKeys.SOFT_DESIGN_DECISIONS))
-                || trimmed.startsWith(SourceMetadataKeys.markdownLinePrefix(SourceMetadataKeys.SOFT_RECOMMENDATIONS))
-                || trimmed.startsWith(SourceMetadataKeys.markdownLinePrefix(SourceMetadataKeys.OPEN_QUESTIONS))
-                || trimmed.startsWith("- " + ContractMetadataKeys.RUNTIME_ENTRY_REQUIRED + ":")
-                || trimmed.startsWith("- " + ContractMetadataKeys.RUNTIME_ENTRY_KIND + ":")
-                || trimmed.startsWith("- " + ContractMetadataKeys.RUNTIME_LAUNCH_REQUIRED + ":")
-                || trimmed.startsWith("- " + ContractMetadataKeys.RUNTIME_SURFACE_REQUIRED + ":")
-                || trimmed.startsWith("- " + ContractMetadataKeys.RUNTIME_ACCEPTANCE_SIGNALS + ":")
-                || trimmed.startsWith("[")) {
-            return line;
-        }
-        return line;
+        return ArtifactSectionSupport.removeSections(markdown, TRANSIENT_CANONICAL_SECTIONS);
     }
 }

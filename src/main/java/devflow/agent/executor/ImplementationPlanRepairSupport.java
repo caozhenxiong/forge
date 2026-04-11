@@ -37,7 +37,8 @@ final class ImplementationPlanRepairSupport {
                           "action": "WRITE|DELETE",
                           "reason": "字符串",
                           "editScope": "AUTO|HOST_HTML_PATCH|INLINE_SCRIPT_PATCH|INLINE_STYLE_PATCH",
-                          "runtimeOwnership": "INLINE_HOST|EXTERNAL_COMPANION|null"
+                          "runtimeOwnership": "INLINE_HOST|EXTERNAL_COMPANION|null",
+                          "hostHtmlPatchRequired": false
                         }
                       ]
                     }

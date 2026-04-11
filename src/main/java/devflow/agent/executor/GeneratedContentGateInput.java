@@ -11,7 +11,7 @@ record GeneratedContentGateInput(
         Path projectPath,
         Path relativePath,
         String content,
-        RuntimeOwnershipMode runtimeOwnership,
+        HtmlRuntimeOwnershipContract runtimeContract,
         java.util.List<Path> relatedPaths
 ) {
     GeneratedContentGateInput(Path projectPath, Path relativePath, String content) {

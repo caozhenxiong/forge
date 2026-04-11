@@ -1,7 +1,10 @@
 package devflow.agent.orchestrator;
 
 import devflow.agent.artifact.FileArtifactStore;
+import devflow.agent.protocol.ExecutionDirectiveNarrativeRenderer;
+import devflow.agent.protocol.ExecutionDirectivePayload;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.supervisor.SupervisorDecision;
@@ -125,10 +128,12 @@ public class StageTransitionSupport {
             StageType stageType,
             ReviewDecision decision,
             FixMode fixMode,
+            ImplementationPatchTarget implementationPatchTarget,
             String summary,
             String changeRequest,
             String evidence,
             String actionItems,
+            java.util.List<devflow.agent.executor.FileChange> overrideChanges,
             SupervisorDecision supervisorDecision,
             StageType rerouteStage,
             boolean forceRepair,
@@ -141,10 +146,12 @@ public class StageTransitionSupport {
                 stageType,
                 decision,
                 fixMode,
+                implementationPatchTarget,
                 summary,
                 changeRequest,
                 evidence,
                 actionItems,
+                overrideChanges,
                 supervisorDecision,
                 rerouteStage,
                 forceRepair,
@@ -159,6 +166,9 @@ public class StageTransitionSupport {
             StageType stageType,
             String summary,
             String changeRequest,
+            String evidence,
+            String actionItems,
+            ImplementationPatchTarget implementationPatchTarget,
             StageEntryAction stageEntryAction
     ) {
         Map<StageType, StageExecution> nextStates = new EnumMap<>(runRecord.stageStates());
@@ -175,7 +185,12 @@ public class StageTransitionSupport {
         }
 
         RunRecord draft = runRecord.withCurrentStage(stageType, RunStatus.IN_PROGRESS, nextStates, Instant.now());
-        return stageEntryAction.enter(draft, stageType, RunStatus.IN_PROGRESS, continuationNote(summary, changeRequest));
+        return stageEntryAction.enter(
+                draft,
+                stageType,
+                RunStatus.IN_PROGRESS,
+                continuationNote(summary, changeRequest, evidence, actionItems, implementationPatchTarget)
+        );
     }
 
     public void markFatalFailure(Path projectPath, UUID runId, StageType stageType, RuntimeException ex) {
@@ -186,15 +201,50 @@ public class StageTransitionSupport {
         return stageRevisionSupport.mergeActionItems(actionItems, supervisorDecision);
     }
 
-    private String continuationNote(String summary, String changeRequest) {
-        StringBuilder builder = new StringBuilder("继续当前阶段，先完成未收敛的剩余工作。");
-        if (summary != null && !summary.isBlank()) {
-            builder.append("\n\n## 当前状态\n\n").append(summary.trim());
-        }
-        if (changeRequest != null && !changeRequest.isBlank()) {
-            builder.append("\n\n## 继续要求\n\n").append(changeRequest.trim());
-        }
-        return builder.toString();
+    private String continuationNote(
+            String summary,
+            String changeRequest,
+            String evidence,
+            String actionItems,
+            ImplementationPatchTarget implementationPatchTarget
+    ) {
+        return ExecutionDirectiveNarrativeRenderer.renderRevisionNote(
+                new ExecutionDirectivePayload(
+                        FixMode.PATCH.name(),
+                        implementationPatchTarget == null ? ImplementationPatchTarget.NONE.name() : implementationPatchTarget.name(),
+                        java.util.List.of(),
+                        false,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        java.util.List.of(),
+                        java.util.List.of(),
+                        java.util.List.of(),
+                        java.util.List.of(),
+                        java.util.List.of(),
+                        java.util.List.of(),
+                        summary,
+                        changeRequest,
+                        evidence,
+                        actionItems,
+                        null,
+                        "继续当前 implementation 阶段，收敛未完成的问题。",
+                        java.util.List.of(),
+                        java.util.List.of(),
+                        null,
+                        null,
+                        null,
+                        null
+                ),
+                summary,
+                changeRequest,
+                evidence,
+                actionItems
+        );
     }
 
     @FunctionalInterface

@@ -76,10 +76,6 @@ final class PrdDocumentTemplateBuilder {
                 %s
 
                 %s
-
-                %s
-
-                %s
                 """.formatted(
                 runRecord.runId(),
                 runRecord.goal(),
@@ -89,9 +85,7 @@ final class PrdDocumentTemplateBuilder {
                 support.numberedContractMetadataHeading(7, language),
                 support.contractMetadataTemplateBlock(),
                 support.numberedSourceMetadataHeading(8, language),
-                support.sourceMetadataTemplateBlock(),
-                support.numberedCurrentNotesHeading(9, language),
-                note
+                support.sourceMetadataTemplateBlock()
         ) : """
                 # Product Requirements Document
 
@@ -150,10 +144,6 @@ final class PrdDocumentTemplateBuilder {
                 %s
 
                 %s
-
-                %s
-
-                %s
                 """.formatted(
                 runRecord.runId(),
                 runRecord.goal(),
@@ -163,9 +153,7 @@ final class PrdDocumentTemplateBuilder {
                 support.numberedContractMetadataHeading(7, language),
                 support.contractMetadataTemplateBlock(),
                 support.numberedSourceMetadataHeading(8, language),
-                support.sourceMetadataTemplateBlock(),
-                support.numberedCurrentNotesHeading(9, language),
-                note
+                support.sourceMetadataTemplateBlock()
         );
     }
 }

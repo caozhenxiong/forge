@@ -4,6 +4,7 @@ import devflow.agent.loop.AgentTurnSnapshot;
 import devflow.agent.loop.AgentTurnState;
 import devflow.agent.loop.AgentTurnStepResult;
 import devflow.agent.review.ReviewDecision;
+import java.util.List;
 
 /**
  * 负责一次子任务尝试里的 turn step 状态迁移。
@@ -73,11 +74,12 @@ final class SubtaskAttemptStepExecutor {
     }
 
     private void observeResult(SubtaskAttemptContext context, SubtaskAttemptProgress progress) {
+        Subtask effectiveSubtask = effectiveSubtask(context);
         progress.selfCheck(testExecutor.selfCheck(context.projectPath()));
         progress.completenessOutcome(implementationCompletenessGate.evaluate(
                 new ImplementationCompletenessGateInput(
                         context.projectPath(),
-                        context.subtask(),
+                        effectiveSubtask,
                         context.qualityPlan(),
                         context.finalSubtask()
                 )
@@ -90,10 +92,11 @@ final class SubtaskAttemptStepExecutor {
             SubtaskAttemptProgress progress
     ) {
         ImplementationCompletenessGateOutcome completenessOutcome = progress.completenessOutcome();
-        progress.verification(subtaskVerificationSupport.verifySubtask(
+        Subtask effectiveSubtask = effectiveSubtask(context);
+        SubtaskVerificationOutcome verificationOutcome = subtaskVerificationSupport.verifySubtask(
                 context.projectPath(),
                 context.runRecord(),
-                context.subtask(),
+                effectiveSubtask,
                 progress.selfCheck(),
                 context.feedback(),
                 completenessOutcome.inspection(),
@@ -105,13 +108,15 @@ final class SubtaskAttemptStepExecutor {
                 context.language(),
                 fileEditCoordinator.renderTargetedContext(
                         context.projectPath(),
-                        context.subtask().changes(),
+                        effectiveSubtask.changes(),
                         null,
                         context.contractView(),
                         context.fingerprint()
                 ),
                 context.eventJournal()
-        ));
+        );
+        progress.verification(verificationOutcome.review());
+        progress.revisionDirective(verificationOutcome.revisionDirective());
         boolean approved = progress.selfCheck() != null
                 && progress.selfCheck().passed()
                 && progress.verification() != null
@@ -127,15 +132,16 @@ final class SubtaskAttemptStepExecutor {
 
     private void applySubtask(SubtaskAttemptContext context) {
         SubtaskExecutionState executionState = context.executionState();
-        for (FileChange change : context.subtask().changes()) {
+        Subtask effectiveSubtask = effectiveSubtask(context);
+        for (FileChange change : effectiveSubtask.changes()) {
             executionState = fileEditCoordinator.applyChange(
                     context.projectPath(),
                     context.planSummary(),
-                    context.subtask(),
+                    effectiveSubtask,
                     context.taskPackage(),
                     context.feedback(),
                     change,
-                    context.executionState(),
+                    executionState,
                     context.contractView(),
                     context.fingerprint(),
                     context.coderContextMarkdown(),
@@ -151,5 +157,22 @@ final class SubtaskAttemptStepExecutor {
             String reason
     ) {
         return AgentTurnStepResult.advance(snapshot.next(nextState, title, reason));
+    }
+
+    private Subtask effectiveSubtask(SubtaskAttemptContext context) {
+        List<FileChange> activeChanges = context.executionState() == null
+                ? (context.subtask().changes() == null ? List.of() : context.subtask().changes())
+                : context.executionState().effectiveChanges(context.subtask().changes());
+        return new Subtask(
+                context.subtask().title(),
+                context.subtask().goal(),
+                context.subtask().coverageRefs(),
+                context.subtask().ownedCapabilities(),
+                context.subtask().deferredCapabilities(),
+                context.subtask().acceptanceCriteria(),
+                context.subtask().runnableMilestone(),
+                context.subtask().deliveryMode(),
+                activeChanges
+        );
     }
 }

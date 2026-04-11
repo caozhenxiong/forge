@@ -10,13 +10,95 @@ public record RuntimeSnapshot(
         Integer pageLoadMs,
         int canvasCount,
         List<String> selectors,
+        List<RuntimeSurfaceCandidate> surfaceCandidates,
+        List<RuntimeControlCandidate> controlCandidates,
         List<String> exposedMetricKeys,
         List<String> consoleErrors,
-        List<String> pageErrors
+        List<String> pageErrors,
+        RuntimeSnapshotCaptureStatus captureStatus,
+        RuntimeSnapshotFailureCode captureFailureCode,
+        List<String> captureErrors
 ) {
+
+    public RuntimeSnapshot(
+            String entry,
+            String pageTitle,
+            Integer pageLoadMs,
+            int canvasCount,
+            List<String> selectors,
+            List<RuntimeSurfaceCandidate> surfaceCandidates,
+            List<RuntimeControlCandidate> controlCandidates,
+            List<String> exposedMetricKeys,
+            List<String> consoleErrors,
+            List<String> pageErrors
+    ) {
+        this(
+                entry,
+                pageTitle,
+                pageLoadMs,
+                canvasCount,
+                selectors,
+                surfaceCandidates,
+                controlCandidates,
+                exposedMetricKeys,
+                consoleErrors,
+                pageErrors,
+                RuntimeSnapshotCaptureStatus.CAPTURED,
+                RuntimeSnapshotFailureCode.NONE,
+                List.of()
+        );
+    }
+
+    public RuntimeSnapshot(
+            String entry,
+            String pageTitle,
+            Integer pageLoadMs,
+            int canvasCount,
+            List<String> selectors,
+            List<String> exposedMetricKeys,
+            List<String> consoleErrors,
+            List<String> pageErrors
+    ) {
+        this(
+                entry,
+                pageTitle,
+                pageLoadMs,
+                canvasCount,
+                selectors,
+                List.of(),
+                List.of(),
+                exposedMetricKeys,
+                consoleErrors,
+                pageErrors,
+                RuntimeSnapshotCaptureStatus.CAPTURED,
+                RuntimeSnapshotFailureCode.NONE,
+                List.of()
+        );
+    }
+
+    public RuntimeSnapshot {
+        selectors = selectors == null ? List.of() : List.copyOf(selectors);
+        surfaceCandidates = surfaceCandidates == null ? List.of() : List.copyOf(surfaceCandidates);
+        controlCandidates = controlCandidates == null ? List.of() : List.copyOf(controlCandidates);
+        exposedMetricKeys = exposedMetricKeys == null ? List.of() : List.copyOf(exposedMetricKeys);
+        consoleErrors = consoleErrors == null ? List.of() : List.copyOf(consoleErrors);
+        pageErrors = pageErrors == null ? List.of() : List.copyOf(pageErrors);
+        captureStatus = captureStatus == null ? RuntimeSnapshotCaptureStatus.CAPTURED : captureStatus;
+        captureFailureCode = captureFailureCode == null ? RuntimeSnapshotFailureCode.NONE : captureFailureCode;
+        captureErrors = captureErrors == null ? List.of() : List.copyOf(captureErrors);
+    }
 
     public boolean usable() {
         return selectors != null && !selectors.isEmpty();
+    }
+
+    public boolean probeCaptured() {
+        return captureStatus == RuntimeSnapshotCaptureStatus.CAPTURED;
+    }
+
+    public boolean probeInvalid() {
+        return captureStatus == RuntimeSnapshotCaptureStatus.COLLECTOR_FAILED
+                || captureStatus == RuntimeSnapshotCaptureStatus.PAYLOAD_INVALID;
     }
 
     public String toMarkdown() {
@@ -31,7 +113,12 @@ public record RuntimeSnapshot(
                 - %s: %s
                 - pageLoadMs: %s
                 - canvasCount: %s
+                - surfaceCandidates: %s
+                - controlCandidates: %s
                 - exposedMetricKeys: %s
+                - captureStatus: %s
+                - captureFailureCode: %s
+                - captureErrors: %s
                 - consoleErrors: %s
                 - pageErrors: %s
 
@@ -45,7 +132,12 @@ public record RuntimeSnapshot(
                 blank(pageTitle, language),
                 pageLoadMs == null ? "n/a" : pageLoadMs,
                 canvasCount,
+                surfaceCandidates == null ? 0 : surfaceCandidates.size(),
+                controlCandidates == null ? 0 : controlCandidates.size(),
                 exposedMetricKeys == null ? 0 : exposedMetricKeys.size(),
+                captureStatus,
+                captureFailureCode,
+                captureErrors == null ? 0 : captureErrors.size(),
                 consoleErrors == null ? 0 : consoleErrors.size(),
                 pageErrors == null ? 0 : pageErrors.size(),
                 language.choose("选择器", "Selectors"),

@@ -1,19 +1,39 @@
 package devflow.agent.executor;
 
+import java.nio.file.Path;
 import java.util.List;
 
 public record WebRuntimeWiringResult(
         boolean passed,
         List<String> issues,
-        List<String> evidence
+        List<String> evidence,
+        HtmlEntryRuntimeOwnershipInspection ownershipInspection,
+        RuntimeWiringPatchDecision patchDecision
 ) {
 
     public static WebRuntimeWiringResult success() {
-        return new WebRuntimeWiringResult(true, List.of(), List.of());
+        return new WebRuntimeWiringResult(true, List.of(), List.of(), null, null);
     }
 
-    public static WebRuntimeWiringResult failure(List<String> issues, List<String> evidence) {
-        return new WebRuntimeWiringResult(false, List.copyOf(issues), List.copyOf(evidence));
+    public static WebRuntimeWiringResult success(Path htmlEntryPath, HtmlEntryRuntimeOwnershipInspection ownershipInspection) {
+        RuntimeWiringPatchDecision patchDecision = ownershipInspection == null
+                ? null
+                : new RuntimeWiringPatchDecisionResolver().resolve(htmlEntryPath, ownershipInspection, List.of());
+        return new WebRuntimeWiringResult(true, List.of(), List.of(), ownershipInspection, patchDecision);
+    }
+
+    public static WebRuntimeWiringResult failure(
+            Path htmlEntryPath,
+            List<String> issues,
+            List<String> evidence,
+            HtmlEntryRuntimeOwnershipInspection ownershipInspection
+    ) {
+        RuntimeWiringPatchDecision patchDecision = new RuntimeWiringPatchDecisionResolver().resolve(
+                htmlEntryPath,
+                ownershipInspection,
+                issues
+        );
+        return new WebRuntimeWiringResult(false, List.copyOf(issues), List.copyOf(evidence), ownershipInspection, patchDecision);
     }
 
     public String summary() {

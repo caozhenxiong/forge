@@ -1,6 +1,11 @@
 package devflow.agent.review;
 
+import devflow.agent.executor.ChangeAction;
+import devflow.agent.executor.FileChange;
+import devflow.agent.executor.FileEditScope;
+import devflow.agent.executor.RuntimeOwnershipMode;
 import devflow.agent.protocol.ArtifactBlockKind;
+import devflow.agent.protocol.FileChangePayload;
 import devflow.agent.protocol.ReviewArtifactPayload;
 import devflow.agent.protocol.ReviewArtifactPayloadSupport;
 import devflow.agent.text.TextCanonicalizer;
@@ -27,6 +32,22 @@ class ReviewDecisionArtifactParser {
             FixMode fixMode = payload.fixMode() == null || payload.fixMode().isBlank()
                     ? (decision == ReviewDecision.APPROVED ? FixMode.NONE : FixMode.PATCH)
                     : EnumParsers.parseIgnoreCase(FixMode.class, payload.fixMode(), FixMode.PATCH);
+            ImplementationPatchTarget patchTarget = EnumParsers.parseIgnoreCase(
+                    ImplementationPatchTarget.class,
+                    payload.implementationPatchTarget(),
+                    ImplementationPatchTarget.NONE
+            );
+            ReviewRevisionRoute revisionRoute = EnumParsers.parseIgnoreCase(
+                    ReviewRevisionRoute.class,
+                    payload.revisionRoute(),
+                    ReviewRevisionRoute.PATCH_CURRENT_STAGE
+            );
+            ReviewReasonCode reasonCode = EnumParsers.parseIgnoreCase(
+                    ReviewReasonCode.class,
+                    payload.reasonCode(),
+                    ReviewReasonCode.NONE
+            );
+            List<FileChange> overrideChanges = parseOverrideChanges(payload.overrideChanges());
             String summary = blankOrDefault(payload.summary(), "来自阶段产物的审阅结论。");
             // 即使 decision=APPROVED，也要先完整保留结构化字段。
             // 如果后续发现 blockingFindings=true，需要用这些字段组装降级后的证据。
@@ -41,11 +62,26 @@ class ReviewDecisionArtifactParser {
                         buildFindingsSummary(summary, findings),
                         buildFindingsChangeRequest(rawChangeRequest, findings),
                         buildFindingsEvidence(evidence, findings),
-                        buildFindingsActionItems(actionItems, findings)
+                        buildFindingsActionItems(actionItems, findings),
+                        patchTarget,
+                        overrideChanges,
+                        revisionRoute,
+                        reasonCode
                 );
             }
             String changeRequest = decision == ReviewDecision.APPROVED ? "" : rawChangeRequest;
-            return new ReviewResult(decision, fixMode, summary, changeRequest, evidence, actionItems);
+            return new ReviewResult(
+                    decision,
+                    fixMode,
+                    summary,
+                    changeRequest,
+                    evidence,
+                    actionItems,
+                    patchTarget,
+                    overrideChanges,
+                    revisionRoute,
+                    reasonCode
+            );
         }
         return new ReviewResult(
                 defaultDecision,
@@ -53,22 +89,6 @@ class ReviewDecisionArtifactParser {
                 "阶段产物未给出明确 decision。",
                 defaultChangeRequest
         );
-    }
-
-    ReviewResult parseTestArtifact(String artifactContent) {
-        ReviewArtifactPayload payload = ReviewArtifactPayloadSupport.readFirstPayload(artifactContent);
-        if (payload != null && payload.decision() != null && !payload.decision().isBlank()) {
-            ReviewDecision decision = EnumParsers.parseIgnoreCase(
-                    ReviewDecision.class,
-                    payload.decision(),
-                    ReviewDecision.REJECTED
-            );
-            if (decision == ReviewDecision.APPROVED) {
-                return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "测试通过。", "");
-            }
-            return new ReviewResult(decision, FixMode.PATCH, "测试失败。", "修复失败测试并重新执行。");
-        }
-        return new ReviewResult(ReviewDecision.REJECTED, FixMode.PATCH, "测试失败。", "修复失败测试并重新执行。");
     }
 
     private String blankOrDefault(String value, String defaultValue) {
@@ -168,5 +188,26 @@ class ReviewDecisionArtifactParser {
     private String trimFinding(String finding, int limit) {
         String normalized = TextCanonicalizer.collapseWhitespace(finding);
         return normalized.length() > limit ? normalized.substring(0, limit) : normalized;
+    }
+
+    private List<FileChange> parseOverrideChanges(List<FileChangePayload> payloads) {
+        if (payloads == null || payloads.isEmpty()) {
+            return List.of();
+        }
+        List<FileChange> resolved = new ArrayList<>();
+        for (FileChangePayload payload : payloads) {
+            if (payload == null || payload.path() == null || payload.path().isBlank()) {
+                continue;
+            }
+            resolved.add(new FileChange(
+                    payload.path(),
+                    EnumParsers.parseIgnoreCase(ChangeAction.class, payload.action(), ChangeAction.WRITE),
+                    payload.reason() == null ? "" : payload.reason(),
+                    EnumParsers.parseIgnoreCase(FileEditScope.class, payload.editScope(), FileEditScope.AUTO),
+                    EnumParsers.parseIgnoreCase(RuntimeOwnershipMode.class, payload.runtimeOwnership(), null),
+                    Boolean.TRUE.equals(payload.hostHtmlPatchRequired())
+            ));
+        }
+        return List.copyOf(resolved);
     }
 }

@@ -88,17 +88,18 @@ public class FileEditCoordinator {
             String coderContextMarkdown,
             ImplementationEventJournal eventJournal
     ) {
-        Path relativePath = Path.of(change.path()).normalize();
+        FileChange effectiveChange = executionState == null ? change : executionState.effectiveChange(change);
+        Path relativePath = Path.of(effectiveChange.path()).normalize();
         appendImplementationEvent(
                 eventJournal,
-                ImplementationEventMessages.fileApplyStart(relativePath, change.action(), executionState.deliveryMode())
+                ImplementationEventMessages.fileApplyStart(relativePath, effectiveChange.action(), executionState.deliveryMode())
         );
         try {
-            if (change.action() == ChangeAction.WRITE) {
+            if (effectiveChange.action() == ChangeAction.WRITE) {
                 generatedFileCommitSupport.commitGeneratedOutput(
                         projectPath,
                         subtask,
-                        change,
+                        effectiveChange,
                         generateFileOutput(
                                 projectPath,
                                 relativePath,
@@ -106,7 +107,7 @@ public class FileEditCoordinator {
                                 subtask,
                                 taskPackage,
                                 feedback,
-                                change.reason(),
+                                effectiveChange.reason(),
                                 executionState,
                                 contractView,
                                 fingerprint,
@@ -127,7 +128,7 @@ public class FileEditCoordinator {
         }
         appendImplementationEvent(
                 eventJournal,
-                ImplementationEventMessages.fileApplyFinished(relativePath, change.action())
+                ImplementationEventMessages.fileApplyFinished(relativePath, effectiveChange.action())
         );
         return executionState;
     }

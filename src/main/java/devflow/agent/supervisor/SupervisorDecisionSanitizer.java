@@ -5,6 +5,7 @@ import devflow.agent.context.ProjectedContext;
 import devflow.agent.executor.GenerationFailureReport;
 import devflow.agent.orchestrator.GatePolicy;
 import devflow.agent.orchestrator.RunRecord;
+import devflow.agent.orchestrator.StageFlowPolicy;
 import devflow.agent.orchestrator.StageType;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ReviewDecision;
@@ -21,10 +22,15 @@ import java.util.List;
  */
 public class SupervisorDecisionSanitizer {
 
+    private final StageFlowPolicy stageFlowPolicy;
     private final SupervisorPayloadNormalizer payloadNormalizer;
     private final DeliveryPolicySanitizer deliveryPolicySanitizer;
 
-    public SupervisorDecisionSanitizer(SupervisorFallbackPolicy supervisorFallbackPolicy) {
+    public SupervisorDecisionSanitizer(
+            StageFlowPolicy stageFlowPolicy,
+            SupervisorFallbackPolicy supervisorFallbackPolicy
+    ) {
+        this.stageFlowPolicy = stageFlowPolicy;
         this.payloadNormalizer = new SupervisorPayloadNormalizer();
         this.deliveryPolicySanitizer = new DeliveryPolicySanitizer(supervisorFallbackPolicy);
     }
@@ -82,10 +88,11 @@ public class SupervisorDecisionSanitizer {
                 return fallback;
             }
             if (action == SupervisorAction.ROUTE_TO_REPAIR) {
-                targetStage = StageType.IMPLEMENTATION;
-                if (!repeatedIssue) {
+                StageType repairTarget = stageFlowPolicy.repairTarget(currentStage);
+                if (!repeatedIssue || repairTarget == null) {
                     return fallback;
                 }
+                targetStage = repairTarget;
             }
             if (action == SupervisorAction.RETRY_STAGE && targetStage == null) {
                 targetStage = fallback.targetStage();

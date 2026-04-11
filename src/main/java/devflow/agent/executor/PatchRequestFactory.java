@@ -31,7 +31,8 @@ final class PatchRequestFactory {
                 request.executionState().deliveryMode(),
                 request.eventJournal(),
                 request.existingContent(),
-                request.patchProgressState()
+                request.patchProgressState(),
+                request.runtimeContract()
         );
     }
 
@@ -52,7 +53,8 @@ final class PatchRequestFactory {
                 request.contractView(),
                 request.fingerprint(),
                 request.eventJournal(),
-                request.patchProgressState()
+                request.patchProgressState(),
+                request.runtimeContract()
         );
     }
 
@@ -93,7 +95,8 @@ final class PatchRequestFactory {
                 request.executionState().deliveryMode(),
                 request.contractView(),
                 request.fingerprint(),
-                request.eventJournal()
+                request.eventJournal(),
+                request.runtimeContract()
         );
     }
 }

@@ -11,6 +11,7 @@ final class SubtaskAttemptProgress {
     private SelfCheckResult selfCheck;
     private ImplementationCompletenessGateOutcome completenessOutcome;
     private ReviewResult verification;
+    private SubtaskRevisionDirective revisionDirective = SubtaskRevisionDirective.empty();
 
     GenerationFailureException generationFailure() {
         return generationFailure;
@@ -44,7 +45,15 @@ final class SubtaskAttemptProgress {
         this.verification = verification;
     }
 
+    SubtaskRevisionDirective revisionDirective() {
+        return revisionDirective;
+    }
+
+    void revisionDirective(SubtaskRevisionDirective revisionDirective) {
+        this.revisionDirective = revisionDirective == null ? SubtaskRevisionDirective.empty() : revisionDirective;
+    }
+
     SubtaskAttemptResult toResult() {
-        return new SubtaskAttemptResult(generationFailure, selfCheck, completenessOutcome, verification);
+        return new SubtaskAttemptResult(generationFailure, selfCheck, completenessOutcome, verification, revisionDirective);
     }
 }

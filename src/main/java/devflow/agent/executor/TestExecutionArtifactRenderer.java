@@ -15,7 +15,12 @@ import java.util.List;
  */
 final class TestExecutionArtifactRenderer {
 
-    String render(CollectedTestEvidence evidence, DocumentLanguage language) {
+    String render(
+            CollectedTestEvidence evidence,
+            UiRuntimeContract runtimeContract,
+            ExperienceFailureDisposition disposition,
+            DocumentLanguage language
+    ) {
         SelfCheckResult selfCheck = evidence.selfCheck();
         ArchitectIntegrationCheckResult architectCheck = evidence.architectCheck();
         RuntimeSnapshot runtimeSnapshot = evidence.runtimeSnapshot();
@@ -31,6 +36,14 @@ final class TestExecutionArtifactRenderer {
         builder.append(StructuredArtifactBlocks.renderJsonBlock(
                 ArtifactBlockKind.QUALITY_LEDGER,
                 qualityLedger
+        )).append("\n\n");
+        builder.append(StructuredArtifactBlocks.renderJsonBlock(
+                ArtifactBlockKind.UI_RUNTIME_CONTRACT,
+                runtimeContract == null ? UiRuntimeContract.empty() : runtimeContract
+        )).append("\n\n");
+        builder.append(StructuredArtifactBlocks.renderJsonBlock(
+                ArtifactBlockKind.EXPERIENCE_FAILURE_DISPOSITION,
+                disposition == null ? ExperienceFailureDisposition.pass() : disposition
         )).append("\n\n");
         builder.append("# ").append(language.choose("测试执行记录", "Test Execution")).append("\n\n");
         builder.append("## ").append(language.choose("自检", "Self-check")).append("\n\n");
@@ -50,11 +63,22 @@ final class TestExecutionArtifactRenderer {
         builder.append(runtimeSnapshot == null
                 ? language.choose("- unavailable\n\n", "- unavailable\n\n")
                 : runtimeSnapshot.toMarkdown(language).replaceFirst("^# .+\\n\\n", "") + "\n\n");
+        builder.append("## ").append(language.choose("运行时观测契约", "UI Runtime Contract")).append("\n\n");
+        builder.append(runtimeContract == null
+                ? language.choose("- unavailable\n\n", "- unavailable\n\n")
+                : runtimeContract.toMarkdown(language).replaceFirst("^# .+\\n\\n", "") + "\n\n");
         renderToolResults(builder, language, toolResults);
         renderCaseResults(builder, language, caseResults);
         if (coverageLedger != null && !coverageLedger.entries().isEmpty()) {
             builder.append("\n## ").append(language.choose("覆盖账本", "Coverage Ledger")).append("\n\n");
             builder.append(coverageLedger.toMarkdown(language)).append("\n");
+        }
+        if (disposition != null && !disposition.passed()) {
+            builder.append("\n## ").append(language.choose("失败归因", "Failure Disposition")).append("\n\n");
+            builder.append("- kind: ").append(disposition.kind()).append("\n");
+            builder.append("- summary: ").append(blank(disposition.summary())).append("\n");
+            builder.append("- changeRequest: ").append(blank(disposition.changeRequest())).append("\n");
+            builder.append("- evidence: ").append(trim(disposition.evidence()).replace("\n", " | ")).append("\n");
         }
         builder.append("\n");
         return builder.toString();

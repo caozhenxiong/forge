@@ -3,6 +3,7 @@ package devflow.agent.executor;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 
@@ -27,7 +28,8 @@ public record GenerationFailureReport(
                 summary == null ? "" : summary,
                 retryHint == null ? "" : retryHint,
                 evidence == null ? "" : evidence,
-                "1. 先按失败原因收缩改单范围。 2. 重新调用模型前保留现有可用文件。 3. 优先使用更保守的 delivery policy。"
+                "1. 先按失败原因收缩改单范围。 2. 重新调用模型前保留现有可用文件。 3. 优先使用更保守的 delivery policy。",
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
         );
     }
 

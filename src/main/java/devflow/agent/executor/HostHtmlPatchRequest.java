@@ -21,6 +21,7 @@ record HostHtmlPatchRequest(
         String existingContent,
         DeliveryMode deliveryMode,
         ImplementationEventJournal eventJournal,
-        FilePatchProgressState patchProgressState
+        FilePatchProgressState patchProgressState,
+        HtmlRuntimeOwnershipContract runtimeContract
 ) {
 }

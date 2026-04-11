@@ -39,6 +39,8 @@ final class ContractMetadataConsistencyGuard {
         ExecutionContract raw = new ExecutionContract(
                 parseBoolean(metadata.get(ContractMetadataKeys.RUNTIME_ENTRY_REQUIRED), false),
                 blank(metadata.get(ContractMetadataKeys.RUNTIME_ENTRY_KIND)),
+                blank(metadata.get(ContractMetadataKeys.RUNTIME_ENTRY_PACKAGING_MODE)),
+                blank(metadata.get(ContractMetadataKeys.RUNTIME_RUNTIME_OWNERSHIP_MODE)),
                 parseBoolean(metadata.get(ContractMetadataKeys.RUNTIME_LAUNCH_REQUIRED), false),
                 parseBoolean(metadata.get(ContractMetadataKeys.RUNTIME_SURFACE_REQUIRED), false),
                 parseList(metadata.get(ContractMetadataKeys.RUNTIME_ACCEPTANCE_SIGNALS))
@@ -52,6 +54,13 @@ final class ContractMetadataConsistencyGuard {
             return "%s 已声明具体入口类型，但 %s 与其语义不一致。".formatted(
                     ContractMetadataKeys.RUNTIME_ENTRY_KIND,
                     ContractMetadataKeys.RUNTIME_ENTRY_REQUIRED
+            );
+        }
+        if (normalized.normalizedEntryPackagingModeEnum() == devflow.agent.context.EntryPackagingMode.SELF_CONTAINED_ENTRY
+                && normalized.normalizedRuntimeOwnershipModeEnum() == devflow.agent.context.ContractRuntimeOwnershipMode.COMPANION_OWNED) {
+            return "%s=SELF_CONTAINED_ENTRY 与 %s=COMPANION_OWNED 不能同时成立。".formatted(
+                    ContractMetadataKeys.RUNTIME_ENTRY_PACKAGING_MODE,
+                    ContractMetadataKeys.RUNTIME_RUNTIME_OWNERSHIP_MODE
             );
         }
         if (raw.launchRequired() != normalized.launchRequired()) {

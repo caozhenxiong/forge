@@ -1,7 +1,6 @@
 package devflow.agent.quality;
 
 import devflow.agent.context.ContractView;
-import devflow.agent.context.ExecutionContract;
 import devflow.agent.context.ValidationMetadata;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -24,19 +23,9 @@ public final class QualityIntentResolver {
                 && (requiredCapabilitySurfaces == null || requiredCapabilitySurfaces.isEmpty())) {
             return QualityIntent.empty();
         }
-        ExecutionContract executionContract = contractView == null ? null : contractView.executionContract();
         LinkedHashSet<CapabilitySurface> requiredSurfaces = new LinkedHashSet<>();
         if (rules != null && rules.verificationRules() != null) {
             requiredSurfaces.addAll(rules.verificationRules().requiredCapabilitySurfaces());
-        }
-        boolean preferLogicExternalization = false;
-        boolean requireStructureJustification = false;
-        if (executionContract != null) {
-            ExecutionContract normalized = executionContract.normalized();
-            if (normalized.surfaceRequired()) {
-                preferLogicExternalization = normalized.requiresHtmlEntry();
-                requireStructureJustification = normalized.requiresHtmlEntry();
-            }
         }
         if (validationMetadata != null) {
             if (validationMetadata.pageLoadMaxMs() != null) {
@@ -53,7 +42,7 @@ public final class QualityIntentResolver {
                     .forEach(requiredSurfaces::add);
         }
         return new QualityIntent(
-                new StructureIntent(preferLogicExternalization, requireStructureJustification),
+                StructureIntent.empty(),
                 new CoverageIntent(Set.copyOf(requiredSurfaces)),
                 new InteractionIntent(requiredSurfaces.stream()
                         .filter(CapabilitySurface::isExperienceSurface)

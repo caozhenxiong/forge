@@ -30,7 +30,12 @@ class HtmlInlineScriptEmbeddingAdapterTests {
                 <body>
                   <main id="app-root"></main>
                   <script id="app-script">
+                  function bindUi() {
+                    return 'ui';
+                  }
+
                   function boot() {
+                    bindUi();
                     return 'ok';
                   }
                   </script>

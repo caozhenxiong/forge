@@ -16,6 +16,8 @@ public final class ContractMetadataKeys {
 
     public static final String RUNTIME_ENTRY_REQUIRED = "runtime.entryRequired";
     public static final String RUNTIME_ENTRY_KIND = "runtime.entryKind";
+    public static final String RUNTIME_ENTRY_PACKAGING_MODE = "runtime.entryPackagingMode";
+    public static final String RUNTIME_RUNTIME_OWNERSHIP_MODE = "runtime.runtimeOwnershipMode";
     public static final String RUNTIME_LAUNCH_REQUIRED = "runtime.launchRequired";
     public static final String RUNTIME_SURFACE_REQUIRED = "runtime.surfaceRequired";
     public static final String RUNTIME_ACCEPTANCE_SIGNALS = "runtime.acceptanceSignals";
@@ -27,6 +29,8 @@ public final class ContractMetadataKeys {
     private static final List<String> RUNTIME_KEYS = List.of(
             RUNTIME_ENTRY_REQUIRED,
             RUNTIME_ENTRY_KIND,
+            RUNTIME_ENTRY_PACKAGING_MODE,
+            RUNTIME_RUNTIME_OWNERSHIP_MODE,
             RUNTIME_LAUNCH_REQUIRED,
             RUNTIME_SURFACE_REQUIRED,
             RUNTIME_ACCEPTANCE_SIGNALS

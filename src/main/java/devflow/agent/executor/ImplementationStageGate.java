@@ -2,6 +2,7 @@ package devflow.agent.executor;
 
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import java.util.ArrayList;
@@ -91,7 +92,10 @@ class ImplementationStageGate {
                 language.choose("当前交付物未满足最小可运行契约", "The current deliverable does not satisfy the minimum runnable contract"),
                 architectCheckResult.details(),
                 architectCheckResult.details(),
-                language.choose("补齐入口或运行表面，使交付物满足 execution contract。", "Add the missing entry or runnable surface so the deliverable satisfies the execution contract.")
+                language.choose("补齐入口或运行表面，使交付物满足 execution contract。", "Add the missing entry or runnable surface so the deliverable satisfies the execution contract."),
+                architectCheckResult == null
+                        ? ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
+                        : architectCheckResult.implementationPatchTarget()
         );
         SubtaskAttemptReport attemptReport = SubtaskAttemptReport.fromVerification(
                 1,

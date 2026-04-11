@@ -68,7 +68,7 @@ class DocumentStructureGuard {
                     ReviewDecision.REVISION_REQUIRED,
                     FixMode.PATCH,
                     artifactLabel + " 的 Contract Metadata 不自洽：" + trimFinding(inconsistentExecutionContractMetadata, 80),
-                    "请修复 Contract Metadata，使 entryKind、entryRequired、launchRequired、surfaceRequired 和 acceptanceSignals 的语义保持一致：" + trimFinding(inconsistentExecutionContractMetadata, 120)
+                    "请修复 Contract Metadata，使 entryKind、entryPackagingMode、runtimeOwnershipMode、entryRequired、launchRequired、surfaceRequired 和 acceptanceSignals 的语义保持一致：" + trimFinding(inconsistentExecutionContractMetadata, 120)
             );
         }
 

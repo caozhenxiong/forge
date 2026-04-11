@@ -3,6 +3,7 @@ package devflow.agent.executor;
 import devflow.agent.context.ContractView;
 import devflow.agent.context.ExecutionContract;
 import devflow.agent.context.ProductContract;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.validation.ProjectFingerprint;
 import java.util.List;
 import java.util.Set;
@@ -26,6 +27,7 @@ class ImplementationPlanGateTests {
                 true,
                 true,
                 null,
+                ImplementationPatchTarget.NONE,
                 ImplementationContinuationConstraints.empty(),
                 List.of(
                         new Subtask(
@@ -42,7 +44,8 @@ class ImplementationPlanGateTests {
                                         ChangeAction.WRITE,
                                         "创建入口",
                                         FileEditScope.HOST_HTML_PATCH,
-                                        RuntimeOwnershipMode.INLINE_HOST
+                                        RuntimeOwnershipMode.INLINE_HOST,
+                                        true
                                 ))
                         ),
                         new Subtask(
@@ -75,6 +78,7 @@ class ImplementationPlanGateTests {
                 true,
                 true,
                 null,
+                ImplementationPatchTarget.NONE,
                 ImplementationContinuationConstraints.empty(),
                 List.of(new Subtask(
                         "建立运行入口",
@@ -106,6 +110,7 @@ class ImplementationPlanGateTests {
                 true,
                 true,
                 null,
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
                 ImplementationContinuationConstraints.empty(),
                 List.of(new Subtask(
                         "补齐接线",
@@ -127,7 +132,7 @@ class ImplementationPlanGateTests {
         ));
 
         assertFalse(report.passed());
-        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("companion runtime")));
+        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("external runtime root")));
     }
 
     @Test
@@ -143,6 +148,7 @@ class ImplementationPlanGateTests {
                 true,
                 true,
                 null,
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
                 new ImplementationContinuationConstraints(
                         List.of("index.html"),
                         List.of(new ImplementationContinuationConstraints.ProtectedHtmlEntryConstraint(

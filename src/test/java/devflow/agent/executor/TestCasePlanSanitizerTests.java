@@ -58,7 +58,13 @@ class TestCasePlanSanitizerTests {
                 )
         );
 
-        List<TestCaseSpec> cases = sanitizer.sanitize(List.of(startGuide, raw), List.of(), "index.html", snapshot);
+        List<TestCaseSpec> cases = sanitizer.sanitize(
+                List.of(startGuide, raw),
+                List.of(),
+                "index.html",
+                snapshot,
+                runtimeContract(UiObservationMode.CANVAS_HASH, "#game-canvas", "#start-btn")
+        );
 
         TestCaseSpec repaired = cases.stream().filter(testCase -> "TC-003".equals(testCase.id())).findFirst().orElseThrow();
         List<TestStepSpec> steps = repaired.steps();
@@ -120,7 +126,13 @@ class TestCasePlanSanitizerTests {
                 )
         );
 
-        List<TestCaseSpec> cases = sanitizer.sanitize(List.of(startGuide, raw), List.of(), "index.html", snapshot);
+        List<TestCaseSpec> cases = sanitizer.sanitize(
+                List.of(startGuide, raw),
+                List.of(),
+                "index.html",
+                snapshot,
+                runtimeContract(UiObservationMode.CANVAS_HASH, "#game-canvas", "#start-btn")
+        );
 
         List<TestStepSpec> steps = cases.stream().filter(testCase -> "TC-005".equals(testCase.id())).findFirst().orElseThrow().steps();
         assertEquals(TestStepAction.ASSERT_SELECTOR, steps.get(0).action());
@@ -176,7 +188,13 @@ class TestCasePlanSanitizerTests {
                 )
         );
 
-        List<TestCaseSpec> cases = sanitizer.sanitize(List.of(startGuide, raw), List.of(), "index.html", snapshot);
+        List<TestCaseSpec> cases = sanitizer.sanitize(
+                List.of(startGuide, raw),
+                List.of(),
+                "index.html",
+                snapshot,
+                runtimeContract(UiObservationMode.CANVAS_HASH, "#game-canvas", "#start-button")
+        );
 
         List<TestStepSpec> steps = cases.stream().filter(testCase -> "TC-006".equals(testCase.id())).findFirst().orElseThrow().steps();
         assertFalse(steps.stream().anyMatch(step -> "#score-display".equals(step.selector()) && step.action() == TestStepAction.CLICK));
@@ -212,7 +230,13 @@ class TestCasePlanSanitizerTests {
                 )
         );
 
-        List<TestCaseSpec> cases = sanitizer.sanitize(List.of(raw), List.of(), "index.html", snapshot);
+        List<TestCaseSpec> cases = sanitizer.sanitize(
+                List.of(raw),
+                List.of(),
+                "index.html",
+                snapshot,
+                runtimeContract(UiObservationMode.DOM_SIGNATURE, "#app-root")
+        );
 
         List<TestStepSpec> steps = cases.getFirst().steps();
         assertTrue(steps.stream().noneMatch(step -> step.action() == TestStepAction.SNAPSHOT_CANVAS_HASH));
@@ -256,7 +280,13 @@ class TestCasePlanSanitizerTests {
                 )
         );
 
-        List<TestCaseSpec> cases = sanitizer.sanitize(List.of(raw), List.of(), "index.html", snapshot);
+        List<TestCaseSpec> cases = sanitizer.sanitize(
+                List.of(raw),
+                List.of(),
+                "index.html",
+                snapshot,
+                runtimeContract(UiObservationMode.CANVAS_HASH, "#game-canvas", "#start-btn")
+        );
 
         List<TestStepSpec> steps = cases.getFirst().steps();
         assertTrue(steps.stream().anyMatch(step ->
@@ -298,7 +328,13 @@ class TestCasePlanSanitizerTests {
                 )
         );
 
-        List<TestCaseSpec> cases = sanitizer.sanitize(List.of(raw), List.of(), "index.html", snapshot);
+        List<TestCaseSpec> cases = sanitizer.sanitize(
+                List.of(raw),
+                List.of(),
+                "index.html",
+                snapshot,
+                runtimeContract(UiObservationMode.CANVAS_HASH, "#game-canvas", "#start-button")
+        );
 
         List<TestStepSpec> steps = cases.getFirst().steps();
         TestStepSpec changed = steps.stream()
@@ -346,7 +382,13 @@ class TestCasePlanSanitizerTests {
                 )
         );
 
-        List<TestCaseSpec> cases = sanitizer.sanitize(List.of(raw), List.of(), "index.html", snapshot);
+        List<TestCaseSpec> cases = sanitizer.sanitize(
+                List.of(raw),
+                List.of(),
+                "index.html",
+                snapshot,
+                runtimeContract(UiObservationMode.CANVAS_HASH, "canvas", "#start-button")
+        );
 
         List<TestStepSpec> steps = cases.getFirst().steps();
         assertTrue(steps.stream()
@@ -381,5 +423,20 @@ class TestCasePlanSanitizerTests {
             String semantic
     ) {
         return new PlannedTestStepPayload(action, selector, key, count, ms, text, optional, semantic);
+    }
+
+    private UiRuntimeContract runtimeContract(UiObservationMode mode, String selector, String... runStateEntryTargets) {
+        List<String> ownerPaths = List.of("index.html");
+        List<String> runStateEntries = runStateEntryTargets == null ? List.of() : List.of(runStateEntryTargets);
+        return new UiRuntimeContract(
+                "index.html",
+                ownerPaths,
+                runStateEntries,
+                List.of(
+                        new UiObservationTarget(CapabilitySurface.PRIMARY_VISUAL_SURFACE, selector, mode, ownerPaths, true),
+                        new UiObservationTarget(CapabilitySurface.PRIMARY_INTERACTION, selector, mode, ownerPaths, true),
+                        new UiObservationTarget(CapabilitySurface.TIMED_STATE_PROGRESSION, selector, mode, ownerPaths, true)
+                )
+        );
     }
 }

@@ -5,6 +5,7 @@ import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;
 import devflow.agent.loop.TransitionDecision;
 import devflow.agent.protocol.ArtifactBlockKind;
+import devflow.agent.protocol.FileChangePayload;
 import devflow.agent.protocol.ReviewArtifactPayload;
 import devflow.agent.protocol.ReviewHistoryEntryPayload;
 import devflow.agent.protocol.StructuredArtifactBlocks;
@@ -23,6 +24,10 @@ public class WorkflowArtifactRenderer {
                 new ReviewArtifactPayload(
                         reviewResult.decision().name(),
                         reviewResult.fixMode().name(),
+                        reviewResult.implementationPatchTarget().name(),
+                        reviewResult.overrideChanges().stream().map(this::toPayload).toList(),
+                        reviewResult.revisionRoute().name(),
+                        reviewResult.reasonCode().name(),
                         nullToEmpty(reviewResult.summary()),
                         nullToEmpty(reviewResult.changeRequest()),
                         nullToEmpty(reviewResult.evidence()),
@@ -37,21 +42,39 @@ public class WorkflowArtifactRenderer {
 
                 # %s
 
-                - decision: %s
-                - fixMode: %s
-                - summary: %s
-                - changeRequest: %s
-                - evidence: %s
-                - actionItems: %s
+                决策：%s
+                修复模式：%s
+                修复目标：%s
+
+                ## %s
+
+                %s
+
+                ## %s
+
+                %s
+
+                ## %s
+
+                %s
+
+                ## %s
+
+                %s
         """.formatted(
                 machineBlock,
                 language.choose(stageType + " 阶段审阅结果", stageType + " Review Result"),
                 reviewResult.decision(),
                 reviewResult.fixMode(),
-                nullToEmpty(reviewResult.summary()),
-                nullToEmpty(reviewResult.changeRequest()),
-                nullToEmpty(reviewResult.evidence()),
-                nullToEmpty(reviewResult.actionItems())
+                reviewResult.implementationPatchTarget(),
+                language.choose("总结", "Summary"),
+                emptySection(reviewResult.summary(), language),
+                language.choose("修改要求", "Change Request"),
+                emptySection(reviewResult.changeRequest(), language),
+                language.choose("证据", "Evidence"),
+                emptySection(reviewResult.evidence(), language),
+                language.choose("执行动作", "Action Items"),
+                emptySection(reviewResult.actionItems(), language)
         );
     }
 
@@ -64,6 +87,7 @@ public class WorkflowArtifactRenderer {
                         stageType.name(),
                         reviewResult.decision().name(),
                         reviewResult.fixMode().name(),
+                        reviewResult.implementationPatchTarget().name(),
                         nullToEmpty(reviewResult.summary()),
                         nullToEmpty(reviewResult.changeRequest()),
                         nullToEmpty(reviewResult.evidence()),
@@ -75,12 +99,14 @@ public class WorkflowArtifactRenderer {
 
                 ## %s=%d %s=%s %s=%s
 
-                - decision: %s
-                - fixMode: %s
-                - summary: %s
-                - changeRequest: %s
-                - evidence: %s
-                - actionItems: %s
+                决策：%s
+                修复模式：%s
+                修复目标：%s
+
+                总结：%s
+                修改要求：%s
+                证据：%s
+                执行动作：%s
 
                 """.formatted(
                 machineBlock,
@@ -92,10 +118,11 @@ public class WorkflowArtifactRenderer {
                 stageType,
                 reviewResult.decision(),
                 reviewResult.fixMode(),
-                nullToEmpty(reviewResult.summary()),
-                nullToEmpty(reviewResult.changeRequest()),
-                nullToEmpty(reviewResult.evidence()),
-                nullToEmpty(reviewResult.actionItems())
+                reviewResult.implementationPatchTarget(),
+                inlineEmpty(reviewResult.summary()),
+                inlineEmpty(reviewResult.changeRequest()),
+                inlineEmpty(reviewResult.evidence()),
+                inlineEmpty(reviewResult.actionItems())
         );
     }
 
@@ -174,7 +201,31 @@ public class WorkflowArtifactRenderer {
         return builder.toString();
     }
 
+    private String emptySection(String value, DocumentLanguage language) {
+        return value == null || value.isBlank()
+                ? language.choose("无", "None")
+                : value;
+    }
+
+    private String inlineEmpty(String value) {
+        return value == null || value.isBlank() ? "-" : value;
+    }
+
     private String nullToEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    private FileChangePayload toPayload(devflow.agent.executor.FileChange change) {
+        if (change == null) {
+            return null;
+        }
+        return new FileChangePayload(
+                change.path(),
+                change.action() == null ? null : change.action().name(),
+                nullToEmpty(change.reason()),
+                change.effectiveEditScope().name(),
+                change.runtimeOwnership() == null ? null : change.runtimeOwnership().name(),
+                change.hostHtmlPatchRequired()
+        );
     }
 }

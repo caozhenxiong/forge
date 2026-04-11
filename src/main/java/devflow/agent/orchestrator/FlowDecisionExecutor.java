@@ -58,10 +58,12 @@ public class FlowDecisionExecutor {
                     stageType,
                     reviewResult.decision(),
                     supervisorDecision.mode(),
+                    reviewResult.implementationPatchTarget(),
                     reviewResult.summary(),
                     reviewResult.changeRequest(),
                     reviewResult.evidence(),
                     stageTransitionSupport.mergeActionItems(reviewResult.actionItems(), supervisorDecision),
+                    reviewResult.overrideChanges(),
                     supervisorDecision,
                     flowDecision.targetStage(),
                     false,
@@ -76,10 +78,12 @@ public class FlowDecisionExecutor {
                     stageType,
                     reviewResult.decision(),
                     supervisorDecision.mode(),
+                    reviewResult.implementationPatchTarget(),
                     reviewResult.summary(),
                     reviewResult.changeRequest(),
                     reviewResult.evidence(),
                     stageTransitionSupport.mergeActionItems(reviewResult.actionItems(), supervisorDecision),
+                    reviewResult.overrideChanges(),
                     supervisorDecision,
                     flowDecision.targetStage(),
                     true,
@@ -95,14 +99,20 @@ public class FlowDecisionExecutor {
             RunRecord runRecord,
             StageType stageType,
             String summary,
-            String changeRequest
+            String changeRequest,
+            String evidence,
+            String actionItems,
+            devflow.agent.review.ImplementationPatchTarget implementationPatchTarget
     ) {
-        return stageTransitionSupport.continueStage(
+            return stageTransitionSupport.continueStage(
                 projectPath,
                 runRecord,
                 stageType,
                 summary,
                 changeRequest,
+                evidence,
+                actionItems,
+                implementationPatchTarget,
                 stageEntryExecutor::enterStage
         );
     }

@@ -143,6 +143,7 @@ class EmbeddedPatchUnitExecutorTests {
                         "",
                         DeliveryMode.PATCH,
                         null,
+                        null,
                         null
                 ),
                 EmbeddedPatchKind.SCRIPT,

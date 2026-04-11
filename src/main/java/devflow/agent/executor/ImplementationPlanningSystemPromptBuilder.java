@@ -4,6 +4,7 @@ import devflow.agent.orchestrator.RunRecord;
 import devflow.agent.protocol.ExecutionDirectivePayload;
 import devflow.agent.protocol.ExecutionDirectiveProtocol;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 
 /**
  * 负责 implementation planning 的 system prompt。
@@ -27,11 +28,13 @@ final class ImplementationPlanningSystemPromptBuilder {
             boolean preferSkeletonFlow,
             DeliveryPolicyEnvelope deliveryPolicy,
             FixMode fixMode,
+            ImplementationPatchTarget implementationPatchTarget,
             ImplementationContinuationConstraints continuationConstraints
     ) {
         String system = baseSystemPrompt();
         system = appendDeliveryPolicy(system, deliveryPolicy);
         system = appendFixModeGuidance(system, fixMode);
+        system = appendPatchTargetGuidance(system, implementationPatchTarget);
         system = appendRepairBriefGuidance(system, note);
         if (preferSkeletonFlow) {
             system = appendSkeletonFlowGuidance(system);
@@ -40,7 +43,7 @@ final class ImplementationPlanningSystemPromptBuilder {
             system = appendPerformanceGuidance(system);
         }
         if (continuationConstraints != null && continuationConstraints.active()) {
-            system = appendContinuationGuidance(system);
+            system = appendContinuationGuidance(system, implementationPatchTarget);
         }
         return system;
     }
@@ -68,7 +71,8 @@ final class ImplementationPlanningSystemPromptBuilder {
                           "action": "WRITE|DELETE",
                           "reason": "为什么要改这个文件",
                           "editScope": "AUTO|HOST_HTML_PATCH|INLINE_SCRIPT_PATCH|INLINE_STYLE_PATCH",
-                          "runtimeOwnership": "INLINE_HOST|EXTERNAL_COMPANION|null"
+                          "runtimeOwnership": "INLINE_HOST|EXTERNAL_COMPANION|null",
+                          "hostHtmlPatchRequired": false
                         }
                       ]
                     }
@@ -94,15 +98,21 @@ final class ImplementationPlanningSystemPromptBuilder {
                 16. runnableMilestone=true 的子任务必须负责把当前交付物推进到“可启动、可验证”的状态，不能只是静态骨架或占位页面
                 17. 对 html-entry 场景，runnableMilestone 只要求形成可启动、可验证的入口与运行表面；后续子任务可以继续在同一入口文件内做更细的稳定编辑，也可以拆成本地相对路径模块，但不要把某一种文件组织方式当成唯一合法方案
                 18. editScope 只用于声明编辑内核的首选 patch 作用域：
-                    - 默认使用 AUTO
+                    - 非 html-entry 文件默认使用 AUTO
                     - 需要同时修改宿主 HTML 的 markup/style/script 多个区块时，用 HOST_HTML_PATCH
                     - 只需要改 <script id="app-script"> 时，用 INLINE_SCRIPT_PATCH
                     - 只需要改 <style id="app-style"> 时，用 INLINE_STYLE_PATCH
-                19. 只要 changes 里包含 html-entry 入口文件，该条变更就必须显式声明 runtimeOwnership：
+                19. 只要 changes 里包含 html-entry 入口文件，该条变更就必须显式声明 editScope / runtimeOwnership / hostHtmlPatchRequired，不能省略：
+                    - html-entry 不允许使用 AUTO
+                    - HOST_HTML_PATCH 对应 hostHtmlPatchRequired=true
+                    - INLINE_SCRIPT_PATCH / INLINE_STYLE_PATCH 对应 hostHtmlPatchRequired=false
+                20. 只要 changes 里包含 html-entry 入口文件，该条变更就必须显式声明 runtimeOwnership：
                     - INLINE_HOST: 主运行时继续由宿主 HTML 自己持有
                     - EXTERNAL_COMPANION: 宿主 HTML 只保留接线，主运行时外提到派生 companion 脚本
-                20. 同一个 html-entry 在同一轮计划里只能使用一种 runtimeOwnership，禁止一边保留完整内联主逻辑，一边再补 companion 脚本
-                21. 若 html-entry 使用 EXTERNAL_COMPANION，同一子任务必须同时包含该入口的派生 companion runtime 文件变更；派生路径使用宿主同目录、同基名规则，例如 index.html -> index.app.js
+                21. 同一个 html-entry 在同一轮计划里只能使用一种 runtimeOwnership，禁止一边保留完整内联主逻辑，一边再补 external runtime
+                22. 若 html-entry 使用 EXTERNAL_COMPANION：
+                    - 若上一轮 continuation 已给出 runtime contract，必须沿用同一组 runtime 根脚本，不得自行改名或换入口
+                    - 若当前是首次外提主运行时，同一子任务必须同时声明宿主 HTML 与至少一个 runtime root 脚本变更
                 """.formatted(
                 maxFilesPerSubtask,
                 maxDeliveryPolicyFiles,
@@ -174,6 +184,31 @@ final class ImplementationPlanningSystemPromptBuilder {
                 """;
     }
 
+    private String appendPatchTargetGuidance(String system, ImplementationPatchTarget implementationPatchTarget) {
+        if (implementationPatchTarget == null || implementationPatchTarget == ImplementationPatchTarget.NONE) {
+            return system;
+        }
+        if (implementationPatchTarget == ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION) {
+            return system + """
+
+                    当前是 completed-plan PATCH continuation：
+                    1. 只能基于现有实现补局部缺口，不要重新开新的 backlog
+                    2. 不要把已存在文件退回 SKELETON，也不要重新发散成大范围 REWORK
+                    3. 子任务要直接围绕当前 review/changeRequest 指出的缺口组织
+                    """;
+        }
+        if (implementationPatchTarget == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
+            return system + """
+
+                    当前 PATCH 目标是修复运行时接线：
+                    1. 必须沿用现有 runtime contract，不要改名、换入口或发明新的 companion 文件名
+                    2. 只修复 HTML 入口、引用路径、初始化或模块连通问题
+                    3. 不要重新规划完整实现，也不要回退到宿主内联主逻辑
+                    """;
+        }
+        return system;
+    }
+
     private String appendSkeletonFlowGuidance(String system) {
         return system + """
 
@@ -197,14 +232,15 @@ final class ImplementationPlanningSystemPromptBuilder {
                 """.formatted(WebRuntimeMetricKeys.PUBLIC_METRICS_OBJECT);
     }
 
-    private String appendContinuationGuidance(String system) {
+    private String appendContinuationGuidance(String system, ImplementationPatchTarget implementationPatchTarget) {
+        String runtimeContractRule = "3. 若上一轮 HTML 入口已经确定 runtime contract，本轮不得切换所有权模式，也不得更换已确认的 runtime 根脚本";
         return system + """
 
                 这是 continuation 规划：
                 1. 已存在文件不得退回 SKELETON
                 2. 已存在 HTML 入口不得退回整页重写或 REWORK
-                3. 若上一轮 HTML 入口已经确定 runtimeOwnership，本轮不得切换所有权模式
+                %s
                 4. 当前规划必须建立在上一轮已稳定文件事实之上，不得把 continuation 当作重新开局
-                """;
+                """.formatted(runtimeContractRule);
     }
 }

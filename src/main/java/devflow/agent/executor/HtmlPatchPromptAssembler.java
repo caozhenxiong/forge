@@ -18,6 +18,7 @@ final class HtmlPatchPromptAssembler {
 
     static PatchGenerationPrompt preciseHtmlPrompt(
             Path relativePath,
+            HtmlRuntimeOwnershipContract runtimeContract,
             String planSummary,
             String taskPackageMarkdown,
             String coderContextMarkdown,
@@ -46,7 +47,7 @@ final class HtmlPatchPromptAssembler {
                 4. 如需新增资源接线，优先使用 headAppendHtml / bodyAppendHtml
                 5. 如果脚本、样式或资源接线已经存在，不要重复追加，保持对应字段为 null
                 6. 返回内容必须保证 HTML、脚本和样式都可解析
-                """;
+                """ + runtimeContractGuidance(runtimeContract);
         String user = """
                 总体实现摘要：
                 %s
@@ -91,6 +92,7 @@ final class HtmlPatchPromptAssembler {
     static PatchGenerationPrompt focusedRegionPrompt(
             Path relativePath,
             HtmlEditRegion region,
+            HtmlRuntimeOwnershipContract runtimeContract,
             String planSummary,
             String taskPackageMarkdown,
             String coderContextMarkdown,
@@ -99,7 +101,7 @@ final class HtmlPatchPromptAssembler {
             String targetedContext,
             String summarizedHtml
     ) {
-        String system = focusedRegionSystemPrompt(region);
+        String system = focusedRegionSystemPrompt(region) + runtimeContractGuidance(runtimeContract);
         String user = """
                 总体实现摘要：
                 %s
@@ -142,6 +144,28 @@ final class HtmlPatchPromptAssembler {
     /**
      * 显式分支避免编译器生成 `$1` 合成类，减小增量编译和热替换时的脆弱面。
      */
+    private static String runtimeContractGuidance(HtmlRuntimeOwnershipContract runtimeContract) {
+        if (runtimeContract == null || !runtimeContract.active()) {
+            return "";
+        }
+        if (runtimeContract.externalCompanion()) {
+            return """
+
+                    当前 runtime contract：
+                    1. 宿主 HTML 只保留最小 bootstrapping，不再承载主运行时
+                    2. scriptJs 必须保持为 null，不能回填 app-script 主逻辑
+                    3. 必须只接入这些 runtime 根脚本：%s
+                    4. 不允许保留 app-script 锚点或非空内联主脚本
+                    """.formatted(String.join(", ", runtimeContract.runtimePathStrings()));
+        }
+        return """
+
+                当前 runtime contract：
+                1. 宿主 HTML 继续持有主运行时
+                2. 不要新增 external runtime script 作为新的主入口
+                """;
+    }
+
     private static String focusedRegionSystemPrompt(HtmlEditRegion region) {
         if (region == HtmlEditRegion.SCRIPT) {
             return """

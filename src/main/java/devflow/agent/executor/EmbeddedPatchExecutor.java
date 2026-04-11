@@ -1,7 +1,9 @@
 package devflow.agent.executor;
 
 import java.util.LinkedList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 宿主内嵌脚本/样式的共享 patch 执行器。
@@ -158,8 +160,21 @@ final class EmbeddedPatchExecutor {
             boolean allowExternalize
     ) {
         FilePatchProgressState patchProgressState = request.patchProgressState();
-        LinkedList<EditUnit> pendingUnits = initialPendingUnits(request.relativePath(), patchKind, patchPlan, patchProgressState);
-        String currentContent = initialContent(initialContent, patchProgressState, request.relativePath(), patchKind);
+        boolean resumeCompatible = canResumePatchProgress(request.relativePath(), patchKind, patchPlan, patchProgressState);
+        LinkedList<EditUnit> pendingUnits = initialPendingUnits(
+                request.relativePath(),
+                patchKind,
+                patchPlan,
+                patchProgressState,
+                resumeCompatible
+        );
+        String currentContent = initialContent(
+                initialContent,
+                patchProgressState,
+                request.relativePath(),
+                patchKind,
+                resumeCompatible
+        );
         while (!pendingUnits.isEmpty()) {
             EditUnit unit = pendingUnits.removeFirst();
             try {
@@ -211,11 +226,10 @@ final class EmbeddedPatchExecutor {
             java.nio.file.Path relativePath,
             EmbeddedPatchKind patchKind,
             PatchPlan patchPlan,
-            FilePatchProgressState patchProgressState
+            FilePatchProgressState patchProgressState,
+            boolean resumeCompatible
     ) {
-        if (patchProgressState != null
-                && patchProgressState.matches(relativePath, patchKind.strategyName())
-                && patchProgressState.resumable()) {
+        if (resumeCompatible && patchProgressState != null) {
             return new LinkedList<>(patchProgressState.pendingUnits());
         }
         return new LinkedList<>(patchPlan.units());
@@ -225,15 +239,71 @@ final class EmbeddedPatchExecutor {
             String initialContent,
             FilePatchProgressState patchProgressState,
             java.nio.file.Path relativePath,
-            EmbeddedPatchKind patchKind
+            EmbeddedPatchKind patchKind,
+            boolean resumeCompatible
     ) {
-        if (patchProgressState != null
+        if (resumeCompatible
+                && patchProgressState != null
                 && patchProgressState.matches(relativePath, patchKind.strategyName())
                 && patchProgressState.workingContent() != null
                 && !patchProgressState.workingContent().isBlank()) {
             return patchProgressState.workingContent();
         }
         return initialContent;
+    }
+
+    /**
+     * 旧 patchProgress 只能在“当前内容仍属于同一骨架”时复用。
+     *
+     * <p>这里不做兼容修补，也不尝试把旧骨架硬转成新骨架；结果只有两种：
+     * 1. 仍与 fresh plan 同骨架，继续；
+     * 2. 已失配，直接丢弃旧 progress，回到 fresh plan。
+     */
+    private boolean canResumePatchProgress(
+            java.nio.file.Path relativePath,
+            EmbeddedPatchKind patchKind,
+            PatchPlan patchPlan,
+            FilePatchProgressState patchProgressState
+    ) {
+        if (patchProgressState == null
+                || !patchProgressState.matches(relativePath, patchKind.strategyName())
+                || !patchProgressState.resumable()
+                || patchPlan == null
+                || patchPlan.units().isEmpty()) {
+            return false;
+        }
+        Set<EditUnitKind> freshKinds = new LinkedHashSet<>();
+        Set<String> freshSymbols = new LinkedHashSet<>();
+        boolean freshAllowsAppendOnly = false;
+        for (EditUnit freshUnit : patchPlan.units()) {
+            if (freshUnit == null) {
+                continue;
+            }
+            freshKinds.add(freshUnit.kind());
+            if (freshUnit.appendOnly()) {
+                freshAllowsAppendOnly = true;
+                continue;
+            }
+            freshSymbols.addAll(freshUnit.allowedSymbols());
+        }
+        if (freshKinds.isEmpty()) {
+            return false;
+        }
+        for (EditUnit pendingUnit : patchProgressState.pendingUnits()) {
+            if (pendingUnit == null || !freshKinds.contains(pendingUnit.kind())) {
+                return false;
+            }
+            if (pendingUnit.appendOnly()) {
+                if (!freshAllowsAppendOnly) {
+                    return false;
+                }
+                continue;
+            }
+            if (!freshSymbols.containsAll(pendingUnit.allowedSymbols())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private List<EditUnit> remainingUnits(EditUnit failedUnit, LinkedList<EditUnit> pendingUnits) {

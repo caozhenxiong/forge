@@ -26,6 +26,8 @@ final class SubtaskRetryFeedbackRenderer {
         return ExecutionDirectiveNarrativeRenderer.renderRetryFeedback(
                 new ExecutionDirectivePayload(
                         verification.fixMode() == null ? null : verification.fixMode().name(),
+                        verification.implementationPatchTarget() == null ? null : verification.implementationPatchTarget().name(),
+                        List.of(),
                         false,
                         false,
                         null,

@@ -52,6 +52,7 @@ class SubtaskExecutor {
         this.supervisorAgent = supervisorAgent;
         this.maxSubtaskAttempts = maxSubtaskAttempts;
         this.subtaskVerificationSupport = new SubtaskVerificationSupport(
+                testExecutor,
                 llmProvider,
                 generationEngine,
                 this.implementationCompletenessGate,
@@ -142,6 +143,7 @@ class SubtaskExecutor {
             ImplementationCompletenessGateOutcome completenessOutcome = attemptOutcome.completenessOutcome();
             ImplementationCompletenessResult completenessResult = completenessOutcome.inspection();
             ReviewResult verification = attemptOutcome.verification();
+            SubtaskRevisionDirective revisionDirective = attemptOutcome.revisionDirective();
             attempts.add(SubtaskAttemptReport.fromVerification(attempt, selfCheck, verification));
             if (selfCheck.passed() && verification.decision() == ReviewDecision.APPROVED) {
                 appendImplementationEvent(
@@ -154,6 +156,7 @@ class SubtaskExecutor {
                     eventJournal,
                     ImplementationEventMessages.subtaskAttemptRejected(subtask.title(), attempt, maxSubtaskAttempts, verification.decision())
             );
+            executionState.applyRevisionDirective(revisionDirective);
             feedback = subtaskRecoverySupport.mergeFeedback(
                     persistentRepairFeedback,
                     subtaskVerificationSupport.buildRetryFeedback(selfCheck, verification, completenessResult)

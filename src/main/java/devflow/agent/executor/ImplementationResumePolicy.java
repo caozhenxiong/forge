@@ -3,6 +3,8 @@ package devflow.agent.executor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
+import devflow.agent.util.EnumParsers;
 import java.util.List;
 
 /**
@@ -15,12 +17,14 @@ class ImplementationResumePolicy {
 
     private final ObjectMapper objectMapper;
     private final ImplementationSnapshotRestorer snapshotRestorer;
-    private final ArchitectFailureContinuationPlanner continuationPlanner;
+    private final ImplementationPatchContinuationPlanner continuationPlanner;
+    private final ImplementationRuntimeContractResolver runtimeContractResolver;
 
     ImplementationResumePolicy(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
         this.snapshotRestorer = new ImplementationSnapshotRestorer();
-        this.continuationPlanner = new ArchitectFailureContinuationPlanner();
+        this.continuationPlanner = new ImplementationPatchContinuationPlanner();
+        this.runtimeContractResolver = new ImplementationRuntimeContractResolver();
     }
 
     /**
@@ -30,6 +34,8 @@ class ImplementationResumePolicy {
     ReusableImplementationState loadReusableImplementationState(
             String previousStateJson,
             FixMode fixMode,
+            ImplementationPatchTarget implementationPatchTarget,
+            List<FileChange> overrideChanges,
             DocumentLanguage language
     ) {
         if (fixMode != FixMode.PATCH || previousStateJson == null || previousStateJson.isBlank()) {
@@ -42,13 +48,39 @@ class ImplementationResumePolicy {
             }
             List<Subtask> subtasks = snapshotRestorer.restoreSubtasks(snapshot.subtasks());
             List<SubtaskExecutionReport> previousReports = snapshotRestorer.restoreReports(snapshot.reports(), subtasks);
+            HtmlRuntimeOwnershipContract runtimeContract = runtimeContractResolver.resolve(snapshot);
             if (!snapshot.architectCheckPassed()) {
                 if (!snapshot.planCompleted()) {
                     return null;
                 }
-                return continuationPlanner.build(snapshot, subtasks, previousReports, language);
+                ImplementationPatchTarget effectivePatchTarget =
+                        resolveCompletedPlanPatchTarget(snapshot, implementationPatchTarget);
+                return continuationPlanner.build(
+                        snapshot,
+                        subtasks,
+                        previousReports,
+                        language,
+                        effectivePatchTarget,
+                        overrideChanges,
+                        runtimeContract
+                );
             }
             if (snapshot.planCompleted()) {
+                if (implementationPatchTarget == null || !implementationPatchTarget.concretePatch()) {
+                    throw new IllegalStateException("Completed implementation PATCH requires implementationPatchTarget.");
+                }
+                ReusableImplementationState reusableState = continuationPlanner.build(
+                        snapshot,
+                        subtasks,
+                        previousReports,
+                        language,
+                        implementationPatchTarget,
+                        overrideChanges,
+                        runtimeContract
+                );
+                if (reusableState != null) {
+                    return reusableState;
+                }
                 return null;
             }
             List<SubtaskExecutionReport> completedPrefix = snapshotRestorer.takeCompletedPrefix(previousReports);
@@ -63,8 +95,28 @@ class ImplementationResumePolicy {
                     completedPrefix,
                     resumedExecutionState
             );
+        } catch (IllegalStateException exception) {
+            throw exception;
         } catch (Exception ignored) {
             return null;
         }
+    }
+
+    private ImplementationPatchTarget resolveCompletedPlanPatchTarget(
+            ImplementationStateSnapshot snapshot,
+            ImplementationPatchTarget requestedPatchTarget
+    ) {
+        if (requestedPatchTarget != null && requestedPatchTarget.concretePatch()) {
+            return requestedPatchTarget;
+        }
+        ImplementationPatchTarget snapshotPatchTarget = EnumParsers.parseIgnoreCase(
+                ImplementationPatchTarget.class,
+                snapshot == null ? null : snapshot.architectImplementationPatchTarget(),
+                ImplementationPatchTarget.NONE
+        );
+        if (snapshotPatchTarget.concretePatch()) {
+            return snapshotPatchTarget;
+        }
+        throw new IllegalStateException("Completed implementation PATCH requires implementationPatchTarget.");
     }
 }

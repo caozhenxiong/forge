@@ -1,5 +1,8 @@
 package devflow.agent.review;
 
+import devflow.agent.executor.ChangeAction;
+import devflow.agent.executor.FileChange;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -18,7 +21,9 @@ class ImplementationReviewNormalizerTests {
                         "数独算法存在性能问题，无法满足500ms验收标准",
                         "请优化算法性能。",
                         "未提供测量数据。",
-                        ""
+                        "",
+                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                        List.of(new FileChange("sudoku-engine.js", ChangeAction.WRITE, "补充性能测量与优化"))
                 ),
                 """
                 ## 8. Contract Metadata
@@ -44,6 +49,7 @@ class ImplementationReviewNormalizerTests {
 
         assertEquals(ReviewDecision.REVISION_REQUIRED, result.decision());
         assertEquals(FixMode.PATCH, result.fixMode());
+        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, result.implementationPatchTarget());
         assertTrue(result.summary().contains("技术方案已要求性能测量"));
     }
 
@@ -56,7 +62,9 @@ class ImplementationReviewNormalizerTests {
                         "入口接线不完整",
                         "请修复入口接线。",
                         "",
-                        ""
+                        "",
+                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                        List.of(new FileChange("index.html", ChangeAction.WRITE, "修复入口接线"))
                 ),
                 ""
         );

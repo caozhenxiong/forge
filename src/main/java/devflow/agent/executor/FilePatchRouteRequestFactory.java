@@ -3,9 +3,11 @@ package devflow.agent.executor;
 import devflow.agent.context.ContractView;
 import devflow.agent.protocol.StructuredArtifactBlocks;
 import devflow.agent.project.FileProjectWorkspace;
+import devflow.agent.util.ProjectPathSupport;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 /**
  * 统一构造文件级 patch 路由请求。
@@ -43,6 +45,9 @@ final class FilePatchRouteRequestFactory {
             String coderContextMarkdown,
             ImplementationEventJournal eventJournal
     ) {
+        List<FileChange> activeChanges = executionState == null
+                ? (subtask == null || subtask.changes() == null ? List.of() : subtask.changes())
+                : executionState.effectiveChanges(subtask == null ? List.of() : subtask.changes());
         FilePatchProgressState patchProgressState = executionState == null
                 ? null
                 : executionState.filePatchProgress(relativePath);
@@ -52,7 +57,7 @@ final class FilePatchRouteRequestFactory {
                 : "";
         String existingContent = executionState == null
                 ? persistedContent
-                : executionState.effectiveExistingContent(relativePath, persistedContent);
+                : effectiveExistingContent(relativePath, executionState, patchProgressState, persistedContent);
         TaskPackage fileScopedTaskPackage = fileScopedContextSupport.scopeTaskPackageToFile(
                 projectPath,
                 relativePath,
@@ -64,9 +69,7 @@ final class FilePatchRouteRequestFactory {
         String fileScopedFeedback = fileScopedContextSupport.scopeFeedbackToFile(
                 projectPath,
                 relativePath,
-                subtask == null || subtask.changes() == null
-                        ? java.util.List.of()
-                        : subtask.changes().stream().map(change -> Path.of(change.path()).normalize()).toList(),
+                activeChanges.stream().map(change -> Path.of(change.path()).normalize()).toList(),
                 existingContent,
                 feedback
         );
@@ -89,19 +92,86 @@ final class FilePatchRouteRequestFactory {
                 contractView,
                 fingerprint,
                 eventJournal,
-                resolveScopedChange(subtask, relativePath)
+                resolveScopedChange(relativePath, activeChanges),
+                resolveRuntimeContract(projectPath, relativePath, activeChanges)
         );
     }
 
-    private FileChange resolveScopedChange(Subtask subtask, Path relativePath) {
-        if (subtask == null || subtask.changes() == null || subtask.changes().isEmpty() || relativePath == null) {
+    /**
+     * HTML 宿主在重判编辑骨架时，必须看到完整宿主内容，而不是内嵌脚本/样式的 workingContent。
+     *
+     * <p>`INLINE_SCRIPT_WORKSET / INLINE_STYLE_WORKSET` 的 progressState 里保存的是嵌入片段，
+     * 只能给对应执行器做“是否继续沿用该骨架”的兼容性判断；如果把它直接冒充现有 HTML 内容，
+     * 宿主级路由会误以为页面已经没有 script/style 锚点，导致 focused region / host patch 全部失效。
+     */
+    private String effectiveExistingContent(
+            Path relativePath,
+            SubtaskExecutionState executionState,
+            FilePatchProgressState patchProgressState,
+            String persistedContent
+    ) {
+        if (relativePath != null
+                && ProjectPathSupport.isHtml(relativePath)
+                && patchProgressState != null
+                && isEmbeddedWorksetProgress(patchProgressState.strategyName())) {
+            return persistedContent == null ? "" : persistedContent;
+        }
+        return executionState.effectiveExistingContent(relativePath, persistedContent);
+    }
+
+    private FileChange resolveScopedChange(Path relativePath, List<FileChange> activeChanges) {
+        if (relativePath == null || activeChanges == null || activeChanges.isEmpty()) {
             return null;
         }
         Path normalized = relativePath.normalize();
-        return subtask.changes().stream()
+        return activeChanges.stream()
                 .filter(change -> change != null && change.path() != null && !change.path().isBlank())
                 .filter(change -> normalized.equals(Path.of(change.path()).normalize()))
                 .findFirst()
                 .orElse(null);
+    }
+
+    private HtmlRuntimeOwnershipContract resolveRuntimeContract(
+            Path projectPath,
+            Path relativePath,
+            List<FileChange> activeChanges
+    ) {
+        if (relativePath == null || !ProjectPathSupport.isHtml(relativePath)) {
+            return null;
+        }
+        FileChange scopedChange = resolveScopedChange(relativePath, activeChanges);
+        if (scopedChange == null || scopedChange.runtimeOwnership() == null) {
+            return null;
+        }
+        if (scopedChange.runtimeOwnership() == RuntimeOwnershipMode.INLINE_HOST) {
+            return HtmlRuntimeOwnershipContract.inlineHost(relativePath.normalize());
+        }
+        RuntimeScriptGraphInspector runtimeScriptGraphInspector = new RuntimeScriptGraphInspector(workspace);
+        Path htmlParent = relativePath.getParent() == null ? Path.of("") : relativePath.getParent().normalize();
+        List<Path> declaredRuntimeScripts = (activeChanges == null ? List.<FileChange>of() : activeChanges).stream()
+                .filter(change -> change != null
+                        && change.action() != ChangeAction.DELETE
+                        && change.path() != null
+                        && !change.path().isBlank())
+                .map(change -> Path.of(change.path()).normalize())
+                .filter(ProjectPathSupport::isRuntimeScript)
+                .filter(path -> isUnderHtmlEntryTree(path, htmlParent))
+                .toList();
+        List<Path> runtimeRoots = runtimeScriptGraphInspector.selectDeclaredRoots(projectPath, declaredRuntimeScripts);
+        if (runtimeRoots.isEmpty()) {
+            RuntimeScriptGraphInspector.RuntimeScriptGraph graph = runtimeScriptGraphInspector.inspectProject(projectPath, relativePath);
+            runtimeRoots = runtimeScriptGraphInspector.selectRootScripts(graph.runtimeScripts(), graph);
+        }
+        return HtmlRuntimeOwnershipContract.externalCompanion(relativePath.normalize(), runtimeRoots);
+    }
+
+    private boolean isUnderHtmlEntryTree(Path candidate, Path htmlParent) {
+        Path candidateParent = candidate.getParent() == null ? Path.of("") : candidate.getParent().normalize();
+        return htmlParent.toString().isBlank() || candidateParent.equals(htmlParent) || candidateParent.startsWith(htmlParent);
+    }
+
+    private boolean isEmbeddedWorksetProgress(String strategyName) {
+        return FileEditStrategyNames.INLINE_SCRIPT_WORKSET.equals(strategyName)
+                || FileEditStrategyNames.INLINE_STYLE_WORKSET.equals(strategyName);
     }
 }

@@ -12,6 +12,7 @@ import devflow.agent.orchestrator.StageStatus;
 import devflow.agent.orchestrator.StageType;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -63,6 +64,7 @@ class ImplementationPlanningRetryPolicyTests {
                     ProjectFingerprint fingerprint,
                     DocumentLanguage language,
                     FixMode fixMode,
+                    ImplementationPatchTarget implementationPatchTarget,
                     String requirementCatalog,
                     ImplementationContinuationConstraints continuationConstraints
             ) {
@@ -97,6 +99,7 @@ class ImplementationPlanningRetryPolicyTests {
                 null,
                 DocumentLanguage.ZH,
                 FixMode.NONE,
+                ImplementationPatchTarget.NONE,
                 "",
                 ImplementationContinuationConstraints.empty(),
                 events::add
@@ -139,6 +142,7 @@ class ImplementationPlanningRetryPolicyTests {
                     ProjectFingerprint fingerprint,
                     DocumentLanguage language,
                     FixMode fixMode,
+                    ImplementationPatchTarget implementationPatchTarget,
                     String requirementCatalog,
                     ImplementationContinuationConstraints continuationConstraints
             ) {
@@ -167,6 +171,7 @@ class ImplementationPlanningRetryPolicyTests {
                 null,
                 DocumentLanguage.ZH,
                 FixMode.NONE,
+                ImplementationPatchTarget.NONE,
                 "",
                 ImplementationContinuationConstraints.empty(),
                 event -> {}

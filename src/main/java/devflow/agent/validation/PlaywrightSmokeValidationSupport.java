@@ -1,25 +1,26 @@
 package devflow.agent.validation;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import devflow.agent.executor.PlaywrightProbeRunner;
+import devflow.agent.executor.RuntimeSnapshot;
+import devflow.agent.executor.RuntimeSnapshotCaptureStatus;
 import devflow.agent.executor.ToolFailureCode;
 import devflow.agent.executor.ToolName;
 import devflow.agent.executor.ToolResult;
 import devflow.agent.i18n.PlaceholderValues;
-import devflow.agent.project.CommandResult;
 import devflow.agent.project.FileProjectWorkspace;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
-import java.util.List;
 
 /**
  * 浏览器级 smoke validation 支撑。
  */
 final class PlaywrightSmokeValidationSupport {
 
-    private final FileProjectWorkspace workspace;
+    private final PlaywrightProbeRunner probeRunner;
 
     PlaywrightSmokeValidationSupport(FileProjectWorkspace workspace) {
-        this.workspace = workspace;
+        this.probeRunner = new PlaywrightProbeRunner(workspace, new ObjectMapper());
     }
 
     ValidationStepExecution run(Path projectPath, ProjectFingerprint fingerprint, String reason) {
@@ -55,24 +56,20 @@ final class PlaywrightSmokeValidationSupport {
                     )
             );
         }
-        Path scriptPath = Path.of("tools", "playwright-smoke", "run-smoke.mjs").toAbsolutePath();
-        CommandResult result = workspace.runCommand(
-                projectPath,
-                List.of("node", scriptPath.toString(), projectPath.toString(), entry),
-                Duration.ofMinutes(2)
-        );
-        if (result.exitCode() != 0) {
+        PlaywrightProbeRunner.ProbeOutcome probeOutcome = probeRunner.probe(projectPath, entry);
+        RuntimeSnapshot snapshot = probeOutcome.runtimeSnapshot();
+        if (snapshot == null || snapshot.captureStatus() != RuntimeSnapshotCaptureStatus.CAPTURED) {
             return new ValidationStepExecution(
                     new ValidationStepResult(
                             ValidationCapability.WEB_PLAYWRIGHT_SMOKE,
                             ValidationStatus.FAILED,
                             "浏览器级 smoke test 失败。",
-                            reason + "\n" + trim(result.stdout()) + "\n" + trim(result.stderr())
+                            reason + "\n" + renderProbeEvidence(snapshot, probeOutcome.evidence())
                     ),
                     ToolResult.failure(
                             ToolName.PLAYWRIGHT_SMOKE,
                             ToolFailureCode.PLAYWRIGHT_SMOKE_FAILED,
-                            trim(result.stdout()) + "\n" + trim(result.stderr()),
+                            renderProbeEvidence(snapshot, probeOutcome.evidence()),
                             "请先修复浏览器级运行失败，再继续依赖 smoke test 结论。"
                     )
             );
@@ -82,10 +79,39 @@ final class PlaywrightSmokeValidationSupport {
                         ValidationCapability.WEB_PLAYWRIGHT_SMOKE,
                         ValidationStatus.PASSED,
                         "浏览器级 smoke test 通过。",
-                        reason + "\n" + trim(result.stdout())
+                        reason + "\n" + renderProbeEvidence(snapshot, probeOutcome.evidence())
                 ),
                 ToolResult.success(ToolName.PLAYWRIGHT_SMOKE)
         );
+    }
+
+    private String renderProbeEvidence(RuntimeSnapshot snapshot, String rawEvidence) {
+        if (snapshot == null) {
+            return trim(rawEvidence);
+        }
+        if (snapshot.probeCaptured()) {
+            return """
+                    {
+                      "entry": "%s",
+                      "pageTitle": "%s",
+                      "canvasCount": %d,
+                      "selectors": %d,
+                      "consoleErrors": %d,
+                      "pageErrors": %d
+                    }
+                    """.formatted(
+                    snapshot.entry(),
+                    snapshot.pageTitle(),
+                    snapshot.canvasCount(),
+                    snapshot.selectors() == null ? 0 : snapshot.selectors().size(),
+                    snapshot.consoleErrors() == null ? 0 : snapshot.consoleErrors().size(),
+                    snapshot.pageErrors() == null ? 0 : snapshot.pageErrors().size()
+            ).trim();
+        }
+        if (snapshot.captureErrors() != null && !snapshot.captureErrors().isEmpty()) {
+            return String.join(" | ", snapshot.captureErrors());
+        }
+        return trim(rawEvidence);
     }
 
     private String trim(String value) {

@@ -53,6 +53,7 @@ final class FocusedRegionHtmlPatchExecutor {
         PatchGenerationPrompt generationPrompt = HtmlPatchPromptAssembler.focusedRegionPrompt(
                 request.relativePath(),
                 region,
+                request.runtimeContract(),
                 request.planSummary(),
                 request.taskPackageMarkdown(),
                 executionSupport.nullToEmpty(request.coderContextMarkdown()),
@@ -94,9 +95,19 @@ final class FocusedRegionHtmlPatchExecutor {
                         );
                         HtmlPrecisePatch patch = focusedHtmlRegionNormalizer.toPatch(region, generated);
                         String merged = htmlPreciseEditor.applyPatch(request.existingContent(), patch);
-                        merged = externalizedRuntimeHostNormalizer.normalize(request.relativePath(), merged);
+                        merged = externalizedRuntimeHostNormalizer.normalize(
+                                request.relativePath(),
+                                request.runtimeContract(),
+                                merged
+                        );
                         GateReport validationReport = generatedContentGate.evaluate(
-                                new GeneratedContentGateInput(request.projectPath(), request.relativePath(), merged)
+                                new GeneratedContentGateInput(
+                                        request.projectPath(),
+                                        request.relativePath(),
+                                        merged,
+                                        request.runtimeContract(),
+                                        request.runtimeContract() == null ? java.util.List.of() : request.runtimeContract().runtimePaths()
+                                )
                         );
                         if (validationReport.passed()) {
                             return GenerationAttemptResult.success(merged);

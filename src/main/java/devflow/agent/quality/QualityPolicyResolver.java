@@ -28,16 +28,13 @@ public final class QualityPolicyResolver {
         QualityIntent normalizedIntent = qualityIntent == null ? QualityIntent.empty() : qualityIntent;
         Set<CapabilitySurface> surfaces = capabilitySurfaceBuilder.build(profile, normalizedIntent, contractView, validationMetadata);
         CapabilityMatrix capabilityMatrix = capabilityMatrixBuilder.build(surfaces, profile, normalizedIntent, validationMetadata, rules);
-        boolean blockEmbeddedDominance = rules.structureRules().blockOnUnjustifiedEmbeddedDominance()
-                && structureRiskReport.justificationRequired();
         QualityPlan plan = new QualityPlan(
                 profile,
                 normalizedIntent,
                 structureRiskReport,
                 new StructurePolicy(
-                        (rules.structureRules().preferLogicExternalization() && structureRiskReport.preferLogicExternalization())
-                                || normalizedIntent.structureIntent().preferLogicExternalization(),
-                        blockEmbeddedDominance || normalizedIntent.structureIntent().requireStructureJustification(),
+                        false,
+                        false,
                         rules.structureRules().maxHostDocumentRisk()
                 ),
                 new CoveragePolicy(

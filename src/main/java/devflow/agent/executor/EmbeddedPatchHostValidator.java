@@ -35,7 +35,13 @@ final class EmbeddedPatchHostValidator {
     ) {
         String mergedHtml = embeddingAdapter.mergeIntoHost(request.existingContent(), embeddedContent);
         GateReport validationReport = generatedContentGate.evaluate(
-                new GeneratedContentGateInput(request.projectPath(), request.relativePath(), mergedHtml)
+                new GeneratedContentGateInput(
+                        request.projectPath(),
+                        request.relativePath(),
+                        mergedHtml,
+                        request.runtimeContract(),
+                        request.runtimeContract() == null ? java.util.List.of() : request.runtimeContract().runtimePaths()
+                )
         );
         if (!validationReport.passed()) {
             String validationFailure = generatedContentGate.renderFailure(validationReport);

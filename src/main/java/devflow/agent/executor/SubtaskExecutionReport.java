@@ -27,4 +27,11 @@ record SubtaskExecutionReport(
         String value = attempts.get(attempts.size() - 1).review().changeRequest();
         return value == null ? "" : value;
     }
+
+    List<FileChange> effectiveChanges() {
+        if (executionState == null) {
+            return subtask == null || subtask.changes() == null ? List.of() : List.copyOf(subtask.changes());
+        }
+        return executionState.effectiveChanges(subtask == null ? List.of() : subtask.changes());
+    }
 }

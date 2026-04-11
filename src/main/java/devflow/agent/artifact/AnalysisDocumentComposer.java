@@ -53,7 +53,6 @@ final class AnalysisDocumentComposer {
         generated = postProcessor.stabilizeSourceMetadata(generated, context.authoritativeSourceMetadata(), 7, language);
         String merged = draftAssembler.mergeDocumentDraft(StageType.ANALYSIS, context.previousDraft(), generated, context.targetSections());
         String sanitized = postProcessor.sanitizeDocumentConstraintEscalation(
-                runRecord,
                 StageType.ANALYSIS,
                 merged,
                 context.authoritativeSourceMetadata(),

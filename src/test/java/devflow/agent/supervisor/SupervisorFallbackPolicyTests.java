@@ -65,6 +65,22 @@ class SupervisorFallbackPolicyTests {
     }
 
     @Test
+    void repeatedDocumentIssueStaysInDocumentStage() {
+        SupervisorDecision decision = fallbackPolicy.decideStageFallback(
+                runRecord(StageType.PRD, GatePolicy.AGENT_ONLY),
+                StageType.PRD,
+                GatePolicy.AGENT_ONLY,
+                new ReviewResult(ReviewDecision.REVISION_REQUIRED, FixMode.PATCH, "仍有相同问题", "继续修订 PRD"),
+                true,
+                projectedContext()
+        );
+
+        assertEquals(SupervisorAction.RETRY_STAGE, decision.action());
+        assertEquals(StageType.PRD, decision.targetStage());
+        assertFalse(decision.humanRequired());
+    }
+
+    @Test
     void keepsPreciseEditingWhenRetryingPreciseFailure() {
         GenerationFailureReport report = new GenerationFailureReport(
                 "game.js",

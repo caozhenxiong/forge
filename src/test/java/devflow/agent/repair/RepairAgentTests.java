@@ -1,11 +1,14 @@
 package devflow.agent.repair;
 
+import devflow.agent.executor.ChangeAction;
+import devflow.agent.executor.FileChange;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.ExecutionDirectivePayload;
 import devflow.agent.protocol.ExecutionDirectiveProtocol;
 import devflow.agent.quality.CapabilitySurface;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -57,10 +60,12 @@ class RepairAgentTests {
 
         String note = repairAgent.buildRepairNote(
                 FixMode.PATCH,
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
                 "当前实现方向跑偏",
                 "请回到页面结构问题",
                 "index.html 当前不是 HTML",
                 "恢复首页结构",
+                List.of(new FileChange("index.html", ChangeAction.WRITE, "恢复首页结构")),
                 List.of(CapabilitySurface.PRIMARY_INTERACTION.wireValue()),
                 brief,
                 DocumentLanguage.ZH

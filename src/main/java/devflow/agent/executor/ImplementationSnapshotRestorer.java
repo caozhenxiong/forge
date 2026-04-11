@@ -1,6 +1,7 @@
 package devflow.agent.executor;
 
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.supervisor.DeliveryPolicy;
@@ -37,7 +38,8 @@ final class ImplementationSnapshotRestorer {
                             parseChangeAction(change.action(), ChangeAction.WRITE),
                             change.reason(),
                             EnumParsers.parseIgnoreCase(FileEditScope.class, change.editScope(), FileEditScope.AUTO),
-                            EnumParsers.parseIgnoreCase(RuntimeOwnershipMode.class, change.runtimeOwnership(), null)
+                            EnumParsers.parseIgnoreCase(RuntimeOwnershipMode.class, change.runtimeOwnership(), null),
+                            change.hostHtmlPatchRequired()
                     ))
                     .toList();
             restored.add(new Subtask(
@@ -83,6 +85,32 @@ final class ImplementationSnapshotRestorer {
         return restored;
     }
 
+    HtmlRuntimeOwnershipContract restoreRuntimeContract(ImplementationStateSnapshot.RuntimeContractState runtimeContractState) {
+        if (runtimeContractState == null
+                || runtimeContractState.htmlEntryPath() == null
+                || runtimeContractState.htmlEntryPath().isBlank()) {
+            return null;
+        }
+        RuntimeOwnershipMode runtimeOwnership = EnumParsers.parseIgnoreCase(
+                RuntimeOwnershipMode.class,
+                runtimeContractState.runtimeOwnership(),
+                null
+        );
+        if (runtimeOwnership == null) {
+            return null;
+        }
+        List<Path> runtimePaths = safeList(runtimeContractState.runtimePaths()).stream()
+                .filter(value -> value != null && !value.isBlank())
+                .map(Path::of)
+                .map(Path::normalize)
+                .toList();
+        return new HtmlRuntimeOwnershipContract(
+                Path.of(runtimeContractState.htmlEntryPath()).normalize(),
+                runtimeOwnership,
+                runtimePaths
+        );
+    }
+
     List<SubtaskExecutionReport> takeCompletedPrefix(List<SubtaskExecutionReport> reports) {
         if (reports == null || reports.isEmpty()) {
             return List.of();
@@ -108,7 +136,8 @@ final class ImplementationSnapshotRestorer {
         return SubtaskExecutionState.restore(
                 report.deliveryMode(),
                 report.preferPreciseEditing(),
-                restoreFilePatchProgressStates(report.filePatchProgressStates())
+                restoreFilePatchProgressStates(report.filePatchProgressStates()),
+                restoreEffectiveChanges(report.effectiveChanges())
         );
     }
 
@@ -128,6 +157,27 @@ final class ImplementationSnapshotRestorer {
                     blankIfNull(snapshot.strategyName()),
                     blankIfNull(snapshot.workingContent()),
                     restoreEditUnits(snapshot.pendingUnits())
+            ));
+        }
+        return restored;
+    }
+
+    private List<FileChange> restoreEffectiveChanges(List<ImplementationStateSnapshot.FileChangeState> snapshots) {
+        if (snapshots == null || snapshots.isEmpty()) {
+            return List.of();
+        }
+        List<FileChange> restored = new ArrayList<>();
+        for (ImplementationStateSnapshot.FileChangeState snapshot : snapshots) {
+            if (snapshot == null || snapshot.path() == null || snapshot.path().isBlank()) {
+                continue;
+            }
+            restored.add(new FileChange(
+                    snapshot.path(),
+                    parseChangeAction(snapshot.action(), ChangeAction.WRITE),
+                    blankIfNull(snapshot.reason()),
+                    EnumParsers.parseIgnoreCase(FileEditScope.class, snapshot.editScope(), FileEditScope.AUTO),
+                    EnumParsers.parseIgnoreCase(RuntimeOwnershipMode.class, snapshot.runtimeOwnership(), null),
+                    snapshot.hostHtmlPatchRequired()
             ));
         }
         return restored;
@@ -155,7 +205,21 @@ final class ImplementationSnapshotRestorer {
 
     private SubtaskAttemptReport restoreAttempt(ImplementationStateSnapshot.SubtaskAttemptState attempt) {
         if (attempt == null) {
-            return new SubtaskAttemptReport(1, new SelfCheckResult(false, "", ""), new ReviewResult(ReviewDecision.REVISION_REQUIRED, FixMode.PATCH, "", ""), null, null);
+            return new SubtaskAttemptReport(
+                    1,
+                    new SelfCheckResult(false, "", ""),
+                    new ReviewResult(
+                            ReviewDecision.REVISION_REQUIRED,
+                            FixMode.PATCH,
+                            "",
+                            "",
+                            "",
+                            "",
+                            ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
+                    ),
+                    null,
+                    null
+            );
         }
         SelfCheckResult selfCheck = new SelfCheckResult(
                 attempt.selfCheckPassed(),
@@ -168,7 +232,12 @@ final class ImplementationSnapshotRestorer {
                 blankIfNull(attempt.reviewSummary()),
                 blankIfNull(attempt.reviewChangeRequest()),
                 blankIfNull(attempt.reviewEvidence()),
-                blankIfNull(attempt.reviewActionItems())
+                blankIfNull(attempt.reviewActionItems()),
+                EnumParsers.parseIgnoreCase(
+                        ImplementationPatchTarget.class,
+                        attempt.reviewImplementationPatchTarget(),
+                        ImplementationPatchTarget.NONE
+                )
         );
         GenerationFailureReport generationFailure = null;
         if (attempt.generationFailure() != null) {

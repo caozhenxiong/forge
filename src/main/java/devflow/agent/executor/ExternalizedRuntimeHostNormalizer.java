@@ -19,21 +19,13 @@ import org.jsoup.nodes.Element;
  */
 final class ExternalizedRuntimeHostNormalizer {
 
-    String normalize(Path relativePath, String html) {
+    String normalize(Path relativePath, HtmlRuntimeOwnershipContract runtimeContract, String html) {
         if (relativePath == null || html == null || html.isBlank() || !ProjectPathSupport.isHtml(relativePath)) {
             return html;
         }
-        Path expectedRuntimeScript = ProjectPathSupport.extractedInlineScriptAssetPath(relativePath).getFileName();
         Document document = Jsoup.parse(html);
         document.outputSettings().prettyPrint(false);
-        boolean referencesCompanionRuntime = document.select("script[src]").stream()
-                .map(element -> element.attr("src").trim())
-                .filter(value -> !value.isBlank())
-                .map(Path::of)
-                .map(Path::normalize)
-                .map(Path::getFileName)
-                .anyMatch(expectedRuntimeScript::equals);
-        if (!referencesCompanionRuntime) {
+        if (runtimeContract == null || !runtimeContract.externalCompanion()) {
             deduplicateDocument(document);
             String normalized = document.outerHtml();
             return normalized == null || normalized.isBlank() ? html : normalized;

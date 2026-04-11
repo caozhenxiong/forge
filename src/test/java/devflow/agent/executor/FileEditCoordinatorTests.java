@@ -1790,11 +1790,12 @@ class FileEditCoordinatorTests {
     }
 
     @Test
-    void inlineScriptPatchScopeKeepsInlineScriptPathEvenWhenHostHasStyleAnchor() throws Exception {
+    void inlineScriptPatchScopeUsesFocusedScriptRegionForSingleEntryScriptEvenWhenHostHasStyleAnchor() throws Exception {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
         AtomicBoolean preciseHtmlCalled = new AtomicBoolean(false);
-        AtomicBoolean inlineScriptCalled = new AtomicBoolean(false);
+        AtomicBoolean inlineScriptWorksetCalled = new AtomicBoolean(false);
+        AtomicBoolean focusedScriptCalled = new AtomicBoolean(false);
         LlmProvider provider = new LlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
@@ -1804,21 +1805,18 @@ class FileEditCoordinatorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (systemPrompt.contains("当前 HTML 入口文件里的主脚本已被抽成独立代码工作集")) {
-                    inlineScriptCalled.set(true);
+                    inlineScriptWorksetCalled.set(true);
+                    fail("单入口脚本不应再进入 inline-script-workset");
+                }
+                if (systemPrompt.contains("script id=\"app-script\"")) {
+                    focusedScriptCalled.set(true);
                     return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "APPEND_FILE",
-                                  "targetSymbol": null,
-                                  "targetKind": null,
-                                  "contentLines": [
-                                    "function bindButton() {",
-                                    "  document.getElementById('start-btn')?.addEventListener('click', bootstrap);",
-                                    "}"
-                                  ]
-                                }
-                              ]
+                            function bindButton() {
+                              document.getElementById('start-btn')?.addEventListener('click', bootstrap);
+                            }
+
+                            function bootstrap() {
+                              bindButton();
                             }
                             """;
                 }
@@ -1894,18 +1892,20 @@ class FileEditCoordinatorTests {
                 new SubtaskExecutionState(DeliveryMode.PATCH, true)
         );
 
-        assertTrue(inlineScriptCalled.get(), "INLINE_SCRIPT_PATCH 应优先走内联脚本 patch");
+        assertFalse(inlineScriptWorksetCalled.get(), "单入口 INLINE_SCRIPT_PATCH 不应再走 inline-script-workset");
+        assertTrue(focusedScriptCalled.get(), "单入口 INLINE_SCRIPT_PATCH 应直接走 focused script region");
         assertFalse(preciseHtmlCalled.get(), "INLINE_SCRIPT_PATCH 不应先回到宿主级 precise-html");
         assertTrue(generated.contains("id=\"app-script\""), "内联脚本 patch 完成后应继续回填宿主脚本锚点");
+        assertTrue(generated.contains("function bindButton()"));
     }
 
     @Test
-    void existingHtmlStillUsesInlineScriptWorkingSetWhenPrecisePreferenceIsDisabled() throws Exception {
+    void singleEntryInlineScriptUsesFocusedScriptRegionWhenPrecisePreferenceIsDisabled() throws Exception {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
         AtomicBoolean wholeFileCalled = new AtomicBoolean(false);
-        AtomicBoolean inlineScriptCalled = new AtomicBoolean(false);
-        AtomicInteger inlineCalls = new AtomicInteger();
+        AtomicBoolean inlineScriptWorksetCalled = new AtomicBoolean(false);
+        AtomicBoolean focusedScriptCalled = new AtomicBoolean(false);
         LlmProvider provider = new LlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
@@ -1919,39 +1919,22 @@ class FileEditCoordinatorTests {
                     return "";
                 }
                 if (systemPrompt.contains("当前 HTML 入口文件里的主脚本已被抽成独立代码工作集")) {
-                    inlineScriptCalled.set(true);
-                    if (inlineCalls.incrementAndGet() == 1) {
-                        return """
-                                {
-                                  "operations": [
-                                    {
-                                      "action": "APPEND_FILE",
-                                      "targetSymbol": null,
-                                      "targetKind": null,
-                                      "contentLines": [
-                                        "function updateScore(value) {",
-                                        "  const score = document.getElementById('score');",
-                                        "  score.textContent = value;",
-                                        "}"
-                                      ]
-                                    }
-                                  ]
-                                }
-                                """;
-                    }
+                    inlineScriptWorksetCalled.set(true);
+                    fail("单入口脚本不应再进入 inline-script-workset");
+                }
+                if (systemPrompt.contains("script id=\"app-script\"")) {
+                    focusedScriptCalled.set(true);
                     return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL_BODY",
-                                  "targetSymbol": "bootstrap",
-                                  "targetKind": "function",
-                                  "contentLines": [
-                                    "updateScore('1');"
-                                  ]
-                                }
-                              ]
+                            function updateScore(value) {
+                              const score = document.getElementById('score');
+                              score.textContent = value;
                             }
+
+                            function bootstrap() {
+                              updateScore('1');
+                            }
+
+                            document.addEventListener('DOMContentLoaded', bootstrap);
                             """;
                 }
                 return "";
@@ -2014,404 +1997,19 @@ class FileEditCoordinatorTests {
                 new SubtaskExecutionState(DeliveryMode.INCREMENTAL, false)
         );
 
-        assertTrue(inlineScriptCalled.get(), "现有 HTML 入口应继续走内联脚本工作集，而不是因策略收紧退回整页重写");
-        assertFalse(wholeFileCalled.get(), "现有 HTML 入口不应退回 whole-file");
-        assertEquals(2, inlineCalls.get(), "单入口脚本应拆成 append-only 与 orchestrator 两步");
+        assertFalse(wholeFileCalled.get(), "单入口脚本不应退回 whole-file");
+        assertFalse(inlineScriptWorksetCalled.get(), "单入口脚本不应再走 inline-script-workset");
+        assertTrue(focusedScriptCalled.get(), "单入口脚本应直接走 focused script region");
         assertTrue(generated.contains("function updateScore(value)"));
         assertTrue(generated.contains("updateScore('1');"));
     }
 
     @Test
-    void unsplittableInlineScriptTruncationUsesRetryFeedbackInsteadOfFallingBackToWholeFile() throws Exception {
+    void staleSingleEntryInlineScriptProgressIsDiscardedInsteadOfResumed() throws Exception {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
-        AtomicInteger inlineCalls = new AtomicInteger();
-        AtomicBoolean wholeFileCalled = new AtomicBoolean(false);
-        AtomicReference<String> retryPrompt = new AtomicReference<>("");
-        LlmProvider provider = new LlmProvider() {
-            @Override
-            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
-                return generate(systemPrompt, userPrompt, options, null);
-            }
-
-            @Override
-            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
-                if (systemPrompt.contains("请只输出目标文件的完整最终内容")) {
-                    wholeFileCalled.set(true);
-                    return "";
-                }
-                if (systemPrompt.contains("当前 HTML 入口文件里的主脚本已被抽成独立代码工作集")) {
-                    if (userPrompt.contains("- allowedSymbols: (append-only)")) {
-                        inlineCalls.incrementAndGet();
-                        return """
-                                {
-                                  "operations": [
-                                    {
-                                      "action": "APPEND_FILE",
-                                      "targetSymbol": null,
-                                      "targetKind": null,
-                                      "contentLines": [
-                                        "function createInitialBoard() {",
-                                        "  return [[0]];",
-                                        "}"
-                                      ]
-                                    }
-                                  ]
-                                }
-                                """;
-                    }
-                    if (userPrompt.contains("- allowedSymbols: bootstrap") && inlineCalls.incrementAndGet() == 2) {
-                        throw new LlmInvocationException(LlmFailureReason.OUTPUT_TRUNCATED, "inline unit truncated");
-                    }
-                    if (userPrompt.contains("- allowedSymbols: bootstrap")) {
-                        retryPrompt.set(userPrompt);
-                        assertTrue(systemPrompt.contains("禁止 APPEND_FILE"), "单符号 orchestrator 单元应从系统协议层明确禁止继续偷带辅助符号");
-                        return """
-                                {
-                                  "operations": [
-                                    {
-                                      "action": "REPLACE_SYMBOL_BODY",
-                                      "targetSymbol": "bootstrap",
-                                      "targetKind": "function",
-                                      "contentLines": [
-                                        "const board = createInitialBoard();",
-                                        "document.getElementById('score').textContent = String(board.length);"
-                                      ]
-                                    }
-                                  ]
-                                }
-                                """;
-                    }
-                }
-                return "";
-            }
-
-            @Override
-            public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
-                return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
-            }
-        };
-
-        Files.writeString(tempDir.resolve("index.html"), """
-                <!DOCTYPE html>
-                <html>
-                <body>
-                  <main id="app-root">
-                    <div id="score">0</div>
-                  </main>
-                  <script id="app-script">
-                    function bootstrap() {
-                    }
-
-                    document.addEventListener('DOMContentLoaded', bootstrap);
-                  </script>
-                </body>
-                </html>
-                """);
-
-        FileEditCoordinator coordinator = new FileEditCoordinator(
-                provider,
-                workspace,
-                objectMapper,
-                new devflow.agent.parsing.TreeSitterSupport(),
-                new devflow.agent.editing.HtmlPreciseEditor(new devflow.agent.parsing.TreeSitterSupport()),
-                new devflow.agent.editing.CodePreciseEditor(new devflow.agent.parsing.TreeSitterSupport()),
-                new devflow.agent.editing.HtmlDocumentAssembler(),
-                new GenerationEngine(),
-                new RuntimeWorkingSetResolver(),
-                2
-        );
-
-        String generated = invokeGenerateFileContent(
-                coordinator,
-                Path.of("index.html"),
-                "计划：在现有入口中补齐主控制逻辑",
-                new Subtask(
-                        "补齐主控制逻辑",
-                        "在现有入口中补齐主控制逻辑",
-                        List.of(),
-                        List.of("主控制逻辑存在"),
-                        List.of(),
-                        List.of("页面可加载"),
-                        false,
-                        DeliveryMode.INCREMENTAL,
-                        List.of(new FileChange("index.html", ChangeAction.WRITE, "补齐主控制逻辑"))
-                ),
-                null,
-                "",
-                "补齐主控制逻辑",
-                new SubtaskExecutionState(DeliveryMode.INCREMENTAL, true)
-        );
-
-        assertEquals(3, inlineCalls.get(), "不可再拆分的 orchestrator 单元截断后应通过结构化重试反馈继续完成");
-        assertFalse(wholeFileCalled.get(), "单符号截断不应回退 whole-file");
-        assertTrue(retryPrompt.get().contains("当前单元输出被截断"), "重试反馈应明确告诉模型当前单元已无法继续按符号拆分");
-        assertTrue(generated.contains("function createInitialBoard()"));
-        assertTrue(generated.contains("document.getElementById('score').textContent"));
-    }
-
-    @Test
-    void appendOnlyInlineScriptUnitIsSplitInsteadOfRetryingSameOversizedBudget() throws Exception {
-        FileProjectWorkspace workspace = new FileProjectWorkspace();
-        ObjectMapper objectMapper = new ObjectMapper();
-        AtomicInteger appendBudgetTwoCalls = new AtomicInteger();
-        AtomicInteger appendBudgetOneCalls = new AtomicInteger();
-        AtomicInteger orchestratorCalls = new AtomicInteger();
-        LlmProvider provider = new LlmProvider() {
-            @Override
-            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
-                return generate(systemPrompt, userPrompt, options, null);
-            }
-
-            @Override
-            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
-                if (!systemPrompt.contains("当前 HTML 入口文件里的主脚本已被抽成独立代码工作集")) {
-                    return "";
-                }
-                if (userPrompt.contains("- allowedSymbols: (append-only)") && userPrompt.contains("- appendBudget: 2")) {
-                    if (appendBudgetTwoCalls.incrementAndGet() > 1) {
-                        fail("append-only 大预算单元被截断后不应继续重试同一个单元");
-                    }
-                    throw new LlmInvocationException(LlmFailureReason.OUTPUT_TRUNCATED, "append unit truncated");
-                }
-                if (userPrompt.contains("- allowedSymbols: (append-only)") && userPrompt.contains("- appendBudget: 1")) {
-                    assertTrue(systemPrompt.contains("当前 append-only 单元已缩到最小粒度"));
-                    assertEquals(
-                            GenerationBudgetProfile.inlineScriptUnitOutputRatio(),
-                            ((Number) options.get(LlmOptionKeys.OUTPUT_BUDGET_RATIO)).doubleValue()
-                    );
-                    int index = appendBudgetOneCalls.incrementAndGet();
-                    String helperName = index == 1 ? "createBoard" : "spawnPiece";
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "APPEND_FILE",
-                                  "targetSymbol": null,
-                                  "targetKind": null,
-                                  "contentLines": [
-                                    "function %s() {",
-                                    "  return null;",
-                                    "}"
-                                  ]
-                                }
-                              ]
-                            }
-                            """.formatted(helperName);
-                }
-                if (userPrompt.contains("- allowedSymbols: bootstrap")) {
-                    orchestratorCalls.incrementAndGet();
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL_BODY",
-                                  "targetSymbol": "bootstrap",
-                                  "targetKind": "function",
-                                  "contentLines": [
-                                    "const board = createBoard();",
-                                    "const piece = spawnPiece();",
-                                    "console.log(board, piece);"
-                                  ]
-                                }
-                              ]
-                            }
-                            """;
-                }
-                return "";
-            }
-
-            @Override
-            public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
-                return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
-            }
-        };
-
-        Files.writeString(tempDir.resolve("index.html"), """
-                <!DOCTYPE html>
-                <html>
-                <body>
-                  <main id="app-root">
-                    <div id="score">0</div>
-                  </main>
-                  <script id="app-script">
-                    function bootstrap() {
-                    }
-
-                    document.addEventListener('DOMContentLoaded', bootstrap);
-                  </script>
-                </body>
-                </html>
-                """);
-
-        FileEditCoordinator coordinator = new FileEditCoordinator(
-                provider,
-                workspace,
-                objectMapper,
-                new devflow.agent.parsing.TreeSitterSupport(),
-                new devflow.agent.editing.HtmlPreciseEditor(new devflow.agent.parsing.TreeSitterSupport()),
-                new devflow.agent.editing.CodePreciseEditor(new devflow.agent.parsing.TreeSitterSupport()),
-                new devflow.agent.editing.HtmlDocumentAssembler(),
-                new GenerationEngine(),
-                new RuntimeWorkingSetResolver(),
-                2
-        );
-
-        String generated = invokeGenerateFileContent(
-                coordinator,
-                Path.of("index.html"),
-                "计划：把单入口脚本扩展成可演进的游戏脚本",
-                new Subtask(
-                        "补齐脚本逻辑",
-                        "补齐现有入口中的脚本逻辑",
-                        List.of(),
-                        List.of("页面初始化后应更新状态"),
-                        List.of(),
-                        List.of("页面可加载"),
-                        false,
-                        DeliveryMode.INCREMENTAL,
-                        List.of(new FileChange("index.html", ChangeAction.WRITE, "补齐脚本逻辑"))
-                ),
-                null,
-                "",
-                "补齐脚本逻辑",
-                new SubtaskExecutionState(DeliveryMode.INCREMENTAL, true)
-        );
-
-        assertEquals(1, appendBudgetTwoCalls.get(), "大预算 append-only 单元只应尝试一次，然后立即拆小");
-        assertEquals(2, appendBudgetOneCalls.get(), "拆小后应改为两个更小的 append-only 单元");
-        assertEquals(1, orchestratorCalls.get(), "append-only 单元完成后才应进入 orchestrator 单元");
-        assertTrue(generated.contains("function createBoard()"));
-        assertTrue(generated.contains("function spawnPiece()"));
-        assertTrue(generated.contains("console.log(board, piece);"));
-    }
-
-    @Test
-    void inlineScriptIsExternalizedToDedicatedFileAfterUnsplittableTruncation() throws Exception {
-        FileProjectWorkspace workspace = new FileProjectWorkspace();
-        ObjectMapper objectMapper = new ObjectMapper();
-        AtomicInteger appendCalls = new AtomicInteger();
-        AtomicInteger orchestratorCalls = new AtomicInteger();
-        LlmProvider provider = new LlmProvider() {
-            @Override
-            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
-                return generate(systemPrompt, userPrompt, options, null);
-            }
-
-            @Override
-            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
-                if (!systemPrompt.contains("当前 HTML 入口文件里的主脚本已被抽成独立代码工作集")) {
-                    return "";
-                }
-                if (userPrompt.contains("- allowedSymbols: (append-only)")) {
-                    appendCalls.incrementAndGet();
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "APPEND_FILE",
-                                  "targetSymbol": null,
-                                  "targetKind": null,
-                                  "contentLines": [
-                                    "function createBoard() {",
-                                    "  return [[0]];",
-                                    "}"
-                                  ]
-                                }
-                              ]
-                            }
-                            """;
-                }
-                if (userPrompt.contains("- allowedSymbols: bootstrap")) {
-                    orchestratorCalls.incrementAndGet();
-                    throw new LlmInvocationException(LlmFailureReason.OUTPUT_TRUNCATED, "orchestrator still truncated");
-                }
-                return "";
-            }
-
-            @Override
-            public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
-                return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
-            }
-        };
-
-        Files.writeString(tempDir.resolve("index.html"), """
-                <!DOCTYPE html>
-                <html>
-                <head>
-                  <style id="app-style">
-                    body { background: #111; }
-                  </style>
-                </head>
-                <body>
-                  <main id="app-root">
-                    <div id="score">0</div>
-                  </main>
-                  <script id="app-script">
-                    function bootstrap() {
-                    }
-
-                    document.addEventListener('DOMContentLoaded', bootstrap);
-                  </script>
-                </body>
-                </html>
-                """);
-
-        FileEditCoordinator coordinator = new FileEditCoordinator(
-                provider,
-                workspace,
-                objectMapper,
-                new devflow.agent.parsing.TreeSitterSupport(),
-                new devflow.agent.editing.HtmlPreciseEditor(new devflow.agent.parsing.TreeSitterSupport()),
-                new devflow.agent.editing.CodePreciseEditor(new devflow.agent.parsing.TreeSitterSupport()),
-                new devflow.agent.editing.HtmlDocumentAssembler(),
-                new GenerationEngine(),
-                new RuntimeWorkingSetResolver(),
-                2
-        );
-
-        coordinator.applyChange(
-                tempDir,
-                "计划：当前内联脚本如果在最小单元上仍然持续截断，就外提到独立脚本文件",
-                new Subtask(
-                        "外提脚本",
-                        "必要时将内联脚本外提到独立文件",
-                        List.of(),
-                        List.of("页面入口保持可运行"),
-                        List.of(),
-                        List.of("页面可加载"),
-                        false,
-                        DeliveryMode.INCREMENTAL,
-                        List.of(new FileChange("index.html", ChangeAction.WRITE, "外提持续截断的脚本"))
-                ),
-                null,
-                "",
-                new FileChange("index.html", ChangeAction.WRITE, "外提持续截断的脚本"),
-                new SubtaskExecutionState(DeliveryMode.INCREMENTAL, true),
-                null,
-                null,
-                "",
-                new ImplementationEventJournal(null, null, tempDir, runRecord("实现一个俄罗斯方块", "需要纯网页版"))
-        );
-
-        String rewrittenHtml = Files.readString(tempDir.resolve("index.html"));
-        Path extractedScriptPath = tempDir.resolve(ProjectPathSupport.extractedInlineScriptAssetPath(Path.of("index.html")));
-        String extractedScript = Files.readString(extractedScriptPath);
-
-        assertEquals(1, appendCalls.get(), "外提前应只完成必要的 append-only 辅助符号");
-        assertEquals(2, orchestratorCalls.get(), "不可再拆分的 orchestrator 单元应走最小重试窗口后触发外提");
-        assertTrue(rewrittenHtml.contains("<script src=\"./index.app.js\"></script>"));
-        assertTrue(extractedScript.contains("function createBoard()"));
-        assertTrue(extractedScript.contains("function bootstrap()"));
-    }
-
-    @Test
-    void singleInlineScriptEntryExecutesAppendOnlyUnitBeforeOrchestratorUnit() throws Exception {
-        FileProjectWorkspace workspace = new FileProjectWorkspace();
-        ObjectMapper objectMapper = new ObjectMapper();
-        AtomicInteger inlineCalls = new AtomicInteger();
-        AtomicReference<String> firstPrompt = new AtomicReference<>("");
-        AtomicReference<String> secondPrompt = new AtomicReference<>("");
+        AtomicBoolean inlineScriptWorksetCalled = new AtomicBoolean(false);
+        AtomicBoolean focusedScriptCalled = new AtomicBoolean(false);
         LlmProvider provider = new LlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
@@ -2421,41 +2019,21 @@ class FileEditCoordinatorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (systemPrompt.contains("当前 HTML 入口文件里的主脚本已被抽成独立代码工作集")) {
-                    int call = inlineCalls.incrementAndGet();
-                    if (call == 1) {
-                        firstPrompt.set(userPrompt);
-                        return """
-                                {
-                                  "operations": [
-                                    {
-                                      "action": "APPEND_FILE",
-                                      "targetSymbol": null,
-                                      "targetKind": null,
-                                      "contentLines": [
-                                        "function createBoard() {",
-                                        "  return [[0]];",
-                                        "}"
-                                      ]
-                                    }
-                                  ]
-                                }
-                                """;
-                    }
-                    secondPrompt.set(userPrompt);
+                    inlineScriptWorksetCalled.set(true);
+                    fail("失配的 inline-script-workset progress 不应被继续恢复");
+                }
+                if (systemPrompt.contains("script id=\"app-script\"")) {
+                    focusedScriptCalled.set(true);
                     return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL_BODY",
-                                  "targetSymbol": "bootstrap",
-                                  "targetKind": "function",
-                                  "contentLines": [
-                                    "const board = createBoard();",
-                                    "document.getElementById('score').textContent = String(board.length);"
-                                  ]
-                                }
-                              ]
+                            function updateScore(value) {
+                              document.getElementById('score').textContent = value;
                             }
+
+                            function bootstrap() {
+                              updateScore('2');
+                            }
+
+                            document.addEventListener('DOMContentLoaded', bootstrap);
                             """;
                 }
                 return "";
@@ -2497,15 +2075,36 @@ class FileEditCoordinatorTests {
                 2
         );
 
+        SubtaskExecutionState executionState = new SubtaskExecutionState(DeliveryMode.INCREMENTAL, true);
+        executionState.recordPatchProgress(new FilePatchProgressState(
+                Path.of("index.html"),
+                FileEditStrategyNames.INLINE_SCRIPT_WORKSET,
+                """
+                function staleHelper() {
+                  return 'stale';
+                }
+
+                function bootstrap() {
+                  staleHelper();
+                }
+                """,
+                List.of(new EditUnit(
+                        EditUnitKind.INLINE_SCRIPT_SYMBOL_BATCH,
+                        "index.html.inline.js#inline-unit-append",
+                        List.of(),
+                        1
+                ))
+        ));
+
         String generated = invokeGenerateFileContent(
                 coordinator,
                 Path.of("index.html"),
-                "计划：把单入口脚本扩展成可演进的游戏脚本",
+                "计划：继续补齐当前入口中的脚本逻辑",
                 new Subtask(
                         "补齐脚本逻辑",
-                        "补齐现有入口中的脚本逻辑",
+                        "继续补齐当前入口中的脚本逻辑",
                         List.of(),
-                        List.of("页面初始化后应更新状态"),
+                        List.of("页面初始化后应更新分数"),
                         List.of(),
                         List.of("页面可加载"),
                         false,
@@ -2515,14 +2114,124 @@ class FileEditCoordinatorTests {
                 null,
                 "",
                 "补齐脚本逻辑",
-                new SubtaskExecutionState(DeliveryMode.INCREMENTAL, true)
+                executionState
         );
 
-        assertEquals(2, inlineCalls.get(), "单入口脚本应先 append-only，再让入口符号负责编排");
-        assertTrue(firstPrompt.get().contains("- allowedSymbols: (append-only)"));
-        assertTrue(secondPrompt.get().contains("- allowedSymbols: bootstrap"));
-        assertTrue(generated.contains("function createBoard()"));
-        assertTrue(generated.contains("const board = createBoard();"));
+        assertFalse(inlineScriptWorksetCalled.get(), "失配的旧 progress 不应再把执行链拉回 inline-script-workset");
+        assertTrue(focusedScriptCalled.get(), "单入口脚本在丢弃失配 progress 后应直接走 focused script region");
+        assertFalse(generated.contains("staleHelper"), "丢弃旧 progress 后不应把旧骨架残留继续带入最终结果");
+        assertTrue(generated.contains("updateScore('2');"));
+    }
+
+    @Test
+    void multiSymbolInlineScriptStillUsesWorkingSetPath() throws Exception {
+        FileProjectWorkspace workspace = new FileProjectWorkspace();
+        ObjectMapper objectMapper = new ObjectMapper();
+        AtomicBoolean preciseHtmlCalled = new AtomicBoolean(false);
+        AtomicBoolean focusedScriptCalled = new AtomicBoolean(false);
+        AtomicBoolean inlineScriptWorksetCalled = new AtomicBoolean(false);
+        LlmProvider provider = new LlmProvider() {
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
+                return generate(systemPrompt, userPrompt, options, null);
+            }
+
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
+                if (systemPrompt.contains("当前 HTML 入口文件里的主脚本已被抽成独立代码工作集")) {
+                    inlineScriptWorksetCalled.set(true);
+                    assertTrue(userPrompt.contains("- allowedSymbols: bindButton, bootstrap"));
+                    return """
+                            {
+                              "operations": [
+                                {
+                                  "action": "REPLACE_SYMBOL_BODY",
+                                  "targetSymbol": "bootstrap",
+                                  "targetKind": "function",
+                                  "contentLines": [
+                                    "bindButton();"
+                                  ]
+                                }
+                              ]
+                            }
+                            """;
+                }
+                if (systemPrompt.contains("script id=\"app-script\"")) {
+                    focusedScriptCalled.set(true);
+                    return "";
+                }
+                if (systemPrompt.contains("精确改写")) {
+                    preciseHtmlCalled.set(true);
+                    return "";
+                }
+                return "";
+            }
+
+            @Override
+            public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
+                return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
+            }
+        };
+
+        Files.writeString(tempDir.resolve("index.html"), """
+                <!DOCTYPE html>
+                <html>
+                <body>
+                  <main id="app-root">
+                    <button id="start-btn">开始</button>
+                  </main>
+                  <script id="app-script">
+                    function bindButton() {
+                      document.getElementById('start-btn')?.addEventListener('click', bootstrap);
+                    }
+
+                    function bootstrap() {
+                    }
+
+                    document.addEventListener('DOMContentLoaded', bootstrap);
+                  </script>
+                </body>
+                </html>
+                """);
+
+        FileEditCoordinator coordinator = new FileEditCoordinator(
+                provider,
+                workspace,
+                objectMapper,
+                new devflow.agent.parsing.TreeSitterSupport(),
+                new devflow.agent.editing.HtmlPreciseEditor(new devflow.agent.parsing.TreeSitterSupport()),
+                new devflow.agent.editing.CodePreciseEditor(new devflow.agent.parsing.TreeSitterSupport()),
+                new devflow.agent.editing.HtmlDocumentAssembler(),
+                new GenerationEngine(),
+                new RuntimeWorkingSetResolver(),
+                2
+        );
+
+        String generated = invokeGenerateFileContent(
+                coordinator,
+                Path.of("index.html"),
+                "计划：补齐现有入口中的脚本逻辑",
+                new Subtask(
+                        "补齐脚本逻辑",
+                        "补齐现有入口中的脚本逻辑",
+                        List.of(),
+                        List.of("按钮绑定完成"),
+                        List.of(),
+                        List.of("页面可加载"),
+                        false,
+                        DeliveryMode.INCREMENTAL,
+                        List.of(new FileChange("index.html", ChangeAction.WRITE, "补齐脚本逻辑"))
+                ),
+                null,
+                "",
+                "补齐脚本逻辑",
+                new SubtaskExecutionState(DeliveryMode.INCREMENTAL, false)
+        );
+
+        assertTrue(inlineScriptWorksetCalled.get(), "多符号脚本仍应走 inline-script-workset");
+        assertFalse(focusedScriptCalled.get(), "多符号脚本不应被误收窄到 focused script region");
+        assertFalse(preciseHtmlCalled.get(), "多符号脚本不应先回到宿主级 precise-html");
+        assertTrue(generated.contains("bindButton();"));
     }
 
     @Test

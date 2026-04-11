@@ -10,6 +10,7 @@ record SubtaskAttemptResult(
         GenerationFailureException generationFailure,
         SelfCheckResult selfCheck,
         ImplementationCompletenessGateOutcome completenessOutcome,
-        ReviewResult verification
+        ReviewResult verification,
+        SubtaskRevisionDirective revisionDirective
 ) {
 }

@@ -50,6 +50,7 @@ final class WholeFilePatchExecutor {
         PatchGenerationPrompt generationPrompt = WholeFilePromptAssembler.assemble(
                 request.relativePath(),
                 request.deliveryMode(),
+                request.runtimeContract(),
                 request.planSummary(),
                 request.taskPackageMarkdown(),
                 request.reason(),
@@ -85,7 +86,13 @@ final class WholeFilePatchExecutor {
                             )
                     );
                     GateReport validationReport = generatedContentGate.evaluate(
-                            new GeneratedContentGateInput(request.projectPath(), request.relativePath(), generated)
+                            new GeneratedContentGateInput(
+                                    request.projectPath(),
+                                    request.relativePath(),
+                                    generated,
+                                    request.runtimeContract(),
+                                    request.runtimeContract() == null ? java.util.List.of() : request.runtimeContract().runtimePaths()
+                            )
                     );
                     if (validationReport.passed()) {
                         return GenerationAttemptResult.success(generated);

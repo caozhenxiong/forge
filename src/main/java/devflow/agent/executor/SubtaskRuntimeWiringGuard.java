@@ -5,6 +5,7 @@ import devflow.agent.parsing.HtmlStructureSnapshot;
 import devflow.agent.parsing.TreeSitterSupport;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.validation.ProjectFingerprint;
@@ -33,7 +34,7 @@ final class SubtaskRuntimeWiringGuard {
         this.webRuntimeWiringCheck = new WebRuntimeWiringCheck(workspace);
     }
 
-    ReviewResult check(Path projectPath, Subtask subtask, DocumentLanguage language) {
+    SubtaskVerificationOutcome check(Path projectPath, Subtask subtask, DocumentLanguage language) {
         if (!touchesHtmlEntryRuntimeOwnership(subtask, projectPath)) {
             return null;
         }
@@ -53,14 +54,20 @@ final class SubtaskRuntimeWiringGuard {
         if (!evidence.isBlank()) {
             changeRequest = changeRequest + "\n" + evidence;
         }
-        return new ReviewResult(
+        RuntimeWiringPatchDecision patchDecision = result.patchDecision();
+        ReviewResult review = new ReviewResult(
                 ReviewDecision.REVISION_REQUIRED,
                 FixMode.PATCH,
                 language.choose("当前子任务破坏了 HTML 入口与 runtime 所有权/接线契约。", "The current subtask broke the HTML runtime ownership/wiring contract."),
                 changeRequest.trim(),
                 evidence,
-                language.choose("只修复当前入口与 companion runtime 的接线/所有权问题，不要重开整轮实现。", "Only repair the current entry/companion runtime wiring and ownership issue; do not reopen the whole implementation.")
+                language.choose("只修复当前入口与 companion runtime 的接线/所有权问题，不要重开整轮实现。", "Only repair the current entry/companion runtime wiring and ownership issue; do not reopen the whole implementation."),
+                patchDecision == null ? ImplementationPatchTarget.PATCH_RUNTIME_WIRING : patchDecision.patchTarget()
         );
+        SubtaskRevisionDirective revisionDirective = patchDecision == null || patchDecision.htmlEntryOverride() == null
+                ? SubtaskRevisionDirective.empty()
+                : SubtaskRevisionDirective.retry(java.util.List.of(patchDecision.htmlEntryOverride()));
+        return SubtaskVerificationOutcome.of(review, revisionDirective);
     }
 
     private boolean touchesHtmlEntryRuntimeOwnership(Subtask subtask, Path projectPath) {
@@ -71,7 +78,9 @@ final class SubtaskRuntimeWiringGuard {
         Path htmlEntryPath = fingerprint != null && fingerprint.hasResolvedHtmlEntry()
                 ? Path.of(fingerprint.resolvedHtmlEntryPath()).normalize()
                 : null;
-        Path companionRuntimePath = htmlEntryPath == null ? null : ProjectPathSupport.extractedInlineScriptAssetPath(htmlEntryPath).normalize();
+        Path htmlParent = htmlEntryPath == null || htmlEntryPath.getParent() == null
+                ? Path.of("")
+                : htmlEntryPath.getParent().normalize();
         for (FileChange change : subtask.changes()) {
             if (change == null || change.path() == null || change.path().isBlank()) {
                 continue;
@@ -83,10 +92,20 @@ final class SubtaskRuntimeWiringGuard {
             if (htmlEntryPath != null && htmlEntryPath.equals(relativePath)) {
                 return true;
             }
-            if (companionRuntimePath != null && companionRuntimePath.equals(relativePath)) {
+            if (htmlEntryPath != null
+                    && ProjectPathSupport.isRuntimeScript(relativePath)
+                    && isUnderHtmlEntryTree(relativePath, htmlParent)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private boolean isUnderHtmlEntryTree(Path candidate, Path htmlParent) {
+        if (candidate == null) {
+            return false;
+        }
+        Path candidateParent = candidate.getParent() == null ? Path.of("") : candidate.getParent().normalize();
+        return htmlParent.toString().isBlank() || candidateParent.equals(htmlParent) || candidateParent.startsWith(htmlParent);
     }
 }

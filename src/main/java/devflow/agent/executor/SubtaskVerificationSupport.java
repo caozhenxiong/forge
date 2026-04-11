@@ -8,6 +8,7 @@ import devflow.agent.quality.QualityPlan;
 import devflow.agent.quality.StructureGateEvaluator;
 import devflow.agent.quality.StructureGateOutcome;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.project.FileProjectWorkspace;
@@ -28,6 +29,7 @@ import java.util.List;
  */
 final class SubtaskVerificationSupport {
 
+    private final TestExecutor testExecutor;
     private final LlmProvider llmProvider;
     private final GenerationEngine generationEngine;
     private final ImplementationCompletenessGate implementationCompletenessGate;
@@ -41,6 +43,7 @@ final class SubtaskVerificationSupport {
     private final StructureGateEvaluator structureGateEvaluator = new StructureGateEvaluator();
 
     SubtaskVerificationSupport(
+            TestExecutor testExecutor,
             LlmProvider llmProvider,
             GenerationEngine generationEngine,
             ImplementationCompletenessGate implementationCompletenessGate,
@@ -48,6 +51,7 @@ final class SubtaskVerificationSupport {
             FileProjectWorkspace workspace,
             AgentTurnLoop agentTurnLoop
     ) {
+        this.testExecutor = testExecutor;
         this.llmProvider = llmProvider;
         this.generationEngine = generationEngine;
         this.implementationCompletenessGate = implementationCompletenessGate;
@@ -57,7 +61,7 @@ final class SubtaskVerificationSupport {
         this.retryFeedbackRenderer = new SubtaskRetryFeedbackRenderer(promptAssembler);
     }
 
-    ReviewResult verifySubtask(
+    SubtaskVerificationOutcome verifySubtask(
             Path projectPath,
             RunRecord runRecord,
             Subtask subtask,
@@ -75,22 +79,35 @@ final class SubtaskVerificationSupport {
     ) {
         ReviewResult runnableMilestoneReview = runnableMilestoneGuard.check(projectPath, subtask, contractView, language);
         if (runnableMilestoneReview != null) {
-            return runnableMilestoneReview;
+            return SubtaskVerificationOutcome.of(runnableMilestoneReview);
         }
-        ReviewResult runtimeWiringReview = runtimeWiringGuard.check(projectPath, subtask, language);
+        SubtaskVerificationOutcome runtimeWiringReview = runtimeWiringGuard.check(projectPath, subtask, language);
         if (runtimeWiringReview != null) {
             return runtimeWiringReview;
         }
         StructureGateOutcome structureGateOutcome = structureGateEvaluator.evaluate(fingerprint, qualityPlan);
         if (!structureGateOutcome.passed()) {
-            return new ReviewResult(
+            return SubtaskVerificationOutcome.of(new ReviewResult(
                     ReviewDecision.REVISION_REQUIRED,
                     FixMode.PATCH,
                     structureGateOutcome.summary(),
                     structureGateOutcome.changeRequest(),
                     structureGateOutcome.evidence(),
-                    ""
-            );
+                    "",
+                    ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
+            ));
+        }
+        SubtaskVerificationOutcome functionalVerification = testExecutor.verifyImplementationSubtask(
+                projectPath,
+                subtask,
+                contractView,
+                qualityPlan,
+                fingerprint,
+                finalSubtask,
+                language
+        );
+        if (functionalVerification != null) {
+            return functionalVerification;
         }
         String candidate = promptAssembler.candidatePrompt(
                 subtask,
@@ -102,7 +119,11 @@ final class SubtaskVerificationSupport {
                 promptAssembler.renderRepairVerificationContext(feedback)
         );
         ReviewResult review = reviewWithObservation(subtask, candidate, language, eventJournal);
-        return enforceCompleteness(completenessOutcome, review, language);
+        ReviewResult enforcedReview = enforceCompleteness(completenessOutcome, review, language);
+        return SubtaskVerificationOutcome.of(
+                enforcedReview,
+                SubtaskRevisionDirective.retry(enforcedReview.overrideChanges())
+        );
     }
 
     String buildRetryFeedback(
@@ -127,14 +148,14 @@ final class SubtaskVerificationSupport {
                     SubtaskReviewPolicy.attemptTimeout(),
                     reviewObserverFactory.create(subtask.title(), eventJournal),
                     (attempt, retryFeedback) -> GenerationAttemptResult.success(
-                            llmProvider.review(
+                            llmProvider.reviewStructured(
                                     promptAssembler.systemPrompt(),
                                     retryFeedback == null || retryFeedback.isBlank()
                                             ? candidate
                                             : candidate + "\n\n上一轮结构化验证调用失败，请仅重新输出审阅 JSON：\n" + retryFeedback,
                                     LlmOptions.outputBudgetRatio(GenerationBudgetProfile.subtaskReviewOutputRatio()),
                                     ModelRole.CODE_REVIEW
-                            )
+                            ).result()
                     ),
                     this::mapReviewInvocationFailure,
                     (failureType, evidence) -> GenerationFailureExceptions.create(
@@ -157,7 +178,8 @@ final class SubtaskVerificationSupport {
                     language.choose("子任务验证调用超时或失败，暂不放行当前子任务。", "Subtask verification timed out or failed, so the subtask cannot be approved yet."),
                     language.choose("请保持当前实现结果不变，重新执行当前子任务验证。", "Keep the current implementation result and rerun the current subtask verification."),
                     exception.report().evidence(),
-                    language.choose("先重新验证当前子任务；若多次超时，再收缩验证输入。", "Retry the current subtask verification first; if it times out repeatedly, shrink the verification input.")
+                    language.choose("先重新验证当前子任务；若多次超时，再收缩验证输入。", "Retry the current subtask verification first; if it times out repeatedly, shrink the verification input."),
+                    ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
             );
         }
     }

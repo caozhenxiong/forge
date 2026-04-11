@@ -40,7 +40,11 @@ class DocumentReviewNormalizer {
                     raw.summary(),
                     "",
                     raw.evidence(),
-                    ""
+                    "",
+                    ImplementationPatchTarget.NONE,
+                    java.util.List.of(),
+                    raw.revisionRoute(),
+                    raw.reasonCode()
             );
         }
 
@@ -68,7 +72,11 @@ class DocumentReviewNormalizer {
                         "需求分析已满足当前阶段要求；更细的算法、性能验证和原型细节下放到 DESIGN/TEST_CASE 阶段。",
                         "",
                         raw.evidence(),
-                        raw.actionItems()
+                        raw.actionItems(),
+                        ImplementationPatchTarget.NONE,
+                        java.util.List.of(),
+                        raw.revisionRoute(),
+                        raw.reasonCode()
                 );
             }
             if (stageType == StageType.PRD) {
@@ -78,7 +86,11 @@ class DocumentReviewNormalizer {
                         "PRD 已满足当前阶段要求；算法、模块和性能测试细节下放到 DESIGN/TEST_CASE 阶段。",
                         "",
                         raw.evidence(),
-                        raw.actionItems()
+                        raw.actionItems(),
+                        ImplementationPatchTarget.NONE,
+                        java.util.List.of(),
+                        raw.revisionRoute(),
+                        raw.reasonCode()
                 );
             }
         }
@@ -98,13 +110,18 @@ class DocumentReviewNormalizer {
                 && !semantics.unsupportedImplementationConstraintPresent()) {
             return raw;
         }
+        String changeRequest = unsupportedConstraintChangeRequest(semantics);
         return new ReviewResult(
                 ReviewDecision.REVISION_REQUIRED,
                 FixMode.PATCH,
                 "文档引入了无来源支撑的量化指标或实现约束，当前阶段不能直接通过。",
-                "请删除、降级或改写这些无来源支撑的硬约束，只保留 hard.* 或 Contract Metadata 已明确支撑的绑定内容。",
+                changeRequest,
                 raw.evidence(),
-                raw.actionItems()
+                unsupportedConstraintActionItems(semantics),
+                ImplementationPatchTarget.NONE,
+                java.util.List.of(),
+                raw.revisionRoute(),
+                raw.reasonCode()
         );
     }
 
@@ -124,7 +141,11 @@ class DocumentReviewNormalizer {
                 "当前文档相关内容属于设计选择/建议/低权重内容；本轮审阅已自动下调，不再阻塞当前阶段。",
                 "",
                 raw.evidence(),
-                ""
+                "",
+                ImplementationPatchTarget.NONE,
+                java.util.List.of(),
+                raw.revisionRoute(),
+                raw.reasonCode()
         );
     }
 
@@ -145,7 +166,11 @@ class DocumentReviewNormalizer {
                 "当前审阅主要要求补充已标记为待确认问题或低权重建议的细节；这些内容不应阻塞当前阶段。",
                 "",
                 raw.evidence(),
-                ""
+                "",
+                ImplementationPatchTarget.NONE,
+                java.util.List.of(),
+                raw.revisionRoute(),
+                raw.reasonCode()
         );
     }
 
@@ -173,7 +198,11 @@ class DocumentReviewNormalizer {
                 "当前文档已满足本阶段要求；审阅意见要求补入无来源支撑的量化指标或实现约束，这些内容已下调为后续建议。",
                 "",
                 raw.evidence(),
-                ""
+                "",
+                ImplementationPatchTarget.NONE,
+                java.util.List.of(),
+                raw.revisionRoute(),
+                raw.reasonCode()
         );
     }
 
@@ -184,5 +213,39 @@ class DocumentReviewNormalizer {
         return validationMetadata.performanceMeasurementRequired()
                 || validationMetadata.pageLoadMaxMs() != null
                 || validationMetadata.interactionMaxMs() != null;
+    }
+
+    private String unsupportedConstraintChangeRequest(ReviewSemantics semantics) {
+        if (semantics.unsupportedQuantitativeConstraintPresent()
+                && semantics.unsupportedImplementationConstraintPresent()) {
+            return "请删除、降级或改写这些无来源支撑的量化指标与实现硬约束，只保留 hard.* 或 Contract Metadata 已明确支撑的绑定内容。";
+        }
+        if (semantics.unsupportedImplementationConstraintPresent()) {
+            return "请删除、降级或改写这些无来源支撑的实现硬约束，只保留 hard.* 或 Contract Metadata 已明确支撑的绑定内容。";
+        }
+        return "请删除、降级或改写这些无来源支撑的量化指标，只保留 hard.* 或 Contract Metadata 已明确支撑的绑定内容。";
+    }
+
+    private String unsupportedConstraintActionItems(ReviewSemantics semantics) {
+        if (semantics.unsupportedQuantitativeConstraintPresent()
+                && semantics.unsupportedImplementationConstraintPresent()) {
+            return """
+                    1. 删除候选文档中无来源支撑的量化阈值与实现硬约束。
+                    2. 仅保留 hard.* 或 Contract Metadata 已明确给出的绑定内容。
+                    3. 不要新增新的 hard.* 或 validation.* 来为本轮问题补来源。
+                    """.trim();
+        }
+        if (semantics.unsupportedImplementationConstraintPresent()) {
+            return """
+                    1. 删除候选文档中无来源支撑的实现硬约束。
+                    2. 仅保留 hard.* 或 Contract Metadata 已明确给出的绑定内容。
+                    3. 不要新增新的 hard.* 或 validation.* 来为本轮问题补来源。
+                    """.trim();
+        }
+        return """
+                1. 删除候选文档中无来源支撑的量化阈值。
+                2. 仅保留 hard.* 或 Contract Metadata 已明确给出的绑定内容。
+                3. 不要新增新的 hard.* 或 validation.* 来为本轮问题补来源。
+                """.trim();
     }
 }

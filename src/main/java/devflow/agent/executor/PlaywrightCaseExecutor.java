@@ -13,7 +13,7 @@ public class PlaywrightCaseExecutor {
     public PlaywrightCaseExecutor(FileProjectWorkspace workspace, ObjectMapper objectMapper) {
         PlaywrightSupport support = new PlaywrightSupport();
         this.caseRunSupport = new PlaywrightCaseRunSupport(workspace, objectMapper, support);
-        this.runtimeSnapshotSupport = new PlaywrightRuntimeSnapshotSupport(workspace, objectMapper, support);
+        this.runtimeSnapshotSupport = new PlaywrightRuntimeSnapshotSupport(workspace, objectMapper);
     }
 
     public List<TestCaseResult> execute(Path projectPath, TestCasePlan plan) {

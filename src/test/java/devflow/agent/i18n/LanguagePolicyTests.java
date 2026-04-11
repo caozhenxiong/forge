@@ -14,6 +14,8 @@ class LanguagePolicyTests {
                 ## Contract Metadata
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
 
                 ## 1. 文档目标
                 需要交付一个可以直接打开运行的俄罗斯方块网页。

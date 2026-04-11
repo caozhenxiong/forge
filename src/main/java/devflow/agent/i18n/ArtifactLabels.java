@@ -55,10 +55,6 @@ public final class ArtifactLabels {
         return "## " + sectionNumber + ". " + title;
     }
 
-    public static String currentNotesHeading(DocumentLanguage language) {
-        return heading(currentNotes(language));
-    }
-
     public static String sourceMetadataHeading(DocumentLanguage language) {
         return heading(sourceMetadata(language));
     }
@@ -67,7 +63,4 @@ public final class ArtifactLabels {
         return heading(contractMetadata(language));
     }
 
-    public static String numberedCurrentNotesHeading(int sectionNumber, DocumentLanguage language) {
-        return numberedHeading(sectionNumber, currentNotes(language));
-    }
 }

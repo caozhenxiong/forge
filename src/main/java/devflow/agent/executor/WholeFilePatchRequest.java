@@ -18,6 +18,7 @@ record WholeFilePatchRequest(
         String reason,
         String existingContent,
         DeliveryMode deliveryMode,
-        ImplementationEventJournal eventJournal
+        ImplementationEventJournal eventJournal,
+        HtmlRuntimeOwnershipContract runtimeContract
 ) {
 }

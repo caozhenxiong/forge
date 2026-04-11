@@ -82,10 +82,6 @@ final class DesignDocumentTemplateBuilder {
                 %s
 
                 %s
-
-                %s
-
-                %s
                 """.formatted(
                 runRecord.runId(),
                 runRecord.goal(),
@@ -95,9 +91,7 @@ final class DesignDocumentTemplateBuilder {
                 support.numberedContractMetadataHeading(8, language),
                 support.contractMetadataTemplateBlock(),
                 support.numberedSourceMetadataHeading(9, language),
-                support.sourceMetadataTemplateBlock(),
-                support.numberedCurrentNotesHeading(10, language),
-                note
+                support.sourceMetadataTemplateBlock()
         ) : """
                 # Technical Design
 
@@ -162,10 +156,6 @@ final class DesignDocumentTemplateBuilder {
                 %s
 
                 %s
-
-                %s
-
-                %s
                 """.formatted(
                 runRecord.runId(),
                 runRecord.goal(),
@@ -175,9 +165,7 @@ final class DesignDocumentTemplateBuilder {
                 support.numberedContractMetadataHeading(8, language),
                 support.contractMetadataTemplateBlock(),
                 support.numberedSourceMetadataHeading(9, language),
-                support.sourceMetadataTemplateBlock(),
-                support.numberedCurrentNotesHeading(10, language),
-                note
+                support.sourceMetadataTemplateBlock()
         );
     }
 }
