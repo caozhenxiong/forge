@@ -38,6 +38,9 @@ class ImplementationGateEngine {
             DocumentLanguage language
     ) {
         ImplementationStageStatus stageStatus = implementationStageGate.summarizeStageStatus(plan, reports, true);
+        if (stageStatus.blockedForHuman()) {
+            return new ImplementationGateOutcome(reports, stageStatus, null);
+        }
         if (!stageStatus.planCompleted()) {
             return new ImplementationGateOutcome(reports, stageStatus, null);
         }

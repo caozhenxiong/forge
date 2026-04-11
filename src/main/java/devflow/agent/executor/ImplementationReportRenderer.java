@@ -40,7 +40,14 @@ final class ImplementationReportRenderer {
                         snapshot.architectCheckResult() == null
                                 ? ImplementationPatchTarget.NONE.name()
                                 : snapshot.architectCheckResult().implementationPatchTarget().name(),
-                        stageStatus.incompleteSubtasks()
+                        stageStatus.incompleteSubtasks(),
+                        stageStatus.continuationMode(),
+                        stageStatus.continuationSummary(),
+                        stageStatus.continuationChangeRequest(),
+                        stageStatus.continuationEvidence(),
+                        stageStatus.continuationActionItems(),
+                        stageStatus.continuationPatchTarget(),
+                        stageStatus.continuationReasonCode()
                 )
         );
         StringBuilder builder = new StringBuilder("""

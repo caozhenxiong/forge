@@ -12,6 +12,7 @@ import devflow.agent.executor.LlmProvider;
 import devflow.agent.executor.ModelRole;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.protocol.ArtifactBlockKind;
+import devflow.agent.protocol.ImplementationContinuationMode;
 import devflow.agent.protocol.ImplementationStageStatusPayload;
 import devflow.agent.protocol.StructuredArtifactBlocks;
 import devflow.agent.repair.DiagnosisAgent;
@@ -19,6 +20,7 @@ import devflow.agent.repair.RepairAgent;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
+import devflow.agent.review.ReviewReasonCode;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.review.StageReviewer;
 import devflow.agent.supervisor.SupervisorAgent;
@@ -147,6 +149,124 @@ class StageProgressCoordinatorTests {
         assertTrue(continuationChangeRequest.get().contains("继续完成未完成的 implementation 子任务"));
         assertNotNull(result.transitionDecision());
         assertEquals(devflow.agent.loop.TransitionReason.STAGE_CONTINUE, result.transitionDecision().reason());
+        assertEquals(StageType.IMPLEMENTATION, result.transitionDecision().targetStage());
+        assertNull(result.transitionDecision().supervisorDecision());
+    }
+
+    @Test
+    void blockedImplementationRequestsHumanWithoutContinuingStage() {
+        FileRunRepository runRepository = new FileRunRepository();
+        FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
+        EventLogStore eventLogStore = new EventLogStore(runRepository);
+        WorkflowArtifactRenderer workflowArtifactRenderer = new WorkflowArtifactRenderer();
+        AtomicBoolean reviewerCalled = new AtomicBoolean(false);
+        AtomicBoolean diagnosisCalled = new AtomicBoolean(false);
+        AtomicBoolean supervisorCalled = new AtomicBoolean(false);
+        AtomicBoolean contextProjected = new AtomicBoolean(false);
+        AtomicBoolean continueCalled = new AtomicBoolean(false);
+        AtomicBoolean blockedCalled = new AtomicBoolean(false);
+        AtomicReference<ReviewResult> blockedReview = new AtomicReference<>();
+
+        RunRecord runRecord = runningImplementationRun();
+        runRepository.save(runRecord);
+        artifactStore.writeArtifact(
+                tempDir,
+                runRecord.runId(),
+                StageType.IMPLEMENTATION,
+                StructuredArtifactBlocks.renderJsonBlock(
+                        ArtifactBlockKind.IMPLEMENTATION_STAGE_STATUS,
+                        new ImplementationStageStatusPayload(
+                                false,
+                                false,
+                                true,
+                                "",
+                                "",
+                                "",
+                                java.util.List.of("补齐方块渲染"),
+                                ImplementationContinuationMode.BLOCK_STAGE,
+                                "probe invalid",
+                                "fix probe contract",
+                                "unexpected field bodyTextLength",
+                                "wait for human",
+                                ImplementationPatchTarget.NONE,
+                                ReviewReasonCode.RUNTIME_PROBE_INVALID
+                        )
+                )
+        );
+
+        StageOperationExecutor stageOperationExecutor = new StageOperationExecutor(
+                null,
+                reviewerThatSetsFlag(reviewerCalled),
+                eventLogStore,
+                new GenerationEngine(),
+                new StageOperationPolicy()
+        );
+        DiagnosisAgent diagnosisAgent = diagnosisAgentThatSetsFlag(artifactStore, diagnosisCalled);
+        SupervisorAgent supervisorAgent = supervisorAgentThatSetsFlag(artifactStore, supervisorCalled);
+        ContextProjector contextProjector = new ContextProjector(
+                artifactStore,
+                new FileProjectWorkspace(),
+                new ArtifactSummaryBuilder(),
+                new ContractExtractor(),
+                new devflow.agent.context.ContextLayerAssembler()
+        ) {
+            @Override
+            public ProjectedContext project(Path projectPath, RunRecord currentRun, StageType currentStage) {
+                contextProjected.set(true);
+                throw new AssertionError("blocked implementation should not project context");
+            }
+        };
+        FlowDecisionExecutor flowDecisionExecutor = new FlowDecisionExecutor(null, null) {
+            @Override
+            public RunRecord continueStage(
+                    Path projectPath,
+                    RunRecord currentRun,
+                    StageType stageType,
+                    String summary,
+                    String changeRequest,
+                    String evidence,
+                    String actionItems,
+                    ImplementationPatchTarget implementationPatchTarget
+            ) {
+                continueCalled.set(true);
+                throw new AssertionError("blocked implementation should not continue stage");
+            }
+
+            @Override
+            public RunRecord blockForHumanReview(
+                    RunRecord currentRun,
+                    StageType stageType,
+                    ReviewResult reviewResult
+            ) {
+                blockedCalled.set(true);
+                blockedReview.set(reviewResult);
+                return currentRun.withCurrentStage(stageType, RunStatus.BLOCKED, currentRun.stageStates(), Instant.now());
+            }
+        };
+        StageProgressCoordinator coordinator = new StageProgressCoordinator(
+                artifactStore,
+                diagnosisAgent,
+                supervisorAgent,
+                new FlowController(),
+                contextProjector,
+                stageOperationExecutor,
+                flowDecisionExecutor,
+                new StageProgressArtifactSupport(artifactStore, eventLogStore, workflowArtifactRenderer),
+                new StageToolResultLoader(artifactStore),
+                new StageToolResultGuard()
+        );
+
+        var result = coordinator.progress(tempDir, runRecord);
+
+        assertFalse(reviewerCalled.get());
+        assertFalse(diagnosisCalled.get());
+        assertFalse(supervisorCalled.get());
+        assertFalse(contextProjected.get());
+        assertFalse(continueCalled.get());
+        assertTrue(blockedCalled.get());
+        assertEquals(ReviewReasonCode.RUNTIME_PROBE_INVALID, blockedReview.get().reasonCode());
+        assertNotNull(result.transitionDecision());
+        assertEquals(devflow.agent.loop.TransitionReason.HUMAN_REVIEW_REQUIRED, result.transitionDecision().reason());
         assertEquals(StageType.IMPLEMENTATION, result.transitionDecision().targetStage());
         assertNull(result.transitionDecision().supervisorDecision());
     }

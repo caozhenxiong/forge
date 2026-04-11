@@ -1,6 +1,7 @@
 package devflow.agent.executor;
 
 import devflow.agent.review.ReviewResult;
+import java.util.List;
 
 /**
  * 单次子任务尝试的结构化结果。
@@ -9,6 +10,7 @@ import devflow.agent.review.ReviewResult;
 record SubtaskAttemptResult(
         GenerationFailureException generationFailure,
         SelfCheckResult selfCheck,
+        List<ToolResult> selfCheckToolResults,
         ImplementationCompletenessGateOutcome completenessOutcome,
         ReviewResult verification,
         SubtaskRevisionDirective revisionDirective

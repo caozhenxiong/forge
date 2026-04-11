@@ -1,5 +1,7 @@
 package devflow.agent.protocol;
 
+import devflow.agent.review.ImplementationPatchTarget;
+import devflow.agent.review.ReviewReasonCode;
 import java.util.List;
 
 /**
@@ -12,7 +14,14 @@ public record ImplementationStageStatusPayload(
         String architectFailureReason,
         String architectFailureDetails,
         String implementationPatchTarget,
-        List<String> incompleteSubtasks
+        List<String> incompleteSubtasks,
+        ImplementationContinuationMode continuationMode,
+        String continuationSummary,
+        String continuationChangeRequest,
+        String continuationEvidence,
+        String continuationActionItems,
+        ImplementationPatchTarget continuationPatchTarget,
+        ReviewReasonCode continuationReasonCode
 ) {
     public ImplementationStageStatusPayload(
             boolean stageReady,
@@ -27,7 +36,14 @@ public record ImplementationStageStatusPayload(
                 "",
                 "",
                 "",
-                incompleteSubtasks
+                incompleteSubtasks,
+                ImplementationContinuationMode.CONTINUE_SUBTASKS,
+                "",
+                "",
+                "",
+                "",
+                ImplementationPatchTarget.NONE,
+                ReviewReasonCode.NONE
         );
     }
 }

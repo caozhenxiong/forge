@@ -170,6 +170,12 @@ public class TestExecutor {
         return selfCheckDetailed(normalized, fingerprint).selfCheckResult();
     }
 
+    ValidationExecutionReport selfCheckDetailed(Path projectPath) {
+        Path normalized = projectPath.toAbsolutePath().normalize();
+        ProjectFingerprint fingerprint = projectInspector.inspect(normalized);
+        return selfCheckDetailed(normalized, fingerprint);
+    }
+
     SubtaskVerificationOutcome verifyImplementationSubtask(
             Path projectPath,
             Subtask subtask,

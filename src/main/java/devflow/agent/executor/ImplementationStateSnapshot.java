@@ -13,6 +13,13 @@ record ImplementationStateSnapshot(
         String architectFailureReason,
         String architectFailureDetails,
         String architectImplementationPatchTarget,
+        String continuationMode,
+        String continuationSummary,
+        String continuationChangeRequest,
+        String continuationEvidence,
+        String continuationActionItems,
+        String continuationPatchTarget,
+        String continuationReasonCode,
         RuntimeContractState architectRuntimeContract,
         List<String> incompleteSubtasks
 ) {
@@ -38,7 +45,51 @@ record ImplementationStateSnapshot(
                 "",
                 "",
                 "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
                 null,
+                incompleteSubtasks
+        );
+    }
+
+    ImplementationStateSnapshot(
+            String summary,
+            List<PlannedSubtaskState> subtasks,
+            List<SubtaskExecutionStateSnapshot> reports,
+            List<EventState> events,
+            String currentSubtaskTitle,
+            boolean planCompleted,
+            boolean architectCheckPassed,
+            String architectFailureReason,
+            String architectFailureDetails,
+            String architectImplementationPatchTarget,
+            RuntimeContractState architectRuntimeContract,
+            List<String> incompleteSubtasks
+    ) {
+        this(
+                summary,
+                subtasks,
+                reports,
+                events,
+                currentSubtaskTitle,
+                planCompleted,
+                architectCheckPassed,
+                architectFailureReason,
+                architectFailureDetails,
+                architectImplementationPatchTarget,
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                architectRuntimeContract,
                 incompleteSubtasks
         );
     }
@@ -67,6 +118,13 @@ record ImplementationStateSnapshot(
                 architectFailureReason,
                 architectFailureDetails,
                 architectImplementationPatchTarget,
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
                 null,
                 incompleteSubtasks
         );
@@ -164,6 +222,7 @@ record ImplementationStateSnapshot(
             boolean selfCheckPassed,
             String selfCheckSummary,
             String selfCheckDetails,
+            List<ToolResultState> selfCheckToolResults,
             String reviewDecision,
             String reviewFixMode,
             String reviewSummary,
@@ -173,6 +232,47 @@ record ImplementationStateSnapshot(
             String reviewImplementationPatchTarget,
             GenerationFailureState generationFailure,
             RecoveryDecisionState recoveryDecision
+    ) {
+        SubtaskAttemptState(
+                int attempt,
+                boolean selfCheckPassed,
+                String selfCheckSummary,
+                String selfCheckDetails,
+                String reviewDecision,
+                String reviewFixMode,
+                String reviewSummary,
+                String reviewChangeRequest,
+                String reviewEvidence,
+                String reviewActionItems,
+                String reviewImplementationPatchTarget,
+                GenerationFailureState generationFailure,
+                RecoveryDecisionState recoveryDecision
+        ) {
+            this(
+                    attempt,
+                    selfCheckPassed,
+                    selfCheckSummary,
+                    selfCheckDetails,
+                    List.of(),
+                    reviewDecision,
+                    reviewFixMode,
+                    reviewSummary,
+                    reviewChangeRequest,
+                    reviewEvidence,
+                    reviewActionItems,
+                    reviewImplementationPatchTarget,
+                    generationFailure,
+                    recoveryDecision
+            );
+        }
+    }
+
+    record ToolResultState(
+            String toolName,
+            String status,
+            String failureCode,
+            String evidence,
+            String recommendedNextAction
     ) {
     }
 

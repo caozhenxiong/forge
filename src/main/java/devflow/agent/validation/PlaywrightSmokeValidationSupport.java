@@ -68,7 +68,7 @@ final class PlaywrightSmokeValidationSupport {
                     ),
                     ToolResult.failure(
                             ToolName.PLAYWRIGHT_SMOKE,
-                            ToolFailureCode.PLAYWRIGHT_SMOKE_FAILED,
+                            failureCode(snapshot),
                             renderProbeEvidence(snapshot, probeOutcome.evidence()),
                             "请先修复浏览器级运行失败，再继续依赖 smoke test 结论。"
                     )
@@ -112,6 +112,13 @@ final class PlaywrightSmokeValidationSupport {
             return String.join(" | ", snapshot.captureErrors());
         }
         return trim(rawEvidence);
+    }
+
+    private ToolFailureCode failureCode(RuntimeSnapshot snapshot) {
+        if (snapshot != null && snapshot.captureStatus() == RuntimeSnapshotCaptureStatus.PAYLOAD_INVALID) {
+            return ToolFailureCode.PLAYWRIGHT_PROBE_PAYLOAD_INVALID;
+        }
+        return ToolFailureCode.PLAYWRIGHT_PROBE_EXECUTION_FAILED;
     }
 
     private String trim(String value) {

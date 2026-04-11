@@ -7,11 +7,14 @@ import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.loop.LoopStepResult;
 import devflow.agent.loop.TransitionDecision;
 import devflow.agent.loop.TransitionReason;
+import devflow.agent.protocol.ImplementationContinuationMode;
 import devflow.agent.review.ImplementationStageReadiness;
 import devflow.agent.review.ImplementationStageReadinessParser;
+import devflow.agent.review.FixMode;
 import devflow.agent.repair.DiagnosisAgent;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
+import devflow.agent.review.ReviewRevisionRoute;
 import devflow.agent.supervisor.SupervisorAgent;
 import devflow.agent.supervisor.SupervisorDecision;
 import java.nio.file.Path;
@@ -77,6 +80,9 @@ public class StageProgressCoordinator {
         if (stageType == StageType.IMPLEMENTATION) {
             ImplementationStageReadiness readiness = implementationStageReadinessParser.parse(artifactContent);
             if (!readiness.stageReady()) {
+                if (readiness.continuationMode() == ImplementationContinuationMode.BLOCK_STAGE) {
+                    return blockImplementationForHuman(projectPath, current, stageType, readiness, language);
+                }
                 return continueIncompleteImplementation(projectPath, current, stageType, readiness, language);
             }
         }
@@ -158,6 +164,38 @@ public class StageProgressCoordinator {
                 readiness.actionItems(),
                 readiness.implementationPatchTarget()
         );
+        return new LoopStepResult(next, transitionDecision, flowController.shouldContinue(next));
+    }
+
+    private LoopStepResult blockImplementationForHuman(
+            Path projectPath,
+            RunRecord current,
+            StageType stageType,
+            ImplementationStageReadiness readiness,
+            DocumentLanguage language
+    ) {
+        TransitionDecision transitionDecision = new TransitionDecision(
+                TransitionReason.HUMAN_REVIEW_REQUIRED,
+                stageType,
+                stageType,
+                false,
+                readiness.summary(),
+                null
+        );
+        artifactSupport.writeBlockedStageArtifacts(projectPath, current, transitionDecision, language);
+        ReviewResult reviewResult = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.PATCH,
+                readiness.summary(),
+                readiness.changeRequest(),
+                readiness.evidence(),
+                readiness.actionItems(),
+                readiness.implementationPatchTarget(),
+                java.util.List.of(),
+                ReviewRevisionRoute.REQUEST_HUMAN,
+                readiness.reasonCode()
+        );
+        RunRecord next = flowDecisionExecutor.blockForHumanReview(current, stageType, reviewResult);
         return new LoopStepResult(next, transitionDecision, flowController.shouldContinue(next));
     }
 

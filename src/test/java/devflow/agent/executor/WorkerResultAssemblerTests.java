@@ -43,6 +43,7 @@ class WorkerResultAssemblerTests {
                 List.of(SubtaskAttemptReport.fromVerification(
                         1,
                         new SelfCheckResult(true, "ok", ""),
+                        List.of(),
                         new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "通过", "")
                 ))
         );
@@ -86,6 +87,7 @@ class WorkerResultAssemblerTests {
                 List.of(SubtaskAttemptReport.fromVerification(
                         1,
                         new SelfCheckResult(true, "ok", ""),
+                        List.of(),
                         new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "通过", "")
                 )),
                 executionState

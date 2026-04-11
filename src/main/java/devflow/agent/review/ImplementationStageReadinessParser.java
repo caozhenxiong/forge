@@ -1,6 +1,7 @@
 package devflow.agent.review;
 
 import devflow.agent.protocol.ArtifactBlockKind;
+import devflow.agent.protocol.ImplementationContinuationMode;
 import devflow.agent.protocol.ImplementationStageStatusPayload;
 import devflow.agent.protocol.StructuredArtifactBlocks;
 
@@ -23,6 +24,16 @@ public final class ImplementationStageReadinessParser {
         }
         if (payload.stageReady()) {
             return ImplementationStageReadiness.ready();
+        }
+        if (payload.continuationMode() == ImplementationContinuationMode.BLOCK_STAGE) {
+            return ImplementationStageReadiness.blocked(
+                    payload.continuationSummary(),
+                    payload.continuationChangeRequest(),
+                    payload.continuationEvidence(),
+                    payload.continuationActionItems(),
+                    payload.continuationPatchTarget(),
+                    payload.continuationReasonCode()
+            );
         }
         String incomplete = payload.incompleteSubtasks() == null || payload.incompleteSubtasks().isEmpty()
                 ? ""

@@ -140,6 +140,12 @@
 
 这层不负责猜语义。
 
+补充规则：
+
+- implementation 自检失败时，必须优先消费结构化 `toolResults`
+- 工具/协议阻塞不得降级成 reviewer prose 猜测
+- `Playwright probe payload invalid / execution failed` 这类 deterministic tooling failure 必须直接走 `REQUEST_HUMAN`
+
 ### 可观测性要求
 
 - `events.log` 必须使用中文稳定模板。
@@ -253,6 +259,15 @@
 - 只按当前责任域判断是否完成
 - 留给后续子任务的能力不能提前阻塞当前子任务
 - 但最终阶段仍要做整体检查
+
+补充规则：
+
+- 子任务自检失败后，先走确定性 self-check failure routing，再决定是否进入 LLM reviewer
+- 如果失败属于工具链阻塞，当前子任务必须停止自动重试，不能从头续跑 implementation attempt
+- implementation stage artifact 必须显式声明 continuation mode：
+  - `CONTINUE_SUBTASKS`
+  - `BLOCK_STAGE`
+- `BLOCK_STAGE` 表示当前阶段只能人工介入，不能再伪装成“还有未完成子任务，继续跑下一轮”
 
 ### 3. 默认局部编辑，不默认整文件重写
 

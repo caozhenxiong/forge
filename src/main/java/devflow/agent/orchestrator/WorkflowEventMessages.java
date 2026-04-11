@@ -60,6 +60,15 @@ public final class WorkflowEventMessages {
                 );
     }
 
+    public static String stageBlockedForHuman(TransitionDecision transitionDecision) {
+        return "阶段｜等待人工处理｜阶段=%s｜目标阶段=%s｜原因=%s"
+                .formatted(
+                        transitionDecision.fromStage(),
+                        transitionDecision.targetStage(),
+                        transitionDecision.reason()
+                );
+    }
+
     public static String humanApproved(StageType stageType, String reviewer) {
         return "阶段｜人工批准｜阶段=%s｜审批人=%s".formatted(stageType, reviewer);
     }

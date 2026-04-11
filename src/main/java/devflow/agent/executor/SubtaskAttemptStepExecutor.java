@@ -1,5 +1,6 @@
 package devflow.agent.executor;
 
+import devflow.agent.validation.ValidationExecutionReport;
 import devflow.agent.loop.AgentTurnSnapshot;
 import devflow.agent.loop.AgentTurnState;
 import devflow.agent.loop.AgentTurnStepResult;
@@ -75,7 +76,9 @@ final class SubtaskAttemptStepExecutor {
 
     private void observeResult(SubtaskAttemptContext context, SubtaskAttemptProgress progress) {
         Subtask effectiveSubtask = effectiveSubtask(context);
-        progress.selfCheck(testExecutor.selfCheck(context.projectPath()));
+        ValidationExecutionReport selfCheckReport = testExecutor.selfCheckDetailed(context.projectPath());
+        progress.selfCheck(selfCheckReport.selfCheckResult());
+        progress.selfCheckToolResults(selfCheckReport.toolResults());
         progress.completenessOutcome(implementationCompletenessGate.evaluate(
                 new ImplementationCompletenessGateInput(
                         context.projectPath(),
@@ -98,6 +101,7 @@ final class SubtaskAttemptStepExecutor {
                 context.runRecord(),
                 effectiveSubtask,
                 progress.selfCheck(),
+                progress.selfCheckToolResults(),
                 context.feedback(),
                 completenessOutcome.inspection(),
                 completenessOutcome,

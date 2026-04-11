@@ -40,6 +40,7 @@ final class SubtaskVerificationSupport {
     private final SubtaskRunnableMilestoneGuard runnableMilestoneGuard;
     private final SubtaskRuntimeWiringGuard runtimeWiringGuard;
     private final SubtaskRetryFeedbackRenderer retryFeedbackRenderer;
+    private final ImplementationSelfCheckReviewResolver selfCheckReviewResolver = new ImplementationSelfCheckReviewResolver();
     private final StructureGateEvaluator structureGateEvaluator = new StructureGateEvaluator();
 
     SubtaskVerificationSupport(
@@ -66,6 +67,7 @@ final class SubtaskVerificationSupport {
             RunRecord runRecord,
             Subtask subtask,
             SelfCheckResult selfCheck,
+            List<ToolResult> selfCheckToolResults,
             String feedback,
             ImplementationCompletenessResult completenessResult,
             ImplementationCompletenessGateOutcome completenessOutcome,
@@ -95,7 +97,11 @@ final class SubtaskVerificationSupport {
                     structureGateOutcome.evidence(),
                     "",
                     ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
-            ));
+                ));
+        }
+        ReviewResult selfCheckReview = selfCheckReviewResolver.resolve(selfCheck, selfCheckToolResults, language);
+        if (selfCheckReview != null) {
+            return SubtaskVerificationOutcome.of(selfCheckReview);
         }
         SubtaskVerificationOutcome functionalVerification = testExecutor.verifyImplementationSubtask(
                 projectPath,

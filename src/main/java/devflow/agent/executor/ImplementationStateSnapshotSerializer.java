@@ -45,6 +45,13 @@ final class ImplementationStateSnapshotSerializer {
                             || runtimeSnapshot.architectCheckResult().implementationPatchTarget() == null
                             ? ""
                             : runtimeSnapshot.architectCheckResult().implementationPatchTarget().name(),
+                    runtimeSnapshot.stageStatus() == null ? "" : runtimeSnapshot.stageStatus().continuationMode().name(),
+                    runtimeSnapshot.stageStatus() == null ? "" : runtimeSnapshot.stageStatus().continuationSummary(),
+                    runtimeSnapshot.stageStatus() == null ? "" : runtimeSnapshot.stageStatus().continuationChangeRequest(),
+                    runtimeSnapshot.stageStatus() == null ? "" : runtimeSnapshot.stageStatus().continuationEvidence(),
+                    runtimeSnapshot.stageStatus() == null ? "" : runtimeSnapshot.stageStatus().continuationActionItems(),
+                    runtimeSnapshot.stageStatus() == null ? "" : runtimeSnapshot.stageStatus().continuationPatchTarget().name(),
+                    runtimeSnapshot.stageStatus() == null ? "" : runtimeSnapshot.stageStatus().continuationReasonCode().name(),
                     explicitRuntimeContractState(runtimeSnapshot.architectCheckResult()),
                     runtimeSnapshot.stageStatus() == null ? List.of() : runtimeSnapshot.stageStatus().incompleteSubtasks()
             );
@@ -59,6 +66,13 @@ final class ImplementationStateSnapshotSerializer {
                     snapshotWithoutResolvedContract.architectFailureReason(),
                     snapshotWithoutResolvedContract.architectFailureDetails(),
                     snapshotWithoutResolvedContract.architectImplementationPatchTarget(),
+                    snapshotWithoutResolvedContract.continuationMode(),
+                    snapshotWithoutResolvedContract.continuationSummary(),
+                    snapshotWithoutResolvedContract.continuationChangeRequest(),
+                    snapshotWithoutResolvedContract.continuationEvidence(),
+                    snapshotWithoutResolvedContract.continuationActionItems(),
+                    snapshotWithoutResolvedContract.continuationPatchTarget(),
+                    snapshotWithoutResolvedContract.continuationReasonCode(),
                     serializeRuntimeContract(runtimeContractResolver.resolve(snapshotWithoutResolvedContract)),
                     snapshotWithoutResolvedContract.incompleteSubtasks()
             );
@@ -220,6 +234,7 @@ final class ImplementationStateSnapshotSerializer {
                 attempt.selfCheck().passed(),
                 attempt.selfCheck().summary(),
                 attempt.selfCheck().details(),
+                serializeToolResults(attempt.selfCheckToolResults()),
                 attempt.review().decision().name(),
                 attempt.review().fixMode().name(),
                 attempt.review().summary(),
@@ -232,5 +247,21 @@ final class ImplementationStateSnapshotSerializer {
                 failureState,
                 recoveryState
         );
+    }
+
+    private List<ImplementationStateSnapshot.ToolResultState> serializeToolResults(List<ToolResult> toolResults) {
+        if (toolResults == null || toolResults.isEmpty()) {
+            return List.of();
+        }
+        return toolResults.stream()
+                .filter(toolResult -> toolResult != null)
+                .map(toolResult -> new ImplementationStateSnapshot.ToolResultState(
+                        toolResult.toolName() == null ? null : toolResult.toolName().name(),
+                        toolResult.status() == null ? null : toolResult.status().name(),
+                        toolResult.failureCode() == null ? null : toolResult.failureCode().name(),
+                        toolResult.evidence(),
+                        toolResult.recommendedNextAction()
+                ))
+                .toList();
     }
 }

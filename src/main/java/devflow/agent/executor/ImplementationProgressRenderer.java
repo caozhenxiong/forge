@@ -33,9 +33,16 @@ final class ImplementationProgressRenderer {
         builder.append("- stageReady: ").append(stageStatus.stageReady()).append('\n');
         builder.append("- planCompleted: ").append(stageStatus.planCompleted()).append('\n');
         builder.append("- architectCheckPassed: ").append(architectCheckPassed).append('\n');
+        builder.append("- continuationMode: ").append(stageStatus.continuationMode()).append('\n');
         if (runtimeSnapshot.architectCheckResult() != null && !runtimeSnapshot.architectCheckResult().passed()) {
             builder.append("- architectFailureReason: ").append(runtimeSnapshot.architectCheckResult().failureReason()).append('\n');
             builder.append("- architectFailureDetails: ").append(runtimeSnapshot.architectCheckResult().details()).append('\n');
+        }
+        if (stageStatus.blockedForHuman()) {
+            builder.append("- continuationSummary: ").append(stageStatus.continuationSummary()).append('\n');
+            if (!stageStatus.continuationEvidence().isBlank()) {
+                builder.append("- continuationEvidence: ").append(stageStatus.continuationEvidence()).append('\n');
+            }
         }
         builder.append("\n");
         builder.append("## ").append(language.choose("子任务状态", "Subtask Status")).append("\n\n");

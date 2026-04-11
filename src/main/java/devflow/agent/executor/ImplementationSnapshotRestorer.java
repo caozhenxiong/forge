@@ -208,6 +208,7 @@ final class ImplementationSnapshotRestorer {
             return new SubtaskAttemptReport(
                     1,
                     new SelfCheckResult(false, "", ""),
+                    List.of(),
                     new ReviewResult(
                             ReviewDecision.REVISION_REQUIRED,
                             FixMode.PATCH,
@@ -226,6 +227,7 @@ final class ImplementationSnapshotRestorer {
                 blankIfNull(attempt.selfCheckSummary()),
                 blankIfNull(attempt.selfCheckDetails())
         );
+        List<ToolResult> selfCheckToolResults = restoreToolResults(attempt.selfCheckToolResults());
         ReviewResult review = new ReviewResult(
                 parseReviewDecision(attempt.reviewDecision(), ReviewDecision.REVISION_REQUIRED),
                 parseFixMode(attempt.reviewFixMode(), FixMode.PATCH),
@@ -276,10 +278,36 @@ final class ImplementationSnapshotRestorer {
         return new SubtaskAttemptReport(
                 attempt.attempt(),
                 selfCheck,
+                selfCheckToolResults,
                 review,
                 generationFailure,
                 recoveryDecision
         );
+    }
+
+    private List<ToolResult> restoreToolResults(List<ImplementationStateSnapshot.ToolResultState> toolResults) {
+        if (toolResults == null || toolResults.isEmpty()) {
+            return List.of();
+        }
+        List<ToolResult> restored = new ArrayList<>();
+        for (ImplementationStateSnapshot.ToolResultState toolResult : toolResults) {
+            if (toolResult == null) {
+                continue;
+            }
+            ToolName toolName = EnumParsers.parseIgnoreCase(ToolName.class, toolResult.toolName(), null);
+            ToolStatus toolStatus = EnumParsers.parseIgnoreCase(ToolStatus.class, toolResult.status(), null);
+            if (toolName == null || toolStatus == null) {
+                continue;
+            }
+            restored.add(new ToolResult(
+                    toolName,
+                    toolStatus,
+                    EnumParsers.parseIgnoreCase(ToolFailureCode.class, toolResult.failureCode(), null),
+                    blankIfNull(toolResult.evidence()),
+                    blankIfNull(toolResult.recommendedNextAction())
+            ));
+        }
+        return List.copyOf(restored);
     }
 
     private List<String> safeList(List<String> values) {

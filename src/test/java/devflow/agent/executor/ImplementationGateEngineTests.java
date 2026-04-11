@@ -93,6 +93,7 @@ class ImplementationGateEngineTests {
                 List.of(SubtaskAttemptReport.fromVerification(
                         1,
                         new SelfCheckResult(true, "ok", ""),
+                        List.of(),
                         new devflow.agent.review.ReviewResult(
                                 devflow.agent.review.ReviewDecision.APPROVED,
                                 devflow.agent.review.FixMode.NONE,

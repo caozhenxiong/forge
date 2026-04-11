@@ -108,6 +108,9 @@
   - 当前以确定性执行层为主
   - `TestToolSelector / TestRunner / TestArtifactRenderer` 已成为主链
   - `runtime snapshot / test execution / test report` 已形成可回注的结构化证据链
+  - `Playwright` probe 已回到单一协议：
+    - `--probe` 只返回 `status / probe / errors`
+    - testcase 结果专用的 `cases` 字段不再混入 implementation self-check probe 载荷
 - `Supervisor`
   - 已明显收口为升级仲裁层
   - 不再充当常驻总导演
@@ -179,6 +182,11 @@
 - `PATCH_EXISTING_IMPLEMENTATION` 已统一成结构化 `overrideChanges` 协议；review、revision note、repair note 和 completed-plan continuation 现在都消费同一份文件级 patch scope，不再允许空 scope 静默 replanning
 - runtime ownership / wiring 检查只认宿主显式 `<script src>` 接线和 inline module import；`index.app.js` 默认 companion 路径、basename 猜测与 orphan root ownership 推断已从主链删除
 - html-entry planning contract 已显式化：`editScope / runtimeOwnership / hostHtmlPatchRequired` 必须成组声明，宿主 HTML 不再允许含混 `AUTO` scope
+- implementation self-check 已切到 `tool-result-first`：
+  - `ValidationExecutionReport.toolResults` 会贯通到 subtask attempt、implementation artifact 和 state snapshot
+  - `PLAYWRIGHT_PROBE_PAYLOAD_INVALID / PLAYWRIGHT_PROBE_EXECUTION_FAILED` 会在 implementation 阶段直接标成 `REQUEST_HUMAN`
+  - implementation continuation 已显式分成 `CONTINUE_SUBTASKS / BLOCK_STAGE`
+  - `BLOCK_STAGE` 不再走 fake review/supervisor continuation，而是直接阻断到人工
 - `QualityPlan` 现在会在浏览器 runtime snapshot 缺席时吸收静态 HTML 结构信号；`canvas/button` 这类宿主事实不会再在 implementation review 里被漏判成普通静态页
 - canonical stage artifact 已不再混入 `Current Notes / Revision Summary` 之类瞬时 prose：
   - 阶段主产物只保留 canonical 内容

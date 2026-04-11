@@ -24,6 +24,7 @@ final class ImplementationStageStatusSectionRenderer {
         builder.append("- stageReady: ").append(stageStatus.stageReady()).append('\n');
         builder.append("- planCompleted: ").append(stageStatus.planCompleted()).append('\n');
         builder.append("- architectCheckPassed: ").append(stageStatus.architectCheckPassed()).append('\n');
+        builder.append("- continuationMode: ").append(stageStatus.continuationMode()).append('\n');
         if (architectCheckResult != null && !architectCheckResult.passed()) {
             builder.append("- architectFailureReason: ").append(architectCheckResult.failureReason()).append('\n');
             builder.append("- architectFailureDetails: ").append(architectCheckResult.details()).append('\n');
@@ -37,6 +38,17 @@ final class ImplementationStageStatusSectionRenderer {
         builder.append("- incompleteSubtasks: ").append(stageStatus.incompleteSubtasks().isEmpty()
                 ? PlaceholderValues.machineNone()
                 : String.join(language.choose("；", "; "), stageStatus.incompleteSubtasks())).append("\n\n");
+        if (stageStatus.blockedForHuman()) {
+            builder.append("- continuationSummary: ").append(stageStatus.continuationSummary()).append('\n');
+            builder.append("- continuationReasonCode: ").append(stageStatus.continuationReasonCode()).append('\n');
+            if (!stageStatus.continuationChangeRequest().isBlank()) {
+                builder.append("- continuationChangeRequest: ").append(stageStatus.continuationChangeRequest()).append('\n');
+            }
+            if (!stageStatus.continuationEvidence().isBlank()) {
+                builder.append("- continuationEvidence: ").append(stageStatus.continuationEvidence()).append('\n');
+            }
+            builder.append('\n');
+        }
         return builder.toString();
     }
 }

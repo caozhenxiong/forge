@@ -116,4 +116,12 @@ public class FlowDecisionExecutor {
                 stageEntryExecutor::enterStage
         );
     }
+
+    public RunRecord blockForHumanReview(
+            RunRecord runRecord,
+            StageType stageType,
+            ReviewResult reviewResult
+    ) {
+        return stageTransitionSupport.blockForHumanReview(runRecord, stageType, reviewResult);
+    }
 }

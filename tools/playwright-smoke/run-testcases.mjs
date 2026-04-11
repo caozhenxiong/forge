@@ -10,13 +10,15 @@ async function main() {
   const probeMode = process.argv[2] === '--probe';
   const planPath = probeMode ? process.argv[3] : process.argv[2];
   const rootDirArg = probeMode ? process.argv[4] : process.argv[3];
+  const emptyCasesPayload = (status, probe, errors) => probeMode
+    ? { status, probe, errors }
+    : { status, probe, errors, cases: [] };
   if (!planPath || !rootDirArg) {
-    emitAndExit(2, {
-      status: 'usage_error',
-      probe: null,
-      errors: ['usage: run-testcases.mjs [--probe] <plan.json> <projectDir>'],
-      cases: [],
-    });
+    emitAndExit(2, emptyCasesPayload(
+      'usage_error',
+      null,
+      ['usage: run-testcases.mjs [--probe] <plan.json> <projectDir>'],
+    ));
     return;
   }
 
@@ -24,12 +26,11 @@ async function main() {
   try {
     raw = await readFile(planPath, 'utf8');
   } catch (error) {
-    emitAndExit(1, {
-      status: 'plan_read_failed',
-      probe: null,
-      errors: [String(error?.message || error)],
-      cases: [],
-    });
+    emitAndExit(1, emptyCasesPayload(
+      'plan_read_failed',
+      null,
+      [String(error?.message || error)],
+    ));
     return;
   }
 
@@ -37,12 +38,11 @@ async function main() {
   try {
     plan = JSON.parse(raw);
   } catch (error) {
-    emitAndExit(1, {
-      status: 'plan_invalid',
-      probe: null,
-      errors: [String(error?.message || error)],
-      cases: [],
-    });
+    emitAndExit(1, emptyCasesPayload(
+      'plan_invalid',
+      null,
+      [String(error?.message || error)],
+    ));
     return;
   }
 
@@ -50,12 +50,11 @@ async function main() {
     ? { entry: plan.entry || (plan.cases || [])[0]?.entry }
     : (plan.cases || [])[0];
   if (!firstCase?.entry) {
-    emitAndExit(2, {
-      status: 'missing_entry',
-      probe: null,
-      errors: ['missing entry in test cases'],
-      cases: [],
-    });
+    emitAndExit(2, emptyCasesPayload(
+      'missing_entry',
+      null,
+      ['missing entry in test cases'],
+    ));
     return;
   }
 
@@ -66,12 +65,7 @@ async function main() {
   try {
     const probe = await probePage(browser, server.port, firstCase.entry);
     if (probeMode) {
-      emitAndExit(0, {
-        status: 'ok',
-        probe,
-        errors: [],
-        cases: [],
-      });
+      emitAndExit(0, emptyCasesPayload('ok', probe, []));
       return;
     }
 
@@ -87,12 +81,11 @@ async function main() {
       cases: results,
     });
   } catch (error) {
-    emitAndExit(1, {
-      status: 'probe_failed',
-      probe: null,
-      errors: [String(error?.message || error)],
-      cases: [],
-    });
+    emitAndExit(1, emptyCasesPayload(
+      'probe_failed',
+      null,
+      [String(error?.message || error)],
+    ));
   } finally {
     await browser.close();
     await new Promise((resolve) => server.server.close(resolve));
@@ -230,7 +223,6 @@ async function probePage(browser, port, entry) {
     return {
       pageTitle: await page.title(),
       pageLoadMs: await readPageLoadMs(page),
-      bodyTextLength: ((await page.locator('body').textContent()) || '').trim().length,
       canvasCount: await page.locator('canvas').count(),
       surfaceCandidates: domProbe.surfaceCandidates,
       controlCandidates: domProbe.controlCandidates,

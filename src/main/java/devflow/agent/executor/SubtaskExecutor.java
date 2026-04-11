@@ -8,6 +8,7 @@ import devflow.agent.protocol.ExecutionDirectiveNarrativeRenderer;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
+import devflow.agent.review.ReviewRevisionRoute;
 import devflow.agent.supervisor.GenerationRecoveryAction;
 import devflow.agent.supervisor.GenerationRecoveryDecision;
 import devflow.agent.supervisor.SupervisorAgent;
@@ -140,11 +141,12 @@ class SubtaskExecutor {
                 continue;
             }
             SelfCheckResult selfCheck = attemptOutcome.selfCheck();
+            List<ToolResult> selfCheckToolResults = attemptOutcome.selfCheckToolResults();
             ImplementationCompletenessGateOutcome completenessOutcome = attemptOutcome.completenessOutcome();
             ImplementationCompletenessResult completenessResult = completenessOutcome.inspection();
             ReviewResult verification = attemptOutcome.verification();
             SubtaskRevisionDirective revisionDirective = attemptOutcome.revisionDirective();
-            attempts.add(SubtaskAttemptReport.fromVerification(attempt, selfCheck, verification));
+            attempts.add(SubtaskAttemptReport.fromVerification(attempt, selfCheck, selfCheckToolResults, verification));
             if (selfCheck.passed() && verification.decision() == ReviewDecision.APPROVED) {
                 appendImplementationEvent(
                         eventJournal,
@@ -156,6 +158,9 @@ class SubtaskExecutor {
                     eventJournal,
                     ImplementationEventMessages.subtaskAttemptRejected(subtask.title(), attempt, maxSubtaskAttempts, verification.decision())
             );
+            if (verification.revisionRoute() == ReviewRevisionRoute.REQUEST_HUMAN) {
+                return new SubtaskExecutionReport(subtask, false, attempts, executionState.copy());
+            }
             executionState.applyRevisionDirective(revisionDirective);
             feedback = subtaskRecoverySupport.mergeFeedback(
                     persistentRepairFeedback,

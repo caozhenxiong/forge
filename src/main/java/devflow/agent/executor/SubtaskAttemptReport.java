@@ -6,6 +6,7 @@ import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.supervisor.GenerationRecoveryDecision;
+import java.util.List;
 
 /**
  * 记录某个子任务的一次执行尝试。
@@ -14,6 +15,7 @@ import devflow.agent.supervisor.GenerationRecoveryDecision;
 record SubtaskAttemptReport(
         int attempt,
         SelfCheckResult selfCheck,
+        List<ToolResult> selfCheckToolResults,
         ReviewResult review,
         GenerationFailureReport generationFailure,
         GenerationRecoveryDecision recoveryDecision
@@ -21,9 +23,10 @@ record SubtaskAttemptReport(
     static SubtaskAttemptReport fromVerification(
             int attempt,
             SelfCheckResult selfCheck,
+            List<ToolResult> selfCheckToolResults,
             ReviewResult review
     ) {
-        return new SubtaskAttemptReport(attempt, selfCheck, review, null, null);
+        return new SubtaskAttemptReport(attempt, selfCheck, selfCheckToolResults, review, null, null);
     }
 
     static SubtaskAttemptReport fromGenerationFailure(
@@ -39,6 +42,7 @@ record SubtaskAttemptReport(
                         language.choose("代码生成未通过本地校验", "Generated code did not pass local validation"),
                         generationFailure == null ? "" : generationFailure.toMarkdown(language)
                 ),
+                List.of(),
                 generationFailure == null
                         ? new ReviewResult(
                                 ReviewDecision.REVISION_REQUIRED,

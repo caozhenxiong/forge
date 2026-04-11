@@ -73,6 +73,19 @@ final class ImplementationSubtaskReportRenderer {
                     .append(" verifier=").append(attempt.review().decision())
                     .append(" summary=").append(attempt.review().summary())
                     .append('\n');
+            if (attempt.selfCheckToolResults() != null && !attempt.selfCheckToolResults().isEmpty()) {
+                for (ToolResult toolResult : attempt.selfCheckToolResults()) {
+                    builder.append("  - selfCheckTool: ")
+                            .append(toolResult.toolName())
+                            .append(" / ")
+                            .append(toolResult.status())
+                            .append(" / ")
+                            .append(toolResult.failureCode())
+                            .append(" / ")
+                            .append(ImplementationArtifactRenderSupport.blankIfNull(toolResult.evidence()))
+                            .append('\n');
+                }
+            }
             if (attempt.generationFailure() != null) {
                 builder.append("  - generationFailureType: ")
                         .append(attempt.generationFailure().failureType())

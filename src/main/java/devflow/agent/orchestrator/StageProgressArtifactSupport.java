@@ -137,4 +137,23 @@ public class StageProgressArtifactSupport {
                 WorkflowEventMessages.stageContinued(transitionDecision)
         );
     }
+
+    public void writeBlockedStageArtifacts(
+            Path projectPath,
+            RunRecord runRecord,
+            TransitionDecision transitionDecision,
+            DocumentLanguage language
+    ) {
+        artifactStore.writeAuxiliaryArtifact(
+                projectPath,
+                runRecord.runId(),
+                AuxiliaryArtifactNames.TRANSITION_DECISION,
+                workflowArtifactRenderer.renderTransitionDecision(transitionDecision, language)
+        );
+        eventLogStore.append(
+                projectPath,
+                runRecord.runId(),
+                WorkflowEventMessages.stageBlockedForHuman(transitionDecision)
+        );
+    }
 }

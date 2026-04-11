@@ -34,6 +34,7 @@ class ImplementationArtifactRendererTests {
                 List.of(new SubtaskAttemptReport(
                         1,
                         new SelfCheckResult(true, "ok", ""),
+                        List.of(),
                         new ReviewResult(ReviewDecision.REVISION_REQUIRED, FixMode.PATCH, "需要补逻辑", "请补齐掉落逻辑"),
                         new GenerationFailureReport(
                                 "game.js",

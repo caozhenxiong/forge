@@ -1,9 +1,11 @@
 package devflow.agent.executor;
 
 import devflow.agent.i18n.DocumentLanguage;
+import devflow.agent.protocol.ImplementationContinuationMode;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
+import devflow.agent.review.ReviewReasonCode;
 import devflow.agent.review.ReviewResult;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,6 +51,7 @@ class ImplementationStageGate {
                 && executedSubtasks == plannedSubtasks
                 && completedSubtasks == plannedSubtasks;
         boolean stageReady = planCompleted && architectCheckPassed;
+        BlockingStageDisposition blockingDisposition = blockingDisposition(reports);
         return new ImplementationStageStatus(
                 plannedSubtasks,
                 executedSubtasks,
@@ -56,7 +59,14 @@ class ImplementationStageGate {
                 planCompleted,
                 architectCheckPassed,
                 stageReady,
-                List.copyOf(incompleteSubtasks)
+                List.copyOf(incompleteSubtasks),
+                blockingDisposition == null ? ImplementationContinuationMode.CONTINUE_SUBTASKS : ImplementationContinuationMode.BLOCK_STAGE,
+                blockingDisposition == null ? "" : blockingDisposition.summary(),
+                blockingDisposition == null ? "" : blockingDisposition.changeRequest(),
+                blockingDisposition == null ? "" : blockingDisposition.evidence(),
+                blockingDisposition == null ? "" : blockingDisposition.actionItems(),
+                blockingDisposition == null ? ImplementationPatchTarget.NONE : blockingDisposition.implementationPatchTarget(),
+                blockingDisposition == null ? ReviewReasonCode.NONE : blockingDisposition.reasonCode()
         );
     }
 
@@ -100,9 +110,53 @@ class ImplementationStageGate {
         SubtaskAttemptReport attemptReport = SubtaskAttemptReport.fromVerification(
                 1,
                 new SelfCheckResult(false, language.choose("架构师整体检查未通过", "Architect runnable check failed"), architectCheckResult.details()),
+                List.of(),
                 review
         );
         extended.add(new SubtaskExecutionReport(architectCheckSubtask, false, List.of(attemptReport)));
         return extended;
+    }
+
+    private BlockingStageDisposition blockingDisposition(List<SubtaskExecutionReport> reports) {
+        if (reports == null || reports.isEmpty()) {
+            return null;
+        }
+        for (SubtaskExecutionReport report : reports) {
+            if (report == null || report.attempts() == null || report.attempts().isEmpty()) {
+                continue;
+            }
+            SubtaskAttemptReport latest = report.attempts().get(report.attempts().size() - 1);
+            ReviewResult review = latest.review();
+            if (review == null || review.revisionRoute() != devflow.agent.review.ReviewRevisionRoute.REQUEST_HUMAN) {
+                continue;
+            }
+            String subtaskTitle = report.subtask() == null ? "" : report.subtask().title();
+            String evidencePrefix = subtaskTitle == null || subtaskTitle.isBlank()
+                    ? ""
+                    : "blockedSubtask=" + subtaskTitle + "\n";
+            return new BlockingStageDisposition(
+                    review.summary(),
+                    review.changeRequest(),
+                    evidencePrefix + blank(review.evidence()),
+                    review.actionItems(),
+                    review.implementationPatchTarget(),
+                    review.reasonCode()
+            );
+        }
+        return null;
+    }
+
+    private String blank(String value) {
+        return value == null ? "" : value;
+    }
+
+    private record BlockingStageDisposition(
+            String summary,
+            String changeRequest,
+            String evidence,
+            String actionItems,
+            ImplementationPatchTarget implementationPatchTarget,
+            ReviewReasonCode reasonCode
+    ) {
     }
 }
