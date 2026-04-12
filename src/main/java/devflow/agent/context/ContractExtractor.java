@@ -12,6 +12,7 @@ public class ContractExtractor {
     private final ContractSectionResolver sectionResolver = new ContractSectionResolver();
     private final ContractListSupport listSupport = new ContractListSupport();
     private final ContractMetadataReader metadataReader = new ContractMetadataReader(sectionResolver, listSupport);
+    private final PrdContractProjectionPolicy prdContractProjectionPolicy = new PrdContractProjectionPolicy();
 
     public ProductContract extractProductContract(String prd) {
         return StructuredArtifactBlocks.readFirstJsonBlock(
@@ -29,12 +30,13 @@ public class ContractExtractor {
      */
     public ProductContract projectProductContractFromPrd(String prd) {
         return ProductContract.projectedFromPrdSections(
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 1)),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 2)),
-                listSupport.collectReferenceItems(sectionResolver.productCapabilitiesSection(prd)),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 4)),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 5)),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 6))
+                prdContractProjectionPolicy.retainContractItems(listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 1))),
+                prdContractProjectionPolicy.retainContractItems(listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 2))),
+                prdContractProjectionPolicy.retainContractItems(listSupport.collectReferenceItems(sectionResolver.productRequiredCapabilitiesSection(prd))),
+                prdContractProjectionPolicy.retainContractItems(listSupport.collectReferenceItems(sectionResolver.productOptionalCapabilitiesSection(prd))),
+                prdContractProjectionPolicy.retainContractItems(listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 4))),
+                prdContractProjectionPolicy.retainContractItems(listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 5))),
+                prdContractProjectionPolicy.retainContractItems(listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 6)))
         );
     }
 

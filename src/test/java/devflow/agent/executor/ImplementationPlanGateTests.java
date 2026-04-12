@@ -278,6 +278,7 @@ class ImplementationPlanGateTests {
                         List.of("浏览器用户"),
                         List.of("支持移动与旋转方块"),
                         List.of(),
+                        List.of(),
                         List.of("用户可以通过方向键控制方块"),
                         List.of()
                 ),

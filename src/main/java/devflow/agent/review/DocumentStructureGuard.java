@@ -166,6 +166,7 @@ class DocumentStructureGuard {
         return left.objectives().equals(right.objectives())
                 && left.userScenarios().equals(right.userScenarios())
                 && left.requiredCapabilities().equals(right.requiredCapabilities())
+                && left.optionalCapabilities().equals(right.optionalCapabilities())
                 && left.nonFunctionalRequirements().equals(right.nonFunctionalRequirements())
                 && left.acceptanceCriteria().equals(right.acceptanceCriteria())
                 && left.nonGoals().equals(right.nonGoals())

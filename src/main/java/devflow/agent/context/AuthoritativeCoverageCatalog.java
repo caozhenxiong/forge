@@ -50,12 +50,12 @@ public record AuthoritativeCoverageCatalog(List<RequirementReference> references
             String existingOwner = normalizedCapabilityOwners.get(CapabilityIds.normalize(capabilityId));
             if (existingOwner != null) {
                 RequirementReference existing = merged.get(existingOwner);
-                if (existing != null && !existing.planningRequired()) {
+                if (existing != null && !existing.requiresPlanningCoverage()) {
                     merged.put(existingOwner, new RequirementReference(
                             existing.id(),
                             existing.category(),
                             existing.text(),
-                            true
+                            CoverageObligation.merge(existing.obligation(), normalizedReference.obligation())
                     ));
                 }
                 continue;
@@ -67,7 +67,7 @@ public record AuthoritativeCoverageCatalog(List<RequirementReference> references
 
     public List<RequirementReference> planningRequiredReferences() {
         return references.stream()
-                .filter(RequirementReference::planningRequired)
+                .filter(RequirementReference::requiresPlanningCoverage)
                 .toList();
     }
 
@@ -101,9 +101,8 @@ public record AuthoritativeCoverageCatalog(List<RequirementReference> references
                     .append(reference.id())
                     .append(" [")
                     .append(reference.category())
-                    .append(reference.planningRequired()
-                            ? language.choose(", planning-required", ", planning-required")
-                            : language.choose(", final-acceptance", ", final-acceptance"))
+                    .append(", ")
+                    .append(reference.obligation().markdownLabel(language))
                     .append("]: ")
                     .append(reference.text());
         }
@@ -130,7 +129,7 @@ public record AuthoritativeCoverageCatalog(List<RequirementReference> references
                     existing.id(),
                     existing.category().isBlank() ? normalizedReference.category() : existing.category(),
                     existing.text().isBlank() ? normalizedReference.text() : existing.text(),
-                    existing.planningRequired() || normalizedReference.planningRequired()
+                    CoverageObligation.merge(existing.obligation(), normalizedReference.obligation())
             ));
         }
         return List.copyOf(normalized.values());
@@ -144,7 +143,7 @@ public record AuthoritativeCoverageCatalog(List<RequirementReference> references
                 reference.id().trim(),
                 reference.category() == null ? "" : reference.category().trim(),
                 reference.text() == null ? "" : reference.text().trim(),
-                reference.planningRequired()
+                reference.obligation()
         );
     }
 

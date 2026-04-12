@@ -45,7 +45,7 @@ final class PrdDocumentTemplateBuilder {
 
                 ### 3.1 核心功能
 
-                ### 3.2 辅助功能
+                ### 3.2 可选增强
 
                 ### 3.3 异常与边界场景
 
@@ -113,7 +113,7 @@ final class PrdDocumentTemplateBuilder {
 
                 ### 3.1 Core Capabilities
 
-                ### 3.2 Supporting Capabilities
+                ### 3.2 Optional Enhancements
 
                 ### 3.3 Edge And Failure Scenarios
 

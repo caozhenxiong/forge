@@ -1,5 +1,6 @@
 package devflow.agent.quality;
 
+import devflow.agent.context.CoverageObligation;
 import devflow.agent.context.RequirementReference;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;
@@ -66,7 +67,7 @@ public final class QualityCoverageRefCatalog {
                     referenceId(entry.capabilityId()),
                     "quality-capability",
                     renderReferenceText(entry),
-                    true
+                    CoverageObligation.PLANNING_REQUIRED
             ));
         }
         return List.copyOf(references);

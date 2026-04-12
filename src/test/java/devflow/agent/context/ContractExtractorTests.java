@@ -2,6 +2,7 @@ package devflow.agent.context;
 
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.StructuredArtifactBlocks;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -261,7 +262,7 @@ class ContractExtractorTests {
                 - 支持开始、暂停、重新开始
                 - 支持方块左右移动、旋转和加速下落
 
-                ### 3.2 辅助功能
+                ### 3.2 可选增强
                 - 显示当前得分
                 - 显示下一个方块预览
 
@@ -300,7 +301,7 @@ class ContractExtractorTests {
                 - 支持开始、暂停、重新开始
                 - 支持方块左右移动、旋转和加速下落
 
-                ### 3.2 辅助功能
+                ### 3.2 可选增强
                 - 显示当前得分
                 - 显示下一个方块预览
 
@@ -322,13 +323,57 @@ class ContractExtractorTests {
 
         assertTrue(contract.requiredCapabilities().contains("支持开始、暂停、重新开始"));
         assertTrue(contract.requiredCapabilities().contains("支持方块左右移动、旋转和加速下落"));
-        assertTrue(contract.requiredCapabilities().contains("显示当前得分"));
-        assertTrue(contract.requiredCapabilities().contains("显示下一个方块预览"));
+        assertTrue(contract.optionalCapabilities().contains("显示当前得分"));
+        assertTrue(contract.optionalCapabilities().contains("显示下一个方块预览"));
         assertFalse(contract.requiredCapabilities().contains("网络问题：网络不稳定可能导致游戏断开或延迟"));
     }
 
     @Test
-    void productContractKeepsAllPrimaryCapabilitiesInsteadOfTruncatingAfterEightItems() {
+    void excludesPendingAndQuestionFormItemsFromProjectedProductContract() {
+        String prd = """
+                # 产品需求文档
+
+                ## 1. 产品目标
+                - 实现一个可玩的网页版俄罗斯方块
+                - 是否需要在首版支持触屏操作？
+
+                ## 2. 目标用户与使用场景
+                - 用户打开页面即可开始游玩
+
+                ## 3. 功能范围
+
+                ### 3.1 核心功能
+                - 支持开始、暂停、重新开始
+                - 是否需要支持触屏手势控制？
+
+                ### 3.2 可选增强
+                - 显示当前得分
+                - 暂停/继续功能（待确认）
+                - 是否需要显示下一个方块预览？
+
+                ## 4. 非功能要求
+                - 可直接打开运行
+
+                ## 5. 验收标准
+                - 页面可打开并能完成一轮游戏
+                - 是否需要支持移动端触控操作？
+
+                ## 6. 不做什么
+                - 不做联网对战
+                """;
+
+        ProductContract contract = extractor.projectProductContractFromPrd(prd);
+
+        assertEquals(List.of("实现一个可玩的网页版俄罗斯方块"), contract.objectives());
+        assertEquals(List.of("支持开始、暂停、重新开始"), contract.requiredCapabilities());
+        assertEquals(List.of("显示当前得分"), contract.optionalCapabilities());
+        assertEquals(List.of("页面可打开并能完成一轮游戏"), contract.acceptanceCriteria());
+        assertTrue(contract.bindingRequirements().stream().noneMatch(reference -> reference.text().contains("待确认")));
+        assertTrue(contract.bindingRequirements().stream().noneMatch(reference -> reference.text().contains("是否")));
+    }
+
+    @Test
+    void productContractKeepsRequiredAndOptionalCapabilitiesInSeparateBuckets() {
         String prd = """
                 # 产品需求文档
 
@@ -350,7 +395,7 @@ class ContractExtractorTests {
                 - 能力 7
                 - 能力 8
 
-                ### 3.2 辅助功能
+                ### 3.2 可选增强
                 - 能力 9
                 - 能力 10
 
@@ -366,9 +411,10 @@ class ContractExtractorTests {
 
         ProductContract contract = extractor.projectProductContractFromPrd(prd);
 
-        assertEquals(10, contract.requiredCapabilities().size());
-        assertTrue(contract.requiredCapabilities().contains("能力 9"));
-        assertTrue(contract.requiredCapabilities().contains("能力 10"));
+        assertEquals(8, contract.requiredCapabilities().size());
+        assertEquals(2, contract.optionalCapabilities().size());
+        assertTrue(contract.optionalCapabilities().contains("能力 9"));
+        assertTrue(contract.optionalCapabilities().contains("能力 10"));
         assertTrue(contract.bindingRequirements().stream().anyMatch(reference -> "CAP-10".equals(reference.id())));
     }
 

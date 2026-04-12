@@ -64,10 +64,11 @@ final class ImplementationOutlinePromptBuilder {
                 6. targetPaths 只写相对路径，不写 action/reason/editScope
                 7. 每个子任务 targetPaths 默认最多 %d 个
                 8. 不要在 outline 阶段输出具体文件内容或 changes
-                9. 必须覆盖执行契约要求的入口、运行表面和权威 coverageRefs
+                9. 必须覆盖执行契约要求的入口、运行表面和权威 coverageRefs 中 obligation=planning-required 的项
                 10. runnableMilestone=true 的子任务必须负责把交付物推进到可启动、可验证的状态
                 11. html-entry 场景下，runnableMilestone 子任务必须直接覆盖 HTML 入口文件
                 12. continuation 时必须建立在现有文件事实之上，不得把已有文件退回骨架或重新开局
+                13. obligation=optional 的 coverage ref 只有在你明确打算实现该增强时才写进 coverageRefs；待确认问题不得写进 implementation ownership
                 """.formatted(maxFilesPerSubtask));
         if (deliveryPolicy != null) {
             builder.append("""

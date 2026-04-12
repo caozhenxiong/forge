@@ -1,6 +1,7 @@
 package devflow.agent.executor;
 
 import devflow.agent.context.ContractView;
+import devflow.agent.context.CoverageObligation;
 import devflow.agent.context.ExecutionContract;
 import devflow.agent.quality.CapabilityIds;
 import devflow.agent.quality.QualityCoverageRefCatalog;
@@ -48,14 +49,16 @@ class ImplementationPlanCoverageAnalyzerTests {
                 new devflow.agent.context.ProductContract(
                         List.of("实现俄罗斯方块"),
                         List.of("浏览器用户"),
-                        List.of("支持移动与旋转方块", "提供计分显示", "提供下一个方块预览"),
+                        List.of("支持移动与旋转方块", "提供计分显示", "提供游戏结束判定"),
+                        List.of("提供下一个方块预览"),
                         List.of(),
                         List.of("用户可以通过方向键控制方块"),
                         List.of(),
                         List.of(
-                                new devflow.agent.context.RequirementReference("CAP-1", "required-capability", "支持移动与旋转方块", true),
-                                new devflow.agent.context.RequirementReference("CAP-2", "required-capability", "提供计分显示", true),
-                                new devflow.agent.context.RequirementReference("CAP-3", "required-capability", "提供下一个方块预览", true)
+                                new devflow.agent.context.RequirementReference("CAP-1", "required-capability", "支持移动与旋转方块", CoverageObligation.PLANNING_REQUIRED),
+                                new devflow.agent.context.RequirementReference("CAP-2", "required-capability", "提供计分显示", CoverageObligation.PLANNING_REQUIRED),
+                                new devflow.agent.context.RequirementReference("CAP-3", "required-capability", "提供游戏结束判定", CoverageObligation.PLANNING_REQUIRED),
+                                new devflow.agent.context.RequirementReference("CAP-4", "optional-capability", "提供下一个方块预览", CoverageObligation.OPTIONAL)
                         )
                 ),
                 null,
@@ -76,7 +79,7 @@ class ImplementationPlanCoverageAnalyzerTests {
         );
 
         assertFalse(result.passed());
-        assertTrue(result.issues().stream().anyMatch(issue -> issue.contains("计分") || issue.contains("预览") || issue.contains("移动")));
+        assertTrue(result.issues().stream().anyMatch(issue -> issue.contains("计分") || issue.contains("结束判定") || issue.contains("移动")));
     }
 
     @Test
@@ -88,11 +91,12 @@ class ImplementationPlanCoverageAnalyzerTests {
                         List.of("浏览器用户"),
                         List.of("支持移动与旋转方块", "提供计分显示"),
                         List.of(),
+                        List.of(),
                         List.of("用户可以通过方向键控制方块"),
                         List.of(),
                         List.of(
-                                new devflow.agent.context.RequirementReference("CAP-1", "required-capability", "支持移动与旋转方块", true),
-                                new devflow.agent.context.RequirementReference("CAP-2", "required-capability", "提供计分显示", true)
+                                new devflow.agent.context.RequirementReference("CAP-1", "required-capability", "支持移动与旋转方块", CoverageObligation.PLANNING_REQUIRED),
+                                new devflow.agent.context.RequirementReference("CAP-2", "required-capability", "提供计分显示", CoverageObligation.PLANNING_REQUIRED)
                         )
                 ),
                 null,
@@ -123,14 +127,15 @@ class ImplementationPlanCoverageAnalyzerTests {
                         List.of("实现俄罗斯方块"),
                         List.of("浏览器用户"),
                         List.of("支持移动与旋转方块", "提供计分显示"),
+                        List.of(),
                         List.of("代码结构清晰"),
                         List.of("支持单元测试和集成测试", "用户可以通过方向键控制方块"),
                         List.of(),
                         List.of(
-                                new devflow.agent.context.RequirementReference("CAP-1", "required-capability", "支持移动与旋转方块", true),
-                                new devflow.agent.context.RequirementReference("CAP-2", "required-capability", "提供计分显示", true),
-                                new devflow.agent.context.RequirementReference("ACC-1", "acceptance-criterion", "支持单元测试和集成测试", false),
-                                new devflow.agent.context.RequirementReference("ACC-2", "acceptance-criterion", "用户可以通过方向键控制方块", false)
+                                new devflow.agent.context.RequirementReference("CAP-1", "required-capability", "支持移动与旋转方块", CoverageObligation.PLANNING_REQUIRED),
+                                new devflow.agent.context.RequirementReference("CAP-2", "required-capability", "提供计分显示", CoverageObligation.PLANNING_REQUIRED),
+                                new devflow.agent.context.RequirementReference("ACC-1", "acceptance-criterion", "支持单元测试和集成测试", CoverageObligation.FINAL_ACCEPTANCE),
+                                new devflow.agent.context.RequirementReference("ACC-2", "acceptance-criterion", "用户可以通过方向键控制方块", CoverageObligation.FINAL_ACCEPTANCE)
                         )
                 ),
                 null,
@@ -154,13 +159,14 @@ class ImplementationPlanCoverageAnalyzerTests {
     }
 
     @Test
-    void defaultRequirementRefsAlsoParticipateInPlanningCoverage() {
+    void optionalCapabilityRefsDoNotBecomePlanningRequired() {
         ImplementationPlanCoverageAnalyzer analyzer = new ImplementationPlanCoverageAnalyzer();
         ContractView contractView = new ContractView(
                 devflow.agent.context.ProductContract.projectedFromPrdSections(
                         List.of("实现俄罗斯方块"),
                         List.of("浏览器用户"),
-                        List.of("支持移动与旋转方块", "建议：提供状态提示"),
+                        List.of("支持移动与旋转方块"),
+                        List.of("建议：提供状态提示"),
                         List.of(),
                         List.of("用户可以通过方向键控制方块"),
                         List.of()
@@ -182,8 +188,7 @@ class ImplementationPlanCoverageAnalyzerTests {
                 null
         );
 
-        assertFalse(result.passed());
-        assertTrue(result.issues().stream().anyMatch(issue -> issue.contains("CAP-2")));
+        assertTrue(result.passed(), result.issues().toString());
     }
 
     @Test
@@ -194,6 +199,7 @@ class ImplementationPlanCoverageAnalyzerTests {
                         List.of("实现俄罗斯方块"),
                         List.of("浏览器用户"),
                         List.of("支持移动与旋转方块", "提供空格键快速下落（可选）", "提供基本操作提示（optional）"),
+                        List.of(),
                         List.of(),
                         List.of("用户可以通过方向键控制方块"),
                         List.of()

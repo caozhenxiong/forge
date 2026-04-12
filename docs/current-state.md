@@ -240,6 +240,8 @@
 - `PRD` 主链现在会把固定章节确定性投影成 `PRODUCT_CONTRACT`：
   - `1-6` 号章节会被本地投影成显式 `requirementReferences`
   - 投影规则是“列表优先，段落兜底”，不再要求所有合法 PRD 都写成 bullet list
+- `3.1 核心功能` 会投影成 `planning-required` requirement refs；`3.2 可选增强` 只投影成 `optional` requirement refs，不再和核心功能一起升级成 implementation hard gate
+- 带 `待确认` 标记或直接写成问题句式的条目不会进入 `PRODUCT_CONTRACT`；这些内容只留在文档正文，后续按人审处理
   - 下游主链只再消费 `PRODUCT_CONTRACT` block，不再从 PRD 正文回退抽取产品覆盖引用
 - contract 抽取主链已改成无损且 block-first：
   - 关键 contract 列表不再按固定条数截断

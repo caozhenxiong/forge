@@ -37,7 +37,7 @@ final class ContractSectionResolver {
                 .orElse("");
     }
 
-    String productCapabilitiesSection(String prd) {
+    String productRequiredCapabilitiesSection(String prd) {
         String scopeSection = sectionByNumber(prd, 3);
         if (scopeSection.isBlank()) {
             return "";
@@ -47,12 +47,29 @@ final class ContractSectionResolver {
             return scopeSection;
         }
         String primaryBodies = subsections.stream()
-                .filter(block -> block.subnumber() == 1 || block.subnumber() == 2)
+                .filter(block -> block.subnumber() == 1)
                 .map(SubsectionBlock::body)
                 .filter(body -> body != null && !body.isBlank())
                 .reduce((left, right) -> left + "\n\n" + right)
                 .orElse("");
         return primaryBodies.isBlank() ? scopeSection : primaryBodies;
+    }
+
+    String productOptionalCapabilitiesSection(String prd) {
+        String scopeSection = sectionByNumber(prd, 3);
+        if (scopeSection.isBlank()) {
+            return "";
+        }
+        List<SubsectionBlock> subsections = parseSubsections(scopeSection, 3);
+        if (subsections.isEmpty()) {
+            return "";
+        }
+        return subsections.stream()
+                .filter(block -> block.subnumber() == 2)
+                .map(SubsectionBlock::body)
+                .filter(body -> body != null && !body.isBlank())
+                .reduce((left, right) -> left + "\n\n" + right)
+                .orElse("");
     }
 
     private List<SectionBlock> parseSections(String markdown) {

@@ -96,7 +96,8 @@ final class DocumentStagePromptCatalog {
                     5. 不做什么是否明确。
                     6. 检查文档是否把低确定性的推断、建议或技术偏好升级成产品硬约束。
                     7. 检查文档是否把实现组织方式伪装成用户要求。
-                    8. 检查文档是否在没有 hard.* 或 Contract Metadata.validation.* 来源支撑时，自行发明页面加载时间、响应延迟、FPS 等量化性能指标。
+                    8. 检查文档是否把“可选增强”错误写进核心功能，或把待确认问题伪装成功能承诺。
+                    9. 检查文档是否在没有 hard.* 或 Contract Metadata.validation.* 来源支撑时，自行发明页面加载时间、响应延迟、FPS 等量化性能指标。
                     不要把以下内容当成 PRD 阶段的阻塞项：
                     - 算法实现细节
                     - 唯一解验证机制实现
@@ -114,7 +115,8 @@ final class DocumentStagePromptCatalog {
                     5. Whether exclusions are explicit.
                     6. Whether the document wrongly promotes low-certainty inferences, recommendations, or technical preferences into product hard constraints.
                     7. Whether the document disguises implementation organization as user requirements.
-                    8. Whether the document invents quantified performance targets such as load time, response latency, or FPS without explicit support from hard.* metadata or Contract Metadata.validation.*.
+                    8. Whether the document wrongly places optional enhancements into core capabilities or disguises open questions as committed functionality.
+                    9. Whether the document invents quantified performance targets such as load time, response latency, or FPS without explicit support from hard.* metadata or Contract Metadata.validation.*.
                     Do not treat the following as PRD blockers:
                     - Algorithm implementation details
                     - Unique-solution validation implementation

@@ -4,6 +4,7 @@ import devflow.agent.context.ConstraintSourceMetadata;
 import devflow.agent.context.ContractRuntimeOwnershipMode;
 import devflow.agent.context.ProductContract;
 import devflow.agent.context.ContractView;
+import devflow.agent.context.CoverageObligation;
 import devflow.agent.context.EntryPackagingMode;
 import devflow.agent.context.ExecutionContract;
 import devflow.agent.context.RequirementReference;
@@ -121,14 +122,15 @@ class QualityPlanFactoryTests {
                 new ProductContract(
                         List.of("实现网页应用"),
                         List.of("用户打开页面即可使用"),
-                        List.of("显示预览", "支持重置"),
+                        List.of("支持重置"),
+                        List.of("显示预览"),
                         List.of(),
                         List.of("页面可打开"),
                         List.of(),
                         List.of(
-                                new RequirementReference("CAP-1", "required-capability", "显示预览", true),
-                                new RequirementReference("CAP-2", "required-capability", "支持重置", true),
-                                new RequirementReference("ACC-1", "acceptance-criterion", "页面可打开", false)
+                                new RequirementReference("CAP-1", "required-capability", "支持重置", CoverageObligation.PLANNING_REQUIRED),
+                                new RequirementReference("CAP-2", "optional-capability", "显示预览", CoverageObligation.OPTIONAL),
+                                new RequirementReference("ACC-1", "acceptance-criterion", "页面可打开", CoverageObligation.FINAL_ACCEPTANCE)
                         )
                 ),
                 null,

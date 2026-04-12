@@ -54,7 +54,8 @@ class ImplementationContextResolverTests {
                 ProductContract.projectedFromPrdSections(
                         List.of("实现俄罗斯方块"),
                         List.of("玩家打开页面后立即可见游戏表面"),
-                        List.of("支持开始/暂停/重开", "空格键快速下落（可选）"),
+                        List.of("支持开始/暂停/重开"),
+                        List.of("空格键快速下落"),
                         List.of("运行流畅"),
                         List.of("可以开始游戏"),
                         List.of()

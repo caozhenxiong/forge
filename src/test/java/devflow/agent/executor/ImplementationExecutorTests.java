@@ -681,7 +681,7 @@ class ImplementationExecutorTests {
                 ### 3.1 核心功能
                 - 支持开始、暂停、重开
                 - 支持方向键控制方块移动与旋转
-                ### 3.2 辅助功能
+                ### 3.2 可选增强
                 - 游戏状态提示：显示当前游戏状态（运行中/暂停/结束）
 
                 ## 7. Contract Metadata

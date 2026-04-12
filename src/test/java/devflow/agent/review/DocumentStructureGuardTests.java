@@ -132,6 +132,7 @@ class DocumentStructureGuardTests {
                   "objectives" : [ "提供可直接运行的网页交付物" ],
                   "userScenarios" : [ "打开页面开始游戏" ],
                   "requiredCapabilities" : [ "支持开始游戏" ],
+                  "optionalCapabilities" : [ ],
                   "nonFunctionalRequirements" : [ "页面加载时间不超过 2 秒", "游戏帧率稳定在 30 FPS 以上", "键盘响应延迟不超过 50ms" ],
                   "acceptanceCriteria" : [ "页面加载时间小于 2 秒" ],
                   "nonGoals" : [ "联网功能" ],
@@ -140,13 +141,13 @@ class DocumentStructureGuardTests {
                       "id" : "CAP-1",
                       "category" : "required-capability",
                       "text" : "支持开始游戏",
-                      "planningRequired" : true
+                      "obligation" : "PLANNING_REQUIRED"
                     },
                     {
                       "id" : "ACC-1",
                       "category" : "acceptance-criterion",
                       "text" : "页面加载时间小于 2 秒",
-                      "planningRequired" : false
+                      "obligation" : "FINAL_ACCEPTANCE"
                     }
                   ]
                 }

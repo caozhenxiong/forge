@@ -12,6 +12,7 @@ public record ProductContract(
         List<String> objectives,
         List<String> userScenarios,
         List<String> requiredCapabilities,
+        List<String> optionalCapabilities,
         List<String> nonFunctionalRequirements,
         List<String> acceptanceCriteria,
         List<String> nonGoals,
@@ -22,6 +23,7 @@ public record ProductContract(
         objectives = freezeTextList(objectives);
         userScenarios = freezeTextList(userScenarios);
         requiredCapabilities = freezeTextList(requiredCapabilities);
+        optionalCapabilities = freezeTextList(optionalCapabilities);
         nonFunctionalRequirements = freezeTextList(nonFunctionalRequirements);
         acceptanceCriteria = freezeTextList(acceptanceCriteria);
         nonGoals = freezeTextList(nonGoals);
@@ -31,13 +33,18 @@ public record ProductContract(
     /**
      * PRD 六段式正文在进入 machine block 前，需要被确定性投影成显式 coverage refs。
      *
-     * <p>这里保留一个显式命名的工厂，而不是在构造函数里偷偷回填：
-     * 下游只有带 refs 的 PRODUCT_CONTRACT 才是可消费契约；正文到 refs 的投影只允许发生在 PRD 规范化阶段。
+     * <p>这里只允许固定章节结构决定 obligation：
+     * 1. 3.1 核心功能 -> planning required；
+     * 2. 3.2 可选增强 -> optional；
+     * 3. 5.x 验收标准 -> final acceptance。
+     *
+     * <p>这样 implementation gate 不再需要从 prose 猜“这条是不是可选/待确认”。
      */
     public static ProductContract projectedFromPrdSections(
             List<String> objectives,
             List<String> userScenarios,
             List<String> requiredCapabilities,
+            List<String> optionalCapabilities,
             List<String> nonFunctionalRequirements,
             List<String> acceptanceCriteria,
             List<String> nonGoals
@@ -46,10 +53,11 @@ public record ProductContract(
                 objectives,
                 userScenarios,
                 requiredCapabilities,
+                optionalCapabilities,
                 nonFunctionalRequirements,
                 acceptanceCriteria,
                 nonGoals,
-                deriveRequirementReferences(requiredCapabilities, acceptanceCriteria)
+                deriveRequirementReferences(requiredCapabilities, optionalCapabilities, acceptanceCriteria)
         );
     }
 
@@ -80,6 +88,9 @@ public record ProductContract(
 
                 ### %s
                 %s
+
+                ### %s
+                %s
                 """.formatted(
                 language.choose("产品契约（参考）", "Product Contract (Reference Only)"),
                 language.choose("以下内容用于帮助后续节点理解产品目标与验收语义，但不单独构成绑定硬约束；绑定约束以 Execution Contract 与 Source Metadata 中的 hard.* 为准。", "The following content helps downstream nodes understand product intent and acceptance semantics, but does not by itself create binding hard constraints; binding constraints come from the Execution Contract and Source Metadata hard.* entries."),
@@ -89,6 +100,8 @@ public record ProductContract(
                 bullets(userScenarios, language),
                 language.choose("必需能力", "Required Capabilities"),
                 bullets(requiredCapabilities, language),
+                language.choose("可选增强", "Optional Enhancements"),
+                bullets(optionalCapabilities, language),
                 language.choose("非功能要求", "Non-Functional Requirements"),
                 bullets(nonFunctionalRequirements, language),
                 language.choose("验收标准", "Acceptance Criteria"),
@@ -104,7 +117,7 @@ public record ProductContract(
 
     public List<RequirementReference> planningCoverageRequirements() {
         return bindingRequirements().stream()
-                .filter(RequirementReference::planningRequired)
+                .filter(RequirementReference::requiresPlanningCoverage)
                 .toList();
     }
 
@@ -122,9 +135,8 @@ public record ProductContract(
                     .append(reference.id())
                     .append(" [")
                     .append(reference.category())
-                    .append(reference.planningRequired()
-                            ? language.choose(", planning-required", ", planning-required")
-                            : language.choose(", final-acceptance", ", final-acceptance"))
+                    .append(", ")
+                    .append(reference.obligation().markdownLabel(language))
                     .append("]: ")
                     .append(reference.text());
         }
@@ -139,34 +151,57 @@ public record ProductContract(
                 .anyMatch(reference -> reference.id().equalsIgnoreCase(id.trim()));
     }
 
-    private static void appendReferences(
+    private static int appendReferences(
             List<RequirementReference> target,
             String prefix,
             String category,
             List<String> items,
-            boolean planningRequired
+            CoverageObligation obligation,
+            int startIndex
     ) {
         if (items == null) {
-            return;
+            return startIndex;
         }
-        int index = 1;
+        int index = startIndex;
         for (String item : items) {
             if (item == null || item.isBlank()) {
                 continue;
             }
-            String normalized = item.trim();
-            boolean effectivePlanningRequired = planningRequired;
-            target.add(new RequirementReference(prefix + "-" + index++, category, normalized, effectivePlanningRequired));
+            target.add(new RequirementReference(prefix + "-" + index++, category, item.trim(), obligation));
         }
+        return index;
     }
 
     private static List<RequirementReference> deriveRequirementReferences(
             List<String> requiredCapabilities,
+            List<String> optionalCapabilities,
             List<String> acceptanceCriteria
     ) {
         List<RequirementReference> derived = new ArrayList<>();
-        appendReferences(derived, "CAP", "required-capability", requiredCapabilities, true);
-        appendReferences(derived, "ACC", "acceptance-criterion", acceptanceCriteria, false);
+        int nextCapabilityIndex = appendReferences(
+                derived,
+                "CAP",
+                "required-capability",
+                requiredCapabilities,
+                CoverageObligation.PLANNING_REQUIRED,
+                1
+        );
+        appendReferences(
+                derived,
+                "CAP",
+                "optional-capability",
+                optionalCapabilities,
+                CoverageObligation.OPTIONAL,
+                nextCapabilityIndex
+        );
+        appendReferences(
+                derived,
+                "ACC",
+                "acceptance-criterion",
+                acceptanceCriteria,
+                CoverageObligation.FINAL_ACCEPTANCE,
+                1
+        );
         return List.copyOf(derived);
     }
 
@@ -184,7 +219,7 @@ public record ProductContract(
                     reference.id().trim(),
                     reference.category() == null ? "" : reference.category().trim(),
                     reference.text() == null ? "" : reference.text().trim(),
-                    reference.planningRequired()
+                    reference.obligation()
             );
             RequirementReference existing = normalized.get(normalizedId);
             if (existing == null) {
@@ -195,7 +230,7 @@ public record ProductContract(
                     existing.id(),
                     existing.category().isBlank() ? normalizedReference.category() : existing.category(),
                     existing.text().isBlank() ? normalizedReference.text() : existing.text(),
-                    existing.planningRequired() || normalizedReference.planningRequired()
+                    CoverageObligation.merge(existing.obligation(), normalizedReference.obligation())
             ));
         }
         return List.copyOf(normalized.values());
