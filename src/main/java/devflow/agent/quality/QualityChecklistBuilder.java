@@ -15,14 +15,14 @@ public final class QualityChecklistBuilder {
         List<String> structureChecks = new ArrayList<>();
 
         List<String> coverageChecks = new ArrayList<>();
-        for (CapabilitySurface surface : plan.capabilityMatrix().requiredSurfaces()) {
-            coverageChecks.add("必须覆盖 required capability surface: " + surface.wireValue());
+        for (String capabilityId : plan.capabilityMatrix().requiredCapabilityIds()) {
+            coverageChecks.add("必须覆盖 required capability surface: " + capabilityId);
         }
 
         List<String> experienceChecks = new ArrayList<>();
-        for (CapabilitySurface surface : plan.capabilityMatrix().requiredSurfaces()) {
-            if (surface != null && surface.isExperienceSurface()) {
-                experienceChecks.add("必须提供体验能力通过证据: " + surface.wireValue());
+        for (CapabilityMatrixEntry entry : plan.capabilityMatrix().entries()) {
+            if (entry != null && entry.required() && entry.requiresObservableStateChange()) {
+                experienceChecks.add("必须提供体验能力通过证据: " + entry.capabilityId());
             }
         }
         return new QualityChecklist(structureChecks, coverageChecks, experienceChecks);

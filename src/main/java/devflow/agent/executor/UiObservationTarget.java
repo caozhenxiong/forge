@@ -1,6 +1,6 @@
 package devflow.agent.executor;
 
-import devflow.agent.quality.CapabilitySurface;
+import devflow.agent.quality.CapabilityIds;
 import java.util.LinkedHashSet;
 import java.util.List;
 
@@ -8,7 +8,7 @@ import java.util.List;
  * 单个能力表面在当前交付物上的唯一观测目标。
  */
 public record UiObservationTarget(
-        CapabilitySurface surface,
+        String capabilityId,
         String selector,
         UiObservationMode mode,
         List<String> ownerPaths,
@@ -16,13 +16,14 @@ public record UiObservationTarget(
 ) {
 
     public UiObservationTarget {
+        capabilityId = CapabilityIds.normalize(capabilityId);
         selector = selector == null ? "" : selector.trim();
         mode = mode == null ? UiObservationMode.DOM_SIGNATURE : mode;
         ownerPaths = normalizeOwnerPaths(ownerPaths);
     }
 
     public boolean usable() {
-        return surface != null && !selector.isBlank() && !ownerPaths.isEmpty();
+        return !capabilityId.isBlank() && !selector.isBlank() && !ownerPaths.isEmpty();
     }
 
     private static List<String> normalizeOwnerPaths(List<String> ownerPaths) {

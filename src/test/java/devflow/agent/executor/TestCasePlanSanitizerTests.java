@@ -1,6 +1,6 @@
 package devflow.agent.executor;
 
-import devflow.agent.quality.CapabilitySurface;
+import devflow.agent.quality.CapabilityIds;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -296,7 +296,6 @@ class TestCasePlanSanitizerTests {
                 step.action() == TestStepAction.ASSERT_TEXT_CONTAINS && "#score-display".equals(step.selector())
         ));
         assertTrue(steps.stream().anyMatch(step -> step.action() == TestStepAction.ASSERT_CANVAS_HASH_CHANGED));
-        assertTrue(cases.getFirst().capabilities().contains(CapabilitySurface.VISIBLE_PROGRESS_SIGNAL));
     }
 
     @Test
@@ -399,6 +398,262 @@ class TestCasePlanSanitizerTests {
         ));
     }
 
+    @Test
+    void sanitizeRewritesBodyRunStateEntryIntoCanvasObservationWithoutKeepingEntrySemantic() {
+        RuntimeSnapshot snapshot = new RuntimeSnapshot(
+                "index.html",
+                "Tetris",
+                12,
+                1,
+                List.of("body", "#game-canvas"),
+                List.of(),
+                List.of(),
+                List.of()
+        );
+        PlannedTestCasePayload raw = new PlannedTestCasePayload(
+                "TC-003",
+                "键盘交互",
+                "functional",
+                true,
+                "index.html",
+                "",
+                "按键后主画面变化",
+                List.of("primary-interaction"),
+                List.of(
+                        step("ASSERT_SELECTOR", "body", null, null, null, null, false, "run-state-entry"),
+                        step("CLICK", "body", null, null, null, null, false, "run-state-entry"),
+                        step("SNAPSHOT_DOM_SIGNATURE", "body", null, null, null, "interactive", false, "primary-surface"),
+                        step("PRESS_KEY", null, "ArrowRight", null, null, null, false, null),
+                        step("WAIT", null, null, null, 200, null, false, null),
+                        step("ASSERT_DOM_SIGNATURE_CHANGED", "body", null, null, null, "interactive", false, "primary-surface")
+                )
+        );
+
+        List<TestCaseSpec> cases = sanitizer.sanitize(
+                List.of(raw),
+                List.of(),
+                "index.html",
+                snapshot,
+                runtimeContract(
+                        "body",
+                        UiObservationMode.DOM_SIGNATURE,
+                        "#game-canvas",
+                        UiObservationMode.CANVAS_HASH,
+                        "#game-canvas",
+                        UiObservationMode.CANVAS_HASH
+                )
+        );
+
+        List<TestStepSpec> steps = cases.getFirst().steps();
+        assertFalse(steps.stream().anyMatch(step ->
+                "body".equals(step.selector()) && step.semantic() == TestStepSemantic.RUN_STATE_ENTRY
+        ));
+        assertTrue(steps.stream().anyMatch(step ->
+                step.action() == TestStepAction.SNAPSHOT_CANVAS_HASH && "#game-canvas".equals(step.selector())
+        ));
+        assertTrue(steps.stream().anyMatch(step ->
+                step.action() == TestStepAction.ASSERT_CANVAS_HASH_CHANGED && "#game-canvas".equals(step.selector())
+        ));
+    }
+
+    @Test
+    void sanitizePreservesExplicitControlSetupAfterDowngradingUnvalidatedRunStateEntry() {
+        RuntimeSnapshot snapshot = new RuntimeSnapshot(
+                "index.html",
+                "Tetris",
+                12,
+                1,
+                List.of("body", "#game-canvas", "#start-btn"),
+                List.of(),
+                List.of(new RuntimeControlCandidate("#start-btn", "Start")),
+                List.of(),
+                List.of(),
+                List.of()
+        );
+        PlannedTestCasePayload raw = new PlannedTestCasePayload(
+                "TC-004",
+                "开始后方向键交互",
+                "functional",
+                true,
+                "index.html",
+                "",
+                "点击开始后主画布变化",
+                List.of("primary-interaction"),
+                List.of(
+                        step("ASSERT_SELECTOR", "#start-btn", null, null, null, null, false, "run-state-entry"),
+                        step("CLICK", "#start-btn", null, null, null, null, false, "run-state-entry"),
+                        step("SNAPSHOT_DOM_SIGNATURE", "body", null, null, null, "interactive", false, "primary-surface"),
+                        step("PRESS_KEY", null, "ArrowRight", null, null, null, false, null),
+                        step("WAIT", null, null, null, 200, null, false, null),
+                        step("ASSERT_DOM_SIGNATURE_CHANGED", "body", null, null, null, "interactive", false, "primary-surface")
+                )
+        );
+
+        List<TestCaseSpec> cases = sanitizer.sanitize(
+                List.of(raw),
+                List.of(),
+                "index.html",
+                snapshot,
+                runtimeContract(
+                        "body",
+                        UiObservationMode.DOM_SIGNATURE,
+                        "#game-canvas",
+                        UiObservationMode.CANVAS_HASH,
+                        "#game-canvas",
+                        UiObservationMode.CANVAS_HASH
+                )
+        );
+
+        List<TestStepSpec> steps = cases.getFirst().steps();
+        assertTrue(steps.stream().anyMatch(step ->
+                step.action() == TestStepAction.CLICK
+                        && "#start-btn".equals(step.selector())
+                        && step.semantic() == TestStepSemantic.PRIMARY_CONTROL
+        ));
+        assertFalse(steps.stream().anyMatch(step ->
+                "#start-btn".equals(step.selector()) && step.semantic() == TestStepSemantic.RUN_STATE_ENTRY
+        ));
+    }
+
+    @Test
+    void sanitizeDoesNotInventObservedClickCaseWithoutControlCandidates() {
+        RuntimeSnapshot snapshot = new RuntimeSnapshot(
+                "index.html",
+                "Canvas app",
+                10,
+                1,
+                List.of("body", "#game-canvas"),
+                List.of(),
+                List.of(),
+                List.of()
+        );
+        List<TestCaseSpec> baseCases = List.of(new TestCaseSpec(
+                "TC-BASE",
+                "基础冒烟",
+                "smoke",
+                true,
+                "index.html",
+                "",
+                "",
+                List.of(
+                        new TestStepSpec(TestStepAction.ASSERT_SELECTOR, "body", null, null, null, null, false),
+                        new TestStepSpec(TestStepAction.ASSERT_NO_ERRORS, null, null, null, null, null, false)
+                )
+        ));
+
+        List<TestCaseSpec> cases = sanitizer.sanitize(
+                List.of(),
+                baseCases,
+                "index.html",
+                snapshot,
+                runtimeContract(
+                        "body",
+                        UiObservationMode.DOM_SIGNATURE,
+                        "#game-canvas",
+                        UiObservationMode.CANVAS_HASH,
+                        "#game-canvas",
+                        UiObservationMode.CANVAS_HASH
+                )
+        );
+
+        assertEquals(1, cases.size());
+        assertFalse(cases.getFirst().steps().stream().anyMatch(step -> step.action() == TestStepAction.CLICK));
+    }
+
+    @Test
+    void sanitizeDropsBlankPressKeySteps() {
+        RuntimeSnapshot snapshot = new RuntimeSnapshot(
+                "index.html",
+                "Canvas app",
+                10,
+                1,
+                List.of("body", "#game-canvas"),
+                List.of(),
+                List.of(),
+                List.of()
+        );
+        PlannedTestCasePayload raw = new PlannedTestCasePayload(
+                "TC-005",
+                "坏协议按键",
+                "functional",
+                true,
+                "index.html",
+                "",
+                "",
+                List.of(
+                        step("WAIT", null, null, null, 100, null, false, null),
+                        step("PRESS_KEY", null, "   ", null, null, null, false, null)
+                )
+        );
+
+        List<TestCaseSpec> cases = sanitizer.sanitize(
+                List.of(raw),
+                List.of(),
+                "index.html",
+                snapshot,
+                runtimeContract(
+                        "body",
+                        UiObservationMode.DOM_SIGNATURE,
+                        "#game-canvas",
+                        UiObservationMode.CANVAS_HASH,
+                        "#game-canvas",
+                        UiObservationMode.CANVAS_HASH
+                )
+        );
+
+        assertFalse(cases.getFirst().steps().stream().anyMatch(step -> step.action() == TestStepAction.PRESS_KEY));
+    }
+
+    @Test
+    void sanitizeCanonicalizesTimedProgressionObservationWindow() {
+        RuntimeSnapshot snapshot = new RuntimeSnapshot(
+                "index.html",
+                "Canvas app",
+                10,
+                1,
+                List.of("body", "#game-canvas", "#start-btn"),
+                List.of(),
+                List.of(),
+                List.of()
+        );
+        PlannedTestCasePayload raw = new PlannedTestCasePayload(
+                "TC-005",
+                "运行后定时变化",
+                "functional",
+                true,
+                "index.html",
+                "",
+                "",
+                List.of("timed-state-progression"),
+                List.of(
+                        step("ASSERT_SELECTOR", "#start-btn", null, null, null, null, false, "run-state-entry"),
+                        step("CLICK", "#start-btn", null, null, null, null, false, "run-state-entry"),
+                        step("WAIT", null, null, null, 1000, null, false, null),
+                        step("SNAPSHOT_CANVAS_HASH", "#game-canvas", null, null, null, "timed", false, "primary-surface"),
+                        step("ASSERT_CANVAS_HASH_CHANGED", "#game-canvas", null, null, null, "timed", false, "primary-surface")
+                )
+        );
+
+        List<TestCaseSpec> cases = sanitizer.sanitize(
+                List.of(raw),
+                List.of(),
+                "index.html",
+                snapshot,
+                runtimeContract("#game-canvas", UiObservationMode.CANVAS_HASH, "#game-canvas", UiObservationMode.CANVAS_HASH, "#game-canvas", UiObservationMode.CANVAS_HASH, "#start-btn")
+        );
+
+        List<TestStepSpec> steps = cases.getFirst().steps();
+        int clickIndex = indexOf(steps, TestStepAction.CLICK, "#start-btn", 0);
+        int snapshotIndex = indexOf(steps, TestStepAction.SNAPSHOT_CANVAS_HASH, "#game-canvas", 0);
+        int waitIndex = indexOf(steps, TestStepAction.WAIT, null, 0);
+        int changedIndex = indexOf(steps, TestStepAction.ASSERT_CANVAS_HASH_CHANGED, "#game-canvas", 0);
+
+        assertTrue(clickIndex < snapshotIndex);
+        assertTrue(snapshotIndex < waitIndex);
+        assertTrue(waitIndex < changedIndex);
+        assertEquals(TestPlanningPolicy.delayedObservationWaitMs(), steps.get(waitIndex).ms());
+    }
+
     private int indexOf(List<TestStepSpec> steps, TestStepAction action, String selector, int start) {
         for (int index = start; index < steps.size(); index++) {
             TestStepSpec step = steps.get(index);
@@ -426,6 +681,18 @@ class TestCasePlanSanitizerTests {
     }
 
     private UiRuntimeContract runtimeContract(UiObservationMode mode, String selector, String... runStateEntryTargets) {
+        return runtimeContract(selector, mode, selector, mode, selector, mode, runStateEntryTargets);
+    }
+
+    private UiRuntimeContract runtimeContract(
+            String visualSelector,
+            UiObservationMode visualMode,
+            String interactionSelector,
+            UiObservationMode interactionMode,
+            String timedSelector,
+            UiObservationMode timedMode,
+            String... runStateEntryTargets
+    ) {
         List<String> ownerPaths = List.of("index.html");
         List<String> runStateEntries = runStateEntryTargets == null ? List.of() : List.of(runStateEntryTargets);
         return new UiRuntimeContract(
@@ -433,9 +700,8 @@ class TestCasePlanSanitizerTests {
                 ownerPaths,
                 runStateEntries,
                 List.of(
-                        new UiObservationTarget(CapabilitySurface.PRIMARY_VISUAL_SURFACE, selector, mode, ownerPaths, true),
-                        new UiObservationTarget(CapabilitySurface.PRIMARY_INTERACTION, selector, mode, ownerPaths, true),
-                        new UiObservationTarget(CapabilitySurface.TIMED_STATE_PROGRESSION, selector, mode, ownerPaths, true)
+                        new UiObservationTarget(CapabilityIds.PRIMARY_VISUAL_SURFACE, visualSelector, visualMode, ownerPaths, true),
+                        new UiObservationTarget(CapabilityIds.PRIMARY_INTERACTION, interactionSelector, interactionMode, ownerPaths, true)
                 )
         );
     }

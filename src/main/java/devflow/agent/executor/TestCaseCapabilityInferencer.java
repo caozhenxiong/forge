@@ -1,6 +1,6 @@
 package devflow.agent.executor;
 
-import devflow.agent.quality.CapabilitySurface;
+import devflow.agent.quality.CapabilityIds;
 import java.util.LinkedHashSet;
 import java.util.List;
 
@@ -11,11 +11,11 @@ import java.util.List;
  */
 final class TestCaseCapabilityInferencer {
 
-    List<CapabilitySurface> infer(TestCaseSpec testCase) {
+    List<String> infer(TestCaseSpec testCase) {
         if (testCase == null || testCase.steps() == null || testCase.steps().isEmpty()) {
             return List.of();
         }
-        LinkedHashSet<CapabilitySurface> capabilities = new LinkedHashSet<>();
+        LinkedHashSet<String> capabilities = new LinkedHashSet<>();
         boolean hasInteractiveAction = false;
         boolean hasObservablePostcondition = false;
         boolean hasPageLoadMeasurement = false;
@@ -24,44 +24,35 @@ final class TestCaseCapabilityInferencer {
                 continue;
             }
             switch (step.action()) {
-                case ASSERT_CANVAS_MIN -> capabilities.add(CapabilitySurface.PRIMARY_VISUAL_SURFACE);
-                case ASSERT_NO_ERRORS -> capabilities.add(CapabilitySurface.RUNTIME_STABILITY);
+                case ASSERT_CANVAS_MIN -> capabilities.add(CapabilityIds.PRIMARY_VISUAL_SURFACE);
+                case ASSERT_NO_ERRORS -> capabilities.add(CapabilityIds.RUNTIME_STABILITY);
                 case MEASURE_PAGE_LOAD_MAX_MS -> {
-                    capabilities.add(CapabilitySurface.PAGE_LOAD);
-                    capabilities.add(CapabilitySurface.PERFORMANCE_LOAD);
+                    capabilities.add(CapabilityIds.PAGE_LOAD);
+                    capabilities.add(CapabilityIds.PERFORMANCE_LOAD);
                     hasPageLoadMeasurement = true;
                 }
-                case ASSERT_WINDOW_METRIC_MAX_MS -> capabilities.add(CapabilitySurface.PERFORMANCE_INTERACTION);
+                case ASSERT_WINDOW_METRIC_MAX_MS -> capabilities.add(CapabilityIds.PERFORMANCE_INTERACTION);
                 case CLICK, PRESS_KEY -> hasInteractiveAction = true;
-                case ASSERT_CANVAS_HASH_CHANGED, ASSERT_DOM_SIGNATURE_CHANGED -> hasObservablePostcondition = true;
+                case ASSERT_CANVAS_HASH_CHANGED,
+                        ASSERT_CANVAS_HASH_UNCHANGED,
+                        ASSERT_DOM_SIGNATURE_CHANGED,
+                        ASSERT_DOM_SIGNATURE_UNCHANGED -> hasObservablePostcondition = true;
                 default -> {
                 }
             }
-            inferStepSemantic(step.semantic(), capabilities);
         }
         if (hasInteractiveAction) {
-            capabilities.add(CapabilitySurface.PRIMARY_INTERACTION);
+            capabilities.add(CapabilityIds.PRIMARY_INTERACTION);
         }
         if (hasObservablePostcondition && hasInteractiveAction) {
-            capabilities.add(CapabilitySurface.PRIMARY_INTERACTION);
+            capabilities.add(CapabilityIds.PRIMARY_INTERACTION);
         }
-        if (!hasInteractiveAction && !hasPageLoadMeasurement && capabilities.contains(CapabilitySurface.RUNTIME_STABILITY)) {
-            capabilities.add(CapabilitySurface.PAGE_LOAD);
+        if (!testCase.observationTargetId().isBlank()) {
+            capabilities.add(testCase.observationTargetId());
+        }
+        if (!hasInteractiveAction && !hasPageLoadMeasurement && capabilities.contains(CapabilityIds.RUNTIME_STABILITY)) {
+            capabilities.add(CapabilityIds.PAGE_LOAD);
         }
         return List.copyOf(capabilities);
-    }
-
-    private void inferStepSemantic(TestStepSemantic semantic, LinkedHashSet<CapabilitySurface> capabilities) {
-        if (semantic == null) {
-            return;
-        }
-        switch (semantic) {
-            case PAUSE_TOGGLE -> capabilities.add(CapabilitySurface.PAUSE_FREEZE);
-            case STATE_RESET -> capabilities.add(CapabilitySurface.RESET_RESTORES_INITIAL_STATE);
-            case PROGRESS_SIGNAL -> capabilities.add(CapabilitySurface.VISIBLE_PROGRESS_SIGNAL);
-            case PRIMARY_SURFACE -> capabilities.add(CapabilitySurface.PRIMARY_VISUAL_SURFACE);
-            default -> {
-            }
-        }
     }
 }

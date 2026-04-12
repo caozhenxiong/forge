@@ -6,7 +6,6 @@ import devflow.agent.artifact.FileArtifactStore;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.StructuredArtifactBlocks;
-import devflow.agent.quality.CapabilitySurface;
 import devflow.agent.quality.QualityLedger;
 import devflow.agent.executor.FileChange;
 import devflow.agent.repair.DiagnosisAgent;
@@ -132,8 +131,7 @@ final class StageRevisionRepairSupport {
         if (qualityLedger == null || qualityLedger.coverageLedger() == null) {
             return List.of();
         }
-        return qualityLedger.coverageLedger().missingRequiredSurfaces().stream()
-                .map(CapabilitySurface::wireValue)
+        return qualityLedger.coverageLedger().missingRequiredCapabilityIds().stream()
                 .sorted()
                 .toList();
     }

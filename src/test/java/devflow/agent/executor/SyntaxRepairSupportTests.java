@@ -334,17 +334,7 @@ class SyntaxRepairSupportTests {
                 new SyntaxRepairTurn(provider, new PatchRepairSettings()),
                 new PatchRepairSettings(),
                 new PatchVerifier(treeSitterSupport, contentGate),
-                new RepairScopeValidator(new PatchContextBuilder(
-                        new TreeSitterTargetLocator(treeSitterSupport),
-                        new TreeSitterCodeEditAdapter(
-                                new TreeSitterTargetLocator(treeSitterSupport),
-                                new devflow.agent.editing.CodePreciseEditor(treeSitterSupport),
-                                new CodePatchKernel(
-                                        new devflow.agent.editing.CodePreciseEditor(treeSitterSupport),
-                                        new PatchVerifier(treeSitterSupport, contentGate)
-                                )
-                        )
-                )),
+                new RepairDiffScopeValidator(),
                 new PatchExecutionSupport(new FileGenerationFailureFactory(), new ImplementationGenerationObserverFactory())
         );
     }

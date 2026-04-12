@@ -10,6 +10,8 @@ import devflow.agent.protocol.StructuredArtifactBlocks;
 import devflow.agent.executor.LlmProvider;
 import devflow.agent.executor.ModelRole;
 import devflow.agent.executor.TestExecutor;
+import devflow.agent.executor.ExperienceFailureDisposition;
+import devflow.agent.executor.ExperienceFailureKind;
 import devflow.agent.quality.CapabilityExpectation;
 import devflow.agent.quality.CapabilityMatrix;
 import devflow.agent.quality.CapabilityMatrixEntry;
@@ -2026,6 +2028,174 @@ class StageReviewerTests {
     }
 
     @Test
+    void implementationReviewIncludesTargetedTestFailureContext() {
+        AtomicReference<String> capturedCandidate = new AtomicReference<>("");
+        LlmProvider provider = new StructuredTestLlmProvider() {
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
+                return "";
+            }
+
+            @Override
+            public StructuredReviewResult reviewStructured(
+                    String systemPrompt,
+                    String candidateContent,
+                    Map<String, Object> options,
+                    ModelRole role
+            ) {
+                capturedCandidate.set(candidateContent);
+                return structured(new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", ""), ReviewSemantics.empty());
+            }
+        };
+        TestExecutor testExecutor = new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()) {
+            @Override
+            public devflow.agent.executor.SelfCheckResult selfCheck(Path projectPath) {
+                return new devflow.agent.executor.SelfCheckResult(true, "项目自测通过。", "基础自检通过。");
+            }
+
+            @Override
+            public ReviewResult verifyImplementationRepairTargets(
+                    Path projectPath,
+                    String goal,
+                    String constraints,
+                    String prd,
+                    String design,
+                    String implementationReport,
+                    ExperienceFailureDisposition previousFailure,
+                    devflow.agent.i18n.DocumentLanguage language
+            ) {
+                return null;
+            }
+        };
+        FileRunRepository runRepository = new FileRunRepository();
+        runRepository.initialize(tempDir);
+        FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
+        RunRecord runRecord = dummyRun();
+        artifactStore.writeAuxiliaryArtifact(
+                tempDir,
+                runRecord.runId(),
+                AuxiliaryArtifactNames.TEST_EXECUTION,
+                StructuredArtifactBlocks.renderJsonBlock(
+                        ArtifactBlockKind.EXPERIENCE_FAILURE_DISPOSITION,
+                        new ExperienceFailureDisposition(
+                                ExperienceFailureKind.IMPLEMENTATION_CAPABILITY_GAP,
+                                "上一轮测试仍有关键能力未通过。",
+                                "请修复暂停恢复链路。",
+                                "TC-003 未通过",
+                                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                                List.of(),
+                                List.of("TC-003"),
+                                List.of(devflow.agent.quality.CapabilityIds.PAUSE_FREEZE),
+                                List.of(devflow.agent.quality.CapabilityIds.PAUSE_FREEZE),
+                                ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET,
+                                ReviewReasonCode.IMPLEMENTATION_GAP
+                        )
+                )
+        );
+
+        StageReviewer reviewer = newStageReviewer(
+                provider,
+                new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
+                testExecutor
+        );
+
+        ReviewResult result = reviewer.review(tempDir, runRecord, StageType.IMPLEMENTATION, "# 代码实现");
+
+        assertEquals(ReviewDecision.APPROVED, result.decision());
+        assertTrue(capturedCandidate.get().contains("## Targeted Test Failure"));
+        assertTrue(capturedCandidate.get().contains("TC-003"));
+        assertTrue(capturedCandidate.get().contains(devflow.agent.quality.CapabilityIds.PAUSE_FREEZE));
+    }
+
+    @Test
+    void implementationReviewBlocksUntilPreviousFailureTargetsAreReverified() {
+        java.util.concurrent.atomic.AtomicBoolean reviewerCalled = new java.util.concurrent.atomic.AtomicBoolean(false);
+        LlmProvider provider = new StructuredTestLlmProvider() {
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
+                return "";
+            }
+
+            @Override
+            public StructuredReviewResult reviewStructured(
+                    String systemPrompt,
+                    String candidateContent,
+                    Map<String, Object> options,
+                    ModelRole role
+            ) {
+                reviewerCalled.set(true);
+                return structured(new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", ""), ReviewSemantics.empty());
+            }
+        };
+        TestExecutor testExecutor = new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()) {
+            @Override
+            public devflow.agent.executor.SelfCheckResult selfCheck(Path projectPath) {
+                return new devflow.agent.executor.SelfCheckResult(true, "项目自测通过。", "基础自检通过。");
+            }
+
+            @Override
+            public ReviewResult verifyImplementationRepairTargets(
+                    Path projectPath,
+                    String goal,
+                    String constraints,
+                    String prd,
+                    String design,
+                    String implementationReport,
+                    ExperienceFailureDisposition previousFailure,
+                    devflow.agent.i18n.DocumentLanguage language
+            ) {
+                return new ReviewResult(
+                        ReviewDecision.REVISION_REQUIRED,
+                        FixMode.PATCH,
+                        "当前实现尚未用针对性复核关闭上一轮 TEST 失败项。",
+                        "TC-003 仍未通过。",
+                        "currentUnresolvedCases=TC-003",
+                        "1. 先修复暂停恢复。 2. 重新执行 targeted verification。",
+                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                        List.of()
+                );
+            }
+        };
+        FileRunRepository runRepository = new FileRunRepository();
+        runRepository.initialize(tempDir);
+        FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
+        RunRecord runRecord = dummyRun();
+        artifactStore.writeAuxiliaryArtifact(
+                tempDir,
+                runRecord.runId(),
+                AuxiliaryArtifactNames.TEST_EXECUTION,
+                StructuredArtifactBlocks.renderJsonBlock(
+                        ArtifactBlockKind.EXPERIENCE_FAILURE_DISPOSITION,
+                        new ExperienceFailureDisposition(
+                                ExperienceFailureKind.IMPLEMENTATION_CAPABILITY_GAP,
+                                "上一轮测试仍有关键能力未通过。",
+                                "请修复暂停恢复链路。",
+                                "TC-003 未通过",
+                                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                                List.of(),
+                                List.of("TC-003"),
+                                List.of(devflow.agent.quality.CapabilityIds.PAUSE_FREEZE),
+                                List.of(devflow.agent.quality.CapabilityIds.PAUSE_FREEZE),
+                                ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET,
+                                ReviewReasonCode.IMPLEMENTATION_GAP
+                        )
+                )
+        );
+
+        StageReviewer reviewer = newStageReviewer(
+                provider,
+                new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
+                testExecutor
+        );
+
+        ReviewResult result = reviewer.review(tempDir, runRecord, StageType.IMPLEMENTATION, "# 代码实现");
+
+        assertEquals(ReviewDecision.REVISION_REQUIRED, result.decision());
+        assertFalse(reviewerCalled.get());
+        assertTrue(result.changeRequest().contains("TC-003"));
+    }
+
+    @Test
     void codeReviewApprovedWithStructuredBlockingMetadataIsDowngraded() {
         LlmProvider provider = new StructuredTestLlmProvider() {
             @Override
@@ -2271,13 +2441,13 @@ class StageReviewerTests {
                 )
         ) + "\n\n" + StructuredArtifactBlocks.renderJsonBlock(
                 ArtifactBlockKind.QUALITY_LEDGER,
-                new QualityLedger(
-                        new StructureRiskReport(StructureRiskLevel.HIGH, StructureRiskLevel.HIGH, StructureRiskLevel.HIGH, true, true),
-                        new CapabilityMatrix(List.of(
-                                new CapabilityMatrixEntry(CapabilitySurface.PAUSE_FREEZE, CapabilityExpectation.REQUIRED, true, "")
+                        new QualityLedger(
+                                new StructureRiskReport(StructureRiskLevel.HIGH, StructureRiskLevel.HIGH, StructureRiskLevel.HIGH, true, true),
+                                new CapabilityMatrix(List.of(
+                                new CapabilityMatrixEntry(devflow.agent.quality.CapabilityIds.PAUSE_FREEZE, CapabilityExpectation.REQUIRED, true, "")
                         )),
                         new CoverageLedger(List.of(
-                                new CoverageLedgerEntry(CapabilitySurface.PAUSE_FREEZE, true, CoverageLedgerStatus.MISSING, List.of(), "missing")
+                                new CoverageLedgerEntry(devflow.agent.quality.CapabilityIds.PAUSE_FREEZE, true, CoverageLedgerStatus.MISSING, List.of(), "missing")
                         ))
                 )
         );

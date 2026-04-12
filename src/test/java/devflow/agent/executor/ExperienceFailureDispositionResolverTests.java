@@ -3,6 +3,7 @@ package devflow.agent.executor;
 import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewReasonCode;
 import devflow.agent.review.ReviewRevisionRoute;
+import devflow.agent.quality.CapabilityIds;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -50,5 +51,41 @@ class ExperienceFailureDispositionResolverTests {
         assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, disposition.implementationPatchTarget());
         assertEquals(ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET, disposition.revisionRoute());
         assertEquals(ReviewReasonCode.OBSERVATION_CONTRACT_INVALID, disposition.reasonCode());
+    }
+
+    @Test
+    void malformedTimedProgressionCaseRoutesToTestPlanDefect() {
+        ExperienceFailureDisposition disposition = resolver.resolve(
+                UiRuntimeContract.empty(),
+                UiRuntimeContractValidation.success(),
+                List.of(new TestCaseSpec(
+                        "TC-005",
+                        "timed progression",
+                        "functional",
+                        true,
+                        "index.html",
+                        "",
+                        "",
+                        List.of(
+                                new TestStepSpec(TestStepAction.WAIT, null, null, null, 1000, null, false),
+                                new TestStepSpec(TestStepAction.SNAPSHOT_CANVAS_HASH, "#board", null, null, null, "timed", false, TestStepSemantic.PRIMARY_SURFACE),
+                                new TestStepSpec(TestStepAction.ASSERT_CANVAS_HASH_CHANGED, "#board", null, null, null, "timed", false, TestStepSemantic.PRIMARY_SURFACE)
+                        ),
+                        List.of(CapabilityIds.TIMED_STATE_PROGRESSION),
+                        CapabilityIds.PRIMARY_INTERACTION,
+                        TestObservationTrigger.AFTER_WAIT,
+                        TestObservationComparison.CHANGED
+                )),
+                List.of(),
+                devflow.agent.quality.CoverageLedger.empty()
+        );
+
+        assertEquals(ExperienceFailureKind.TEST_PLAN_DEFECT, disposition.kind());
+        assertEquals(ImplementationPatchTarget.NONE, disposition.implementationPatchTarget());
+        assertEquals(ReviewRevisionRoute.PATCH_CURRENT_STAGE, disposition.revisionRoute());
+        assertEquals(ReviewReasonCode.TEST_PLAN_DEFECT, disposition.reasonCode());
+        assertEquals(List.of("TC-005"), disposition.failingCaseIds());
+        assertEquals(List.of(CapabilityIds.PRIMARY_INTERACTION), disposition.failureCapabilitySurfaces());
+        assertTrue(disposition.evidence().contains("snapshot -> WAIT(policy) -> ASSERT_COMPARE"));
     }
 }

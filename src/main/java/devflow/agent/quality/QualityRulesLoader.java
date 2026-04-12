@@ -8,7 +8,6 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Properties;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * 质量规则加载器。
@@ -88,7 +87,7 @@ public final class QualityRulesLoader {
                         readBoolean(properties, "verification.require-capability-backfill"),
                         readBoolean(properties, "verification.require-observable-state-change-for-interactive-cases"),
                         readBoolean(properties, "verification.require-performance-coverage-from-metadata"),
-                        readCapabilitySurfaceSet(properties, "verification.required-capability-surfaces")
+                        readCapabilityIdSet(properties, "verification.required-capability-surfaces")
                 ),
                 new ExperienceRules(
                         readBoolean(properties, "experience.promote-timed-progression-coverage-from-feature-profile"),
@@ -127,22 +126,15 @@ public final class QualityRulesLoader {
         }
     }
 
-    private Set<CapabilitySurface> readCapabilitySurfaceSet(Properties properties, String key) {
+    private Set<String> readCapabilityIdSet(Properties properties, String key) {
         String raw = requireProperty(properties, key);
         if (raw.isBlank()) {
             return Set.of();
         }
-        return Arrays.stream(raw.split(","))
+        return CapabilityIds.normalizeSet(Arrays.stream(raw.split(","))
                 .map(String::trim)
                 .filter(value -> !value.isBlank())
-                .map(value -> {
-                    CapabilitySurface surface = CapabilitySurface.fromWireValue(value);
-                    if (surface == null) {
-                        throw new IllegalStateException("Invalid capability surface quality rule: " + key + "=" + value);
-                    }
-                    return surface;
-                })
-                .collect(Collectors.toUnmodifiableSet());
+                .toList());
     }
 
     private String requireProperty(Properties properties, String key) {

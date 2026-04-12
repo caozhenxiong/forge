@@ -44,8 +44,8 @@ class QualityRulesLoaderTests {
         assertFalse(rules.structureRules().preferLogicExternalization());
         assertEquals(6, rules.verificationRules().minimumRequiredCases());
         assertFalse(rules.experienceRules().promoteTimedProgressionCoverageFromFeatureProfile());
-        assertTrue(rules.verificationRules().requiredCapabilitySurfaces().contains(CapabilitySurface.PAUSE_FREEZE));
-        assertTrue(rules.verificationRules().requiredCapabilitySurfaces().contains(CapabilitySurface.VISIBLE_PROGRESS_SIGNAL));
+        assertTrue(rules.verificationRules().requiredCapabilityIds().contains(CapabilityIds.PAUSE_FREEZE));
+        assertTrue(rules.verificationRules().requiredCapabilityIds().contains(CapabilityIds.VISIBLE_PROGRESS_SIGNAL));
     }
 
     @Test

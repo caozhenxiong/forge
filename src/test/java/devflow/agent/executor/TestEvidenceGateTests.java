@@ -1,7 +1,7 @@
 package devflow.agent.executor;
 
 import devflow.agent.i18n.DocumentLanguage;
-import devflow.agent.quality.CapabilitySurface;
+import devflow.agent.quality.CapabilityIds;
 import devflow.agent.quality.CoverageLedger;
 import devflow.agent.quality.CoverageLedgerEntry;
 import devflow.agent.quality.CoverageLedgerStatus;
@@ -87,7 +87,7 @@ class TestEvidenceGateTests {
                         List.of(new TestCaseResult("TC-1", "必测", TestCaseStatus.PASSED, true, "", "", "")),
                         new CoverageLedger(List.of(
                                 new CoverageLedgerEntry(
-                                        CapabilitySurface.RESET_RESTORES_INITIAL_STATE,
+                                        CapabilityIds.RESET_RESTORES_INITIAL_STATE,
                                         true,
                                         CoverageLedgerStatus.MISSING,
                                         List.of(),

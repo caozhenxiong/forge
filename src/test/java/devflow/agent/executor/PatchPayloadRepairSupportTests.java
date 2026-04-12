@@ -1,7 +1,7 @@
 package devflow.agent.executor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import devflow.agent.editing.CodePrecisePatch;
+import devflow.agent.editing.StructuredDiffPatch;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -22,14 +22,12 @@ class PatchPayloadRepairSupportTests {
                     modelRepairCalled.set(true);
                     return """
                             {
-                              "operations": [
+                              "expectedSourceHash": "abc123",
+                              "hunks": [
                                 {
-                                  "action": "REPLACE_SYMBOL_BODY",
-                                  "targetSymbol": "tick",
-                                  "targetKind": "function",
-                                  "contentLines": [
-                                    "return 1;"
-                                  ]
+                                  "sourceStartLine": 2,
+                                  "beforeLines": ["return 0;"],
+                                  "afterLines": ["return 1;"]
                                 }
                               ]
                             }
@@ -60,16 +58,16 @@ class PatchPayloadRepairSupportTests {
                 new PatchExecutionSupport(new FileGenerationFailureFactory(), new ImplementationGenerationObserverFactory())
         );
 
-        CodePrecisePatch patch = repairSupport.readStructuredPayload(
+        StructuredDiffPatch patch = repairSupport.readStructuredPayload(
                 Path.of("game.js"),
                 new EditUnit(EditUnitKind.CODE_SYMBOL_BATCH, "code-unit-1", java.util.List.of("tick")),
                 "{ invalid json",
-                CodePrecisePatch.class,
+                StructuredDiffPatch.class,
                 null
         );
 
         assertTrue(modelRepairCalled.get());
-        assertEquals("tick", patch.operations().getFirst().targetSymbol());
+        assertEquals(2, patch.hunks().getFirst().sourceStartLine());
     }
 
     @Test

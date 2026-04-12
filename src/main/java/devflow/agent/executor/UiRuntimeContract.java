@@ -2,7 +2,7 @@ package devflow.agent.executor;
 
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;
-import devflow.agent.quality.CapabilitySurface;
+import devflow.agent.quality.CapabilityIds;
 import java.util.LinkedHashSet;
 import java.util.List;
 
@@ -36,12 +36,13 @@ public record UiRuntimeContract(
         return new UiRuntimeContract(entryPath, ownerPaths, targets, observationTargets);
     }
 
-    public UiObservationTarget targetFor(CapabilitySurface surface) {
-        if (surface == null) {
+    public UiObservationTarget targetFor(String capabilityId) {
+        String normalized = CapabilityIds.normalize(capabilityId);
+        if (normalized.isBlank()) {
             return null;
         }
         for (UiObservationTarget target : observationTargets) {
-            if (target != null && surface == target.surface()) {
+            if (target != null && normalized.equals(target.capabilityId())) {
                 return target;
             }
         }
@@ -84,14 +85,14 @@ public record UiRuntimeContract(
         }
         StringBuilder builder = new StringBuilder();
         for (UiObservationTarget target : observationTargets) {
-            if (target == null || target.surface() == null) {
+            if (target == null || target.capabilityId().isBlank()) {
                 continue;
             }
             if (!builder.isEmpty()) {
                 builder.append('\n');
             }
             builder.append("- ")
-                    .append(target.surface().wireValue())
+                    .append(target.capabilityId())
                     .append(" | selector=")
                     .append(target.selector())
                     .append(" | mode=")

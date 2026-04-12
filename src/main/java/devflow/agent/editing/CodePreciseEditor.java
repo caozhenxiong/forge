@@ -7,11 +7,9 @@ import java.util.List;
 public class CodePreciseEditor {
 
     private final CodePreciseSymbolSupport symbolSupport;
-    private final CodePrecisePatchApplySupport patchApplySupport;
 
     public CodePreciseEditor(TreeSitterSupport treeSitterSupport) {
         this.symbolSupport = new CodePreciseSymbolSupport(treeSitterSupport);
-        this.patchApplySupport = new CodePrecisePatchApplySupport(symbolSupport);
     }
 
     public boolean supportsPreciseEditing(Path relativePath, String source) {
@@ -19,7 +17,7 @@ public class CodePreciseEditor {
     }
 
     /**
-     * 新建代码文件或空文件在没有现成符号时，仍允许通过 APPEND_FILE 追加顶层定义。
+     * 新建代码文件或空文件在没有现成符号时，仍允许走 append-only 骨架单元。
      * 这让“局部编辑优先”也能覆盖新文件，而不是退回整文件重写。
      */
     public boolean supportsAppendOnlyEditing(Path relativePath, String source) {
@@ -46,20 +44,5 @@ public class CodePreciseEditor {
 
     public boolean hasInsertableSymbols(Path relativePath, String source) {
         return symbolSupport.hasInsertableSymbols(relativePath, source);
-    }
-
-    /**
-     * 把模型返回的 targetKind 对齐到当前源码里真实存在的符号类型。
-     *
-     * <p>模型经常把 class method 写成 function，或者省略 kind。
-     * 如果名称能唯一命中现有符号，这里会把 kind 纠正成真实类型，
-     * 避免本来可应用的局部编辑因为 kind 偏差被误判成 SYMBOL_NOT_FOUND。
-     */
-    public CodePrecisePatch normalizePatchTargets(Path relativePath, String source, CodePrecisePatch patch) {
-        return symbolSupport.normalizePatchTargets(relativePath, source, patch);
-    }
-
-    public String applyPatch(Path relativePath, String source, CodePrecisePatch patch) {
-        return patchApplySupport.applyPatch(relativePath, source, patch);
     }
 }

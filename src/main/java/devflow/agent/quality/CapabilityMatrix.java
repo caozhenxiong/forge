@@ -24,21 +24,32 @@ public record CapabilityMatrix(List<CapabilityMatrixEntry> entries) {
         return entries.isEmpty();
     }
 
-    public Set<CapabilitySurface> requiredSurfaces() {
-        Set<CapabilitySurface> required = new LinkedHashSet<>();
+    public Set<String> requiredCapabilityIds() {
+        Set<String> required = new LinkedHashSet<>();
         for (CapabilityMatrixEntry entry : entries) {
-            if (entry != null && entry.required() && entry.surface() != null) {
-                required.add(entry.surface());
+            if (entry != null && entry.required() && !entry.capabilityId().isBlank()) {
+                required.add(entry.capabilityId());
             }
         }
         return Set.copyOf(required);
     }
 
-    public boolean requires(CapabilitySurface surface) {
-        if (surface == null) {
+    public boolean requires(String capabilityId) {
+        String normalized = CapabilityIds.normalize(capabilityId);
+        if (normalized.isBlank()) {
             return false;
         }
-        return entries.stream().anyMatch(entry -> entry != null && entry.required() && surface == entry.surface());
+        return entries.stream().anyMatch(entry -> entry != null && entry.required() && normalized.equals(entry.capabilityId()));
+    }
+
+    public Set<String> requiredObservationTargetIds() {
+        Set<String> targets = new LinkedHashSet<>();
+        for (CapabilityMatrixEntry entry : entries) {
+            if (entry != null && entry.required() && entry.targetsBuiltinObservationSurface()) {
+                targets.add(entry.observationTargetId());
+            }
+        }
+        return Set.copyOf(targets);
     }
 
     public String toMarkdown(DocumentLanguage language) {
@@ -47,16 +58,19 @@ public record CapabilityMatrix(List<CapabilityMatrixEntry> entries) {
         }
         StringBuilder builder = new StringBuilder();
         for (CapabilityMatrixEntry entry : entries) {
-            if (entry == null || entry.surface() == null) {
+            if (entry == null || entry.capabilityId().isBlank()) {
                 continue;
             }
             if (!builder.isEmpty()) {
                 builder.append('\n');
             }
             builder.append("- ")
-                    .append(entry.surface().wireValue())
+                    .append(entry.capabilityId())
                     .append(" [")
                     .append(entry.expectation().name())
+                    .append(entry.requiresObservationTarget()
+                            ? ", target=" + entry.observationTargetId()
+                            : "")
                     .append(entry.requiresObservableStateChange()
                             ? language.choose(", needs-observable-state-change", ", needs-observable-state-change")
                             : "")

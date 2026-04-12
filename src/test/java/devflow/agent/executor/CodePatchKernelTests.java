@@ -1,9 +1,8 @@
 package devflow.agent.executor;
 
-import devflow.agent.editing.CodePreciseAction;
-import devflow.agent.editing.CodePreciseEditor;
-import devflow.agent.editing.CodePreciseOperation;
-import devflow.agent.editing.CodePrecisePatch;
+import devflow.agent.editing.FileStateLedger;
+import devflow.agent.editing.StructuredDiffHunk;
+import devflow.agent.editing.StructuredDiffPatch;
 import devflow.agent.parsing.TreeSitterSupport;
 import devflow.agent.project.FileProjectWorkspace;
 import java.nio.file.Path;
@@ -19,34 +18,27 @@ class CodePatchKernelTests {
     @TempDir
     Path tempDir;
 
+    private final FileStateLedger fileStateLedger = new FileStateLedger();
     private final TreeSitterSupport treeSitterSupport = new TreeSitterSupport();
     private final CodePatchKernel patchKernel = new CodePatchKernel(
-            new CodePreciseEditor(treeSitterSupport),
             new PatchVerifier(treeSitterSupport, new GeneratedContentGate(new FileProjectWorkspace(), treeSitterSupport))
     );
 
     @Test
     void appliesInlineStylePatchAndKeepsStyleParsable() {
-        PatchApplyResult result = patchKernel.applyInlineStyle(
-                Path.of("index.html"),
-                """
+        String source = """
                 #app {
                   color: red;
                 }
-                """,
-                new CodePrecisePatch(List.of(
-                        new CodePreciseOperation(
-                                CodePreciseAction.APPEND_FILE,
-                                null,
-                                null,
-                                null,
-                                List.of(
-                                        "",
-                                        "body {",
-                                        "  margin: 0;",
-                                        "}"
-                                )
-                        )
+                """;
+        PatchApplyResult result = patchKernel.applyInlineStyle(
+                Path.of("index.html"),
+                source,
+                patch(Path.of("index.html.inline-style.css"), source, 4, List.of(), List.of(
+                        "",
+                        "body {",
+                        "  margin: 0;",
+                        "}"
                 ))
         );
 
@@ -57,22 +49,15 @@ class CodePatchKernelTests {
 
     @Test
     void appliesPythonCodePatchAndKeepsFileParsable() {
+        String source = """
+                def tick():
+                    return 0
+                """;
         PatchApplyResult result = patchKernel.applyCodeFile(
                 tempDir,
                 Path.of("game.py"),
-                """
-                def tick():
-                    return 0
-                """,
-                new CodePrecisePatch(List.of(
-                        new CodePreciseOperation(
-                                CodePreciseAction.REPLACE_SYMBOL_BODY,
-                                "tick",
-                                "function",
-                                null,
-                                List.of("return 1")
-                        )
-                ))
+                source,
+                patch(Path.of("game.py"), source, 2, List.of("    return 0"), List.of("    return 1"))
         );
 
         assertTrue(result.succeeded());
@@ -81,25 +66,18 @@ class CodePatchKernelTests {
 
     @Test
     void appliesJavaCodePatchAndKeepsFileParsable() {
-        PatchApplyResult result = patchKernel.applyCodeFile(
-                tempDir,
-                Path.of("Game.java"),
-                """
+        String source = """
                 class Game {
                   int tick() {
                     return 0;
                   }
                 }
-                """,
-                new CodePrecisePatch(List.of(
-                        new CodePreciseOperation(
-                                CodePreciseAction.REPLACE_SYMBOL_BODY,
-                                "tick",
-                                "method",
-                                null,
-                                List.of("return 1;")
-                        )
-                ))
+                """;
+        PatchApplyResult result = patchKernel.applyCodeFile(
+                tempDir,
+                Path.of("Game.java"),
+                source,
+                patch(Path.of("Game.java"), source, 3, List.of("    return 0;"), List.of("    return 1;"))
         );
 
         assertTrue(result.succeeded());
@@ -108,26 +86,23 @@ class CodePatchKernelTests {
 
     @Test
     void appliesCssCodePatchAndKeepsFileParsable() {
-        PatchApplyResult result = patchKernel.applyCodeFile(
-                tempDir,
-                Path.of("style.css"),
-                """
+        String source = """
                 #app {
                   color: red;
                 }
-                """,
-                new CodePrecisePatch(List.of(
-                        new CodePreciseOperation(
-                                CodePreciseAction.REPLACE_SYMBOL,
-                                "#app",
-                                "rule",
-                                null,
-                                List.of(
-                                        "#app {",
-                                        "  color: blue;",
-                                        "}"
-                                )
-                        )
+                """;
+        PatchApplyResult result = patchKernel.applyCodeFile(
+                tempDir,
+                Path.of("style.css"),
+                source,
+                patch(Path.of("style.css"), source, 1, List.of(
+                        "#app {",
+                        "  color: red;",
+                        "}"
+                ), List.of(
+                        "#app {",
+                        "  color: blue;",
+                        "}"
                 ))
         );
 
@@ -141,18 +116,23 @@ class CodePatchKernelTests {
                 tempDir,
                 Path.of("game.py"),
                 "",
-                new CodePrecisePatch(List.of(
-                        new CodePreciseOperation(
-                                CodePreciseAction.REPLACE_SYMBOL_BODY,
-                                "tick",
-                                "function",
-                                null,
-                                List.of("return 1")
-                        )
-                ))
+                patch(Path.of("game.py"), "def tick():\n    return 0\n", 2, List.of("    return 0"), List.of("    return 1"))
         );
 
         assertEquals(ToolFailureCode.PATCH_ANCHOR_MISSING, result.failureResult().failureCode());
         assertEquals(ToolName.PATCH_APPLY, result.failureResult().toolName());
+    }
+
+    private StructuredDiffPatch patch(
+            Path relativePath,
+            String source,
+            int startLine,
+            List<String> beforeLines,
+            List<String> afterLines
+    ) {
+        return new StructuredDiffPatch(
+                fileStateLedger.capture(relativePath, source).contentHash(),
+                List.of(new StructuredDiffHunk(startLine, beforeLines, afterLines))
+        );
     }
 }

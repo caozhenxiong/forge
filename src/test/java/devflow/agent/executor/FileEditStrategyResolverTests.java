@@ -21,7 +21,6 @@ class FileEditStrategyResolverTests {
             new TreeSitterTargetLocator(treeSitterSupport),
             new CodePreciseEditor(treeSitterSupport),
             new CodePatchKernel(
-                    new CodePreciseEditor(treeSitterSupport),
                     new PatchVerifier(
                             treeSitterSupport,
                             new GeneratedContentGate(new devflow.agent.project.FileProjectWorkspace(), treeSitterSupport)

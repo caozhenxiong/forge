@@ -100,6 +100,11 @@
   - `ReviewResult / REVIEW_RESULT` 已显式携带 `implementationPatchTarget / overrideChanges / revisionRoute / reasonCode`
   - 不再依赖 prose regex 猜阻塞语义，也不再接受 key-value retrofit
   - implementation review 会显式消费 `repair_brief.md` 和 `repair_alignment.md`
+  - 如果上一轮 `TEST` 已经给出结构化失败归因，implementation review 现在还会显式消费：
+    - `failingCaseIds`
+    - `failureCapabilitySurfaces`
+    - `requiredCapabilitySurfaces`
+  - implementation review 在 reviewer 前会先做一次“上一轮失败目标”的确定性复核；当前失败 case/capability 没有重新通过时，不允许只靠 smoke/self-check 放行
   - implementation gate 已切成 contract-first：
     - 不再因为 `single html / 外提脚本 / embedded dominance` 这类实现形态直接回退 `DESIGN`
     - 只要 `DESIGN` contract 已冻结，`IMPLEMENTATION` 被打回时默认修当前阶段
@@ -108,6 +113,14 @@
   - 当前以确定性执行层为主
   - `TestToolSelector / TestRunner / TestArtifactRenderer` 已成为主链
   - `runtime snapshot / test execution / test report` 已形成可回注的结构化证据链
+  - `EXPERIENCE_FAILURE_DISPOSITION` 现在会显式记录：
+    - `failingCaseIds`
+    - `failureCapabilitySurfaces`
+    - `requiredCapabilitySurfaces`
+  - testcase planner/sanitizer 已增加 capability 级 canonicalization：
+    - `PRIMARY_INTERACTION = snapshot -> interaction -> WAIT(policy) -> ASSERT_CHANGED`
+    - `TIMED_STATE_PROGRESSION = snapshot -> WAIT(policy) -> ASSERT_CHANGED`
+  - 如果 required testcase 仍违反上述 capability 骨架，失败 owner 会先归类成 `TEST_PLAN_DEFECT`，不再误打成 implementation gap
   - `Playwright` probe 已回到单一协议：
     - `--probe` 只返回 `status / probe / errors`
     - testcase 结果专用的 `cases` 字段不再混入 implementation self-check probe 载荷
@@ -159,6 +172,10 @@
 - 代码文件优先走 patch 主链，而不是 `whole-file`
 - provider 调用前会先做上下文压缩与预算裁剪
 - patch apply / local verify / test evidence 已收成结构化结果
+- `precise-code / inline-script-workset / inline-style-workset` 主链已经统一成 `StructuredDiffPatch`：
+  - `expectedSourceHash`
+  - `hunks[].sourceStartLine / beforeLines / afterLines`
+  - 旧的 `operations / REPLACE_SYMBOL* / APPEND_FILE` 协议已从主代码路径删除
 - 宿主 HTML、内联脚本、内联样式已经进入显式嵌入适配层
 - `inline-script-workset` 已收紧为“多稳定符号批次”专用骨架；单入口 bootstrap 脚本直接走 `focused script region`，失配旧 `INLINE_SCRIPT_WORKSET` progress 会被丢弃而不是强行续跑
 - diagnosis / repair 已能直接消费最新测试产物，不再只靠 review 摘要
@@ -182,6 +199,18 @@
 - `PATCH_EXISTING_IMPLEMENTATION` 已统一成结构化 `overrideChanges` 协议；review、revision note、repair note 和 completed-plan continuation 现在都消费同一份文件级 patch scope，不再允许空 scope 静默 replanning
 - runtime ownership / wiring 检查只认宿主显式 `<script src>` 接线和 inline module import；`index.app.js` 默认 companion 路径、basename 猜测与 orphan root ownership 推断已从主链删除
 - html-entry planning contract 已显式化：`editScope / runtimeOwnership / hostHtmlPatchRequired` 必须成组声明，宿主 HTML 不再允许含混 `AUTO` scope
+- testcase runtime contract 已改成按 capability surface 独立解析：
+  - `primary-visual-surface`
+  - `primary-interaction`
+  - `timed-state-progression`
+  不再把一个主选择器扇出给所有 surface
+- `run-state-entry` 已收紧为“显式可启动控件”语义：
+  - 只有 runtime probe 明确给出的 control candidate 才能保留 `run-state-entry`
+  - `body/main` 这类宿主根节点不再被接受为启动入口
+  - 不合法的 `run-state-entry` 现在会被降级为 `primary-control` / `primary-surface` 或直接删除
+- testcase planner / sanitizer 已删除“从静态 HTML 猜交互控件”的旧行为：
+  - 没有 runtime control candidate 时，不再从 `<button>`、id/class 或 selector 文本反推点击目标
+  - 也不再补空的 `PRESS_KEY` 步骤
 - implementation self-check 已切到 `tool-result-first`：
   - `ValidationExecutionReport.toolResults` 会贯通到 subtask attempt、implementation artifact 和 state snapshot
   - `PLAYWRIGHT_PROBE_PAYLOAD_INVALID / PLAYWRIGHT_PROBE_EXECUTION_FAILED` 会在 implementation 阶段直接标成 `REQUEST_HUMAN`

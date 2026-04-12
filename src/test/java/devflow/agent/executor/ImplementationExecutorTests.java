@@ -107,7 +107,6 @@ class ImplementationExecutorTests {
                 targetLocator,
                 new CodePreciseEditor(treeSitterSupport),
                 new CodePatchKernel(
-                        new CodePreciseEditor(treeSitterSupport),
                         new PatchVerifier(
                                 treeSitterSupport,
                                 new GeneratedContentGate(new FileProjectWorkspace(), treeSitterSupport)
@@ -1194,42 +1193,26 @@ class ImplementationExecutorTests {
                 if (role == ModelRole.IMPLEMENTATION) {
                     if (systemPrompt.contains("符号级精确改写")) {
                         if (systemPrompt.contains("当前文件为空或新建文件")) {
-                            return """
-                                    {
-                                      "operations": [
-                                        {
-                                          "action": "APPEND_FILE",
-                                          "targetSymbol": null,
-                                          "targetKind": null,
-                                          "contentLines": [
-                                            "import { createEngineState } from './state.js';",
-                                            "",
-                                            "export class GameEngine {",
-                                            "  constructor() {",
-                                            "  }",
-                                            "}"
-                                          ]
-                                        }
-                                      ]
-                                    }
-                                    """;
+                            return StructuredDiffTestSupport.appendAtEnd(
+                                    userPrompt,
+                                    "import { createEngineState } from './state.js';",
+                                    "",
+                                    "export class GameEngine {",
+                                    "  constructor() {",
+                                    "  }",
+                                    "}"
+                            );
                         }
-                        return """
-                                {
-                                  "operations": [
-                                    {
-                                      "action": "REPLACE_SYMBOL_BODY",
-                                      "targetSymbol": "GameEngine",
-                                      "targetKind": "class",
-                                      "contentLines": [
-                                        "constructor() {",
-                                        "  this.state = createEngineState();",
-                                        "}"
-                                      ]
-                                    }
-                                  ]
-                                }
-                                """;
+                        return StructuredDiffTestSupport.replaceRangeStartingAt(
+                                userPrompt,
+                                "export class GameEngine {",
+                                4,
+                                "export class GameEngine {",
+                                "  constructor() {",
+                                "    this.state = createEngineState();",
+                                "  }",
+                                "}"
+                        );
                     }
                     return """
                             import { createEngineState } from './state.js';
@@ -2002,18 +1985,12 @@ class ImplementationExecutorTests {
                             """;
                 }
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("符号级精确改写")) {
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "APPEND_FILE",
-                                  "targetSymbol": null,
-                                  "targetKind": null,
-                                  "content": "export function tick() {\\n  return 1;\\n}"
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.appendAtEnd(
+                            userPrompt,
+                            "export function tick() {",
+                            "  return 1;",
+                            "}"
+                    );
                 }
                 if (role == ModelRole.VALIDATION_STRATEGY) {
                     return """
@@ -2570,18 +2547,14 @@ class ImplementationExecutorTests {
                             """;
                 }
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("符号级精确改写")) {
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL",
-                                  "targetSymbol": "tick",
-                                  "targetKind": "method",
-                                  "content": "void tick() {\\n    System.out.println(\\"patched\\");\\n}"
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.replaceRangeStartingAt(
+                            userPrompt,
+                            "    void tick() {",
+                            3,
+                            "    void tick() {",
+                            "        System.out.println(\"patched\");",
+                            "    }"
+                    );
                 }
                 if (role == ModelRole.VALIDATION_STRATEGY) {
                     return """
@@ -2664,18 +2637,14 @@ class ImplementationExecutorTests {
                             """;
                 }
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("符号级精确改写")) {
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL",
-                                  "targetSymbol": "tick",
-                                  "targetKind": "method",
-                                  "content": "tick() {\\n    return 2;\\n}"
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.replaceRangeStartingAt(
+                            userPrompt,
+                            "    tick() {",
+                            3,
+                            "    tick() {",
+                            "        return 2;",
+                            "    }"
+                    );
                 }
                 if (role == ModelRole.VALIDATION_STRATEGY) {
                     return """
@@ -2762,18 +2731,14 @@ class ImplementationExecutorTests {
                     if (call < 3) {
                         return "{}";
                     }
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL",
-                                  "targetSymbol": "tick",
-                                  "targetKind": "method",
-                                  "content": "tick() {\\n    return 3;\\n}"
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.replaceRangeStartingAt(
+                            userPrompt,
+                            "    tick() {",
+                            3,
+                            "    tick() {",
+                            "        return 3;",
+                            "    }"
+                    );
                 }
                 if (role == ModelRole.IMPLEMENTATION) {
                     return """
@@ -3130,87 +3095,55 @@ class ImplementationExecutorTests {
                 }
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("当前 HTML 入口文件里的主脚本已被抽成独立代码工作集")) {
                     if (inlineScriptCalls.incrementAndGet() == 1) {
-                        return """
-                                {
-                                  "operations": [
-                                    {
-                                      "action": "APPEND_FILE",
-                                      "targetSymbol": null,
-                                      "targetKind": null,
-                                      "contentLines": [
-                                        "function bindStartButton() {",
-                                        "  const button = document.getElementById('start-btn');",
-                                        "  const status = document.getElementById('status');",
-                                        "  if (button && status) {",
-                                        "    button.addEventListener('click', () => {",
-                                        "      status.textContent = 'started';",
-                                        "    });",
-                                        "  }",
-                                        "}"
-                                      ]
-                                    }
-                                  ]
-                                }
-                                """;
+                        return StructuredDiffTestSupport.appendAtEnd(
+                                userPrompt,
+                                "function bindStartButton() {",
+                                "  const button = document.getElementById('start-btn');",
+                                "  const status = document.getElementById('status');",
+                                "  if (button && status) {",
+                                "    button.addEventListener('click', () => {",
+                                "      status.textContent = 'started';",
+                                "    });",
+                                "  }",
+                                "}"
+                        );
                     }
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL_BODY",
-                                  "targetSymbol": "initGame",
-                                  "targetKind": "function",
-                                  "contentLines": [
-                                    "bindStartButton();"
-                                  ]
-                                }
-                              ]
-                                }
-                            """;
+                    return StructuredDiffTestSupport.replaceRangeStartingAt(
+                            userPrompt,
+                            "function initGame() {",
+                            2,
+                            "function initGame() {",
+                            "  bindStartButton();",
+                            "}"
+                    );
                 }
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("符号级精确改写")) {
                     int call = codeFileCalls.incrementAndGet();
                     if (systemPrompt.contains("当前文件为空或新建文件")) {
-                        return """
-                                {
-                                  "operations": [
-                                    {
-                                      "action": "APPEND_FILE",
-                                      "targetSymbol": null,
-                                      "targetKind": null,
-                                      "contentLines": [
-                                        "function bindStartButton() {",
-                                        "  const button = document.getElementById('start-btn');",
-                                        "  const status = document.getElementById('status');",
-                                        "  if (button && status) {",
-                                        "    button.addEventListener('click', () => {",
-                                        "      status.textContent = 'started';",
-                                        "    });",
-                                        "  }",
-                                        "}",
-                                        "",
-                                        "function initGame() {",
-                                        "}"
-                                      ]
-                                    }
-                                  ]
-                                }
-                                """;
+                        return StructuredDiffTestSupport.appendAtEnd(
+                                userPrompt,
+                                "function bindStartButton() {",
+                                "  const button = document.getElementById('start-btn');",
+                                "  const status = document.getElementById('status');",
+                                "  if (button && status) {",
+                                "    button.addEventListener('click', () => {",
+                                "      status.textContent = 'started';",
+                                "    });",
+                                "  }",
+                                "}",
+                                "",
+                                "function initGame() {",
+                                "}"
+                        );
                     }
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL_BODY",
-                                  "targetSymbol": "initGame",
-                                  "targetKind": "function",
-                                  "contentLines": [
-                                    "bindStartButton();"
-                                  ]
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.replaceRangeStartingAt(
+                            userPrompt,
+                            "function initGame() {",
+                            2,
+                            "function initGame() {",
+                            "  bindStartButton();",
+                            "}"
+                    );
                 }
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("精确改写")) {
                     preciseHtmlCalls.incrementAndGet();

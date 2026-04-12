@@ -1,7 +1,7 @@
 package devflow.agent.executor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import devflow.agent.editing.CodePrecisePatch;
+import devflow.agent.editing.StructuredDiffPatch;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -17,21 +17,22 @@ class DeterministicJsonPayloadRepairerTests {
         String repaired = repairer.repair("""
                 ```json
                 {
-                  "operations": [
-                    {
-                      "action": "REPLACE_SYMBOL_BODY",
-                      "targetSymbol": "tick",
-                      "targetKind": "function",
-                      "content": "return 1;
+                  "expectedSourceHash": "abc123
                 ",
-                    }
-                  ],
+                  "hunks": [
+                    {
+                      "sourceStartLine": 2,
+                      "beforeLines": ["return 0;"],
+                      "afterLines": ["return 1;"]
+                    },
+                  ]
                 }
                 ```
                 """);
 
-        CodePrecisePatch patch = reader.readJsonObject(repaired, CodePrecisePatch.class);
-        assertTrue(patch.hasAnyOperation());
-        assertEquals("tick", patch.operations().getFirst().targetSymbol());
+        StructuredDiffPatch patch = reader.readJsonObject(repaired, StructuredDiffPatch.class);
+        assertTrue(patch.hasAnyHunk());
+        assertEquals("abc123", patch.expectedSourceHash());
+        assertEquals(2, patch.hunks().getFirst().sourceStartLine());
     }
 }

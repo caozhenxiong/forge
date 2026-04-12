@@ -1,6 +1,6 @@
 package devflow.agent.executor;
 
-import devflow.agent.quality.CapabilitySurface;
+import devflow.agent.quality.CapabilityIds;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.validation.ProjectFingerprint;
 import devflow.agent.validation.ProjectInspector;
@@ -75,7 +75,7 @@ class TestCasePlannerTests {
     }
 
     @Test
-    void fallbackDerivesButtonSelectorsFromStaticHtmlUsingTreeSitter() throws Exception {
+    void fallbackDoesNotDeriveButtonSelectorsFromStaticHtmlWithoutRuntimeControls() throws Exception {
         Files.writeString(
                 tempDir.resolve("index.html"),
                 """
@@ -104,11 +104,10 @@ class TestCasePlannerTests {
                 null
         );
 
-        assertTrue(plan.cases().stream().anyMatch(testCase ->
-                testCase.steps().stream().anyMatch(step -> "#startBtn".equals(step.selector()))
-        ));
-        assertTrue(plan.cases().stream().anyMatch(testCase ->
-                testCase.steps().stream().anyMatch(step -> ".pause-btn".equals(step.selector()))
+        assertFalse(plan.cases().stream().anyMatch(testCase ->
+                testCase.steps().stream().anyMatch(step ->
+                        "#startBtn".equals(step.selector()) || ".pause-btn".equals(step.selector())
+                )
         ));
     }
 
@@ -461,7 +460,7 @@ class TestCasePlannerTests {
         assertTrue(capturedPrompt.get().contains("结构化契约"));
         assertTrue(capturedPrompt.get().contains("runtime.entryKind"));
         assertTrue(capturedPrompt.get().contains("能力矩阵"));
-        assertTrue(capturedPrompt.get().contains(CapabilitySurface.PAGE_LOAD.wireValue()));
+        assertTrue(capturedPrompt.get().contains(CapabilityIds.PAGE_LOAD));
     }
 
     @Test
@@ -537,7 +536,7 @@ class TestCasePlannerTests {
         );
 
         assertTrue(plan.cases().stream().anyMatch(testCase -> "TC-SMOKE-LOAD".equals(testCase.id())));
-        assertTrue(plan.qualityPlan().capabilityMatrix().requires(CapabilitySurface.PAGE_LOAD));
+        assertTrue(plan.qualityPlan().capabilityMatrix().requires(CapabilityIds.PAGE_LOAD));
     }
 
     @Test

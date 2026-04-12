@@ -93,9 +93,8 @@ final class PatchRuntimeBuilder {
                 implementationGenerationObserverFactory,
                 maxFileGenerationAttempts
         );
-        CodePatchProtocolAdapter codePatchProtocolAdapter = new CodePatchProtocolAdapter();
         PatchVerifier patchVerifier = new PatchVerifier(treeSitterSupport, generatedContentGate);
-        CodePatchKernel codePatchKernel = new CodePatchKernel(codePreciseEditor, patchVerifier);
+        CodePatchKernel codePatchKernel = new CodePatchKernel(patchVerifier);
         LanguageEditAdapter codeEditAdapter =
                 new TreeSitterCodeEditAdapter(targetLocator, codePreciseEditor, codePatchKernel);
         PatchContextBuilder patchContextBuilder = new PatchContextBuilder(targetLocator, codeEditAdapter);
@@ -105,17 +104,14 @@ final class PatchRuntimeBuilder {
                 new SyntaxRepairTurn(llmProvider, patchRepairSettings),
                 patchRepairSettings,
                 patchVerifier,
-                new RepairScopeValidator(patchContextBuilder),
+                new RepairDiffScopeValidator(),
                 patchExecutionSupport
         );
-        PatchUnitScopeValidator patchUnitScopeValidator = new PatchUnitScopeValidator(patchContextBuilder);
         EmbeddedPatchExecutor embeddedPatchExecutor = new EmbeddedPatchExecutor(
                 llmProvider,
                 generationEngine,
                 generatedPayloadSupport,
                 generatedContentGate,
-                codePatchProtocolAdapter,
-                patchUnitScopeValidator,
                 codePatchKernel,
                 patchFailureRouter,
                 patchBudgetPolicy,
@@ -132,8 +128,6 @@ final class PatchRuntimeBuilder {
                 generationEngine,
                 generatedPayloadSupport,
                 codeEditAdapter,
-                codePatchProtocolAdapter,
-                patchUnitScopeValidator,
                 patchFailureRouter,
                 patchBudgetPolicy,
                 patchPayloadRepairSupport,

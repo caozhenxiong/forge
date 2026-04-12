@@ -26,11 +26,11 @@ public record CoverageLedger(List<CoverageLedgerEntry> entries) {
         return entries.stream().filter(CoverageLedgerEntry::missingRequired).count();
     }
 
-    public Set<CapabilitySurface> missingRequiredSurfaces() {
-        LinkedHashSet<CapabilitySurface> missing = new LinkedHashSet<>();
+    public Set<String> missingRequiredCapabilityIds() {
+        LinkedHashSet<String> missing = new LinkedHashSet<>();
         for (CoverageLedgerEntry entry : entries) {
-            if (entry != null && entry.missingRequired() && entry.surface() != null) {
-                missing.add(entry.surface());
+            if (entry != null && entry.missingRequired() && !entry.capabilityId().isBlank()) {
+                missing.add(entry.capabilityId());
             }
         }
         return Set.copyOf(missing);
@@ -42,14 +42,14 @@ public record CoverageLedger(List<CoverageLedgerEntry> entries) {
         }
         StringBuilder builder = new StringBuilder();
         for (CoverageLedgerEntry entry : entries) {
-            if (entry == null || entry.surface() == null) {
+            if (entry == null || entry.capabilityId().isBlank()) {
                 continue;
             }
             if (!builder.isEmpty()) {
                 builder.append('\n');
             }
             builder.append("- ")
-                    .append(entry.surface().wireValue())
+                    .append(entry.capabilityId())
                     .append(" | required=")
                     .append(entry.required())
                     .append(" | status=")

@@ -3,9 +3,9 @@ package devflow.agent.executor;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.quality.CapabilityExpectation;
+import devflow.agent.quality.CapabilityIds;
 import devflow.agent.quality.CapabilityMatrix;
 import devflow.agent.quality.CapabilityMatrixEntry;
-import devflow.agent.quality.CapabilitySurface;
 import devflow.agent.quality.CoverageLedger;
 import devflow.agent.quality.CoverageLedgerEntry;
 import devflow.agent.quality.CoverageLedgerStatus;
@@ -63,7 +63,7 @@ class TestArtifactRendererTests {
                 new CoveragePolicy(3, true, true),
                 new ExperiencePolicy(true, true),
                 new CapabilityMatrix(List.of(
-                        new CapabilityMatrixEntry(CapabilitySurface.PAGE_LOAD, CapabilityExpectation.REQUIRED, false, "entry must load")
+                        new CapabilityMatrixEntry(CapabilityIds.PAGE_LOAD, CapabilityExpectation.REQUIRED, false, "entry must load")
                 )),
                 QualityChecklist.empty()
         );
@@ -71,7 +71,7 @@ class TestArtifactRendererTests {
                 qualityPlan.structureRiskReport(),
                 qualityPlan.capabilityMatrix(),
                 new CoverageLedger(List.of(
-                        new CoverageLedgerEntry(CapabilitySurface.PAGE_LOAD, true, CoverageLedgerStatus.MISSING, List.of(), "missing")
+                        new CoverageLedgerEntry(CapabilityIds.PAGE_LOAD, true, CoverageLedgerStatus.MISSING, List.of(), "missing")
                 ))
         );
         return new CollectedTestEvidence(

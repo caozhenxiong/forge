@@ -414,7 +414,8 @@ system prompt 核心：
 system prompt 核心：
 
 ```text
-你是资深工程师。请对现有源码做“符号级精确改写”，不要整文件重写。
+你是资深工程师。请对现有源码做基于当前文件状态的结构化 diff 改写。
+这条链保留“符号级精确改写”的任务语义，但返回协议已经切到 structured diff hunk。
 你必须只返回一个 JSON 对象。
 ```
 
@@ -422,12 +423,12 @@ system prompt 核心：
 
 ```json
 {
-  "operations": [
+  "expectedSourceHash": "必须原样拷贝输入中的 sourceHash",
+  "hunks": [
     {
-      "action": "REPLACE_SYMBOL|REPLACE_SYMBOL_BODY|INSERT_INTO_SYMBOL|APPEND_FILE",
-      "targetSymbol": "目标符号名；APPEND_FILE 时可为 null",
-      "targetKind": "class|interface|enum|record|constructor|method|function|type|variable；APPEND_FILE 时可为 null",
-      "contentLines": ["逐行源码片段"]
+      "sourceStartLine": 1,
+      "beforeLines": ["当前文件中该位置原样存在的逐行内容；纯插入可为空数组"],
+      "afterLines": ["修改后的逐行内容；纯删除可为空数组"]
     }
   ]
 }
@@ -436,12 +437,12 @@ system prompt 核心：
 关键约束：
 
 - 不输出完整源码文件
-- `REPLACE_SYMBOL` 必须提供完整声明
-- `REPLACE_SYMBOL_BODY` 只替换现有符号体内部内容
-- `INSERT_INTO_SYMBOL` 只在目标符号体内部插入内容
-- `APPEND_FILE` 只用于补充顶层符号或文件尾部内容
-- `targetSymbol / targetKind` 必须来自执行器提供的当前符号清单
-- 必须优先使用 `contentLines`，不要在 `content` 字段里放多行源码字符串
+- `expectedSourceHash` 必须与 prompt 输入里的 `sourceHash` 完全一致
+- `sourceStartLine` 使用 1-based 行号，并严格对应输入中的行号
+- `beforeLines` 必须逐行匹配当前文件真实内容
+- `afterLines` 只写修改后的目标内容，不带 `+/-/@@`
+- append-only 单元只能生成文件尾部最小骨架 hunk
+- restricted/single-symbol 单元只能围绕当前 `allowedSymbols` 对应区域生成最小 hunk
 - 若连续失败，执行器会把失败原因分类为：
   - `INVALID_PATCH_JSON`
   - `PATCH_SCHEMA_INVALID`
@@ -627,6 +628,8 @@ verifier 额外约束：
 来源：
 
 - `ImplementationExecutor.repairPlan`
+- `PatchPayloadRepairSupport`
+- `ModelJsonRepairTurn`
 
 system prompt：
 
@@ -635,7 +638,14 @@ system prompt：
 你必须只返回修复后的 JSON 对象，不要输出任何额外解释。
 ```
 
-目标格式仍然是 implementation plan 的标准 JSON。
+目标格式按调用方而定：
+
+- implementation plan repair: 修复为 plan 标准 JSON
+- patch payload repair: 修复为 structured diff JSON
+  - `expectedSourceHash`
+  - `hunks[].sourceStartLine`
+  - `hunks[].beforeLines`
+  - `hunks[].afterLines`
 
 user prompt 输入：
 
@@ -802,6 +812,11 @@ system prompt 核心：
 - 优先先满足确定性基础 testcase，再让模型补充或细化步骤
 - 不依赖外部网络、登录或人工操作
 - 不再按“网页/小游戏至少...”这种产品特判生成用例
+- `run-state-entry` 只允许落在 runtime contract 已声明的启动入口，或 runtime probe 明确识别出的 control candidate
+- 不允许把 `body`、`main`、宿主根节点或 selector 文本猜测结果写成 `run-state-entry`
+- 没有 runtime control candidate 时，不允许臆造启动点击步骤
+- `PRESS_KEY` 必须携带非空 `key`
+- 观察 surface 按 capability surface 独立绑定；`primary-visual-surface`、`primary-interaction`、`timed-state-progression` 不要求共用同一个 selector
 
 user prompt 输入：
 
@@ -835,6 +850,12 @@ user prompt 输入：
 - `WAIT`
 - `ASSERT_NO_ERRORS`
 - `ASSERT_TEXT_CONTAINS`
+
+执行侧额外约束：
+
+- 空 `PRESS_KEY` 会在 sanitizer 阶段直接删除
+- 不合法的 `run-state-entry` 会在 sanitizer/repair 阶段被降级或移除，不再原样透传到执行器
+- 交互补强只消费 runtime probe 给出的 control candidate，不再从静态 HTML 的 `<button>`、id/class 或 selector token 猜交互目标
 
 ## 通用 review JSON 包装
 

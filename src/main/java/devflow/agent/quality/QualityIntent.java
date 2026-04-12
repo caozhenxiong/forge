@@ -25,11 +25,11 @@ public record QualityIntent(
         return new QualityIntent(StructureIntent.empty(), CoverageIntent.empty(), InteractionIntent.empty());
     }
 
-    public Set<CapabilitySurface> requiredCapabilitySurfaces() {
-        LinkedHashSet<CapabilitySurface> surfaces = new LinkedHashSet<>();
-        surfaces.addAll(coverageIntent.requiredSurfaces());
-        surfaces.addAll(interactionIntent.expectedSurfaces());
-        return Set.copyOf(surfaces);
+    public Set<String> requiredCapabilityIds() {
+        LinkedHashSet<String> capabilityIds = new LinkedHashSet<>();
+        capabilityIds.addAll(coverageIntent.requiredCapabilityIds());
+        capabilityIds.addAll(interactionIntent.expectedCapabilityIds());
+        return Set.copyOf(capabilityIds);
     }
 
     public String toMarkdown(DocumentLanguage language) {
@@ -42,9 +42,9 @@ public record QualityIntent(
                 language.choose("质量意图", "Quality Intent"),
                 structureIntent.preferLogicExternalization(),
                 structureIntent.requireStructureJustification(),
-                requiredCapabilitySurfaces().isEmpty()
+                requiredCapabilityIds().isEmpty()
                         ? language.choose("(无)", "(none)")
-                        : requiredCapabilitySurfaces().stream().map(CapabilitySurface::wireValue).sorted().toList()
+                        : requiredCapabilityIds().stream().sorted().toList()
         ).trim();
     }
 }

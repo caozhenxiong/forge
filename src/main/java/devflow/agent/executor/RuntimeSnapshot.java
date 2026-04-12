@@ -2,6 +2,7 @@ package devflow.agent.executor;
 
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 public record RuntimeSnapshot(
@@ -150,6 +151,31 @@ public record RuntimeSnapshot(
             return false;
         }
         return exposedMetricKeys.stream().anyMatch(metricKey::equals);
+    }
+
+    public boolean hasControlSelector(String selector) {
+        if (selector == null || selector.isBlank() || controlCandidates == null || controlCandidates.isEmpty()) {
+            return false;
+        }
+        return controlCandidates.stream().anyMatch(candidate ->
+                candidate != null
+                        && candidate.usable()
+                        && selector.trim().equals(candidate.selector())
+        );
+    }
+
+    public List<String> controlSelectors() {
+        if (controlCandidates == null || controlCandidates.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<String> selectors = new LinkedHashSet<>();
+        for (RuntimeControlCandidate candidate : controlCandidates) {
+            if (candidate == null || !candidate.usable()) {
+                continue;
+            }
+            selectors.add(candidate.selector());
+        }
+        return List.copyOf(selectors);
     }
 
     private String renderList(List<String> values, DocumentLanguage language) {

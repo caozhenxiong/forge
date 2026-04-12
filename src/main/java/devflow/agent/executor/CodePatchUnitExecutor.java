@@ -1,6 +1,6 @@
 package devflow.agent.executor;
 
-import devflow.agent.editing.CodePrecisePatch;
+import devflow.agent.editing.StructuredDiffPatch;
 
 /**
  * 负责 `precise-code` 的单个 patch 单元执行。
@@ -14,9 +14,6 @@ final class CodePatchUnitExecutor {
     private final GenerationEngine generationEngine;
     private final GeneratedPayloadSupport generatedPayloadSupport;
     private final LanguageEditAdapter codeEditAdapter;
-    private final CodePatchProtocolAdapter codePatchProtocolAdapter;
-    private final CodePatchUnitContractValidator codePatchUnitContractValidator;
-    private final PatchUnitScopeValidator patchUnitScopeValidator;
     private final PatchFailureRouter patchFailureRouter;
     private final PatchBudgetPolicy patchBudgetPolicy;
     private final PatchPayloadRepairSupport patchPayloadRepairSupport;
@@ -31,9 +28,6 @@ final class CodePatchUnitExecutor {
             GenerationEngine generationEngine,
             GeneratedPayloadSupport generatedPayloadSupport,
             LanguageEditAdapter codeEditAdapter,
-            CodePatchProtocolAdapter codePatchProtocolAdapter,
-            CodePatchUnitContractValidator codePatchUnitContractValidator,
-            PatchUnitScopeValidator patchUnitScopeValidator,
             PatchFailureRouter patchFailureRouter,
             PatchBudgetPolicy patchBudgetPolicy,
             PatchPayloadRepairSupport patchPayloadRepairSupport,
@@ -46,9 +40,6 @@ final class CodePatchUnitExecutor {
         this.generationEngine = generationEngine;
         this.generatedPayloadSupport = generatedPayloadSupport;
         this.codeEditAdapter = codeEditAdapter;
-        this.codePatchProtocolAdapter = codePatchProtocolAdapter;
-        this.codePatchUnitContractValidator = codePatchUnitContractValidator;
-        this.patchUnitScopeValidator = patchUnitScopeValidator;
         this.patchFailureRouter = patchFailureRouter;
         this.patchBudgetPolicy = patchBudgetPolicy;
         this.patchPayloadRepairSupport = patchPayloadRepairSupport;
@@ -127,33 +118,12 @@ final class CodePatchUnitExecutor {
                                                 ModelRole.IMPLEMENTATION
                                         )
                         );
-                        CodePrecisePatch patch = patchPayloadRepairSupport.readStructuredPayload(
+                        StructuredDiffPatch patch = patchPayloadRepairSupport.readStructuredPayload(
                                 request.relativePath(),
                                 unit,
                                 generated,
-                                CodePrecisePatch.class,
+                                StructuredDiffPatch.class,
                                 request.eventJournal()
-                        );
-                        patch = codeEditAdapter.normalizePatch(request.relativePath(), currentContent, patch);
-                        CodePrecisePatch repairedPatch = codePatchUnitContractValidator.repairRepeatedDeclarationPayload(unit, patch);
-                        if (!repairedPatch.equals(patch)) {
-                            executionSupport.appendImplementationEvent(
-                                    request.eventJournal(),
-                                    ImplementationEventMessages.repairTrace(
-                                            "strict-body-repair",
-                                            request.relativePath(),
-                                            unit.label(),
-                                            "applied",
-                                            unit.allowedSymbols().isEmpty() ? "body-only" : unit.allowedSymbols().getFirst()
-                                    )
-                            );
-                            patch = repairedPatch;
-                        }
-                        codePatchUnitContractValidator.validate(request.relativePath(), unit, patch);
-                        patchUnitScopeValidator.validate(
-                                request.relativePath(),
-                                unit,
-                                codePatchProtocolAdapter.toOperations(patch)
                         );
                         PatchApplyResult applyResult = codeEditAdapter.applyPatch(
                                 request.projectPath(),

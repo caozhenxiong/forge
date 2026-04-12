@@ -5,6 +5,7 @@ import devflow.agent.i18n.LanguagePolicy;
 import devflow.agent.executor.ArchitectIntegrationCheck;
 import devflow.agent.executor.ArchitectIntegrationCheckResult;
 import devflow.agent.executor.ArchitectIntegrationFailureReason;
+import devflow.agent.executor.ExperienceFailureDisposition;
 import devflow.agent.executor.GenerationBudgetProfile;
 import devflow.agent.executor.LlmProvider;
 import devflow.agent.executor.SelfCheckResult;
@@ -18,7 +19,6 @@ import devflow.agent.prompt.PromptTemplateCatalog;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.StructuredArtifactBlocks;
-import devflow.agent.quality.CapabilitySurface;
 import devflow.agent.quality.CoverageLedger;
 import devflow.agent.quality.QualityLedger;
 import devflow.agent.project.WorkspaceSnapshotStore;
@@ -151,6 +151,10 @@ public class StageReviewer {
         if (contractGateResult != null) {
             return contractGateResult;
         }
+        ReviewResult targetedVerificationGate = enforceImplementationFailureVerification(projectPath, runRecord, artifactContent);
+        if (targetedVerificationGate != null) {
+            return targetedVerificationGate;
+        }
 
         String changes = snapshotStore.renderChanges(projectPath, runRecord.runId(), 8, 5000);
         String candidate = artifactContent
@@ -162,6 +166,36 @@ public class StageReviewer {
                 + changes;
         String reviewerContext = reviewArtifactLoader.readReviewerContext(runRecord);
         return implementationReviewTurnExecutor.run(runRecord, candidate, reviewerContext);
+    }
+
+    /**
+     * 如果 implementation 是从 TEST 失败回流回来的，review 不能只看 smoke/self-check。
+     *
+     * <p>这里会在 reviewer 之前先针对上一轮失败目标做一次确定性复核。
+     * 只有当前失败 case / capability 真正重新通过，implementation review 才允许进入语义审批。
+     */
+    private ReviewResult enforceImplementationFailureVerification(Path projectPath, RunRecord runRecord, String artifactContent) {
+        ExperienceFailureDisposition previousFailure = reviewArtifactLoader.readTestFailureDisposition(runRecord);
+        if (previousFailure == null || !previousFailure.requiresImplementationReverification()) {
+            return null;
+        }
+        String prd = reviewArtifactLoader.readStageArtifact(runRecord, StageType.PRD);
+        String design = reviewArtifactLoader.readStageArtifact(runRecord, StageType.DESIGN);
+        DocumentLanguage language = languagePolicy.resolve(
+                artifactContent,
+                runRecord.goal(),
+                runRecord.constraints()
+        );
+        return testExecutor.verifyImplementationRepairTargets(
+                projectPath,
+                runRecord.goal(),
+                runRecord.constraints(),
+                prd,
+                design,
+                artifactContent,
+                previousFailure,
+                language
+        );
     }
 
     /**
@@ -216,8 +250,7 @@ public class StageReviewer {
         if (coverageLedger == null || !coverageLedger.hasMissingRequiredCoverage()) {
             return parsed;
         }
-        String missingSurfaces = coverageLedger.missingRequiredSurfaces().stream()
-                .map(CapabilitySurface::wireValue)
+        String missingSurfaces = coverageLedger.missingRequiredCapabilityIds().stream()
                 .sorted()
                 .collect(Collectors.joining(", "));
         String evidence = missingSurfaces.isBlank()

@@ -15,10 +15,6 @@ public enum CapabilitySurface {
     RUNTIME_STABILITY("runtime-stability", CapabilitySurfaceCategory.CORE_RUNTIME),
     PRIMARY_VISUAL_SURFACE("primary-visual-surface", CapabilitySurfaceCategory.CORE_RUNTIME),
     PRIMARY_INTERACTION("primary-interaction", CapabilitySurfaceCategory.CORE_RUNTIME),
-    PAUSE_FREEZE("pause-freeze", CapabilitySurfaceCategory.EXPERIENCE),
-    RESET_RESTORES_INITIAL_STATE("reset-restores-initial-state", CapabilitySurfaceCategory.EXPERIENCE),
-    TIMED_STATE_PROGRESSION("timed-state-progression", CapabilitySurfaceCategory.EXPERIENCE),
-    VISIBLE_PROGRESS_SIGNAL("visible-progress-signal", CapabilitySurfaceCategory.EXPERIENCE),
     PERFORMANCE_LOAD("performance-load", CapabilitySurfaceCategory.PERFORMANCE),
     PERFORMANCE_INTERACTION("performance-interaction", CapabilitySurfaceCategory.PERFORMANCE);
 
@@ -51,11 +47,7 @@ public enum CapabilitySurface {
     public boolean requiresObservationTarget() {
         return switch (this) {
             case PRIMARY_VISUAL_SURFACE,
-                    PRIMARY_INTERACTION,
-                    PAUSE_FREEZE,
-                    RESET_RESTORES_INITIAL_STATE,
-                    TIMED_STATE_PROGRESSION,
-                    VISIBLE_PROGRESS_SIGNAL -> true;
+                    PRIMARY_INTERACTION -> true;
             default -> false;
         };
     }

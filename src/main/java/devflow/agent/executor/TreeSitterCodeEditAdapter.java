@@ -1,7 +1,7 @@
 package devflow.agent.executor;
 
 import devflow.agent.editing.CodePreciseEditor;
-import devflow.agent.editing.CodePrecisePatch;
+import devflow.agent.editing.StructuredDiffPatch;
 import devflow.agent.util.ProjectPathSupport;
 import java.nio.file.Path;
 
@@ -49,12 +49,12 @@ final class TreeSitterCodeEditAdapter implements LanguageEditAdapter {
     }
 
     @Override
-    public CodePrecisePatch normalizePatch(Path relativePath, String currentContent, CodePrecisePatch patch) {
-        return codePreciseEditor.normalizePatchTargets(relativePath, currentContent, patch);
-    }
-
-    @Override
-    public PatchApplyResult applyPatch(Path projectPath, Path relativePath, String currentContent, CodePrecisePatch patch) {
+    public PatchApplyResult applyPatch(
+            Path projectPath,
+            Path relativePath,
+            String currentContent,
+            StructuredDiffPatch patch
+    ) {
         return codePatchKernel.applyCodeFile(projectPath, relativePath, currentContent, patch);
     }
 }

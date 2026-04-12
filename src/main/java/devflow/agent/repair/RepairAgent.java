@@ -108,7 +108,10 @@ public class RepairAgent {
                 renderTaggedList(repairBrief.mustFixFirst()),
                 renderTaggedList(repairBrief.forbiddenDirections()),
                 renderTaggedList(repairBrief.acceptanceChecks()),
-                language.choose("以下是 DiagnosisAgent 输出的问题摘要，请严格按它进行修复：", "Below is the issue summary from DiagnosisAgent. Follow it strictly during repair:"),
+                language.choose(
+                        "以下是 DiagnosisAgent 输出的问题摘要，仅作为跨轮补充上下文；当前轮 summary / change request / evidence 仍是唯一主目标：",
+                        "Below is the DiagnosisAgent summary. Treat it only as cross-attempt supplemental context; the current summary / change request / evidence remain the authoritative target."
+                ),
                 repairBrief.toMarkdown(language),
                 language.choose("修复要求", "Repair Requirements"),
                 ArtifactLabels.mustFixFirstCoverageRequirement(language),

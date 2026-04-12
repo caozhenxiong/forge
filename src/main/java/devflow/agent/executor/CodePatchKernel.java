@@ -1,7 +1,7 @@
 package devflow.agent.executor;
 
-import devflow.agent.editing.CodePreciseEditor;
-import devflow.agent.editing.CodePrecisePatch;
+import devflow.agent.editing.StructuredDiffPatch;
+import devflow.agent.editing.StructuredDiffPatchApplySupport;
 import devflow.agent.editing.PreciseEditException;
 import devflow.agent.editing.PreciseEditFailureReason;
 import java.nio.file.Path;
@@ -17,24 +17,25 @@ import java.nio.file.Path;
  */
 final class CodePatchKernel {
 
-    private final CodePreciseEditor codePreciseEditor;
+    private final StructuredDiffPatchApplySupport patchApplySupport;
     private final PatchVerifier patchVerifier;
 
-    CodePatchKernel(
-            CodePreciseEditor codePreciseEditor,
-            PatchVerifier patchVerifier
-    ) {
-        this.codePreciseEditor = codePreciseEditor;
+    CodePatchKernel(PatchVerifier patchVerifier) {
+        this.patchApplySupport = new StructuredDiffPatchApplySupport();
         this.patchVerifier = patchVerifier;
     }
 
     PatchApplyResult applyInlineScript(
             Path relativePath,
             String currentScript,
-            CodePrecisePatch patch
+            StructuredDiffPatch patch
     ) {
         try {
-            String merged = codePreciseEditor.applyPatch(devflow.agent.util.ProjectPathSupport.inlineScriptSyntheticPath(relativePath), currentScript, patch);
+            String merged = patchApplySupport.applyPatch(
+                    devflow.agent.util.ProjectPathSupport.inlineScriptSyntheticPath(relativePath),
+                    currentScript,
+                    patch
+            );
             ToolResult verifyResult = patchVerifier.verifyInlineScript(relativePath, merged);
             if (verifyResult.succeeded()) {
                 return new PatchApplyResult(
@@ -71,10 +72,14 @@ final class CodePatchKernel {
     PatchApplyResult applyInlineStyle(
             Path relativePath,
             String currentStyle,
-            CodePrecisePatch patch
+            StructuredDiffPatch patch
     ) {
         try {
-            String merged = codePreciseEditor.applyPatch(devflow.agent.util.ProjectPathSupport.inlineStyleSyntheticPath(relativePath), currentStyle, patch);
+            String merged = patchApplySupport.applyPatch(
+                    devflow.agent.util.ProjectPathSupport.inlineStyleSyntheticPath(relativePath),
+                    currentStyle,
+                    patch
+            );
             ToolResult verifyResult = patchVerifier.verifyInlineStyle(relativePath, merged);
             if (verifyResult.succeeded()) {
                 return new PatchApplyResult(
@@ -112,10 +117,10 @@ final class CodePatchKernel {
             Path projectPath,
             Path relativePath,
             String currentContent,
-            CodePrecisePatch patch
+            StructuredDiffPatch patch
     ) {
         try {
-            String merged = codePreciseEditor.applyPatch(relativePath, currentContent, patch);
+            String merged = patchApplySupport.applyPatch(relativePath, currentContent, patch);
             ToolResult verifyResult = patchVerifier.verifyCodeFile(projectPath, relativePath, merged);
             if (verifyResult.succeeded()) {
                 return new PatchApplyResult(
@@ -167,9 +172,6 @@ final class CodePatchKernel {
     private ToolFailureCode preciseEditFailureCode(PreciseEditFailureReason reason) {
         if (reason == PreciseEditFailureReason.PATCH_EMPTY || reason == PreciseEditFailureReason.PATCH_SCHEMA_INVALID) {
             return ToolFailureCode.PATCH_SCHEMA_INVALID;
-        }
-        if (reason == PreciseEditFailureReason.EDIT_UNIT_SCOPE_VIOLATION) {
-            return ToolFailureCode.PATCH_SCOPE_VIOLATION;
         }
         if (reason == PreciseEditFailureReason.SYMBOL_NOT_FOUND) {
             return ToolFailureCode.PATCH_SYMBOL_NOT_FOUND;

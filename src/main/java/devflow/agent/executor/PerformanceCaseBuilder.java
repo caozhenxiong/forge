@@ -2,7 +2,7 @@ package devflow.agent.executor;
 
 import devflow.agent.context.ValidationMetadata;
 import devflow.agent.i18n.DocumentLanguage;
-import devflow.agent.quality.CapabilitySurface;
+import devflow.agent.quality.CapabilityIds;
 import java.util.List;
 
 /**
@@ -31,7 +31,7 @@ final class PerformanceCaseBuilder {
                             new TestStepSpec(TestStepAction.MEASURE_PAGE_LOAD_MAX_MS, null, null, null, requirements.pageLoadMs(), null, false),
                             new TestStepSpec(TestStepAction.ASSERT_NO_ERRORS, null, null, null, null, null, false)
                     ),
-                    List.of(CapabilitySurface.PAGE_LOAD, CapabilitySurface.PERFORMANCE_LOAD, CapabilitySurface.RUNTIME_STABILITY)
+                    List.of(CapabilityIds.PAGE_LOAD, CapabilityIds.PERFORMANCE_LOAD, CapabilityIds.RUNTIME_STABILITY)
             ));
         }
         if (requirements.interactionMs() != null
@@ -52,7 +52,7 @@ final class PerformanceCaseBuilder {
                             new TestStepSpec(TestStepAction.ASSERT_WINDOW_METRIC_MAX_MS, null, null, null, requirements.interactionMs(), WebRuntimeMetricKeys.LAST_ACTION_MS, false),
                             new TestStepSpec(TestStepAction.ASSERT_NO_ERRORS, null, null, null, null, null, false)
                     ),
-                    List.of(CapabilitySurface.PERFORMANCE_INTERACTION, CapabilitySurface.RUNTIME_STABILITY)
+                    List.of(CapabilityIds.PERFORMANCE_INTERACTION, CapabilityIds.RUNTIME_STABILITY)
             ));
         }
     }

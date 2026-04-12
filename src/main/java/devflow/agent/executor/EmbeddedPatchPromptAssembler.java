@@ -1,5 +1,6 @@
 package devflow.agent.executor;
 
+import devflow.agent.editing.FileStateSnapshot;
 import java.nio.file.Path;
 
 /**
@@ -29,6 +30,8 @@ final class EmbeddedPatchPromptAssembler {
             boolean restrictedUnit,
             boolean strictAppendOnlyUnit
     ) {
+        FileStateSnapshot fileState = StructuredDiffPromptSupport.capture(patchKind.syntheticPath(relativePath), currentContent);
+        String numberedContent = StructuredDiffPromptSupport.renderNumberedContent(currentContent);
         String system = patchKind.baseSystemPrompt();
         if (unit.appendOnly() && unit.appendSymbolBudget() > 0) {
             system = system + patchKind.appendBudgetInstruction(unit);
@@ -51,6 +54,10 @@ final class EmbeddedPatchPromptAssembler {
                 来源文件：
                 %s
 
+                当前工作集状态：
+                - sourceHash: %s
+                - lineCount: %s
+
                 当前编辑单元：
                 - label: %s
                 - allowedSymbols: %s
@@ -68,13 +75,15 @@ final class EmbeddedPatchPromptAssembler {
                 当前%s可精确编辑的%s：
                 %s
 
-                当前%s内容：
+                当前%s内容（带行号）：
                 %s
                 """.formatted(
                 planSummary,
                 taskPackageMarkdown,
                 coderContextMarkdown == null ? "" : coderContextMarkdown,
                 relativePath,
+                fileState.contentHash(),
+                fileState.lineCount(),
                 unit.label(),
                 unit.allowedSymbols().isEmpty() ? "(append-only)" : String.join(", ", unit.allowedSymbols()),
                 unit.appendOnly() ? Integer.toString(Math.max(1, unit.appendSymbolBudget())) : "(n/a)",
@@ -86,7 +95,7 @@ final class EmbeddedPatchPromptAssembler {
                 patchKind.targetName(),
                 describedTargets,
                 patchKind.contentName(),
-                summarizedContent
+                numberedContent
         );
         return new PatchGenerationPrompt(system, user);
     }

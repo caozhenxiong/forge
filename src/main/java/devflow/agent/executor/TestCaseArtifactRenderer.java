@@ -26,8 +26,13 @@ final class TestCaseArtifactRenderer {
             builder.append("- expected: ").append(blank(testCase.expected())).append("\n\n");
             if (testCase.capabilities() != null && !testCase.capabilities().isEmpty()) {
                 builder.append("- capabilities: ")
-                        .append(testCase.capabilities().stream().map(capability -> capability.wireValue()).reduce((left, right) -> left + ", " + right).orElse(""))
+                        .append(String.join(", ", testCase.capabilities()))
                         .append("\n\n");
+            }
+            if (testCase.requiresObservationWindow()) {
+                builder.append("- observationTargetId: ").append(blank(testCase.observationTargetId())).append("\n");
+                builder.append("- observationTrigger: ").append(testCase.observationTrigger()).append("\n");
+                builder.append("- observationComparison: ").append(testCase.observationComparison()).append("\n\n");
             }
             builder.append("### ").append(language.choose("步骤", "Steps")).append("\n\n");
             renderSteps(builder, testCase.steps());

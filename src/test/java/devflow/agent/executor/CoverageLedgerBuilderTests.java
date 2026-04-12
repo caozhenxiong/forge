@@ -1,9 +1,9 @@
 package devflow.agent.executor;
 
 import devflow.agent.quality.CapabilityExpectation;
+import devflow.agent.quality.CapabilityIds;
 import devflow.agent.quality.CapabilityMatrix;
 import devflow.agent.quality.CapabilityMatrixEntry;
-import devflow.agent.quality.CapabilitySurface;
 import devflow.agent.quality.CoverageLedger;
 import devflow.agent.quality.CoverageLedgerStatus;
 import devflow.agent.quality.CoveragePolicy;
@@ -32,16 +32,16 @@ class CoverageLedgerBuilderTests {
                 new CoveragePolicy(3, true, true),
                 new ExperiencePolicy(true, true),
                 new CapabilityMatrix(List.of(
-                        new CapabilityMatrixEntry(CapabilitySurface.PAGE_LOAD, CapabilityExpectation.REQUIRED, false, ""),
-                        new CapabilityMatrixEntry(CapabilitySurface.PRIMARY_INTERACTION, CapabilityExpectation.REQUIRED, true, "")
+                        new CapabilityMatrixEntry(CapabilityIds.PAGE_LOAD, CapabilityExpectation.REQUIRED, false, ""),
+                        new CapabilityMatrixEntry(CapabilityIds.PRIMARY_INTERACTION, CapabilityExpectation.REQUIRED, true, "")
                 )),
                 QualityChecklist.empty()
         );
         TestCasePlan plan = new TestCasePlan(
                 "summary",
                 List.of(
-                        new TestCaseSpec("TC-LOAD", "load", "smoke", true, "index.html", "", "", List.of(), List.of(CapabilitySurface.PAGE_LOAD)),
-                        new TestCaseSpec("TC-INTERACT", "interact", "functional", true, "index.html", "", "", List.of(), List.of(CapabilitySurface.PRIMARY_INTERACTION))
+                        new TestCaseSpec("TC-LOAD", "load", "smoke", true, "index.html", "", "", List.of(), List.of(CapabilityIds.PAGE_LOAD)),
+                        new TestCaseSpec("TC-INTERACT", "interact", "functional", true, "index.html", "", "", List.of(), List.of(CapabilityIds.PRIMARY_INTERACTION))
                 ),
                 qualityPlan
         );

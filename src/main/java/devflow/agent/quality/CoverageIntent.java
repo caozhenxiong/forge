@@ -8,11 +8,11 @@ import java.util.Set;
  * <p>能力项来自 contract / planner 产物，而不是从运行时 selector 文案猜测。
  */
 public record CoverageIntent(
-        Set<CapabilitySurface> requiredSurfaces
+        Set<String> requiredCapabilityIds
 ) {
 
     public CoverageIntent {
-        requiredSurfaces = requiredSurfaces == null ? Set.of() : Set.copyOf(requiredSurfaces);
+        requiredCapabilityIds = requiredCapabilityIds == null ? Set.of() : CapabilityIds.normalizeSet(requiredCapabilityIds);
     }
 
     public static CoverageIntent empty() {

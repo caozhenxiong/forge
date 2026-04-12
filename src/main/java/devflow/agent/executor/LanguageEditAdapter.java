@@ -1,6 +1,6 @@
 package devflow.agent.executor;
 
-import devflow.agent.editing.CodePrecisePatch;
+import devflow.agent.editing.StructuredDiffPatch;
 import java.nio.file.Path;
 
 /**
@@ -32,7 +32,5 @@ interface LanguageEditAdapter {
 
     PatchTargetContext locateTargets(Path relativePath, String source);
 
-    CodePrecisePatch normalizePatch(Path relativePath, String currentContent, CodePrecisePatch patch);
-
-    PatchApplyResult applyPatch(Path projectPath, Path relativePath, String currentContent, CodePrecisePatch patch);
+    PatchApplyResult applyPatch(Path projectPath, Path relativePath, String currentContent, StructuredDiffPatch patch);
 }

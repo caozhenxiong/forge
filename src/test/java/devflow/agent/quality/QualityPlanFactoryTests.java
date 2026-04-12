@@ -71,15 +71,15 @@ class QualityPlanFactoryTests {
         assertTrue(plan.structureRiskReport().embeddedLogicRisk().atLeast(StructureRiskLevel.HIGH));
         assertFalse(plan.qualityIntent().structureIntent().preferLogicExternalization());
         assertFalse(plan.qualityIntent().structureIntent().requireStructureJustification());
-        assertTrue(plan.capabilityMatrix().requires(CapabilitySurface.PAGE_LOAD));
-        assertTrue(plan.capabilityMatrix().requires(CapabilitySurface.RUNTIME_STABILITY));
-        assertTrue(plan.capabilityMatrix().requires(CapabilitySurface.PRIMARY_VISUAL_SURFACE));
-        assertTrue(plan.capabilityMatrix().requires(CapabilitySurface.PRIMARY_INTERACTION));
-        assertTrue(plan.capabilityMatrix().requires(CapabilitySurface.PERFORMANCE_LOAD));
-        assertTrue(plan.capabilityMatrix().requires(CapabilitySurface.PERFORMANCE_INTERACTION));
-        assertFalse(plan.capabilityMatrix().requires(CapabilitySurface.PAUSE_FREEZE));
-        assertFalse(plan.capabilityMatrix().requires(CapabilitySurface.RESET_RESTORES_INITIAL_STATE));
-        assertFalse(plan.capabilityMatrix().requires(CapabilitySurface.VISIBLE_PROGRESS_SIGNAL));
+        assertTrue(plan.capabilityMatrix().requires(CapabilityIds.PAGE_LOAD));
+        assertTrue(plan.capabilityMatrix().requires(CapabilityIds.RUNTIME_STABILITY));
+        assertTrue(plan.capabilityMatrix().requires(CapabilityIds.PRIMARY_VISUAL_SURFACE));
+        assertTrue(plan.capabilityMatrix().requires(CapabilityIds.PRIMARY_INTERACTION));
+        assertTrue(plan.capabilityMatrix().requires(CapabilityIds.PERFORMANCE_LOAD));
+        assertTrue(plan.capabilityMatrix().requires(CapabilityIds.PERFORMANCE_INTERACTION));
+        assertFalse(plan.capabilityMatrix().requires(CapabilityIds.PAUSE_FREEZE));
+        assertFalse(plan.capabilityMatrix().requires(CapabilityIds.RESET_RESTORES_INITIAL_STATE));
+        assertFalse(plan.capabilityMatrix().requires(CapabilityIds.VISIBLE_PROGRESS_SIGNAL));
     }
 
     @Test
@@ -87,7 +87,7 @@ class QualityPlanFactoryTests {
         QualityPlan plan = new QualityPlanFactory().build(null, null, null, null, List.of());
 
         assertTrue(plan.capabilityMatrix().isEmpty());
-        assertTrue(plan.qualityIntent().requiredCapabilitySurfaces().isEmpty());
+        assertTrue(plan.qualityIntent().requiredCapabilityIds().isEmpty());
         assertFalse(plan.featureProfile().hasHtmlEntry());
         assertFalse(plan.featureProfile().hasDiscreteUserInput());
     }
@@ -106,11 +106,11 @@ class QualityPlanFactoryTests {
                 contractView,
                 ValidationMetadata.empty(),
                 null,
-                List.of(CapabilitySurface.TIMED_STATE_PROGRESSION.wireValue())
+                List.of(CapabilityIds.TIMED_STATE_PROGRESSION)
         );
 
-        assertTrue(plan.qualityIntent().requiredCapabilitySurfaces().contains(CapabilitySurface.TIMED_STATE_PROGRESSION));
-        assertTrue(plan.capabilityMatrix().requires(CapabilitySurface.TIMED_STATE_PROGRESSION));
+        assertTrue(plan.qualityIntent().requiredCapabilityIds().contains(CapabilityIds.TIMED_STATE_PROGRESSION));
+        assertTrue(plan.capabilityMatrix().requires(CapabilityIds.TIMED_STATE_PROGRESSION));
     }
 
     @Test
@@ -143,7 +143,7 @@ class QualityPlanFactoryTests {
 
         assertEquals(StructureRiskLevel.HIGH, plan.structurePolicy().maxHostDocumentRisk());
         assertEquals(5, plan.coveragePolicy().minimumRequiredCases());
-        assertTrue(plan.qualityIntent().requiredCapabilitySurfaces().contains(CapabilitySurface.VISIBLE_PROGRESS_SIGNAL));
+        assertTrue(plan.qualityIntent().requiredCapabilityIds().contains(CapabilityIds.VISIBLE_PROGRESS_SIGNAL));
     }
 
     @Test

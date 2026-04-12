@@ -30,11 +30,11 @@ final class CoverageLedgerBuilder {
         List<CoverageLedgerEntry> entries = new ArrayList<>();
         QualityPlan qualityPlan = plan.qualityPlan();
         for (CapabilityMatrixEntry matrixEntry : qualityPlan.capabilityMatrix().entries()) {
-            if (matrixEntry == null || matrixEntry.surface() == null) {
+            if (matrixEntry == null || matrixEntry.capabilityId().isBlank()) {
                 continue;
             }
             List<TestCaseSpec> matchingCases = plan.cases().stream()
-                    .filter(testCase -> testCase != null && testCase.capabilities().contains(matrixEntry.surface()))
+                    .filter(testCase -> testCase != null && testCase.capabilities().contains(matrixEntry.capabilityId()))
                     .toList();
             List<String> caseIds = matchingCases.stream().map(TestCaseSpec::id).toList();
             CoverageLedgerStatus status = resolveStatus(caseIds, resultById);
@@ -44,7 +44,7 @@ final class CoverageLedgerBuilder {
                 case COVERED -> "";
             };
             entries.add(new CoverageLedgerEntry(
-                    matrixEntry.surface(),
+                    matrixEntry.capabilityId(),
                     matrixEntry.required(),
                     status,
                     caseIds,

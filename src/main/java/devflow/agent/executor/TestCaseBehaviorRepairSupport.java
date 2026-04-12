@@ -1,6 +1,6 @@
 package devflow.agent.executor;
 
-import devflow.agent.quality.CapabilitySurface;
+import devflow.agent.quality.CapabilityIds;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -25,7 +25,7 @@ final class TestCaseBehaviorRepairSupport {
         if (cases == null || cases.isEmpty()) {
             return List.of();
         }
-        SemanticSelectorCatalog selectorCatalog = SemanticSelectorCatalog.fromCases(cases, runtimeContract);
+        SemanticSelectorCatalog selectorCatalog = SemanticSelectorCatalog.fromContract(runtimeContract);
         List<TestCaseSpec> repaired = new ArrayList<>();
         for (TestCaseSpec testCase : cases) {
             repaired.add(repairCase(testCase, runtimeSnapshot, runtimeContract, selectorCatalog));
@@ -41,9 +41,11 @@ final class TestCaseBehaviorRepairSupport {
     ) {
         List<TestStepSpec> steps = new ArrayList<>(testCase.steps() == null ? List.of() : testCase.steps());
         normalizeObservationSurface(steps, testCase, runtimeContract);
+        normalizeStructuredSemantics(steps, runtimeSnapshot, runtimeContract);
         repairKeyboardSetup(steps);
         injectRunningStartPreconditions(steps, testCase, selectorCatalog);
         repairObservableSequences(steps, testCase, runtimeContract);
+        canonicalizeCapabilityObservationSequence(steps, testCase, runtimeContract);
         softenBrittleScoreAssertions(steps);
         softenBrittleControlAssertions(steps);
         return new TestCaseSpec(
@@ -55,7 +57,10 @@ final class TestCaseBehaviorRepairSupport {
                 testCase.preconditions(),
                 testCase.expected(),
                 List.copyOf(steps),
-                testCase.capabilities()
+                testCase.capabilities(),
+                testCase.observationTargetId(),
+                testCase.observationTrigger(),
+                testCase.observationComparison()
         );
     }
 
@@ -84,6 +89,64 @@ final class TestCaseBehaviorRepairSupport {
                 firstKeyIndex--;
             }
         }
+    }
+
+    /**
+     * semantic 只能绑定到已经验证过的 runtime 事实。
+     *
+     * <p>这一步会把“模型口头声称是 run-state-entry”的 selector 收敛成：
+     * 1. contract 中已确认的显式入口；
+     * 2. runtime 快照里真实存在的 explicit control；
+     * 3. 当前 contract 已确认的观测面。
+     *
+     * <p>除此之外的 run-state-entry 会被删掉，避免 generic host selector 混进启动链。
+     */
+    private void normalizeStructuredSemantics(
+            List<TestStepSpec> steps,
+            RuntimeSnapshot runtimeSnapshot,
+            UiRuntimeContract runtimeContract
+    ) {
+        for (int index = 0; index < steps.size(); index++) {
+            TestStepSpec step = steps.get(index);
+            if (step == null) {
+                steps.remove(index--);
+                continue;
+            }
+            if (step.action() == TestStepAction.PRESS_KEY && blank(step.key()).isBlank()) {
+                steps.remove(index--);
+                continue;
+            }
+            if (step.semantic() != TestStepSemantic.RUN_STATE_ENTRY) {
+                continue;
+            }
+            TestStepSpec normalized = normalizeRunStateEntryStep(step, runtimeSnapshot, runtimeContract);
+            if (normalized == null) {
+                steps.remove(index--);
+                continue;
+            }
+            steps.set(index, normalized);
+        }
+    }
+
+    private TestStepSpec normalizeRunStateEntryStep(
+            TestStepSpec step,
+            RuntimeSnapshot runtimeSnapshot,
+            UiRuntimeContract runtimeContract
+    ) {
+        String selector = blank(step.selector()).trim();
+        if (selector.isBlank()) {
+            return null;
+        }
+        if (isValidatedRunStateEntry(selector, runtimeContract)) {
+            return step;
+        }
+        if (runtimeSnapshot != null && runtimeSnapshot.hasControlSelector(selector)) {
+            return withSemantic(step, TestStepSemantic.PRIMARY_CONTROL);
+        }
+        if (isObservationSelector(selector, runtimeContract)) {
+            return withSemantic(step, TestStepSemantic.PRIMARY_SURFACE);
+        }
+        return null;
     }
 
     private void injectRunningStartPreconditions(
@@ -149,6 +212,11 @@ final class TestCaseBehaviorRepairSupport {
     }
 
     private void repairObservableSequences(List<TestStepSpec> steps, TestCaseSpec testCase, UiRuntimeContract runtimeContract) {
+        if (testCase == null
+                || testCase.observationTrigger() != TestObservationTrigger.AFTER_INTERACTION
+                || !testCase.observationComparison().requiresSnapshotComparison()) {
+            return;
+        }
         for (int index = 0; index < steps.size(); index++) {
             TestStepAction action = steps.get(index).action();
             if (action == null || !action.isObservablePostcondition()) {
@@ -159,7 +227,9 @@ final class TestCaseBehaviorRepairSupport {
     }
 
     private void normalizeObservationSurface(List<TestStepSpec> steps, TestCaseSpec testCase, UiRuntimeContract runtimeContract) {
-        if (steps.isEmpty()) {
+        if (steps.isEmpty()
+                || testCase == null
+                || !testCase.observationComparison().requiresSnapshotComparison()) {
             return;
         }
         UiObservationTarget target = observationTarget(testCase, runtimeContract);
@@ -174,8 +244,23 @@ final class TestCaseBehaviorRepairSupport {
                 continue;
             }
             if (step.action() == TestStepAction.ASSERT_CANVAS_HASH_CHANGED
+                    || step.action() == TestStepAction.ASSERT_CANVAS_HASH_UNCHANGED
                     || step.action() == TestStepAction.ASSERT_DOM_SIGNATURE_CHANGED) {
-                steps.set(index, observationPolicy.changedAssertion(target, blank(step.text()), step.optional()));
+                steps.set(index, observationPolicy.comparisonAssertion(
+                        target,
+                        testCase.observationComparison(),
+                        blank(step.text()),
+                        step.optional()
+                ));
+                continue;
+            }
+            if (step.action() == TestStepAction.ASSERT_DOM_SIGNATURE_UNCHANGED) {
+                steps.set(index, observationPolicy.comparisonAssertion(
+                        target,
+                        testCase.observationComparison(),
+                        blank(step.text()),
+                        step.optional()
+                ));
                 continue;
             }
             if (step.action() == TestStepAction.ASSERT_CANVAS_MIN
@@ -263,7 +348,11 @@ final class TestCaseBehaviorRepairSupport {
         }
         int snapshotIndex = findPreviousActionIndex(steps, assertIndex, snapshotAction);
         if (snapshotIndex < 0) {
-            steps.add(interactiveIndex, buildSnapshotStep(assertAction, steps.get(assertIndex), testCase, runtimeContract));
+            TestStepSpec snapshotStep = buildSnapshotStep(assertAction, steps.get(assertIndex), testCase, runtimeContract);
+            if (snapshotStep == null) {
+                return;
+            }
+            steps.add(interactiveIndex, snapshotStep);
             assertIndex++;
         } else if (snapshotIndex > interactiveIndex) {
             TestStepSpec snapshotStep = steps.remove(snapshotIndex);
@@ -320,24 +409,24 @@ final class TestCaseBehaviorRepairSupport {
         if (interactiveIndex < 0) {
             return;
         }
-        boolean hasWait = false;
+        int firstWaitIndex = -1;
         for (int index = interactiveIndex + 1; index < assertIndex; index++) {
             if (steps.get(index).action() == TestStepAction.WAIT) {
-                hasWait = true;
-                break;
+                if (firstWaitIndex < 0) {
+                    firstWaitIndex = index;
+                    continue;
+                }
+                steps.remove(index--);
+                assertIndex--;
             }
         }
-        if (!hasWait) {
-            steps.add(assertIndex, new TestStepSpec(
-                    TestStepAction.WAIT,
-                    null,
-                    null,
-                    null,
-                    observationPolicy.observationWaitMs(testCase == null ? List.of() : testCase.capabilities()),
-                    null,
-                    false
-            ));
+        if (firstWaitIndex < 0) {
+            steps.add(assertIndex, observationPolicy.waitStep(testCase == null ? TestObservationTrigger.NONE : testCase.observationTrigger()));
+            return;
         }
+        steps.set(firstWaitIndex, waitStepWithMs(steps.get(firstWaitIndex), observationPolicy.observationWaitMs(
+                testCase == null ? TestObservationTrigger.NONE : testCase.observationTrigger()
+        )));
     }
 
     private TestStepSpec buildSnapshotStep(
@@ -348,7 +437,7 @@ final class TestCaseBehaviorRepairSupport {
     ) {
         UiObservationTarget target = observationTarget(testCase, runtimeContract);
         if (target == null) {
-            return assertStep;
+            return null;
         }
         return observationPolicy.snapshotStep(target, blank(assertStep.text()), false);
     }
@@ -357,11 +446,105 @@ final class TestCaseBehaviorRepairSupport {
         if (steps.stream().anyMatch(step -> step.action() == TestStepAction.PRESS_KEY)) {
             return true;
         }
-        if (testCase == null || testCase.capabilities() == null || testCase.capabilities().isEmpty()) {
-            return false;
+        if (steps.stream().anyMatch(step -> step.semantic() == TestStepSemantic.PAUSE_TOGGLE
+                || step.semantic() == TestStepSemantic.STATE_RESET
+                || step.semantic() == TestStepSemantic.RUN_STATE_ENTRY)) {
+            return true;
         }
-        return testCase.capabilities().contains(CapabilitySurface.PAUSE_FREEZE)
-                || testCase.capabilities().contains(CapabilitySurface.TIMED_STATE_PROGRESSION);
+        return testCase != null && testCase.observationTrigger() == TestObservationTrigger.AFTER_WAIT;
+    }
+
+    /**
+     * 观测协议级 canonicalization 是最终收口层。
+     *
+     * <p>前面的 repair 会尽量最小化调整局部顺序，但 required case 的观测主链必须在这里收成
+     * structured observation contract 定义的唯一合法形态，避免 planner/strengthener
+     * 产物继续把错误顺序带进 TEST 主链。
+     */
+    private void canonicalizeCapabilityObservationSequence(
+            List<TestStepSpec> steps,
+            TestCaseSpec testCase,
+            UiRuntimeContract runtimeContract
+    ) {
+        if (testCase == null || steps.isEmpty() || !testCase.requiresObservationWindow()) {
+            return;
+        }
+        if (testCase.observationTrigger() == TestObservationTrigger.AFTER_WAIT) {
+            canonicalizeDelayedObservation(steps, testCase, runtimeContract);
+            return;
+        }
+        normalizeInteractiveObservationWaits(steps, testCase, runtimeContract);
+    }
+
+    /**
+     * `AFTER_WAIT` 表示“先记录 baseline，再等待统一策略时长，再断言比较结果”。
+     *
+     * <p>因此这里直接把 delayed observation window 重写成唯一合法骨架：
+     * snapshot -> WAIT(policy) -> ASSERT_COMPARE
+     *
+     * <p>这一步不会动前面的 setup / 运行态入口，只收紧观测窗口本身。
+     */
+    private void canonicalizeDelayedObservation(
+            List<TestStepSpec> steps,
+            TestCaseSpec testCase,
+            UiRuntimeContract runtimeContract
+    ) {
+        UiObservationTarget target = observationTarget(testCase, runtimeContract);
+        if (target == null) {
+            return;
+        }
+        TestStepAction assertAction = observationPolicy.comparisonAssertionAction(target, testCase.observationComparison());
+        TestStepAction snapshotAction = observationPolicy.snapshotAction(target);
+        if (assertAction == null || snapshotAction == null) {
+            return;
+        }
+        int assertIndex = findFirstActionIndex(steps, assertAction, 0);
+        if (assertIndex < 0) {
+            return;
+        }
+        int snapshotIndex = findFirstActionIndex(steps, snapshotAction, 0);
+        int waitIndex = findFirstActionIndex(steps, TestStepAction.WAIT, 0);
+        int windowStart = waitIndex >= 0 && waitIndex < assertIndex ? waitIndex : assertIndex;
+        TestStepSpec assertStep = steps.get(assertIndex);
+        String snapshotKey = firstNonBlank(
+                textOrEmpty(stepAt(steps, snapshotIndex)),
+                textOrEmpty(assertStep),
+                "observed-" + blank(testCase.id())
+        );
+        boolean optional = Boolean.TRUE.equals(assertStep.optional());
+        for (int index = assertIndex; index >= 0; index--) {
+            TestStepAction action = steps.get(index).action();
+            if (action == snapshotAction || action == assertAction || action == TestStepAction.WAIT) {
+                steps.remove(index);
+                if (index < windowStart) {
+                    windowStart--;
+                }
+            }
+        }
+        steps.add(windowStart, observationPolicy.snapshotStep(target, snapshotKey, false));
+        steps.add(windowStart + 1, observationPolicy.waitStep(testCase.observationTrigger()));
+        steps.add(windowStart + 2, observationPolicy.comparisonAssertion(target, testCase.observationComparison(), snapshotKey, optional));
+    }
+
+    private void normalizeInteractiveObservationWaits(
+            List<TestStepSpec> steps,
+            TestCaseSpec testCase,
+            UiRuntimeContract runtimeContract
+    ) {
+        UiObservationTarget target = observationTarget(testCase, runtimeContract);
+        if (target == null) {
+            return;
+        }
+        TestStepAction assertAction = observationPolicy.comparisonAssertionAction(target, testCase.observationComparison());
+        if (assertAction == null) {
+            return;
+        }
+        for (int assertIndex = 0; assertIndex < steps.size(); assertIndex++) {
+            if (steps.get(assertIndex).action() != assertAction) {
+                continue;
+            }
+            ensureWaitBetweenInteractionAndAssertion(steps, testCase, assertAction, assertIndex);
+        }
     }
 
     private int firstRunningActionIndex(List<TestStepSpec> steps) {
@@ -369,6 +552,15 @@ final class TestCaseBehaviorRepairSupport {
             TestStepSpec step = steps.get(index);
             if (step.action() == TestStepAction.PRESS_KEY
                     || (step.action() == TestStepAction.CLICK && step.semantic() == TestStepSemantic.PAUSE_TOGGLE)) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private int findFirstActionIndex(List<TestStepSpec> steps, TestStepAction action, int startIndex) {
+        for (int index = Math.max(0, startIndex); index < steps.size(); index++) {
+            if (steps.get(index).action() == action) {
                 return index;
             }
         }
@@ -456,10 +648,12 @@ final class TestCaseBehaviorRepairSupport {
     }
 
     private TestStepAction snapshotActionFor(TestStepAction assertAction) {
-        if (assertAction == TestStepAction.ASSERT_CANVAS_HASH_CHANGED) {
+        if (assertAction == TestStepAction.ASSERT_CANVAS_HASH_CHANGED
+                || assertAction == TestStepAction.ASSERT_CANVAS_HASH_UNCHANGED) {
             return TestStepAction.SNAPSHOT_CANVAS_HASH;
         }
-        if (assertAction == TestStepAction.ASSERT_DOM_SIGNATURE_CHANGED) {
+        if (assertAction == TestStepAction.ASSERT_DOM_SIGNATURE_CHANGED
+                || assertAction == TestStepAction.ASSERT_DOM_SIGNATURE_UNCHANGED) {
             return TestStepAction.SNAPSHOT_DOM_SIGNATURE;
         }
         return null;
@@ -479,7 +673,12 @@ final class TestCaseBehaviorRepairSupport {
     }
 
     private boolean isAllowedPreKeyClick(TestStepSpec step) {
-        return step != null && step.semantic() == TestStepSemantic.RUN_STATE_ENTRY;
+        if (step == null) {
+            return false;
+        }
+        return step.semantic() == TestStepSemantic.RUN_STATE_ENTRY
+                || step.semantic() == TestStepSemantic.PRIMARY_CONTROL
+                || step.semantic() == TestStepSemantic.PRIMARY_SURFACE;
     }
 
     private boolean isAllowedPreKeyAssertion(TestStepSpec step) {
@@ -487,6 +686,7 @@ final class TestCaseBehaviorRepairSupport {
             return false;
         }
         return step.semantic() == TestStepSemantic.RUN_STATE_ENTRY
+                || step.semantic() == TestStepSemantic.PRIMARY_CONTROL
                 || step.semantic() == TestStepSemantic.PRIMARY_SURFACE;
     }
 
@@ -547,6 +747,7 @@ final class TestCaseBehaviorRepairSupport {
     private boolean isControlStep(TestStepSpec step) {
         return step != null
                 && (step.semantic() == TestStepSemantic.RUN_STATE_ENTRY
+                || step.semantic() == TestStepSemantic.PRIMARY_CONTROL
                 || step.semantic() == TestStepSemantic.PAUSE_TOGGLE);
     }
 
@@ -563,43 +764,97 @@ final class TestCaseBehaviorRepairSupport {
         return true;
     }
 
+    private int earliestPositive(int... values) {
+        int earliest = Integer.MAX_VALUE;
+        for (int value : values) {
+            if (value >= 0 && value < earliest) {
+                earliest = value;
+            }
+        }
+        return earliest == Integer.MAX_VALUE ? -1 : earliest;
+    }
+
+    private TestStepSpec stepAt(List<TestStepSpec> steps, int index) {
+        if (index < 0 || index >= steps.size()) {
+            return null;
+        }
+        return steps.get(index);
+    }
+
+    private String textOrEmpty(TestStepSpec step) {
+        return step == null ? "" : blank(step.text());
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null || values.length == 0) {
+            return "";
+        }
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
+        }
+        return "";
+    }
+
+    private TestStepSpec waitStepWithMs(TestStepSpec step, int ms) {
+        return new TestStepSpec(
+                TestStepAction.WAIT,
+                null,
+                null,
+                null,
+                ms,
+                null,
+                step == null ? false : step.optional(),
+                step == null ? null : step.semantic()
+        );
+    }
+
     private String blank(String value) {
         return value == null ? "" : value;
     }
 
     private UiObservationTarget observationTarget(TestCaseSpec testCase, UiRuntimeContract runtimeContract) {
-        if (testCase != null
-                && testCase.capabilities() != null
-                && testCase.capabilities().contains(CapabilitySurface.TIMED_STATE_PROGRESSION)) {
-            UiObservationTarget timedTarget = observationPolicy.requiredTarget(
-                    runtimeContract,
-                    CapabilitySurface.TIMED_STATE_PROGRESSION
-            );
-            if (timedTarget != null) {
-                return timedTarget;
-            }
+        if (testCase == null || runtimeContract == null) {
+            return null;
         }
-        return observationPolicy.requiredTarget(runtimeContract, CapabilitySurface.PRIMARY_INTERACTION);
+        String targetId = blank(testCase.observationTargetId()).isBlank()
+                ? CapabilityIds.PRIMARY_INTERACTION
+                : testCase.observationTargetId();
+        return observationPolicy.requiredTarget(runtimeContract, targetId);
+    }
+
+    private boolean isValidatedRunStateEntry(String selector, UiRuntimeContract runtimeContract) {
+        return runtimeContract != null
+                && runtimeContract.runStateEntryTargets() != null
+                && runtimeContract.runStateEntryTargets().stream().anyMatch(selector::equals);
+    }
+
+    private boolean isObservationSelector(String selector, UiRuntimeContract runtimeContract) {
+        if (runtimeContract == null || runtimeContract.observationTargets() == null) {
+            return false;
+        }
+        return runtimeContract.observationTargets().stream().anyMatch(target ->
+                target != null && selector.equals(target.selector())
+        );
+    }
+
+    private TestStepSpec withSemantic(TestStepSpec step, TestStepSemantic semantic) {
+        return new TestStepSpec(
+                step.action(),
+                step.selector(),
+                step.key(),
+                step.count(),
+                step.ms(),
+                step.text(),
+                step.optional(),
+                semantic
+        );
     }
 
     private record SemanticSelectorCatalog(String runStateEntrySelector) {
 
-        static SemanticSelectorCatalog fromCases(List<TestCaseSpec> cases, UiRuntimeContract runtimeContract) {
-            if (cases == null || cases.isEmpty()) {
-                return new SemanticSelectorCatalog(firstContractRunStateEntry(runtimeContract));
-            }
-            for (TestCaseSpec testCase : cases) {
-                if (testCase == null || testCase.steps() == null) {
-                    continue;
-                }
-                for (TestStepSpec step : testCase.steps()) {
-                    if (step != null
-                            && step.semantic() == TestStepSemantic.RUN_STATE_ENTRY
-                            && !blankValue(step.selector()).isBlank()) {
-                        return new SemanticSelectorCatalog(step.selector());
-                    }
-                }
-            }
+        static SemanticSelectorCatalog fromContract(UiRuntimeContract runtimeContract) {
             return new SemanticSelectorCatalog(firstContractRunStateEntry(runtimeContract));
         }
 

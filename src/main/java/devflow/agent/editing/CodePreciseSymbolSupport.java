@@ -5,7 +5,6 @@ import devflow.agent.parsing.CodeSymbol;
 import devflow.agent.parsing.TreeSitterSupport;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -14,7 +13,7 @@ import java.util.Objects;
  * <p>这里统一负责：
  * 1. 读取 tree-sitter 结构快照；
  * 2. 暴露稳定的符号摘要；
- * 3. 把模型给出的 target kind 对齐到源码里真实存在的符号类型。
+ * 3. 提供局部编辑规划所需的稳定符号集合。
  */
 final class CodePreciseSymbolSupport {
 
@@ -79,79 +78,5 @@ final class CodePreciseSymbolSupport {
 
     boolean hasInsertableSymbols(Path relativePath, String source) {
         return !listInsertableSymbolNames(relativePath, source).isEmpty();
-    }
-
-    CodePrecisePatch normalizePatchTargets(Path relativePath, String source, CodePrecisePatch patch) {
-        if (patch == null || !patch.hasAnyOperation()) {
-            return patch;
-        }
-        CodeStructureSnapshot snapshot = inspect(relativePath, source);
-        List<CodePreciseOperation> normalized = patch.operations().stream()
-                .map(operation -> normalizeOperation(snapshot, operation))
-                .toList();
-        return new CodePrecisePatch(normalized);
-    }
-
-    CodeSymbol resolveSymbol(CodeStructureSnapshot snapshot, String name, String kind, boolean requireInsertion) {
-        String normalizedName = normalize(name);
-        String normalizedKind = normalize(kind);
-        return snapshot.symbols().stream()
-                .filter(symbol -> normalizedName.isBlank() || normalize(symbol.name()).equals(normalizedName))
-                .filter(symbol -> normalizedKind.isBlank() || normalize(symbol.kind()).equals(normalizedKind))
-                .filter(symbol -> !requireInsertion || symbol.supportsInsertion())
-                .findFirst()
-                .orElseThrow(() -> new PreciseEditException(
-                        PreciseEditFailureReason.SYMBOL_NOT_FOUND,
-                        "No matching symbol found for precise edit: name=%s kind=%s".formatted(name, kind)
-                ));
-    }
-
-    private CodePreciseOperation normalizeOperation(CodeStructureSnapshot snapshot, CodePreciseOperation operation) {
-        if (operation == null || operation.action() == null || operation.targetSymbol() == null || operation.targetSymbol().isBlank()) {
-            return operation;
-        }
-        List<CodeSymbol> nameMatches = snapshot.symbols().stream()
-                .filter(symbol -> normalize(symbol.name()).equals(normalize(operation.targetSymbol())))
-                .toList();
-        if (nameMatches.isEmpty()) {
-            return operation;
-        }
-        String requestedKind = normalize(operation.targetKind());
-        boolean exactMatchExists = requestedKind.isBlank() || nameMatches.stream()
-                .anyMatch(symbol -> normalize(symbol.kind()).equals(requestedKind));
-        if (exactMatchExists && !requestedKind.isBlank()) {
-            return operation;
-        }
-        CodeSymbol resolved = uniqueSymbolCandidate(nameMatches);
-        if (resolved == null) {
-            return operation;
-        }
-        return new CodePreciseOperation(
-                operation.action(),
-                operation.targetSymbol(),
-                resolved.kind(),
-                operation.content(),
-                operation.contentLines()
-        );
-    }
-
-    private CodeSymbol uniqueSymbolCandidate(List<CodeSymbol> nameMatches) {
-        if (nameMatches.size() == 1) {
-            return nameMatches.getFirst();
-        }
-        List<String> distinctKinds = nameMatches.stream()
-                .map(CodeSymbol::kind)
-                .filter(Objects::nonNull)
-                .map(this::normalize)
-                .distinct()
-                .toList();
-        if (distinctKinds.size() != 1) {
-            return null;
-        }
-        return nameMatches.getFirst();
-    }
-
-    private String normalize(String value) {
-        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
     }
 }

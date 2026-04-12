@@ -23,13 +23,17 @@ final class TestCaseStepSanitizer {
             if (action == null) {
                 continue;
             }
+            String key = normalize(raw.key());
+            if (action == TestStepAction.PRESS_KEY && key.isBlank()) {
+                continue;
+            }
             result.add(new TestStepSpec(
                     action,
-                    blank(raw.selector()),
-                    blank(raw.key()),
+                    normalize(raw.selector()),
+                    key,
                     raw.count(),
                     raw.ms(),
-                    blank(raw.text()),
+                    normalize(raw.text()),
                     raw.optional() != null && raw.optional(),
                     TestStepSemantic.fromWireValue(raw.semantic())
             ));
@@ -37,7 +41,7 @@ final class TestCaseStepSanitizer {
         return result;
     }
 
-    private String blank(String value) {
-        return value == null ? "" : value;
+    private String normalize(String value) {
+        return value == null ? "" : value.trim();
     }
 }

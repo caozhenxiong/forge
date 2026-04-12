@@ -13,20 +13,17 @@ import java.util.List;
  */
 final class PatchFailureRouter {
 
-    private static final List<ToolFailureCode> SPLIT_REQUIRED_TOOL_FAILURES = List.of(
-            ToolFailureCode.PATCH_SCOPE_VIOLATION
-    );
     private static final List<ToolFailureCode> RETRYABLE_UNSPLITTABLE_TOOL_FAILURES = List.of(
             ToolFailureCode.PATCH_SCHEMA_INVALID
     );
 
     /**
-     * 这些失败都说明“当前 patch 单元的边界定义错了”，
-     * 对可拆分单元必须立刻拆小，不再继续重试同一个单元。
+     * diff-first 主链只保留“输出截断导致单元过宽”这一类拆分理由。
+     *
+     * <p>其它失败都在当前单元内 repair / regenerate，不再把 scope 猜测当成拆分依据。
      */
     private static final List<GenerationFailureType> SPLIT_REQUIRED_FAILURES = List.of(
-            GenerationFailureType.OUTPUT_TRUNCATED,
-            GenerationFailureType.EDIT_UNIT_SCOPE_VIOLATION
+            GenerationFailureType.OUTPUT_TRUNCATED
     );
 
     private final PatchFailureRoutingSettings settings;
@@ -72,9 +69,6 @@ final class PatchFailureRouter {
     }
 
     private boolean shouldSplitCurrentUnit(PatchFailure patchFailure) {
-        if (patchFailure.toolFailureCode() != null && SPLIT_REQUIRED_TOOL_FAILURES.contains(patchFailure.toolFailureCode())) {
-            return true;
-        }
         return SPLIT_REQUIRED_FAILURES.contains(patchFailure.failureType());
     }
 

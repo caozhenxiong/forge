@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PatchFailureRouterTests {
 
     @Test
-    void structuredToolFailureCodeDrivesSplitDecision() {
+    void structuredToolFailureCodeEscalatesWithoutSplit() {
         PatchFailureRouter router = new PatchFailureRouter();
         EditUnit unit = new EditUnit(EditUnitKind.CODE_SYMBOL_BATCH, "game.js#code-unit-1", List.of("tick", "render"));
         PatchFailure patchFailure = PatchFailure.fromToolResult(
@@ -23,8 +23,8 @@ class PatchFailureRouterTests {
         );
 
         assertEquals(GenerationFailureType.EDIT_UNIT_SCOPE_VIOLATION, patchFailure.failureType());
-        assertEquals(PatchFailureDisposition.SPLIT_UNIT, router.dispositionFor(unit, patchFailure));
-        assertTrue(router.shouldAbortCurrentUnit(unit, patchFailure));
+        assertEquals(PatchFailureDisposition.ESCALATE, router.dispositionFor(unit, patchFailure));
+        assertTrue(!router.shouldAbortCurrentUnit(unit, patchFailure));
     }
 
     @Test

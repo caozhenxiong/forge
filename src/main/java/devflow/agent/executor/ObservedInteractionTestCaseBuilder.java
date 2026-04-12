@@ -1,11 +1,9 @@
 package devflow.agent.executor;
 
 import devflow.agent.i18n.DocumentLanguage;
-import devflow.agent.quality.CapabilitySurface;
+import devflow.agent.quality.CapabilityIds;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * 负责 required 交互用例的可观察后置条件补强。
@@ -17,7 +15,7 @@ final class ObservedInteractionTestCaseBuilder {
 
     private final UiRuntimeObservationPolicy observationPolicy = new UiRuntimeObservationPolicy();
 
-    List<TestCaseSpec> strengthenCases(List<TestCaseSpec> cases, UiRuntimeContract runtimeContract) {
+    List<TestCaseSpec> strengthenCases(List<TestCaseSpec> cases, RuntimeSnapshot runtimeSnapshot, UiRuntimeContract runtimeContract) {
         if (cases == null || cases.isEmpty()) {
             return List.of();
         }
@@ -40,11 +38,18 @@ final class ObservedInteractionTestCaseBuilder {
                     testCase.preconditions(),
                     testCase.expected(),
                     List.copyOf(steps),
-                    testCase.capabilities()
+                    testCase.capabilities(),
+                    testCase.observationTargetId().isBlank() ? CapabilityIds.PRIMARY_INTERACTION : testCase.observationTargetId(),
+                    testCase.observationTrigger() == TestObservationTrigger.NONE
+                            ? TestObservationTrigger.AFTER_INTERACTION
+                            : testCase.observationTrigger(),
+                    testCase.observationComparison() == TestObservationComparison.NONE
+                            ? TestObservationComparison.CHANGED
+                            : testCase.observationComparison()
             ));
         }
         if (!hasRequiredInteractiveCase) {
-            String selector = selectInteractionSelector(extractSelectors(cases));
+            String selector = selectDeterministicInteractionSelector(runtimeSnapshot, runtimeContract);
             if (selector != null) {
                 TestCaseSpec observedCase = buildObservedInteractionCase(
                         cases.getFirst().entry(),
@@ -72,7 +77,7 @@ final class ObservedInteractionTestCaseBuilder {
             List<TestStepSpec> steps,
             UiRuntimeContract runtimeContract,
             String caseId,
-            List<devflow.agent.quality.CapabilitySurface> capabilities
+            List<String> capabilities
     ) {
         List<TestStepSpec> strengthened = new ArrayList<>(steps);
         int firstInteractionIndex = -1;
@@ -86,12 +91,7 @@ final class ObservedInteractionTestCaseBuilder {
         if (firstInteractionIndex < 0) {
             return strengthened;
         }
-        UiObservationTarget target = observationPolicy.requiredTarget(
-                runtimeContract,
-                capabilities != null && capabilities.contains(devflow.agent.quality.CapabilitySurface.TIMED_STATE_PROGRESSION)
-                        ? devflow.agent.quality.CapabilitySurface.TIMED_STATE_PROGRESSION
-                        : devflow.agent.quality.CapabilitySurface.PRIMARY_INTERACTION
-        );
+        UiObservationTarget target = observationPolicy.requiredTarget(runtimeContract, CapabilityIds.PRIMARY_INTERACTION);
         if (target == null) {
             return strengthened;
         }
@@ -105,45 +105,23 @@ final class ObservedInteractionTestCaseBuilder {
                     null,
                     null,
                     null,
-                    observationPolicy.observationWaitMs(capabilities),
+                    observationPolicy.observationWaitMs(TestObservationTrigger.AFTER_INTERACTION),
                     null,
                     false
             ));
         }
-        strengthened.add(observationPolicy.changedAssertion(target, snapshotKey, false));
+        strengthened.add(observationPolicy.comparisonAssertion(target, TestObservationComparison.CHANGED, snapshotKey, false));
         return strengthened;
     }
 
-    private Set<String> extractSelectors(List<TestCaseSpec> cases) {
-        Set<String> selectors = new LinkedHashSet<>();
-        if (cases == null || cases.isEmpty()) {
-            return selectors;
+    private String selectDeterministicInteractionSelector(RuntimeSnapshot runtimeSnapshot, UiRuntimeContract runtimeContract) {
+        if (runtimeContract != null && runtimeContract.runStateEntryTargets().size() == 1) {
+            return runtimeContract.runStateEntryTargets().getFirst();
         }
-        for (TestCaseSpec testCase : cases) {
-            if (testCase == null || testCase.steps() == null) {
-                continue;
-            }
-            for (TestStepSpec step : testCase.steps()) {
-                if (step == null || step.selector() == null || step.selector().isBlank()) {
-                    continue;
-                }
-                selectors.add(step.selector().trim());
-            }
-        }
-        return selectors;
-    }
-
-    private String selectInteractionSelector(Set<String> selectors) {
-        if (selectors == null || selectors.isEmpty()) {
+        if (runtimeSnapshot == null || runtimeSnapshot.controlSelectors().size() != 1) {
             return null;
         }
-        if (selectors.contains("button")) {
-            return "button";
-        }
-        return selectors.stream()
-                .filter(selector -> selector.startsWith("#") || selector.startsWith("."))
-                .findFirst()
-                .orElse(null);
+        return runtimeSnapshot.controlSelectors().getFirst();
     }
 
     private TestCaseSpec buildObservedInteractionCase(
@@ -152,7 +130,7 @@ final class ObservedInteractionTestCaseBuilder {
             UiRuntimeContract runtimeContract,
             DocumentLanguage language
     ) {
-        UiObservationTarget target = observationPolicy.requiredTarget(runtimeContract, CapabilitySurface.PRIMARY_INTERACTION);
+        UiObservationTarget target = observationPolicy.requiredTarget(runtimeContract, CapabilityIds.PRIMARY_INTERACTION);
         if (target == null) {
             return null;
         }
@@ -166,11 +144,11 @@ final class ObservedInteractionTestCaseBuilder {
                 null,
                 null,
                 null,
-                observationPolicy.observationWaitMs(List.of(CapabilitySurface.PRIMARY_INTERACTION)),
+                observationPolicy.observationWaitMs(TestObservationTrigger.AFTER_INTERACTION),
                 null,
                 false
         ));
-        steps.add(observationPolicy.changedAssertion(target, "interactive-surface", false));
+        steps.add(observationPolicy.comparisonAssertion(target, TestObservationComparison.CHANGED, "interactive-surface", false));
         steps.add(new TestStepSpec(TestStepAction.ASSERT_NO_ERRORS, null, null, null, null, null, false));
         return new TestCaseSpec(
                 "TC-FUNC-INTERACTIVE-STATE",
@@ -181,7 +159,10 @@ final class ObservedInteractionTestCaseBuilder {
                 "",
                 language.choose("交互后页面状态必须发生可观察变化，而不只是保持不报错。", "After interaction, the page state must change observably rather than merely avoid errors."),
                 List.copyOf(steps),
-                List.of(CapabilitySurface.PRIMARY_INTERACTION)
+                List.of(CapabilityIds.PRIMARY_INTERACTION),
+                CapabilityIds.PRIMARY_INTERACTION,
+                TestObservationTrigger.AFTER_INTERACTION,
+                TestObservationComparison.CHANGED
         );
     }
 }

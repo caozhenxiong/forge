@@ -28,7 +28,7 @@ class CodePatchPromptAssemblerTests {
                 true
         );
 
-        assertTrue(prompt.systemPrompt().contains("operation.targetSymbol 必须精确等于 \"GameLogic\""));
+        assertTrue(prompt.systemPrompt().contains("hunk 只能覆盖 \"GameLogic\" 对应的现有实现区域"));
         assertTrue(prompt.userPrompt().contains("- strictTargetSymbol: GameLogic"));
     }
 }

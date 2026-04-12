@@ -55,18 +55,14 @@ class FileEditCoordinatorTests {
                     return "function tick() { return 999; }";
                 }
                 if (systemPrompt.contains("符号级精确改写")) {
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL_BODY",
-                                  "targetSymbol": "tick",
-                                  "targetKind": "function",
-                                  "content": "return 1;"
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.replaceRangeStartingAt(
+                            userPrompt,
+                            "function tick() {",
+                            3,
+                            "function tick() {",
+                            "  return 1;",
+                            "}"
+                    );
                 }
                 return "";
             }
@@ -210,36 +206,20 @@ class FileEditCoordinatorTests {
                 }
                 if (systemPrompt.contains("符号级精确改写")) {
                     if (systemPrompt.contains("当前文件为空或新建文件")) {
-                        return """
-                                {
-                                  "operations": [
-                                    {
-                                      "action": "APPEND_FILE",
-                                      "targetSymbol": null,
-                                      "targetKind": null,
-                                      "contentLines": [
-                                        "export function tick() {",
-                                        "}"
-                                      ]
-                                    }
-                                  ]
-                                }
-                                """;
+                        return StructuredDiffTestSupport.appendAtEnd(
+                                userPrompt,
+                                "export function tick() {",
+                                "}"
+                        );
                     }
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL_BODY",
-                                  "targetSymbol": "tick",
-                                  "targetKind": "function",
-                                  "contentLines": [
-                                    "return 1;"
-                                  ]
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.replaceRangeStartingAt(
+                            userPrompt,
+                            "export function tick() {",
+                            2,
+                            "export function tick() {",
+                            "  return 1;",
+                            "}"
+                    );
                 }
                 return "";
             }
@@ -307,50 +287,35 @@ class FileEditCoordinatorTests {
                 }
                 if (userPrompt.contains("label: main.js#code-unit-all")) {
                     codeUnitAllCalls.incrementAndGet();
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "APPEND_FILE",
-                                  "targetSymbol": null,
-                                  "targetKind": null,
-                                  "contentLines": [
-                                    "function alpha() {",
-                                    "}",
-                                    "",
-                                    "function beta() {",
-                                    "}",
-                                    "",
-                                    "function gamma() {",
-                                    "}",
-                                    "",
-                                    "function delta() {",
-                                    "}",
-                                    "",
-                                    "function epsilon() {",
-                                    "}"
-                                  ]
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.appendAtEnd(
+                            userPrompt,
+                            "function alpha() {",
+                            "}",
+                            "",
+                            "function beta() {",
+                            "}",
+                            "",
+                            "function gamma() {",
+                            "}",
+                            "",
+                            "function delta() {",
+                            "}",
+                            "",
+                            "function epsilon() {",
+                            "}"
+                    );
                 }
                 if (userPrompt.contains("label: main.js#code-unit-")) {
                     leafUnitCalls.incrementAndGet();
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL_BODY",
-                                  "targetSymbol": "%s",
-                                  "targetKind": "function",
-                                  "contentLines": [
-                                    "return 33;"
-                                  ]
-                                }
-                              ]
-                            }
-                            """.formatted(extractFirstAllowedSymbol(userPrompt));
+                    String symbol = extractFirstAllowedSymbol(userPrompt);
+                    return StructuredDiffTestSupport.replaceRangeStartingAt(
+                            userPrompt,
+                            "function %s() {".formatted(symbol),
+                            2,
+                            "function %s() {".formatted(symbol),
+                            "  return 33;",
+                            "}"
+                    );
                 }
                 return "";
             }
@@ -421,58 +386,36 @@ class FileEditCoordinatorTests {
                 }
                 if (systemPrompt.contains("当前文件为空或新建文件")) {
                     scaffoldCalls.incrementAndGet();
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "APPEND_FILE",
-                                  "targetSymbol": null,
-                                  "targetKind": null,
-                                  "contentLines": [
-                                    "export function alpha() {",
-                                    "}",
-                                    "",
-                                    "export function beta() {",
-                                    "}"
-                                  ]
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.appendAtEnd(
+                            userPrompt,
+                            "export function alpha() {",
+                            "}",
+                            "",
+                            "export function beta() {",
+                            "}"
+                    );
                 }
                 if (userPrompt.contains("allowedSymbols: alpha")) {
                     followUpCalls.incrementAndGet();
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL_BODY",
-                                  "targetSymbol": "alpha",
-                                  "targetKind": "function",
-                                  "contentLines": [
-                                    "return 1;"
-                                  ]
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.replaceRangeStartingAt(
+                            userPrompt,
+                            "export function alpha() {",
+                            2,
+                            "export function alpha() {",
+                            "  return 1;",
+                            "}"
+                    );
                 }
                 if (userPrompt.contains("allowedSymbols: beta")) {
                     followUpCalls.incrementAndGet();
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL_BODY",
-                                  "targetSymbol": "beta",
-                                  "targetKind": "function",
-                                  "contentLines": [
-                                    "return 2;"
-                                  ]
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.replaceRangeStartingAt(
+                            userPrompt,
+                            "export function beta() {",
+                            2,
+                            "export function beta() {",
+                            "  return 2;",
+                            "}"
+                    );
                 }
                 fail("空文件骨架成功后应继续进入按符号补实现路径");
                 return "";
@@ -537,19 +480,17 @@ class FileEditCoordinatorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (systemPrompt.contains("符号级精确改写")) {
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL_BODY",
-                                  "targetSymbol": "tick",
-                                  "targetKind": "function",
-                                  "content": "const next = 1;
-                            return next;"
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.malformedJson(
+                            StructuredDiffTestSupport.replaceRangeStartingAt(
+                                    userPrompt,
+                                    "function tick() {",
+                                    3,
+                                    "function tick() {",
+                                    "  const next = 1;",
+                                    "  return next;",
+                                    "}"
+                            )
+                    );
                 }
                 return "";
             }
@@ -626,20 +567,14 @@ class FileEditCoordinatorTests {
                     throw new LlmInvocationException(LlmFailureReason.OUTPUT_TRUNCATED, "unit truncated");
                 }
                 String targetSymbol = extractFirstAllowedSymbol(userPrompt);
-                return """
-                        {
-                          "operations": [
-                            {
-                              "action": "REPLACE_SYMBOL_BODY",
-                              "targetSymbol": "%s",
-                              "targetKind": "function",
-                              "contentLines": [
-                                "return 1;"
-                              ]
-                            }
-                          ]
-                        }
-                        """.formatted(targetSymbol);
+                return StructuredDiffTestSupport.replaceRangeStartingAt(
+                        userPrompt,
+                        "function %s() {".formatted(targetSymbol),
+                        3,
+                        "function %s() {".formatted(targetSymbol),
+                        "  return 1;",
+                        "}"
+                );
             }
 
             @Override
@@ -723,20 +658,14 @@ class FileEditCoordinatorTests {
                 }
                 capturedSystemPrompt.set(systemPrompt);
                 capturedOutputBudgetRatio.set(((Number) options.get(LlmOptionKeys.OUTPUT_BUDGET_RATIO)).doubleValue());
-                return """
-                        {
-                          "operations": [
-                            {
-                              "action": "REPLACE_SYMBOL_BODY",
-                              "targetSymbol": "tick",
-                              "targetKind": "function",
-                              "contentLines": [
-                                "return 1;"
-                              ]
-                            }
-                          ]
-                        }
-                        """;
+                return StructuredDiffTestSupport.replaceRangeStartingAt(
+                        userPrompt,
+                        "function tick() {",
+                        3,
+                        "function tick() {",
+                        "  return 1;",
+                        "}"
+                );
             }
 
             @Override
@@ -786,8 +715,8 @@ class FileEditCoordinatorTests {
         );
 
         assertTrue(capturedSystemPrompt.get().contains("当前编辑单元已缩到单个受限符号"));
-        assertTrue(capturedSystemPrompt.get().contains("只允许返回 1 个 operation"));
-        assertTrue(capturedSystemPrompt.get().contains("禁止 APPEND_FILE"));
+        assertTrue(capturedSystemPrompt.get().contains("hunk 只能覆盖 \"tick\" 对应的现有实现区域"));
+        assertTrue(capturedSystemPrompt.get().contains("不要额外追加 helper"));
         assertEquals(GenerationBudgetProfile.preciseCodeUnitOutputRatio(), capturedOutputBudgetRatio.get());
         assertTrue(generated.contains("return 1;"));
     }
@@ -807,22 +736,12 @@ class FileEditCoordinatorTests {
                 if (!systemPrompt.contains("符号级精确改写")) {
                     return "";
                 }
-                return """
-                        {
-                          "operations": [
-                            {
-                              "action": "APPEND_FILE",
-                              "targetSymbol": null,
-                              "targetKind": null,
-                              "contentLines": [
-                                "function helper() {",
-                                "  return 1;",
-                                "}"
-                              ]
-                            }
-                          ]
-                        }
-                        """;
+                return StructuredDiffTestSupport.appendAtEnd(
+                        userPrompt,
+                        "function helper() {",
+                        "  return 1;",
+                        "}"
+                );
             }
 
             @Override
@@ -876,7 +795,7 @@ class FileEditCoordinatorTests {
 
         assertTrue(exception.getCause() instanceof GenerationFailureException);
         GenerationFailureException failure = (GenerationFailureException) exception.getCause();
-        assertEquals(GenerationFailureType.PATCH_SCHEMA_INVALID, failure.report().failureType());
+        assertEquals(GenerationFailureType.RESULT_FILE_INVALID, failure.report().failureType());
     }
 
     @Test
@@ -899,36 +818,22 @@ class FileEditCoordinatorTests {
                     if (oversizedUnitCalls.incrementAndGet() > 1) {
                         fail("edit unit 越界后不应继续重试同一个过大的单元");
                     }
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL_BODY",
-                                  "targetSymbol": "omega",
-                                  "targetKind": "function",
-                                  "contentLines": [
-                                    "return 9;"
-                                  ]
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.appendAtEnd(
+                            userPrompt,
+                            "function omega() {",
+                            "  return 9;",
+                            "}"
+                    );
                 }
                 String targetSymbol = extractFirstAllowedSymbol(userPrompt);
-                return """
-                        {
-                          "operations": [
-                            {
-                              "action": "REPLACE_SYMBOL_BODY",
-                              "targetSymbol": "%s",
-                              "targetKind": "function",
-                              "contentLines": [
-                                "return 2;"
-                              ]
-                            }
-                          ]
-                        }
-                        """.formatted(targetSymbol);
+                return StructuredDiffTestSupport.replaceRangeStartingAt(
+                        userPrompt,
+                        "function %s() {".formatted(targetSymbol),
+                        3,
+                        "function %s() {".formatted(targetSymbol),
+                        "  return 2;",
+                        "}"
+                );
             }
 
             @Override
@@ -1011,40 +916,22 @@ class FileEditCoordinatorTests {
                 if (systemPrompt.contains("独立样式工作集")) {
                     inlineStyleWorksetCalled.set(true);
                     if (userPrompt.contains("allowedSymbols: #panel")) {
-                        return """
-                                {
-                                  "operations": [
-                                    {
-                                      "action": "REPLACE_SYMBOL",
-                                      "targetSymbol": "#panel",
-                                      "targetKind": "rule",
-                                      "contentLines": [
-                                        "#panel {",
-                                        "  display: grid;",
-                                        "  gap: 12px;",
-                                        "}"
-                                      ]
-                                    }
-                                  ]
-                                }
-                                """;
+                        return StructuredDiffTestSupport.appendAtEnd(
+                                userPrompt,
+                                "#panel {",
+                                "  display: grid;",
+                                "  gap: 12px;",
+                                "}"
+                        );
                     }
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL",
-                                  "targetSymbol": "#app",
-                                  "targetKind": "rule",
-                                  "contentLines": [
-                                    "#app {",
-                                    "  color: blue;",
-                                    "}"
-                                  ]
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.replaceRangeStartingAt(
+                            userPrompt,
+                            "#app {",
+                            3,
+                            "#app {",
+                            "  color: blue;",
+                            "}"
+                    );
                 }
                 if (systemPrompt.contains("请只改写 HTML 中 <style id=\"app-style\">")) {
                     focusedStyleCalled.set(true);
@@ -1131,40 +1018,24 @@ class FileEditCoordinatorTests {
                 if (systemPrompt.contains("独立样式工作集")) {
                     inlineStyleWorksetCalled.set(true);
                     if (userPrompt.contains("#panel")) {
-                        return """
-                                {
-                                  "operations": [
-                                    {
-                                      "action": "REPLACE_SYMBOL",
-                                      "targetSymbol": "#panel",
-                                      "targetKind": "rule",
-                                      "contentLines": [
-                                        "#panel {",
-                                        "  display: grid;",
-                                        "  gap: 12px;",
-                                        "}"
-                                      ]
-                                    }
-                                  ]
-                                }
-                                """;
+                        return StructuredDiffTestSupport.replaceRangeStartingAt(
+                                userPrompt,
+                                "#panel {",
+                                3,
+                                "#panel {",
+                                "  display: grid;",
+                                "  gap: 12px;",
+                                "}"
+                        );
                     }
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL",
-                                  "targetSymbol": "#app",
-                                  "targetKind": "rule",
-                                  "contentLines": [
-                                    "#app {",
-                                    "  color: blue;",
-                                    "}"
-                                  ]
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.replaceRangeStartingAt(
+                            userPrompt,
+                            "#app {",
+                            3,
+                            "#app {",
+                            "  color: blue;",
+                            "}"
+                    );
                 }
                 if (systemPrompt.contains("请只改写 HTML 中 <style id=\"app-style\">")) {
                     focusedStyleCalled.set(true);
@@ -1263,20 +1134,16 @@ class FileEditCoordinatorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (systemPrompt.contains("符号级精确改写")) {
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL_BODY",
-                                  "targetSymbol": "missingBootstrap",
-                                  "targetKind": "function",
-                                  "contentLines": [
-                                    "return;"
-                                  ]
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.staleHash(
+                            StructuredDiffTestSupport.replaceRangeStartingAt(
+                                    userPrompt,
+                                    "function bootstrap() {",
+                                    5,
+                                    "function bootstrap() {",
+                                    "  return;",
+                                    "}"
+                            )
+                    );
                 }
                 if (systemPrompt.contains("script id=\"app-script\"")) {
                     focusedScriptCalled.set(true);
@@ -1405,19 +1272,16 @@ class FileEditCoordinatorTests {
                 }
                 if (systemPrompt.contains("符号级精确改写")) {
                     preciseCodeCalls.incrementAndGet();
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL_BODY",
-                                  "targetSymbol": "tick",
-                                  "targetKind": "function",
-                                  "content": "return 1;
-                            "
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.malformedJson(
+                            StructuredDiffTestSupport.replaceRangeStartingAt(
+                                    userPrompt,
+                                    "function tick() {",
+                                    3,
+                                    "function tick() {",
+                                    "  return 1;",
+                                    "}"
+                            )
+                    );
                 }
                 return "";
             }
@@ -1503,20 +1367,14 @@ class FileEditCoordinatorTests {
                     }
                     String symbol = extractFirstAllowedSymbol(userPrompt);
                     String body = "alpha".equals(symbol) ? "return 1;" : "return 2;";
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL_BODY",
-                                  "targetSymbol": "%s",
-                                  "targetKind": "function",
-                                  "contentLines": [
-                                    "%s"
-                                  ]
-                                }
-                              ]
-                            }
-                            """.formatted(symbol, body);
+                    return StructuredDiffTestSupport.replaceRangeStartingAt(
+                            userPrompt,
+                            "function %s() {".formatted(symbol),
+                            3,
+                            "function %s() {".formatted(symbol),
+                            "  %s".formatted(body),
+                            "}"
+                    );
                 }
                 return "";
             }
@@ -1599,20 +1457,10 @@ class FileEditCoordinatorTests {
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (systemPrompt.contains("当前 HTML 入口文件里的主脚本已被抽成独立代码工作集")) {
                     inlineScriptCalled.set(true);
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "APPEND_FILE",
-                                  "targetSymbol": null,
-                                  "targetKind": null,
-                                  "contentLines": [
-                                    "function shouldNotRun() {}"
-                                  ]
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.appendAtEnd(
+                            userPrompt,
+                            "function shouldNotRun() {}"
+                    );
                 }
                 if (systemPrompt.contains("精确改写")) {
                     preciseHtmlCalled.set(true);
@@ -2141,20 +1989,14 @@ class FileEditCoordinatorTests {
                 if (systemPrompt.contains("当前 HTML 入口文件里的主脚本已被抽成独立代码工作集")) {
                     inlineScriptWorksetCalled.set(true);
                     assertTrue(userPrompt.contains("- allowedSymbols: bindButton, bootstrap"));
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL_BODY",
-                                  "targetSymbol": "bootstrap",
-                                  "targetKind": "function",
-                                  "contentLines": [
-                                    "bindButton();"
-                                  ]
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.replaceRangeStartingAt(
+                            userPrompt,
+                            "function bootstrap() {",
+                            2,
+                            "function bootstrap() {",
+                            "  bindButton();",
+                            "}"
+                    );
                 }
                 if (systemPrompt.contains("script id=\"app-script\"")) {
                     focusedScriptCalled.set(true);

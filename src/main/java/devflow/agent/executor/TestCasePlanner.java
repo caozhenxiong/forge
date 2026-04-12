@@ -52,7 +52,7 @@ public class TestCasePlanner {
         this.contractExtractor = contractExtractor;
         this.structuredPayloadReader = new StructuredPayloadReader(objectMapper);
         this.promptAssembler = new TestCasePromptAssembler(workspace, contractExtractor);
-        this.basePlanBuilder = new TestCaseBasePlanBuilder(workspace, treeSitterSupport);
+        this.basePlanBuilder = new TestCaseBasePlanBuilder();
         this.planSanitizer = new TestCasePlanSanitizer();
         this.coverageBackfillSupport = new CapabilityCoverageBackfillSupport();
         this.qualityPlanFactory = new QualityPlanFactory();
@@ -98,7 +98,7 @@ public class TestCasePlanner {
         );
         if (llmProvider == null) {
             List<TestCaseSpec> cases = coverageBackfillSupport.backfill(baseCases, baseCases, qualityPlan);
-            UiRuntimeContract enrichedContract = uiRuntimeContractResolver.enrichRunStateEntryTargets(initialRuntimeContract, cases);
+            UiRuntimeContract enrichedContract = uiRuntimeContractResolver.enrichRunStateEntryTargets(initialRuntimeContract, runtimeSnapshot, cases);
             UiRuntimeContractValidation validation = uiRuntimeContractResolver.validate(
                     projectPath,
                     qualityPlan,
@@ -143,7 +143,7 @@ public class TestCasePlanner {
             );
             planned = coverageBackfillSupport.backfill(planned, baseCases, qualityPlan);
             if (!planned.isEmpty()) {
-                UiRuntimeContract enrichedContract = uiRuntimeContractResolver.enrichRunStateEntryTargets(initialRuntimeContract, planned);
+                UiRuntimeContract enrichedContract = uiRuntimeContractResolver.enrichRunStateEntryTargets(initialRuntimeContract, runtimeSnapshot, planned);
                 UiRuntimeContractValidation validation = uiRuntimeContractResolver.validate(
                         projectPath,
                         qualityPlan,
@@ -161,7 +161,7 @@ public class TestCasePlanner {
         }
 
         List<TestCaseSpec> cases = coverageBackfillSupport.backfill(baseCases, baseCases, qualityPlan);
-        UiRuntimeContract enrichedContract = uiRuntimeContractResolver.enrichRunStateEntryTargets(initialRuntimeContract, cases);
+        UiRuntimeContract enrichedContract = uiRuntimeContractResolver.enrichRunStateEntryTargets(initialRuntimeContract, runtimeSnapshot, cases);
         UiRuntimeContractValidation validation = uiRuntimeContractResolver.validate(
                 projectPath,
                 qualityPlan,
@@ -201,7 +201,7 @@ public class TestCasePlanner {
                 language
         );
         List<TestCaseSpec> cases = coverageBackfillSupport.backfill(baseCases, baseCases, resolvedQualityPlan);
-        UiRuntimeContract enrichedContract = uiRuntimeContractResolver.enrichRunStateEntryTargets(initialRuntimeContract, cases);
+        UiRuntimeContract enrichedContract = uiRuntimeContractResolver.enrichRunStateEntryTargets(initialRuntimeContract, runtimeSnapshot, cases);
         UiRuntimeContractValidation validation = uiRuntimeContractResolver.validate(
                 projectPath,
                 resolvedQualityPlan,

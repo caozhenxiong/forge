@@ -1,8 +1,5 @@
 package devflow.agent.executor;
 
-import devflow.agent.quality.CapabilitySurface;
-import java.util.List;
-
 /**
  * TEST 规划与修复阶段唯一允许使用的观测 target 入口。
  *
@@ -11,18 +8,11 @@ import java.util.List;
  */
 final class UiRuntimeObservationPolicy {
 
-    UiObservationTarget requiredTarget(UiRuntimeContract contract, CapabilitySurface surface) {
+    UiObservationTarget requiredTarget(UiRuntimeContract contract, String capabilityId) {
         if (contract == null) {
             return null;
         }
-        UiObservationTarget direct = contract.targetFor(surface);
-        if (direct != null) {
-            return direct;
-        }
-        if (surface == CapabilitySurface.PRIMARY_INTERACTION || surface == CapabilitySurface.TIMED_STATE_PROGRESSION) {
-            return contract.targetFor(CapabilitySurface.PRIMARY_VISUAL_SURFACE);
-        }
-        return null;
+        return contract.targetFor(capabilityId);
     }
 
     TestStepSpec presenceAssertion(UiObservationTarget target) {
@@ -97,7 +87,94 @@ final class UiRuntimeObservationPolicy {
         );
     }
 
-    int observationWaitMs(List<CapabilitySurface> capabilities) {
-        return TestPlanningPolicy.observationWaitMs(capabilities);
+    TestStepSpec unchangedAssertion(UiObservationTarget target, String snapshotKey, boolean optional) {
+        if (target == null) {
+            return null;
+        }
+        if (target.mode() == UiObservationMode.CANVAS_HASH) {
+            return new TestStepSpec(
+                    TestStepAction.ASSERT_CANVAS_HASH_UNCHANGED,
+                    target.selector(),
+                    null,
+                    null,
+                    null,
+                    snapshotKey,
+                    optional,
+                    TestStepSemantic.PRIMARY_SURFACE
+            );
+        }
+        return new TestStepSpec(
+                TestStepAction.ASSERT_DOM_SIGNATURE_UNCHANGED,
+                target.selector(),
+                null,
+                null,
+                null,
+                snapshotKey,
+                optional,
+                TestStepSemantic.PRIMARY_SURFACE
+        );
+    }
+
+    TestStepAction snapshotAction(UiObservationTarget target) {
+        if (target == null) {
+            return null;
+        }
+        return target.mode() == UiObservationMode.CANVAS_HASH
+                ? TestStepAction.SNAPSHOT_CANVAS_HASH
+                : TestStepAction.SNAPSHOT_DOM_SIGNATURE;
+    }
+
+    TestStepAction changedAssertionAction(UiObservationTarget target) {
+        if (target == null) {
+            return null;
+        }
+        return target.mode() == UiObservationMode.CANVAS_HASH
+                ? TestStepAction.ASSERT_CANVAS_HASH_CHANGED
+                : TestStepAction.ASSERT_DOM_SIGNATURE_CHANGED;
+    }
+
+    TestStepAction unchangedAssertionAction(UiObservationTarget target) {
+        if (target == null) {
+            return null;
+        }
+        return target.mode() == UiObservationMode.CANVAS_HASH
+                ? TestStepAction.ASSERT_CANVAS_HASH_UNCHANGED
+                : TestStepAction.ASSERT_DOM_SIGNATURE_UNCHANGED;
+    }
+
+    TestStepSpec comparisonAssertion(UiObservationTarget target, TestObservationComparison comparison, String snapshotKey, boolean optional) {
+        if (comparison == TestObservationComparison.UNCHANGED) {
+            return unchangedAssertion(target, snapshotKey, optional);
+        }
+        if (comparison == TestObservationComparison.CHANGED) {
+            return changedAssertion(target, snapshotKey, optional);
+        }
+        return null;
+    }
+
+    TestStepAction comparisonAssertionAction(UiObservationTarget target, TestObservationComparison comparison) {
+        if (comparison == TestObservationComparison.UNCHANGED) {
+            return unchangedAssertionAction(target);
+        }
+        if (comparison == TestObservationComparison.CHANGED) {
+            return changedAssertionAction(target);
+        }
+        return null;
+    }
+
+    TestStepSpec waitStep(TestObservationTrigger trigger) {
+        return new TestStepSpec(
+                TestStepAction.WAIT,
+                null,
+                null,
+                null,
+                observationWaitMs(trigger),
+                null,
+                false
+        );
+    }
+
+    int observationWaitMs(TestObservationTrigger trigger) {
+        return TestPlanningPolicy.observationWaitMs(trigger);
     }
 }

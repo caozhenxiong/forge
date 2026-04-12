@@ -4,10 +4,11 @@ import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ContractView;
 import devflow.agent.i18n.PlaceholderValues;
 import devflow.agent.project.FileProjectWorkspace;
-import devflow.agent.quality.CapabilitySurface;
+import devflow.agent.quality.CapabilityIds;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Path;
+import java.util.LinkedHashSet;
 
 /**
  * 负责测试规划提示词组装。
@@ -61,6 +62,9 @@ final class TestCasePromptAssembler {
                       "preconditions": "前置条件，无则空字符串",
                       "expected": "预期结果",
                       "capabilities": ["%s"],
+                      "observationTargetId": "primary-visual-surface|primary-interaction|空字符串",
+                      "observationTrigger": "NONE|AFTER_INTERACTION|AFTER_WAIT",
+                      "observationComparison": "NONE|CHANGED|UNCHANGED",
                       "steps": [
                         {
                           "action": "%s",
@@ -93,13 +97,18 @@ final class TestCasePromptAssembler {
                 13. required 的 testcase 必须优先覆盖 capability matrix 中 expectation=REQUIRED 的能力项
                 14. 如果某个步骤承担“进入运行态 / 暂停切换 / 状态重置 / 主交互控件 / 主观测面 / 进度信号”语义，必须填写 semantic
                 15. 不要依赖 selector 文本暗示语义；请直接用 semantic 明确声明
-                16. %s
+                16. 只有运行时观测契约中的 runStateEntryTargets，或运行时快照里显式暴露的 control candidate，才允许使用 semantic=run-state-entry；禁止把 body、main 或其他宿主根容器写成 run-state-entry
+                17. 如果运行时观测契约没有 runStateEntryTargets，且运行时快照也没有显式 control candidate，就不要发明 click 型启动步骤
+                18. 只要 case 需要 runtime 对比观察，就必须显式填写 observationTargetId / observationTrigger / observationComparison；repair/gate 只认这三个字段，不会再从 capability 名称或 prose 猜语义
+                19. observationTargetId 只能使用 %s
+                20. %s
                 """.formatted(
-                CapabilitySurface.PAGE_LOAD.wireValue(),
+                CapabilityIds.PAGE_LOAD,
                 TestStepAction.wireCatalog(),
                 TestStepSemantic.RUN_STATE_ENTRY.wireValue(),
                 WebRuntimeMetricKeys.PUBLIC_METRICS_OBJECT,
                 TestStepAction.ASSERT_WINDOW_METRIC_MAX_MS.name(),
+                builtinObservationTargetCatalog(),
                 requiredCoverageInstruction
         );
         String userPrompt = """
@@ -130,6 +139,9 @@ final class TestCasePromptAssembler {
                 capability catalog：
                 %s
 
+                observation target catalog：
+                %s
+
                 step semantic catalog：
                 %s
 
@@ -153,7 +165,8 @@ final class TestCasePromptAssembler {
                 contractView == null ? "" : shrink(contractView.toMarkdown(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints))),
                 qualityPlan == null ? "" : shrink(qualityPlan.toMarkdown(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints))),
                 requiredCapabilitySurfaceCatalog(qualityPlan),
-                CapabilitySurface.wireCatalog(),
+                capabilityCatalog(qualityPlan),
+                builtinObservationTargetCatalog(),
                 TestStepSemantic.wireCatalog(),
                 shrink(implementationReport),
                 runtimeSnapshot == null ? "" : runtimeSnapshot.toMarkdown(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints)),
@@ -175,7 +188,7 @@ final class TestCasePromptAssembler {
     }
 
     private String requiredCoverageInstruction(QualityPlan qualityPlan) {
-        if (qualityPlan == null || qualityPlan.capabilityMatrix().requiredSurfaces().isEmpty()) {
+        if (qualityPlan == null || qualityPlan.capabilityMatrix().requiredCapabilityIds().isEmpty()) {
             return "如果 capability matrix 没有 required capability，也至少保留 page-load、runtime-stability 和 primary observation 的 smoke coverage。";
         }
         return "本轮至少覆盖这些 required capability surface："
@@ -184,13 +197,32 @@ final class TestCasePromptAssembler {
     }
 
     private String requiredCapabilitySurfaceCatalog(QualityPlan qualityPlan) {
-        if (qualityPlan == null || qualityPlan.capabilityMatrix().requiredSurfaces().isEmpty()) {
+        if (qualityPlan == null || qualityPlan.capabilityMatrix().requiredCapabilityIds().isEmpty()) {
             return "(none)";
         }
-        return qualityPlan.capabilityMatrix().requiredSurfaces().stream()
-                .map(CapabilitySurface::wireValue)
+        return qualityPlan.capabilityMatrix().requiredCapabilityIds().stream()
                 .sorted()
                 .reduce((left, right) -> left + ", " + right)
                 .orElse("(none)");
+    }
+
+    private String capabilityCatalog(QualityPlan qualityPlan) {
+        LinkedHashSet<String> catalog = new LinkedHashSet<>();
+        catalog.addAll(java.util.List.of(
+                CapabilityIds.PAGE_LOAD,
+                CapabilityIds.RUNTIME_STABILITY,
+                CapabilityIds.PRIMARY_VISUAL_SURFACE,
+                CapabilityIds.PRIMARY_INTERACTION,
+                CapabilityIds.PERFORMANCE_LOAD,
+                CapabilityIds.PERFORMANCE_INTERACTION
+        ));
+        if (qualityPlan != null && qualityPlan.capabilityMatrix() != null) {
+            catalog.addAll(qualityPlan.capabilityMatrix().requiredCapabilityIds());
+        }
+        return String.join("|", catalog);
+    }
+
+    private String builtinObservationTargetCatalog() {
+        return CapabilityIds.PRIMARY_VISUAL_SURFACE + "|" + CapabilityIds.PRIMARY_INTERACTION;
     }
 }

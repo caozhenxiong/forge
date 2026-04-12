@@ -26,7 +26,7 @@ final class CodePatchFeedbackRenderer {
                 - 编辑单元: %s
                 - 问题: %s
                 要求：
-                1. 继续使用 JSON 符号级改写格式
+                1. 继续使用 JSON 结构化 diff patch 格式
                 2. 只改当前编辑单元允许的符号，避免整文件重写
                 3. 产物必须保持语法和结构可解析
                 4. %s
@@ -57,9 +57,9 @@ final class CodePatchFeedbackRenderer {
                 - 编辑单元: %s
                 - 问题: 当前单元输出被截断，但已无法继续按符号拆分
                 要求：
-                1. 继续只返回 JSON 符号级改写
-                2. 当前单元只能补当前符号体内的最小逻辑，不要新增辅助符号
-                3. 禁止 APPEND_FILE
+                1. 继续只返回 JSON 结构化 diff patch
+                2. 当前单元只能补当前符号体内的最小逻辑，不要新增远端辅助符号
+                3. 不要生成新的文件尾追加 hunk
                 4. 不要回到整文件重写
                 """.formatted(attempt, relativePath, unit.label());
     }
@@ -72,8 +72,9 @@ final class CodePatchFeedbackRenderer {
                 - 问题: 精确改写 JSON 非法
                 要求：
                 1. 继续只返回 JSON 对象
-                2. operations[].contentLines 必须是字符串数组，逐行承载源码
-                3. 不要在 content 字段里放多行源码字符串
+                2. 必须包含 expectedSourceHash 和 hunks 数组
+                3. 每个 hunk 都要提供 sourceStartLine、beforeLines、afterLines
+                4. beforeLines/afterLines 必须逐行承载源码，不要把整段源码塞进单个字符串
                 """.formatted(attempt, relativePath, unit.label());
     }
 
@@ -86,9 +87,9 @@ final class CodePatchFeedbackRenderer {
                 - 问题: 当前 patch 协议不符合单元约束
                 要求：
                 1. 继续只返回 JSON 对象
-                2. 当前单符号单元只能使用 1 个 REPLACE_SYMBOL_BODY operation
-                3. contentLines 只能写目标符号体内部实现，不要重复声明、签名、export 或外层花括号
-                4. 禁止顺手改其他符号或切回整段函数声明
+                2. 当前单符号单元只能返回 1 个最小 hunk
+                3. hunk 只能覆盖目标符号对应的现有实现区域，不要扩到文件尾或别的符号
+                4. 不要顺手改其他符号，也不要把整段文件重写成大 hunk
                 5. %s
                 """.formatted(attempt, relativePath, unit.label(), strictSingleSymbolAdvice);
     }
@@ -102,7 +103,7 @@ final class CodePatchFeedbackRenderer {
                 - 问题: 当前 patch 越过了 edit unit 的边界
                 要求：
                 1. 只修改当前 allowedSymbols 列表中的符号
-                2. 禁止 APPEND_FILE
+                2. 不要生成新的文件尾追加 hunk
                 3. 不要同时改写当前单元以外的符号
                 4. %s
                 """.formatted(attempt, relativePath, unit.label(), strictSingleSymbolAdvice);
@@ -122,8 +123,8 @@ final class CodePatchFeedbackRenderer {
 
     static String generationFailureAdvice(GenerationFailureType failureType) {
         return isPatchLikeFailure(failureType)
-                ? "请只返回合法 JSON；优先使用 contentLines 承载多行源码，目标符号必须来自当前编辑单元。"
-                : "请继续使用 JSON 符号级改写格式，只修改当前编辑单元的必要符号并保持语法可解析。";
+                ? "请只返回合法 JSON；必须提供 expectedSourceHash 与 hunks，beforeLines/afterLines 逐行承载源码，且 hunk 范围必须留在当前编辑单元。"
+                : "请继续使用 JSON 结构化 diff patch 格式，只修改当前编辑单元的必要符号并保持语法可解析。";
     }
 
     private static boolean isPatchLikeFailure(GenerationFailureType failureType) {

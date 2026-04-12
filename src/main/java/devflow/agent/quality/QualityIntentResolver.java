@@ -23,30 +23,25 @@ public final class QualityIntentResolver {
                 && (requiredCapabilitySurfaces == null || requiredCapabilitySurfaces.isEmpty())) {
             return QualityIntent.empty();
         }
-        LinkedHashSet<CapabilitySurface> requiredSurfaces = new LinkedHashSet<>();
+        LinkedHashSet<String> requiredCapabilityIds = new LinkedHashSet<>();
         if (rules != null && rules.verificationRules() != null) {
-            requiredSurfaces.addAll(rules.verificationRules().requiredCapabilitySurfaces());
+            requiredCapabilityIds.addAll(rules.verificationRules().requiredCapabilityIds());
         }
         if (validationMetadata != null) {
             if (validationMetadata.pageLoadMaxMs() != null) {
-                requiredSurfaces.add(CapabilitySurface.PERFORMANCE_LOAD);
+                requiredCapabilityIds.add(CapabilityIds.PERFORMANCE_LOAD);
             }
             if (validationMetadata.interactionMaxMs() != null) {
-                requiredSurfaces.add(CapabilitySurface.PERFORMANCE_INTERACTION);
+                requiredCapabilityIds.add(CapabilityIds.PERFORMANCE_INTERACTION);
             }
         }
         if (requiredCapabilitySurfaces != null) {
-            requiredCapabilitySurfaces.stream()
-                    .map(CapabilitySurface::fromWireValue)
-                    .filter(surface -> surface != null)
-                    .forEach(requiredSurfaces::add);
+            requiredCapabilityIds.addAll(CapabilityIds.normalizeList(requiredCapabilitySurfaces));
         }
         return new QualityIntent(
                 StructureIntent.empty(),
-                new CoverageIntent(Set.copyOf(requiredSurfaces)),
-                new InteractionIntent(requiredSurfaces.stream()
-                        .filter(CapabilitySurface::isExperienceSurface)
-                        .collect(java.util.stream.Collectors.toUnmodifiableSet()))
+                new CoverageIntent(Set.copyOf(requiredCapabilityIds)),
+                new InteractionIntent(Set.of())
         );
     }
 }

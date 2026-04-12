@@ -8,11 +8,11 @@ import java.util.Set;
  * <p>这里只承载已经由上游契约或 planner 明确声明的能力面，不在通用层自行猜测。
  */
 public record InteractionIntent(
-        Set<CapabilitySurface> expectedSurfaces
+        Set<String> expectedCapabilityIds
 ) {
 
     public InteractionIntent {
-        expectedSurfaces = expectedSurfaces == null ? Set.of() : Set.copyOf(expectedSurfaces);
+        expectedCapabilityIds = expectedCapabilityIds == null ? Set.of() : CapabilityIds.normalizeSet(expectedCapabilityIds);
     }
 
     public static InteractionIntent empty() {

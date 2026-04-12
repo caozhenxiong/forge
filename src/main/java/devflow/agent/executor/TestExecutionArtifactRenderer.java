@@ -78,6 +78,19 @@ final class TestExecutionArtifactRenderer {
             builder.append("- kind: ").append(disposition.kind()).append("\n");
             builder.append("- summary: ").append(blank(disposition.summary())).append("\n");
             builder.append("- changeRequest: ").append(blank(disposition.changeRequest())).append("\n");
+            if (!disposition.failingCaseIds().isEmpty()) {
+                builder.append("- failingCaseIds: ").append(String.join(", ", disposition.failingCaseIds())).append("\n");
+            }
+            if (!disposition.failureCapabilitySurfaces().isEmpty()) {
+                builder.append("- failureCapabilitySurfaces: ")
+                        .append(String.join(", ", disposition.failureCapabilitySurfaces()))
+                        .append("\n");
+            }
+            if (!disposition.requiredCapabilitySurfaces().isEmpty()) {
+                builder.append("- requiredCapabilitySurfaces: ")
+                        .append(String.join(", ", disposition.requiredCapabilitySurfaces()))
+                        .append("\n");
+            }
             builder.append("- evidence: ").append(trim(disposition.evidence()).replace("\n", " | ")).append("\n");
         }
         builder.append("\n");

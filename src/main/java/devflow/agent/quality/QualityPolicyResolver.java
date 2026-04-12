@@ -26,8 +26,8 @@ public final class QualityPolicyResolver {
         }
         StructureRiskReport structureRiskReport = structureRiskAnalyzer.analyze(profile, rules.structureRules());
         QualityIntent normalizedIntent = qualityIntent == null ? QualityIntent.empty() : qualityIntent;
-        Set<CapabilitySurface> surfaces = capabilitySurfaceBuilder.build(profile, normalizedIntent, contractView, validationMetadata);
-        CapabilityMatrix capabilityMatrix = capabilityMatrixBuilder.build(surfaces, profile, normalizedIntent, validationMetadata, rules);
+        Set<String> capabilityIds = capabilitySurfaceBuilder.build(profile, normalizedIntent, contractView, validationMetadata);
+        CapabilityMatrix capabilityMatrix = capabilityMatrixBuilder.build(capabilityIds, profile, normalizedIntent, validationMetadata, rules);
         QualityPlan plan = new QualityPlan(
                 profile,
                 normalizedIntent,

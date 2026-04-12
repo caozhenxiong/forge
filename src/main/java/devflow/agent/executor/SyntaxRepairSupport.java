@@ -12,7 +12,7 @@ final class SyntaxRepairSupport {
     private final SyntaxRepairTurn syntaxRepairTurn;
     private final PatchRepairSettings patchRepairSettings;
     private final PatchVerifier patchVerifier;
-    private final RepairScopeValidator repairScopeValidator;
+    private final RepairDiffScopeValidator repairDiffScopeValidator;
     private final PatchExecutionSupport executionSupport;
 
     SyntaxRepairSupport(
@@ -21,7 +21,7 @@ final class SyntaxRepairSupport {
             SyntaxRepairTurn syntaxRepairTurn,
             PatchRepairSettings patchRepairSettings,
             PatchVerifier patchVerifier,
-            RepairScopeValidator repairScopeValidator,
+            RepairDiffScopeValidator repairDiffScopeValidator,
             PatchExecutionSupport executionSupport
     ) {
         this.patchRepairClassifier = patchRepairClassifier;
@@ -29,7 +29,7 @@ final class SyntaxRepairSupport {
         this.syntaxRepairTurn = syntaxRepairTurn;
         this.patchRepairSettings = patchRepairSettings;
         this.patchVerifier = patchVerifier;
-        this.repairScopeValidator = repairScopeValidator;
+        this.repairDiffScopeValidator = repairDiffScopeValidator;
         this.executionSupport = executionSupport;
     }
 
@@ -46,7 +46,7 @@ final class SyntaxRepairSupport {
                 patchFailure,
                 applyResult,
                 request.eventJournal(),
-                content -> validateRepairedCodeFile(request, baselineContent, unit, content)
+                (candidateContent, repairedContent) -> validateRepairedCodeFile(request, baselineContent, candidateContent, repairedContent)
         );
     }
 
@@ -64,7 +64,7 @@ final class SyntaxRepairSupport {
                 patchFailure,
                 applyResult,
                 request.eventJournal(),
-                content -> validateRepairedEmbeddedContent(request, patchKind, baselineContent, unit, content)
+                (candidateContent, repairedContent) -> validateRepairedEmbeddedContent(request, patchKind, baselineContent, candidateContent, repairedContent)
         );
     }
 
@@ -94,7 +94,7 @@ final class SyntaxRepairSupport {
                             evidence
                     )
             );
-            ToolResult verifyResult = verifier.verify(deterministicCandidate);
+            ToolResult verifyResult = verifier.verify(candidateContent, deterministicCandidate);
             executionSupport.appendImplementationEvent(
                     eventJournal,
                     ImplementationEventMessages.repairTrace(
@@ -128,7 +128,7 @@ final class SyntaxRepairSupport {
             );
             try {
                 String repairedContent = syntaxRepairTurn.repair(relativePath, unit, candidateContent, evidence);
-                ToolResult verifyResult = verifier.verify(repairedContent);
+                ToolResult verifyResult = verifier.verify(candidateContent, repairedContent);
                 executionSupport.appendImplementationEvent(
                         eventJournal,
                         ImplementationEventMessages.repairTrace(
@@ -171,32 +171,30 @@ final class SyntaxRepairSupport {
     private ToolResult validateRepairedCodeFile(
             CodePatchRequest request,
             String baselineContent,
-            EditUnit unit,
-            String content
+            String candidateContent,
+            String repairedContent
     ) {
-        ToolResult verifyResult = patchVerifier.verifyCodeFile(request.projectPath(), request.relativePath(), content);
+        ToolResult verifyResult = patchVerifier.verifyCodeFile(request.projectPath(), request.relativePath(), repairedContent);
         if (!verifyResult.succeeded()) {
             return verifyResult;
         }
-        return repairScopeValidator.verifyCodeFile(request.relativePath(), baselineContent, content, unit);
+        return repairDiffScopeValidator.verify(baselineContent, candidateContent, repairedContent);
     }
 
     private ToolResult validateRepairedEmbeddedContent(
             EmbeddedPatchRequest request,
             EmbeddedPatchKind patchKind,
             String baselineContent,
-            EditUnit unit,
-            String content
+            String candidateContent,
+            String repairedContent
     ) {
         ToolResult verifyResult = patchKind == EmbeddedPatchKind.SCRIPT
-                ? patchVerifier.verifyInlineScript(request.relativePath(), content)
-                : patchVerifier.verifyInlineStyle(request.relativePath(), content);
+                ? patchVerifier.verifyInlineScript(request.relativePath(), repairedContent)
+                : patchVerifier.verifyInlineStyle(request.relativePath(), repairedContent);
         if (!verifyResult.succeeded()) {
             return verifyResult;
         }
-        return patchKind == EmbeddedPatchKind.SCRIPT
-                ? repairScopeValidator.verifyInlineScript(request.relativePath(), baselineContent, content, unit)
-                : repairScopeValidator.verifyInlineStyle(request.relativePath(), baselineContent, content, unit);
+        return repairDiffScopeValidator.verify(baselineContent, candidateContent, repairedContent);
     }
 
     private boolean shouldStopRepairLoop(ToolResult verifyResult) {
@@ -211,7 +209,6 @@ final class SyntaxRepairSupport {
             return "validated";
         }
         return switch (verifyResult.failureCode()) {
-            case PATCH_SCOPE_VIOLATION -> "scope-failed";
             case HTML_STRUCTURE_INVALID, JAVASCRIPT_STRUCTURE_INVALID, INLINE_SCRIPT_INVALID -> "structure-failed";
             case TREE_SITTER_PARSE_FAILED, JAVASCRIPT_SYNTAX_INVALID -> "syntax-failed";
             default -> "validate-failed";
@@ -259,6 +256,6 @@ final class SyntaxRepairSupport {
 
     @FunctionalInterface
     private interface ContentVerifier {
-        ToolResult verify(String content);
+        ToolResult verify(String candidateContent, String repairedContent);
     }
 }

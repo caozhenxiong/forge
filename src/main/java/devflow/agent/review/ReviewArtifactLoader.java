@@ -1,9 +1,12 @@
 package devflow.agent.review;
 
 import devflow.agent.artifact.AuxiliaryArtifactNames;
+import devflow.agent.executor.ExperienceFailureDisposition;
 import devflow.agent.orchestrator.RunRecord;
 import devflow.agent.orchestrator.StageExecution;
 import devflow.agent.orchestrator.StageType;
+import devflow.agent.protocol.ArtifactBlockKind;
+import devflow.agent.protocol.StructuredArtifactBlocks;
 import devflow.agent.util.DevflowPathSupport;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -41,6 +44,27 @@ class ReviewArtifactLoader {
 
     String readRepairAlignment(RunRecord runRecord) {
         return readAuxiliaryArtifact(runRecord, AuxiliaryArtifactNames.REPAIR_ALIGNMENT);
+    }
+
+    String readTestExecution(RunRecord runRecord) {
+        String execution = readAuxiliaryArtifact(runRecord, AuxiliaryArtifactNames.TEST_EXECUTION);
+        if (!execution.isBlank()) {
+            return execution;
+        }
+        return readStageArtifact(runRecord, StageType.TEST);
+    }
+
+    ExperienceFailureDisposition readTestFailureDisposition(RunRecord runRecord) {
+        String content = readTestExecution(runRecord);
+        if (content.isBlank()) {
+            return ExperienceFailureDisposition.pass();
+        }
+        ExperienceFailureDisposition disposition = StructuredArtifactBlocks.readFirstJsonBlock(
+                content,
+                ArtifactBlockKind.EXPERIENCE_FAILURE_DISPOSITION,
+                ExperienceFailureDisposition.class
+        );
+        return disposition == null ? ExperienceFailureDisposition.pass() : disposition;
     }
 
     private String readAuxiliaryArtifact(RunRecord runRecord, String fileName) {

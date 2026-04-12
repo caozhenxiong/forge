@@ -1,7 +1,5 @@
 package devflow.agent.executor;
 
-import devflow.agent.editing.CodePrecisePatch;
-
 /**
  * 宿主内嵌 patch 的单个单元执行器。
  *
@@ -36,8 +34,6 @@ final class EmbeddedPatchUnitExecutor {
             LlmProvider llmProvider,
             GenerationEngine generationEngine,
             GeneratedPayloadSupport generatedPayloadSupport,
-            CodePatchProtocolAdapter codePatchProtocolAdapter,
-            PatchUnitScopeValidator patchUnitScopeValidator,
             CodePatchKernel codePatchKernel,
             PatchFailureRouter patchFailureRouter,
             PatchBudgetPolicy patchBudgetPolicy,
@@ -64,8 +60,6 @@ final class EmbeddedPatchUnitExecutor {
         this.promptSupport = new EmbeddedPatchPromptSupport(patchContextBuilder, executionSupport);
         this.applySupport = new EmbeddedPatchApplySupport(
                 patchPayloadRepairSupport,
-                codePatchProtocolAdapter,
-                patchUnitScopeValidator,
                 codePatchKernel
         );
         this.syntaxRepairSupport = syntaxRepairSupport;

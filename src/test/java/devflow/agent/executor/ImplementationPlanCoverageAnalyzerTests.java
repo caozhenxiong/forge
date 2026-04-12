@@ -2,7 +2,7 @@ package devflow.agent.executor;
 
 import devflow.agent.context.ContractView;
 import devflow.agent.context.ExecutionContract;
-import devflow.agent.quality.CapabilitySurface;
+import devflow.agent.quality.CapabilityIds;
 import devflow.agent.quality.QualityCoverageRefCatalog;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.quality.QualityPlanFactory;
@@ -232,8 +232,8 @@ class ImplementationPlanCoverageAnalyzerTests {
                 null,
                 null,
                 List.of(
-                        CapabilitySurface.PRIMARY_INTERACTION.wireValue(),
-                        CapabilitySurface.TIMED_STATE_PROGRESSION.wireValue()
+                        CapabilityIds.PRIMARY_INTERACTION,
+                        CapabilityIds.TIMED_STATE_PROGRESSION
                 )
         );
 
@@ -243,7 +243,7 @@ class ImplementationPlanCoverageAnalyzerTests {
                 List.of("index.html", "index.app.js"),
                 List.of("创建入口", "补齐逻辑"),
                 QualityCoverageRefCatalog.requiredReferenceIds(qualityPlan).stream()
-                        .filter(ref -> !ref.equals(QualityCoverageRefCatalog.referenceId(CapabilitySurface.TIMED_STATE_PROGRESSION)))
+                        .filter(ref -> !ref.equals(QualityCoverageRefCatalog.referenceId(CapabilityIds.TIMED_STATE_PROGRESSION)))
                         .toList(),
                 List.of("SKELETON", "INCREMENTAL"),
                 true,
@@ -270,8 +270,8 @@ class ImplementationPlanCoverageAnalyzerTests {
                 null,
                 null,
                 List.of(
-                        CapabilitySurface.PRIMARY_INTERACTION.wireValue(),
-                        CapabilitySurface.TIMED_STATE_PROGRESSION.wireValue()
+                        CapabilityIds.PRIMARY_INTERACTION,
+                        CapabilityIds.TIMED_STATE_PROGRESSION
                 )
         );
 

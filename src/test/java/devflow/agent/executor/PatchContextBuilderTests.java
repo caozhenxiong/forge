@@ -17,7 +17,6 @@ class PatchContextBuilderTests {
             targetLocator,
             new CodePreciseEditor(treeSitterSupport),
             new CodePatchKernel(
-                    new CodePreciseEditor(treeSitterSupport),
                     new PatchVerifier(
                             treeSitterSupport,
                             new GeneratedContentGate(new FileProjectWorkspace(), treeSitterSupport)

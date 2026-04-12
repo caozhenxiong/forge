@@ -13,10 +13,10 @@ public record VerificationRules(
         boolean requireCapabilityBackfill,
         boolean requireObservableStateChangeForInteractiveCases,
         boolean requirePerformanceCoverageFromMetadata,
-        Set<CapabilitySurface> requiredCapabilitySurfaces
+        Set<String> requiredCapabilityIds
 ) {
 
     public VerificationRules {
-        requiredCapabilitySurfaces = requiredCapabilitySurfaces == null ? Set.of() : Set.copyOf(requiredCapabilitySurfaces);
+        requiredCapabilityIds = requiredCapabilityIds == null ? Set.of() : CapabilityIds.normalizeSet(requiredCapabilityIds);
     }
 }

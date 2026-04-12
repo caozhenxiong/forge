@@ -18,6 +18,9 @@ record PlannedTestCasePayload(
         @JsonProperty("preconditions") String preconditions,
         @JsonProperty("expected") String expected,
         @JsonProperty("capabilities") List<String> capabilities,
+        @JsonProperty("observationTargetId") String observationTargetId,
+        @JsonProperty("observationTrigger") String observationTrigger,
+        @JsonProperty("observationComparison") String observationComparison,
         @JsonProperty("steps") List<PlannedTestStepPayload> steps
 ) {
     PlannedTestCasePayload(
@@ -28,9 +31,23 @@ record PlannedTestCasePayload(
             String entry,
             String preconditions,
             String expected,
+            List<String> capabilities,
             List<PlannedTestStepPayload> steps
     ) {
-        this(id, title, type, required, entry, preconditions, expected, List.of(), steps);
+        this(id, title, type, required, entry, preconditions, expected, capabilities, "", null, null, steps);
+    }
+
+    PlannedTestCasePayload(
+            String id,
+            String title,
+            String type,
+            Boolean required,
+            String entry,
+            String preconditions,
+            String expected,
+            List<PlannedTestStepPayload> steps
+    ) {
+        this(id, title, type, required, entry, preconditions, expected, List.of(), "", null, null, steps);
     }
 }
 

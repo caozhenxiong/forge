@@ -13,7 +13,7 @@ import devflow.agent.orchestrator.RunStatus;
 import devflow.agent.protocol.ExecutionDirectivePayload;
 import devflow.agent.protocol.ExecutionDirectiveProtocol;
 import devflow.agent.project.FileProjectWorkspace;
-import devflow.agent.quality.CapabilitySurface;
+import devflow.agent.quality.CapabilityIds;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.validation.ProjectInspector;
@@ -98,7 +98,7 @@ class ImplementationContextResolverTests {
                                 List.of("先给出最小可运行入口"),
                                 List.of("不要引入后端"),
                                 List.of(),
-                                List.of(CapabilitySurface.TIMED_STATE_PROGRESSION.wireValue()),
+                                List.of(CapabilityIds.TIMED_STATE_PROGRESSION),
                                 List.of(),
                                 null,
                                 null,
@@ -153,7 +153,7 @@ class ImplementationContextResolverTests {
         assertTrue(context.sharedContextBundle().requiredEvidence().contains("页面可打开"));
         assertTrue(context.productRequirementCatalog().contains("CAP-1"));
         assertTrue(context.productRequirementCatalog().contains("QCAP-TIMED_STATE_PROGRESSION"));
-        assertTrue(context.qualityPlan().capabilityMatrix().requires(CapabilitySurface.TIMED_STATE_PROGRESSION));
+        assertTrue(context.qualityPlan().capabilityMatrix().requires(CapabilityIds.TIMED_STATE_PROGRESSION));
         assertTrue(context.continuationConstraints().active());
         assertTrue(context.continuationConstraints().marksExistingPath("index.html"));
         assertTrue(context.continuationConstraints().protectsHtmlEntry("index.html"));

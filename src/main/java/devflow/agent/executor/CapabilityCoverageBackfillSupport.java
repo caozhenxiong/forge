@@ -1,7 +1,5 @@
 package devflow.agent.executor;
 
-import devflow.agent.quality.CapabilityMatrix;
-import devflow.agent.quality.CapabilitySurface;
 import devflow.agent.quality.QualityPlan;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -21,7 +19,7 @@ final class CapabilityCoverageBackfillSupport {
         List<TestCaseSpec> deterministicCases = baselineCases == null ? List.of() : baselineCases;
         List<TestCaseSpec> result = new ArrayList<>(base);
         Set<String> existingIds = new LinkedHashSet<>();
-        Set<CapabilitySurface> covered = new LinkedHashSet<>();
+        Set<String> covered = new LinkedHashSet<>();
         for (TestCaseSpec testCase : base) {
             if (testCase == null) {
                 continue;
@@ -29,7 +27,7 @@ final class CapabilityCoverageBackfillSupport {
             existingIds.add(testCase.id());
             covered.addAll(testCase.capabilities());
         }
-        for (CapabilitySurface required : qualityPlan.capabilityMatrix().requiredSurfaces()) {
+        for (String required : qualityPlan.capabilityMatrix().requiredCapabilityIds()) {
             if (covered.contains(required)) {
                 continue;
             }

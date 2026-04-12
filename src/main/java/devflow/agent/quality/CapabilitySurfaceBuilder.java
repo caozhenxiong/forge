@@ -11,7 +11,7 @@ import java.util.Set;
  */
 public final class CapabilitySurfaceBuilder {
 
-    public Set<CapabilitySurface> build(
+    public Set<String> build(
             FeatureProfile profile,
             QualityIntent qualityIntent,
             ContractView contractView,
@@ -20,32 +20,29 @@ public final class CapabilitySurfaceBuilder {
         if (profile == null) {
             return Set.of();
         }
-        LinkedHashSet<CapabilitySurface> surfaces = new LinkedHashSet<>();
+        LinkedHashSet<String> capabilityIds = new LinkedHashSet<>();
         ExecutionContract executionContract = contractView == null ? null : contractView.executionContract();
         if (profile.hasHtmlEntry() || (executionContract != null && executionContract.entryRequired())) {
-            surfaces.add(CapabilitySurface.PAGE_LOAD);
+            capabilityIds.add(CapabilityIds.PAGE_LOAD);
         }
         if ((executionContract != null && executionContract.launchRequired()) || profile.hasHtmlEntry()) {
-            surfaces.add(CapabilitySurface.RUNTIME_STABILITY);
+            capabilityIds.add(CapabilityIds.RUNTIME_STABILITY);
         }
         if ((executionContract != null && executionContract.surfaceRequired()) || profile.hasCanvasSurface()) {
-            surfaces.add(CapabilitySurface.PRIMARY_VISUAL_SURFACE);
+            capabilityIds.add(CapabilityIds.PRIMARY_VISUAL_SURFACE);
         }
         if (profile.hasDiscreteUserInput()) {
-            surfaces.add(CapabilitySurface.PRIMARY_INTERACTION);
-        }
-        if (profile.hasTimedProgression()) {
-            surfaces.add(CapabilitySurface.TIMED_STATE_PROGRESSION);
+            capabilityIds.add(CapabilityIds.PRIMARY_INTERACTION);
         }
         if (validationMetadata != null && validationMetadata.pageLoadMaxMs() != null) {
-            surfaces.add(CapabilitySurface.PERFORMANCE_LOAD);
+            capabilityIds.add(CapabilityIds.PERFORMANCE_LOAD);
         }
         if (validationMetadata != null && validationMetadata.interactionMaxMs() != null) {
-            surfaces.add(CapabilitySurface.PERFORMANCE_INTERACTION);
+            capabilityIds.add(CapabilityIds.PERFORMANCE_INTERACTION);
         }
         if (qualityIntent != null) {
-            surfaces.addAll(qualityIntent.requiredCapabilitySurfaces());
+            capabilityIds.addAll(qualityIntent.requiredCapabilityIds());
         }
-        return Set.copyOf(surfaces);
+        return Set.copyOf(capabilityIds);
     }
 }

@@ -14,7 +14,7 @@ final class ModelJsonRepairTurn {
             2. 保持原有 patch 语义，不要扩展编辑范围。
             3. 不要添加解释、Markdown 或代码块。
             4. 直接返回修复后的 JSON 对象。
-            5. 如果存在多行源码，必须放进 operations[].contentLines 数组。
+            5. 对 structured diff patch，必须保留 expectedSourceHash，并把多行源码逐行放进 hunks[].beforeLines / afterLines。
             """;
 
     private final LlmProvider llmProvider;

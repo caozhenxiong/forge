@@ -4,7 +4,6 @@ import devflow.agent.context.ContractView;
 import devflow.agent.context.ExecutionContract;
 import devflow.agent.context.ProductContract;
 import devflow.agent.context.RequirementReference;
-import devflow.agent.quality.CapabilitySurface;
 import devflow.agent.quality.QualityCoverageRefCatalog;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.util.ProjectPathSupport;

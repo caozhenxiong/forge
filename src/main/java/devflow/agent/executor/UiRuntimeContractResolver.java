@@ -3,7 +3,7 @@ package devflow.agent.executor;
 import devflow.agent.parsing.HtmlStructureSnapshot;
 import devflow.agent.parsing.TreeSitterSupport;
 import devflow.agent.project.FileProjectWorkspace;
-import devflow.agent.quality.CapabilitySurface;
+import devflow.agent.quality.CapabilityIds;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Path;
@@ -41,16 +41,22 @@ final class UiRuntimeContractResolver {
         HtmlStructureSnapshot htmlSnapshot = treeSitterSupport.inspectHtml(htmlSource);
         WebRuntimeWiringResult wiringResult = webRuntimeWiringCheck.inspect(projectPath, htmlEntryPath, htmlSnapshot, htmlSource);
         List<String> ownerPaths = resolveOwnerPaths(entryPath, wiringResult);
-        UiObservationTarget primarySurface = selectPrimarySurfaceTarget(runtimeSnapshot, ownerPaths, qualityPlan);
-        List<UiObservationTarget> targets = buildObservationTargets(primarySurface, ownerPaths, qualityPlan);
+        List<UiObservationTarget> targets = buildObservationTargets(runtimeSnapshot, ownerPaths, qualityPlan);
         return new UiRuntimeContract(entryPath, ownerPaths, List.of(), targets);
     }
 
-    UiRuntimeContract enrichRunStateEntryTargets(UiRuntimeContract contract, List<TestCaseSpec> cases) {
+    UiRuntimeContract enrichRunStateEntryTargets(UiRuntimeContract contract, RuntimeSnapshot runtimeSnapshot, List<TestCaseSpec> cases) {
         if (contract == null) {
             return UiRuntimeContract.empty();
         }
         LinkedHashSet<String> targets = new LinkedHashSet<>();
+        if (contract.runStateEntryTargets() != null) {
+            for (String selector : contract.runStateEntryTargets()) {
+                if (isValidRunStateEntry(runtimeSnapshot, selector)) {
+                    targets.add(selector.trim());
+                }
+            }
+        }
         if (cases != null) {
             for (TestCaseSpec testCase : cases) {
                 if (testCase == null || testCase.steps() == null) {
@@ -63,7 +69,9 @@ final class UiRuntimeContractResolver {
                             || step.selector().isBlank()) {
                         continue;
                     }
-                    targets.add(step.selector().trim());
+                    if (isValidRunStateEntry(runtimeSnapshot, step.selector())) {
+                        targets.add(step.selector().trim());
+                    }
                 }
             }
         }
@@ -124,10 +132,16 @@ final class UiRuntimeContractResolver {
         }
         List<String> missingTargetIssues = new ArrayList<>();
         List<String> selectorUnavailableIssues = new ArrayList<>();
-        for (CapabilitySurface surface : requiredObservedSurfaces(qualityPlan)) {
-            UiObservationTarget target = contract.targetFor(surface);
+        java.util.Set<String> requiredTargetIds = requiredObservedTargetIds(qualityPlan);
+        for (String selector : contract.runStateEntryTargets()) {
+            if (!isValidRunStateEntry(runtimeSnapshot, selector)) {
+                selectorUnavailableIssues.add("UI runtime contract run-state-entry selector is unavailable at runtime: " + selector);
+            }
+        }
+        for (String targetId : requiredTargetIds) {
+            UiObservationTarget target = contract.targetFor(targetId);
             if (target == null || !target.usable()) {
-                missingTargetIssues.add("UI runtime contract is missing observation target for required surface: " + surface.wireValue());
+                missingTargetIssues.add("UI runtime contract is missing observation target for required surface: " + targetId);
                 continue;
             }
             if (!selectorExists(runtimeSnapshot, target.selector())) {
@@ -161,60 +175,59 @@ final class UiRuntimeContractResolver {
         return List.of(runtimeContract.htmlEntryPath().toString().replace('\\', '/'));
     }
 
-    private UiObservationTarget selectPrimarySurfaceTarget(
+    private List<UiObservationTarget> buildObservationTargets(
             RuntimeSnapshot runtimeSnapshot,
             List<String> ownerPaths,
             QualityPlan qualityPlan
     ) {
-        RuntimeSurfaceCandidate canvasCandidate = largestCandidate(runtimeSnapshot, UiObservationMode.CANVAS_HASH);
-        RuntimeSurfaceCandidate domCandidate = largestCandidate(runtimeSnapshot, UiObservationMode.DOM_SIGNATURE);
-        RuntimeSurfaceCandidate selected;
-        if (canvasCandidate == null) {
-            selected = domCandidate;
-        } else if (domCandidate == null) {
-            selected = canvasCandidate;
-        } else {
-            selected = canvasCandidate.area() >= domCandidate.area() ? canvasCandidate : domCandidate;
-        }
-        if (selected == null || !selected.usable()) {
-            return null;
-        }
-        return new UiObservationTarget(
-                CapabilitySurface.PRIMARY_VISUAL_SURFACE,
-                selected.selector(),
-                selected.mode(),
-                ownerPaths,
-                requiredObservedSurfaces(qualityPlan).contains(CapabilitySurface.PRIMARY_VISUAL_SURFACE)
-        );
-    }
-
-    private List<UiObservationTarget> buildObservationTargets(
-            UiObservationTarget primarySurface,
-            List<String> ownerPaths,
-            QualityPlan qualityPlan
-    ) {
-        if (primarySurface == null) {
-            return List.of();
-        }
-        LinkedHashSet<CapabilitySurface> requiredSurfaces = new LinkedHashSet<>(requiredObservedSurfaces(qualityPlan));
         LinkedHashSet<UiObservationTarget> targets = new LinkedHashSet<>();
-        targets.add(primarySurface);
-        for (CapabilitySurface surface : requiredSurfaces) {
-            if (surface == CapabilitySurface.PRIMARY_VISUAL_SURFACE) {
-                continue;
-            }
-            targets.add(new UiObservationTarget(surface, primarySurface.selector(), primarySurface.mode(), ownerPaths, true));
-        }
+        appendObservationTarget(targets, CapabilityIds.PRIMARY_VISUAL_SURFACE, runtimeSnapshot, ownerPaths, requiredObservedTargetIds(qualityPlan));
+        appendObservationTarget(targets, CapabilityIds.PRIMARY_INTERACTION, runtimeSnapshot, ownerPaths, requiredObservedTargetIds(qualityPlan));
         return List.copyOf(targets);
     }
 
-    private List<CapabilitySurface> requiredObservedSurfaces(QualityPlan qualityPlan) {
-        if (qualityPlan == null || qualityPlan.capabilityMatrix() == null) {
-            return List.of();
+    private void appendObservationTarget(
+            LinkedHashSet<UiObservationTarget> targets,
+            String capabilityId,
+            RuntimeSnapshot runtimeSnapshot,
+            List<String> ownerPaths,
+            java.util.Set<String> requiredTargetIds
+    ) {
+        RuntimeSurfaceCandidate candidate = selectObservationCandidate(capabilityId, runtimeSnapshot);
+        if (candidate == null || !candidate.usable()) {
+            return;
         }
-        return qualityPlan.capabilityMatrix().requiredSurfaces().stream()
-                .filter(CapabilitySurface::requiresObservationTarget)
-                .toList();
+        targets.add(new UiObservationTarget(
+                capabilityId,
+                candidate.selector(),
+                candidate.mode(),
+                ownerPaths,
+                requiredTargetIds.contains(capabilityId)
+        ));
+    }
+
+    /**
+     * visual surface 关注“主显示面”；
+     * interaction/timed surface 关注“可观察的状态变化载体”。
+     *
+     * <p>因此交互与时间推进优先选 canvas hash 候选，不再把视觉面直接扩散成所有 surface 的统一 target。
+     */
+    private RuntimeSurfaceCandidate selectObservationCandidate(String capabilityId, RuntimeSnapshot runtimeSnapshot) {
+        if (CapabilityIds.PRIMARY_VISUAL_SURFACE.equals(capabilityId)) {
+            return largestCandidate(runtimeSnapshot, null);
+        }
+        if (CapabilityIds.PRIMARY_INTERACTION.equals(capabilityId)) {
+            RuntimeSurfaceCandidate canvasCandidate = largestCandidate(runtimeSnapshot, UiObservationMode.CANVAS_HASH);
+            return canvasCandidate != null ? canvasCandidate : largestCandidate(runtimeSnapshot, UiObservationMode.DOM_SIGNATURE);
+        }
+        return largestCandidate(runtimeSnapshot, UiObservationMode.DOM_SIGNATURE);
+    }
+
+    private java.util.Set<String> requiredObservedTargetIds(QualityPlan qualityPlan) {
+        if (qualityPlan == null || qualityPlan.capabilityMatrix() == null) {
+            return java.util.Set.of();
+        }
+        return qualityPlan.capabilityMatrix().requiredObservationTargetIds();
     }
 
     private RuntimeSurfaceCandidate largestCandidate(RuntimeSnapshot runtimeSnapshot, UiObservationMode mode) {
@@ -223,7 +236,10 @@ final class UiRuntimeContractResolver {
         }
         RuntimeSurfaceCandidate largest = null;
         for (RuntimeSurfaceCandidate candidate : runtimeSnapshot.surfaceCandidates()) {
-            if (candidate == null || candidate.mode() != mode || !candidate.usable()) {
+            if (candidate == null || !candidate.usable()) {
+                continue;
+            }
+            if (mode != null && candidate.mode() != mode) {
                 continue;
             }
             if (largest == null || candidate.area() > largest.area()) {
@@ -245,5 +261,12 @@ final class UiRuntimeContractResolver {
                     .anyMatch(candidate -> candidate != null && selector.equals(candidate.selector()));
         }
         return false;
+    }
+
+    private boolean isValidRunStateEntry(RuntimeSnapshot runtimeSnapshot, String selector) {
+        return runtimeSnapshot != null
+                && selector != null
+                && !selector.isBlank()
+                && runtimeSnapshot.hasControlSelector(selector);
     }
 }

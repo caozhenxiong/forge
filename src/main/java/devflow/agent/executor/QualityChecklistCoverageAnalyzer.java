@@ -1,6 +1,5 @@
 package devflow.agent.executor;
 
-import devflow.agent.quality.CapabilitySurface;
 import devflow.agent.quality.QualityCoverageRefCatalog;
 import devflow.agent.quality.QualityPlan;
 import java.util.ArrayList;
@@ -35,9 +34,9 @@ final class QualityChecklistCoverageAnalyzer {
             if (normalizedRefs.contains(normalizeCoverageRef(requiredRef))) {
                 continue;
             }
-            CapabilitySurface surface = QualityCoverageRefCatalog.fromReferenceId(requiredRef);
+            String capabilityId = QualityCoverageRefCatalog.fromReferenceId(requiredRef);
             issues.add("当前实现计划未覆盖 quality checklist 中的 required capability surface："
-                    + (surface == null ? requiredRef : surface.wireValue())
+                    + (capabilityId.isBlank() ? requiredRef : capabilityId)
                     + "（coverageRef=" + requiredRef + "）。");
             if (issues.size() >= 3) {
                 break;

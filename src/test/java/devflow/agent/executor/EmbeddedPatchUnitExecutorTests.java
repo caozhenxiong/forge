@@ -2,6 +2,7 @@ package devflow.agent.executor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.editing.CodePreciseEditor;
+import devflow.agent.editing.FileStateLedger;
 import devflow.agent.project.FileProjectWorkspace;
 import java.nio.file.Path;
 import java.util.List;
@@ -22,6 +23,19 @@ class EmbeddedPatchUnitExecutorTests {
     void inlineScriptUsesSyntaxRepairBeforeRetryingGeneration() {
         AtomicInteger inlineScriptCalls = new AtomicInteger();
         AtomicInteger syntaxRepairCalls = new AtomicInteger();
+        String currentScript = """
+                function bootstrap() {
+                  const canvas = document.getElementById('game-canvas');
+                  return canvas;
+                }
+
+                document.addEventListener('DOMContentLoaded', () => {
+                  bootstrap();
+                });
+                """;
+        String expectedHash = new FileStateLedger()
+                .capture(Path.of("index.html.inline-script.js"), currentScript)
+                .contentHash();
         LlmProvider provider = new LlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
@@ -40,21 +54,24 @@ class EmbeddedPatchUnitExecutorTests {
                 }
                 if (systemPrompt.contains("当前 HTML 入口文件里的主脚本已被抽成独立代码工作集")) {
                     inlineScriptCalls.incrementAndGet();
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "REPLACE_SYMBOL_BODY",
-                                  "targetSymbol": "bootstrap",
-                                  "targetKind": "function",
-                                  "contentLines": [
-                                    "const = document.getElementById('game-canvas');",
-                                    "return canvas;"
-                                  ]
-                                }
-                              ]
-                            }
-                            """;
+                            return """
+                                    {
+                                      "expectedSourceHash": "%s",
+                                      "hunks": [
+                                        {
+                                          "sourceStartLine": 2,
+                                          "beforeLines": [
+                                            "  const canvas = document.getElementById('game-canvas');",
+                                            "  return canvas;"
+                                          ],
+                                          "afterLines": [
+                                            "  const = document.getElementById('game-canvas');",
+                                            "  return canvas;"
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                    """.formatted(expectedHash);
                 }
                 return "";
             }
@@ -88,7 +105,7 @@ class EmbeddedPatchUnitExecutorTests {
                 patchExecutionSupport
         );
         PatchVerifier patchVerifier = new PatchVerifier(treeSitterSupport, generatedContentGate);
-        CodePatchKernel codePatchKernel = new CodePatchKernel(new CodePreciseEditor(treeSitterSupport), patchVerifier);
+        CodePatchKernel codePatchKernel = new CodePatchKernel(patchVerifier);
         TargetLocator targetLocator = new TreeSitterTargetLocator(treeSitterSupport);
         PatchContextBuilder patchContextBuilder = new PatchContextBuilder(
                 targetLocator,
@@ -98,8 +115,6 @@ class EmbeddedPatchUnitExecutorTests {
                 provider,
                 new GenerationEngine(),
                 generatedPayloadSupport,
-                new CodePatchProtocolAdapter(),
-                new PatchUnitScopeValidator(patchContextBuilder),
                 codePatchKernel,
                 new PatchFailureRouter(),
                 new PatchBudgetPolicy(PatchBudgetSettings.defaults()),
@@ -110,7 +125,7 @@ class EmbeddedPatchUnitExecutorTests {
                         new SyntaxRepairTurn(provider, patchRepairSettings),
                         patchRepairSettings,
                         patchVerifier,
-                        new RepairScopeValidator(patchContextBuilder),
+                        new RepairDiffScopeValidator(),
                         patchExecutionSupport
                 ),
                 patchContextBuilder,
@@ -118,17 +133,6 @@ class EmbeddedPatchUnitExecutorTests {
                 observerFactory,
                 1
         );
-
-        String currentScript = """
-                function bootstrap() {
-                  const canvas = document.getElementById('game-canvas');
-                  return canvas;
-                }
-
-                document.addEventListener('DOMContentLoaded', () => {
-                  bootstrap();
-                });
-                """;
 
         String generated = executor.execute(
                 new EmbeddedPatchRequest(

@@ -11,6 +11,7 @@ import devflow.agent.executor.ImplementationExecutor;
 import devflow.agent.executor.GenerationTelemetry;
 import devflow.agent.executor.ModelRole;
 import devflow.agent.executor.LlmProvider;
+import devflow.agent.executor.StructuredDiffTestSupport;
 import devflow.agent.executor.TestExecutor;
 import devflow.agent.loop.AgentLoop;
 import devflow.agent.project.FileProjectWorkspace;
@@ -760,18 +761,20 @@ class DefaultWorkflowEngineTests {
                             """;
                 }
                 if (systemPrompt.contains("符号级精确改写")) {
-                    return """
-                            {
-                              "operations": [
-                                {
-                                  "action": "APPEND_FILE",
-                                  "targetSymbol": null,
-                                  "targetKind": null,
-                                  "content": "package demo;\\n\\npublic class App {\\n    public static void main(String[] args) {\\n        System.out.println(\\\"ok\\\");\\n    }\\n\\n    public String message() {\\n        return \\\"ok\\\";\\n    }\\n}\\n"
-                                }
-                              ]
-                            }
-                            """;
+                    return StructuredDiffTestSupport.appendAtEnd(
+                            userPrompt,
+                            "package demo;",
+                            "",
+                            "public class App {",
+                            "    public static void main(String[] args) {",
+                            "        System.out.println(\"ok\");",
+                            "    }",
+                            "",
+                            "    public String message() {",
+                            "        return \"ok\";",
+                            "    }",
+                            "}"
+                    );
                 }
                 if (userPrompt.contains("文件路径：") || userPrompt.contains("当前目标文件：")) {
                     return """

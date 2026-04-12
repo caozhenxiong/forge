@@ -74,6 +74,24 @@ final class PlaywrightSmokeValidationSupport {
                     )
             );
         }
+        if (hasRuntimeErrors(snapshot)) {
+            String runtimeEvidence = renderProbeEvidence(snapshot, probeOutcome.evidence());
+            String firstRuntimeError = firstRuntimeError(snapshot);
+            return new ValidationStepExecution(
+                    new ValidationStepResult(
+                            ValidationCapability.WEB_PLAYWRIGHT_SMOKE,
+                            ValidationStatus.FAILED,
+                            "浏览器级 smoke test 发现运行时错误。",
+                            reason + "\n" + runtimeEvidence
+                    ),
+                    ToolResult.failure(
+                            ToolName.PLAYWRIGHT_SMOKE,
+                            ToolFailureCode.RUNTIME_SNAPSHOT_CAPTURE_FAILED,
+                            firstRuntimeError.isBlank() ? runtimeEvidence : firstRuntimeError,
+                            "请先修复页面运行时错误，再继续依赖 smoke 通过结论。"
+                    )
+            );
+        }
         return new ValidationStepExecution(
                 new ValidationStepResult(
                         ValidationCapability.WEB_PLAYWRIGHT_SMOKE,
@@ -119,6 +137,35 @@ final class PlaywrightSmokeValidationSupport {
             return ToolFailureCode.PLAYWRIGHT_PROBE_PAYLOAD_INVALID;
         }
         return ToolFailureCode.PLAYWRIGHT_PROBE_EXECUTION_FAILED;
+    }
+
+    private boolean hasRuntimeErrors(RuntimeSnapshot snapshot) {
+        if (snapshot == null) {
+            return false;
+        }
+        return (snapshot.consoleErrors() != null && !snapshot.consoleErrors().isEmpty())
+                || (snapshot.pageErrors() != null && !snapshot.pageErrors().isEmpty());
+    }
+
+    private String firstRuntimeError(RuntimeSnapshot snapshot) {
+        if (snapshot == null) {
+            return "";
+        }
+        if (snapshot.pageErrors() != null) {
+            for (String error : snapshot.pageErrors()) {
+                if (error != null && !error.isBlank()) {
+                    return error.trim();
+                }
+            }
+        }
+        if (snapshot.consoleErrors() != null) {
+            for (String error : snapshot.consoleErrors()) {
+                if (error != null && !error.isBlank()) {
+                    return error.trim();
+                }
+            }
+        }
+        return "";
     }
 
     private String trim(String value) {

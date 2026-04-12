@@ -14,7 +14,7 @@ import devflow.agent.quality.CapabilityMatrix;
 import devflow.agent.quality.CoverageLedger;
 import devflow.agent.quality.CoverageLedgerEntry;
 import devflow.agent.quality.CoverageLedgerStatus;
-import devflow.agent.quality.CapabilitySurface;
+import devflow.agent.quality.CapabilityIds;
 import devflow.agent.quality.QualityLedger;
 import devflow.agent.quality.StructureRiskReport;
 import devflow.agent.repair.DiagnosisAgent;
@@ -259,7 +259,7 @@ class StageTransitionSupportTests {
                                 CapabilityMatrix.empty(),
                                 new CoverageLedger(java.util.List.of(
                                         new CoverageLedgerEntry(
-                                                CapabilitySurface.TIMED_STATE_PROGRESSION,
+                                                CapabilityIds.TIMED_STATE_PROGRESSION,
                                                 true,
                                                 CoverageLedgerStatus.MISSING,
                                                 java.util.List.of(),
@@ -294,7 +294,7 @@ class StageTransitionSupportTests {
         );
 
         ExecutionDirectivePayload directives = ExecutionDirectiveProtocol.parseMerged(capturedNote.get());
-        assertTrue(directives.requiredCapabilitySurfaces().contains(CapabilitySurface.TIMED_STATE_PROGRESSION.wireValue()));
+        assertTrue(directives.requiredCapabilitySurfaces().contains(CapabilityIds.TIMED_STATE_PROGRESSION));
     }
 
     private StageTransitionSupport newSupport(FileRunRepository runRepository) {

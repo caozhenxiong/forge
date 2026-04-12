@@ -14,7 +14,6 @@ class TreeSitterCodeEditAdapterTests {
     private final TreeSitterSupport treeSitterSupport = new TreeSitterSupport();
     private final TargetLocator targetLocator = new TreeSitterTargetLocator(treeSitterSupport);
     private final CodePatchKernel codePatchKernel = new CodePatchKernel(
-            new CodePreciseEditor(treeSitterSupport),
             new PatchVerifier(
                     treeSitterSupport,
                     new GeneratedContentGate(

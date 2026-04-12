@@ -3,9 +3,6 @@ package devflow.agent.executor;
 import devflow.agent.context.ValidationMetadata;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.quality.QualityPlan;
-import devflow.agent.parsing.HtmlStructureSnapshot;
-import devflow.agent.parsing.TreeSitterSupport;
-import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -19,14 +16,10 @@ import java.util.List;
  */
 final class TestCaseBasePlanBuilder {
 
-    private final FileProjectWorkspace workspace;
-    private final TreeSitterSupport treeSitterSupport;
     private final HtmlStructureCaseBuilder htmlStructureCaseBuilder;
     private final PerformanceCaseBuilder performanceCaseBuilder;
 
-    TestCaseBasePlanBuilder(FileProjectWorkspace workspace, TreeSitterSupport treeSitterSupport) {
-        this.workspace = workspace;
-        this.treeSitterSupport = treeSitterSupport;
+    TestCaseBasePlanBuilder() {
         this.htmlStructureCaseBuilder = new HtmlStructureCaseBuilder();
         this.performanceCaseBuilder = new PerformanceCaseBuilder();
     }
@@ -60,10 +53,8 @@ final class TestCaseBasePlanBuilder {
 
         try {
             if (fingerprint.hasResolvedHtmlEntry()) {
-                String html = workspace.readFile(projectPath, Path.of(entry));
-                HtmlStructureSnapshot htmlSnapshot = treeSitterSupport.inspectHtml(html);
                 htmlStructureCaseBuilder.appendPrimarySurfaceCases(cases, entry, runtimeContract, language);
-                htmlStructureCaseBuilder.appendButtonCases(cases, entry, htmlSnapshot, runtimeSnapshot, runtimeContract, language);
+                htmlStructureCaseBuilder.appendButtonCases(cases, entry, runtimeSnapshot, runtimeContract, language);
                 performanceCaseBuilder.appendPerformanceCases(cases, entry, runtimeSnapshot, validationMetadata, language);
             }
         } catch (Exception ignored) {

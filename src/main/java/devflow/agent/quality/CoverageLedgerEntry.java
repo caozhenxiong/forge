@@ -6,7 +6,7 @@ import java.util.List;
  * 单个能力项的覆盖账本。
  */
 public record CoverageLedgerEntry(
-        CapabilitySurface surface,
+        String capabilityId,
         boolean required,
         CoverageLedgerStatus status,
         List<String> caseIds,
@@ -14,6 +14,7 @@ public record CoverageLedgerEntry(
 ) {
 
     public CoverageLedgerEntry {
+        capabilityId = CapabilityIds.normalize(capabilityId);
         caseIds = caseIds == null ? List.of() : List.copyOf(caseIds);
         note = note == null ? "" : note;
     }

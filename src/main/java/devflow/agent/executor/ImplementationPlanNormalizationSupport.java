@@ -2,7 +2,6 @@ package devflow.agent.executor;
 
 import devflow.agent.context.ExecutionContract;
 import devflow.agent.context.ProductContract;
-import devflow.agent.quality.CapabilitySurface;
 import devflow.agent.quality.QualityCoverageRefCatalog;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.review.FixMode;
@@ -129,12 +128,12 @@ final class ImplementationPlanNormalizationSupport {
         if (productContract != null && productContract.containsBindingRequirementId(value)) {
             return true;
         }
-        CapabilitySurface qualitySurface = QualityCoverageRefCatalog.fromReferenceId(value);
-        return qualitySurface != null
+        String qualityCapabilityId = QualityCoverageRefCatalog.fromReferenceId(value);
+        return !qualityCapabilityId.isBlank()
                 && qualityPlan != null
                 && qualityPlan.capabilityMatrix().entries().stream()
-                .map(entry -> entry == null ? null : entry.surface())
-                .anyMatch(surface -> surface == qualitySurface);
+                .map(entry -> entry == null ? "" : entry.capabilityId())
+                .anyMatch(qualityCapabilityId::equals);
     }
 
     private List<String> sanitizeCapabilities(List<String> values, List<String> fallback) {

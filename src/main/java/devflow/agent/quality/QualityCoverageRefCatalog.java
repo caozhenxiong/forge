@@ -19,62 +19,58 @@ public final class QualityCoverageRefCatalog {
     private QualityCoverageRefCatalog() {
     }
 
-    public static String referenceId(CapabilitySurface surface) {
-        if (surface == null) {
+    public static String referenceId(String capabilityId) {
+        String normalized = CapabilityIds.normalize(capabilityId);
+        if (normalized.isBlank()) {
             return "";
         }
-        return PREFIX + surface.name();
+        return PREFIX + CapabilityIds.toReferenceSuffix(normalized);
     }
 
-    public static CapabilitySurface fromReferenceId(String referenceId) {
+    public static String fromReferenceId(String referenceId) {
         if (referenceId == null || referenceId.isBlank()) {
-            return null;
+            return "";
         }
-        String normalized = referenceId.trim().toUpperCase();
+        String normalized = referenceId.trim().toUpperCase(java.util.Locale.ROOT);
         if (!normalized.startsWith(PREFIX)) {
-            return null;
+            return "";
         }
-        String suffix = normalized.substring(PREFIX.length());
-        try {
-            return CapabilitySurface.valueOf(suffix);
-        } catch (IllegalArgumentException ignored) {
-            return null;
-        }
+        return CapabilityIds.fromReferenceSuffix(normalized.substring(PREFIX.length()));
     }
 
     public static boolean supports(String referenceId) {
-        return fromReferenceId(referenceId) != null;
+        return !fromReferenceId(referenceId).isBlank();
     }
 
     public static Set<String> requiredReferenceIds(QualityPlan qualityPlan) {
-        if (qualityPlan == null || qualityPlan.qualityIntent().requiredCapabilitySurfaces().isEmpty()) {
+        if (qualityPlan == null || qualityPlan.qualityIntent().requiredCapabilityIds().isEmpty()) {
             return Set.of();
         }
         LinkedHashSet<String> refs = new LinkedHashSet<>();
-        for (CapabilitySurface surface : qualityPlan.qualityIntent().requiredCapabilitySurfaces()) {
-            refs.add(referenceId(surface));
+        for (String capabilityId : qualityPlan.qualityIntent().requiredCapabilityIds()) {
+            refs.add(referenceId(capabilityId));
         }
         return Set.copyOf(refs);
     }
 
     public static String renderCatalog(QualityPlan qualityPlan, DocumentLanguage language) {
-        if (qualityPlan == null || qualityPlan.qualityIntent().requiredCapabilitySurfaces().isEmpty()) {
+        if (qualityPlan == null || qualityPlan.qualityIntent().requiredCapabilityIds().isEmpty()) {
             return PlaceholderValues.none(language);
         }
         StringBuilder builder = new StringBuilder();
-        Set<CapabilitySurface> requiredQualitySurfaces = qualityPlan.qualityIntent().requiredCapabilitySurfaces();
+        Set<String> requiredQualitySurfaces = qualityPlan.qualityIntent().requiredCapabilityIds();
         for (CapabilityMatrixEntry entry : qualityPlan.capabilityMatrix().entries()) {
-            if (entry == null || entry.surface() == null || !entry.required()
-                    || !requiredQualitySurfaces.contains(entry.surface())) {
+            if (entry == null || entry.capabilityId().isBlank() || !entry.required()
+                    || !requiredQualitySurfaces.contains(entry.capabilityId())) {
                 continue;
             }
             if (!builder.isEmpty()) {
                 builder.append('\n');
             }
             builder.append("- ")
-                    .append(referenceId(entry.surface()))
+                    .append(referenceId(entry.capabilityId()))
                     .append(": ")
-                    .append(entry.surface().wireValue())
+                    .append(entry.capabilityId())
                     .append(" [")
                     .append(entry.expectation().name())
                     .append("]");
