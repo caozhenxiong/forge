@@ -16,13 +16,17 @@ class SubtaskExecutionStateTests {
                 Path.of("js/game-engine.js"),
                 FileEditStrategyNames.PRECISE_CODE,
                 "export function tick() {}",
-                List.of()
+                "hash-a",
+                List.of(),
+                "js/game-engine.js#code-unit-1"
         ));
         state.recordPatchProgress(new FilePatchProgressState(
                 Path.of("index.html"),
                 FileEditStrategyNames.PRECISE_HTML,
                 "<html></html>",
-                List.of()
+                "hash-b",
+                List.of(),
+                "index.html#markup"
         ));
 
         state.applyRevisionDirective(SubtaskRevisionDirective.retry(List.of(new FileChange(

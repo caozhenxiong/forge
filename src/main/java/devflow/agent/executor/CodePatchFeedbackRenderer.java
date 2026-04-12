@@ -26,7 +26,7 @@ final class CodePatchFeedbackRenderer {
                 - 编辑单元: %s
                 - 问题: %s
                 要求：
-                1. 继续使用 JSON 结构化 diff patch 格式
+                1. 继续使用 JSON exact replace 格式
                 2. 只改当前编辑单元允许的符号，避免整文件重写
                 3. 产物必须保持语法和结构可解析
                 4. %s
@@ -35,7 +35,7 @@ final class CodePatchFeedbackRenderer {
                 relativePath,
                 unit.label(),
                 validationFailure,
-                patchFailure.recommendedNextActionOr("继续保持当前 patch 目标与本地可验证结构一致。")
+                patchFailure.recommendedNextActionOr("继续保持当前 exact replace 目标与本地可验证结构一致。")
         );
     }
 
@@ -57,9 +57,9 @@ final class CodePatchFeedbackRenderer {
                 - 编辑单元: %s
                 - 问题: 当前单元输出被截断，但已无法继续按符号拆分
                 要求：
-                1. 继续只返回 JSON 结构化 diff patch
+                1. 继续只返回 JSON exact replace 对象
                 2. 当前单元只能补当前符号体内的最小逻辑，不要新增远端辅助符号
-                3. 不要生成新的文件尾追加 hunk
+                3. 不要通过整文件替换伪装成局部编辑
                 4. 不要回到整文件重写
                 """.formatted(attempt, relativePath, unit.label());
     }
@@ -72,9 +72,9 @@ final class CodePatchFeedbackRenderer {
                 - 问题: 精确改写 JSON 非法
                 要求：
                 1. 继续只返回 JSON 对象
-                2. 必须包含 expectedSourceHash 和 hunks 数组
-                3. 每个 hunk 都要提供 sourceStartLine、beforeLines、afterLines
-                4. beforeLines/afterLines 必须逐行承载源码，不要把整段源码塞进单个字符串
+                2. 必须包含 targetPath、baseContentHash、oldText、newText、replaceAll
+                3. oldText 必须直接从当前文件内容中原样拷贝
+                4. 不要把摘要、解释或 Markdown 混进 JSON
                 """.formatted(attempt, relativePath, unit.label());
     }
 
@@ -87,9 +87,9 @@ final class CodePatchFeedbackRenderer {
                 - 问题: 当前 patch 协议不符合单元约束
                 要求：
                 1. 继续只返回 JSON 对象
-                2. 当前单符号单元只能返回 1 个最小 hunk
-                3. hunk 只能覆盖目标符号对应的现有实现区域，不要扩到文件尾或别的符号
-                4. 不要顺手改其他符号，也不要把整段文件重写成大 hunk
+                2. 当前单符号单元只能返回 1 个最小 exact replace
+                3. oldText 只能覆盖目标符号对应的现有实现区域，不要扩到文件尾或别的符号
+                4. 不要顺手改其他符号，也不要把整段文件重写成大替换
                 5. %s
                 """.formatted(attempt, relativePath, unit.label(), strictSingleSymbolAdvice);
     }
@@ -103,7 +103,7 @@ final class CodePatchFeedbackRenderer {
                 - 问题: 当前 patch 越过了 edit unit 的边界
                 要求：
                 1. 只修改当前 allowedSymbols 列表中的符号
-                2. 不要生成新的文件尾追加 hunk
+                2. 不要把 oldText 扩到当前单元以外
                 3. 不要同时改写当前单元以外的符号
                 4. %s
                 """.formatted(attempt, relativePath, unit.label(), strictSingleSymbolAdvice);
@@ -123,8 +123,8 @@ final class CodePatchFeedbackRenderer {
 
     static String generationFailureAdvice(GenerationFailureType failureType) {
         return isPatchLikeFailure(failureType)
-                ? "请只返回合法 JSON；必须提供 expectedSourceHash 与 hunks，beforeLines/afterLines 逐行承载源码，且 hunk 范围必须留在当前编辑单元。"
-                : "请继续使用 JSON 结构化 diff patch 格式，只修改当前编辑单元的必要符号并保持语法可解析。";
+                ? "请只返回合法 JSON；必须提供 targetPath、baseContentHash、oldText、newText、replaceAll，且 oldText 范围必须留在当前编辑单元。"
+                : "请继续使用 JSON exact replace 格式，只修改当前编辑单元的必要符号并保持语法可解析。";
     }
 
     private static boolean isPatchLikeFailure(GenerationFailureType failureType) {
@@ -138,7 +138,7 @@ final class CodePatchFeedbackRenderer {
         if (unit == null || !unit.restrictsSymbols() || unit.allowedSymbols().size() != 1) {
             return "如果当前单元已缩小，请继续保持目标符号与 allowedSymbols 一致。";
         }
-        return "当前单元唯一允许的目标符号是 %s；只允许围绕它输出最小 body patch。"
+        return "当前单元唯一允许的目标符号是 %s；只允许围绕它输出最小 exact replace。"
                 .formatted(unit.allowedSymbols().getFirst());
     }
 }

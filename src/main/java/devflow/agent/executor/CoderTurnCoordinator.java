@@ -27,7 +27,7 @@ final class CoderTurnCoordinator {
     private final ImplementationStageGate implementationStageGate;
     private final ImplementationGateEngine implementationGateEngine;
     private final ImplementationResumePolicy implementationResumePolicy;
-    private final ImplementationPlanningRetryPolicy implementationPlanningRetryPolicy;
+    private final ImplementationPlanner implementationPlanner;
     private final ImplementationPlanRunner implementationPlanRunner;
     private final ImplementationSnapshotAssembler implementationSnapshotAssembler;
     private final ImplementationContextResolver implementationContextResolver;
@@ -38,7 +38,7 @@ final class CoderTurnCoordinator {
             ImplementationStageGate implementationStageGate,
             ImplementationGateEngine implementationGateEngine,
             ImplementationResumePolicy implementationResumePolicy,
-            ImplementationPlanningRetryPolicy implementationPlanningRetryPolicy,
+            ImplementationPlanner implementationPlanner,
             ImplementationPlanRunner implementationPlanRunner,
             ImplementationSnapshotAssembler implementationSnapshotAssembler,
             ImplementationContextResolver implementationContextResolver
@@ -48,7 +48,7 @@ final class CoderTurnCoordinator {
         this.implementationStageGate = implementationStageGate;
         this.implementationGateEngine = implementationGateEngine;
         this.implementationResumePolicy = implementationResumePolicy;
-        this.implementationPlanningRetryPolicy = implementationPlanningRetryPolicy;
+        this.implementationPlanner = implementationPlanner;
         this.implementationPlanRunner = implementationPlanRunner;
         this.implementationSnapshotAssembler = implementationSnapshotAssembler;
         this.implementationContextResolver = implementationContextResolver;
@@ -94,30 +94,41 @@ final class CoderTurnCoordinator {
                     reusableState.plan().subtasks().size()
             ));
         }
-        ImplementationPlan plan = reusableState == null
-                ? implementationPlanningRetryPolicy.planWithInternalRetries(
-                projectPath,
-                runRecord,
-                analysis,
-                prd,
-                design,
-                note,
-                executionContext.workspaceContext(),
-                executionContext.plannerContextMarkdown(),
-                executionContext.performanceValidationGuidance(),
-                executionContext.preferSkeletonFlow(),
-                executionContext.deliveryPolicy(),
-                executionContext.contractView(),
-                executionContext.qualityPlan(),
-                executionContext.fingerprint(),
-                executionContext.language(),
-                executionContext.fixMode(),
-                executionContext.implementationPatchTarget(),
-                executionContext.authoritativeCoverageCatalog(),
-                executionContext.continuationConstraints(),
-                eventJournal::append
-        )
-                : reusableState.plan();
+        ImplementationPlan plan;
+        try {
+            plan = reusableState == null
+                    ? implementationPlanner.plan(
+                    projectPath,
+                    runRecord,
+                    analysis,
+                    prd,
+                    design,
+                    note,
+                    executionContext.workspaceContext(),
+                    executionContext.plannerContextMarkdown(),
+                    executionContext.performanceValidationGuidance(),
+                    executionContext.preferSkeletonFlow(),
+                    executionContext.deliveryPolicy(),
+                    executionContext.contractView(),
+                    executionContext.qualityPlan(),
+                    executionContext.fingerprint(),
+                    executionContext.language(),
+                    executionContext.fixMode(),
+                    executionContext.implementationPatchTarget(),
+                    executionContext.authoritativeCoverageCatalog(),
+                    executionContext.continuationConstraints(),
+                    eventJournal
+            )
+                    : reusableState.plan();
+        } catch (ImplementationPlanningException exception) {
+            if (!exception.reason().recoverable()) {
+                throw exception;
+            }
+            throw new IllegalStateException(
+                    "Implementation planning exhausted internal retries: " + blankIfNull(exception.getMessage()),
+                    exception
+            );
+        }
         List<TaskPackage> taskPackages = implementationSnapshotAssembler.buildTaskPackages(
                 projectPath,
                 plan,
@@ -203,5 +214,9 @@ final class CoderTurnCoordinator {
         ImplementationExecutionBundle bundle = implementationSnapshotAssembler.buildBundle(snapshot);
         progressSink.publish(bundle);
         return bundle;
+    }
+
+    private String blankIfNull(String value) {
+        return value == null ? "" : value;
     }
 }

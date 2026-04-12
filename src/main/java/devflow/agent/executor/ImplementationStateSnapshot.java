@@ -204,16 +204,9 @@ record ImplementationStateSnapshot(
             String relativePath,
             String strategyName,
             String workingContent,
-            List<EditUnitState> pendingUnits
-    ) {
-    }
-
-    record EditUnitState(
-            String kind,
-            String label,
-            List<String> allowedSymbols,
-            int appendSymbolBudget,
-            int splitDepth
+            String plannedFromHash,
+            List<String> completedUnitLabels,
+            String currentUnitLabel
     ) {
     }
 

@@ -9,26 +9,35 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * 历史测试名保留不变，但内部已经切到 exact replace 载荷。
+ */
 public final class StructuredDiffTestSupport {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final Pattern SOURCE_HASH_PATTERN =
-            Pattern.compile("- sourceHash: ([^\\r\\n]+)");
-    private static final Pattern NUMBERED_LINE_PATTERN =
-            Pattern.compile("^\\s*(\\d+) \\| ?(.*)$");
-    private static final Pattern EXPECTED_SOURCE_HASH_JSON_PATTERN =
-            Pattern.compile("\"expectedSourceHash\"\\s*:\\s*\"([^\"]*)\"");
-    private static final String NUMBERED_CONTENT_MARKER = "内容（带行号）：";
+    private static final Pattern TARGET_PATH_PATTERN =
+            Pattern.compile("- targetPath: ([^\\r\\n]+)");
+    private static final Pattern CONTENT_HASH_PATTERN =
+            Pattern.compile("- contentHash: ([^\\r\\n]+)");
+    private static final Pattern BASE_CONTENT_HASH_JSON_PATTERN =
+            Pattern.compile("\"baseContentHash\"\\s*:\\s*\"([^\"]*)\"");
+    private static final String CONTENT_MARKER = "（必须原样引用 oldText）：";
+    private static final String CONTENT_BLOCK_PREFIX = "<<<CURRENT_CONTENT\n";
+    private static final String CONTENT_BLOCK_SUFFIX = "\nCURRENT_CONTENT";
 
     private StructuredDiffTestSupport() {
     }
 
     public static String appendAtEnd(String prompt, String... afterLines) {
         ParsedPrompt parsed = parse(prompt);
-        return patch(
-                parsed.sourceHash(),
-                List.of(new HunkSpec(parsed.lines().size() + 1, List.of(), List.of(afterLines)))
-        );
+        String oldText = parsed.content();
+        String newText = appendContent(parsed.content(), List.of(afterLines));
+        return exactEdit(parsed.targetPath(), parsed.contentHash(), oldText, newText, false);
+    }
+
+    public static String replaceCurrentContent(String prompt, String newContent) {
+        ParsedPrompt parsed = parse(prompt);
+        return exactEdit(parsed.targetPath(), parsed.contentHash(), parsed.content(), newContent, false);
     }
 
     public static String replaceLine(String prompt, String beforeLine, String... afterLines) {
@@ -42,79 +51,84 @@ public final class StructuredDiffTestSupport {
         if (endIndex > parsed.lines().size()) {
             throw new IllegalArgumentException("Range exceeds prompt content for line: " + firstLine);
         }
-        return patch(
-                parsed.sourceHash(),
-                List.of(new HunkSpec(
-                        startIndex + 1,
-                        List.copyOf(parsed.lines().subList(startIndex, endIndex)),
-                        List.of(afterLines)
-                ))
-        );
+        String oldText = sliceLines(parsed.content(), startIndex, beforeLineCount);
+        boolean preserveTrailingNewline = oldText.endsWith("\n");
+        String newText = renderLines(List.of(afterLines), preserveTrailingNewline);
+        return exactEdit(parsed.targetPath(), parsed.contentHash(), oldText, newText, false);
     }
 
     public static String replaceExactBlock(String prompt, List<String> beforeLines, List<String> afterLines) {
         ParsedPrompt parsed = parse(prompt);
         int startIndex = findBlockIndex(parsed.lines(), beforeLines);
-        List<String> actualBeforeLines = List.copyOf(parsed.lines().subList(startIndex, startIndex + beforeLines.size()));
-        return patch(
-                parsed.sourceHash(),
-                List.of(new HunkSpec(startIndex + 1, actualBeforeLines, afterLines))
-        );
+        String oldText = sliceLines(parsed.content(), startIndex, beforeLines.size());
+        boolean preserveTrailingNewline = oldText.endsWith("\n");
+        String newText = renderLines(afterLines, preserveTrailingNewline);
+        return exactEdit(parsed.targetPath(), parsed.contentHash(), oldText, newText, false);
     }
 
     public static String staleHash(String validPatchJson) {
-        Matcher matcher = EXPECTED_SOURCE_HASH_JSON_PATTERN.matcher(validPatchJson);
+        Matcher matcher = BASE_CONTENT_HASH_JSON_PATTERN.matcher(validPatchJson);
         if (!matcher.find()) {
-            throw new IllegalArgumentException("Patch JSON does not contain expectedSourceHash");
+            throw new IllegalArgumentException("Patch JSON does not contain baseContentHash");
         }
-        return matcher.replaceFirst("\"expectedSourceHash\": \"stale-source-hash\"");
+        return matcher.replaceFirst("\"baseContentHash\": \"stale-source-hash\"");
     }
 
     public static String malformedJson(String validPatchJson) {
-        Matcher matcher = EXPECTED_SOURCE_HASH_JSON_PATTERN.matcher(validPatchJson);
+        Matcher matcher = BASE_CONTENT_HASH_JSON_PATTERN.matcher(validPatchJson);
         if (!matcher.find()) {
-            throw new IllegalArgumentException("Patch JSON does not contain expectedSourceHash");
+            throw new IllegalArgumentException("Patch JSON does not contain baseContentHash");
         }
-        String malformedHash = matcher.replaceFirst("\"expectedSourceHash\": \"" + matcher.group(1) + "\n\"");
+        String malformedHash = matcher.replaceFirst("\"baseContentHash\": \"" + matcher.group(1) + "\n\"");
         return """
                 ```json
                 %s
                 ```
-                """.formatted(malformedHash.replaceFirst("\\n\\s*\\]\\s*\\n\\s*}", ",\n  ]\n}"));
+                """.formatted(malformedHash);
     }
 
     private static ParsedPrompt parse(String prompt) {
-        String sourceHash = extractSourceHash(prompt);
-        List<String> numberedLines = extractNumberedLines(prompt);
-        return new ParsedPrompt(sourceHash, numberedLines);
+        return new ParsedPrompt(
+                extractTargetPath(prompt),
+                extractContentHash(prompt),
+                extractCurrentContent(prompt)
+        );
     }
 
-    private static String extractSourceHash(String prompt) {
-        Matcher matcher = SOURCE_HASH_PATTERN.matcher(prompt);
+    private static String extractTargetPath(String prompt) {
+        Matcher matcher = TARGET_PATH_PATTERN.matcher(prompt);
         if (!matcher.find()) {
-            throw new IllegalArgumentException("Prompt does not contain sourceHash");
+            throw new IllegalArgumentException("Prompt does not contain targetPath");
         }
         return matcher.group(1).trim();
     }
 
-    private static List<String> extractNumberedLines(String prompt) {
-        int markerIndex = prompt.lastIndexOf(NUMBERED_CONTENT_MARKER);
+    private static String extractContentHash(String prompt) {
+        Matcher matcher = CONTENT_HASH_PATTERN.matcher(prompt);
+        if (!matcher.find()) {
+            throw new IllegalArgumentException("Prompt does not contain contentHash");
+        }
+        return matcher.group(1).trim();
+    }
+
+    private static String extractCurrentContent(String prompt) {
+        int markerIndex = prompt.lastIndexOf(CONTENT_MARKER);
         if (markerIndex < 0) {
-            throw new IllegalArgumentException("Prompt does not contain numbered content");
+            throw new IllegalArgumentException("Prompt does not contain current content marker");
         }
-        String contentSection = prompt.substring(markerIndex + NUMBERED_CONTENT_MARKER.length()).strip();
-        if (contentSection.startsWith("(empty file)")) {
-            return List.of();
+        String rawSection = prompt.substring(markerIndex + CONTENT_MARKER.length()).stripLeading();
+        if (rawSection.startsWith("(new file)")) {
+            return "";
         }
-        List<String> lines = new ArrayList<>();
-        for (String line : contentSection.split("\\R", -1)) {
-            Matcher matcher = NUMBERED_LINE_PATTERN.matcher(line);
-            if (!matcher.matches()) {
-                continue;
-            }
-            lines.add(matcher.group(2));
+        if (!rawSection.startsWith(CONTENT_BLOCK_PREFIX)) {
+            throw new IllegalArgumentException("Prompt does not contain exact content block");
         }
-        return List.copyOf(lines);
+        int start = CONTENT_BLOCK_PREFIX.length();
+        int end = rawSection.lastIndexOf(CONTENT_BLOCK_SUFFIX);
+        if (end < start) {
+            throw new IllegalArgumentException("Prompt content block is malformed");
+        }
+        return rawSection.substring(start, end);
     }
 
     private static int findLineIndex(List<String> lines, String targetLine) {
@@ -155,28 +169,92 @@ public final class StructuredDiffTestSupport {
         return true;
     }
 
-    private static String patch(String expectedSourceHash, List<HunkSpec> hunks) {
-        List<Map<String, Object>> hunkPayloads = new ArrayList<>(hunks.size());
-        for (HunkSpec hunk : hunks) {
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("sourceStartLine", hunk.sourceStartLine());
-            payload.put("beforeLines", hunk.beforeLines());
-            payload.put("afterLines", hunk.afterLines());
-            hunkPayloads.add(payload);
+    private static String sliceLines(String content, int startIndex, int lineCount) {
+        if (lineCount <= 0) {
+            return "";
         }
+        List<Integer> starts = logicalLineStarts(content);
+        if (startIndex < 0 || startIndex >= starts.size()) {
+            throw new IllegalArgumentException("Line start out of range: " + startIndex);
+        }
+        int start = starts.get(startIndex);
+        int endLineIndex = startIndex + lineCount - 1;
+        if (endLineIndex >= starts.size()) {
+            throw new IllegalArgumentException("Line range exceeds content");
+        }
+        int end = endLineIndex + 1 < starts.size() ? starts.get(endLineIndex + 1) : content.length();
+        return content.substring(start, end);
+    }
+
+    private static List<Integer> logicalLineStarts(String content) {
+        if (content.isEmpty()) {
+            return List.of();
+        }
+        List<Integer> starts = new ArrayList<>();
+        starts.add(0);
+        for (int index = 0; index < content.length(); index++) {
+            if (content.charAt(index) == '\n' && index + 1 < content.length()) {
+                starts.add(index + 1);
+            }
+        }
+        if (content.endsWith("\n") && !starts.isEmpty()) {
+            int lastStart = starts.getLast();
+            if (lastStart == content.length()) {
+                starts.removeLast();
+            }
+        }
+        return List.copyOf(starts);
+    }
+
+    private static String appendContent(String content, List<String> afterLines) {
+        String addition = renderLines(afterLines, true);
+        if (content.isEmpty()) {
+            return addition;
+        }
+        if (content.endsWith("\n")) {
+            return content + addition;
+        }
+        return content + "\n" + addition;
+    }
+
+    private static String renderLines(List<String> lines, boolean trailingNewline) {
+        if (lines == null || lines.isEmpty()) {
+            return "";
+        }
+        String rendered = String.join("\n", lines);
+        return trailingNewline ? rendered + "\n" : rendered;
+    }
+
+    private static String exactEdit(
+            String targetPath,
+            String baseContentHash,
+            String oldText,
+            String newText,
+            boolean replaceAll
+    ) {
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("expectedSourceHash", expectedSourceHash);
-        payload.put("hunks", hunkPayloads);
+        payload.put("targetPath", targetPath);
+        payload.put("baseContentHash", baseContentHash);
+        payload.put("oldText", oldText);
+        payload.put("newText", newText);
+        payload.put("replaceAll", replaceAll);
         try {
             return OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(payload);
         } catch (JsonProcessingException exception) {
-            throw new IllegalStateException("Failed to serialize structured diff test payload", exception);
+            throw new IllegalStateException("Failed to serialize exact replace test payload", exception);
         }
     }
 
-    private record ParsedPrompt(String sourceHash, List<String> lines) {
-    }
-
-    private record HunkSpec(int sourceStartLine, List<String> beforeLines, List<String> afterLines) {
+    private record ParsedPrompt(String targetPath, String contentHash, String content) {
+        List<String> lines() {
+            if (content.isEmpty()) {
+                return List.of();
+            }
+            String normalized = content.endsWith("\n") ? content.substring(0, content.length() - 1) : content;
+            if (normalized.isEmpty()) {
+                return List.of();
+            }
+            return List.of(normalized.split("\n", -1));
+        }
     }
 }

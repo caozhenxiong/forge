@@ -54,7 +54,7 @@ class FileEditCoordinatorTests {
                     wholeFileCalled.set(true);
                     return "function tick() { return 999; }";
                 }
-                if (systemPrompt.contains("符号级精确改写")) {
+                if (systemPrompt.contains("基于当前文件状态的 exact replace 改写")) {
                     return StructuredDiffTestSupport.replaceRangeStartingAt(
                             userPrompt,
                             "function tick() {",
@@ -204,7 +204,7 @@ class FileEditCoordinatorTests {
                     wholeFileCalled.set(true);
                     return "export function tick() { return 1; }";
                 }
-                if (systemPrompt.contains("符号级精确改写")) {
+                if (systemPrompt.contains("基于当前文件状态的 exact replace 改写")) {
                     if (systemPrompt.contains("当前文件为空或新建文件")) {
                         return StructuredDiffTestSupport.appendAtEnd(
                                 userPrompt,
@@ -282,7 +282,7 @@ class FileEditCoordinatorTests {
 
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
-                if (!systemPrompt.contains("符号级精确改写")) {
+                if (!systemPrompt.contains("基于当前文件状态的 exact replace 改写")) {
                     return "";
                 }
                 if (userPrompt.contains("label: main.js#code-unit-all")) {
@@ -381,7 +381,7 @@ class FileEditCoordinatorTests {
 
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
-                if (!systemPrompt.contains("符号级精确改写")) {
+                if (!systemPrompt.contains("基于当前文件状态的 exact replace 改写")) {
                     return "";
                 }
                 if (systemPrompt.contains("当前文件为空或新建文件")) {
@@ -479,7 +479,7 @@ class FileEditCoordinatorTests {
 
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
-                if (systemPrompt.contains("符号级精确改写")) {
+                if (systemPrompt.contains("基于当前文件状态的 exact replace 改写")) {
                     return StructuredDiffTestSupport.malformedJson(
                             StructuredDiffTestSupport.replaceRangeStartingAt(
                                     userPrompt,
@@ -557,7 +557,7 @@ class FileEditCoordinatorTests {
 
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
-                if (!systemPrompt.contains("符号级精确改写")) {
+                if (!systemPrompt.contains("基于当前文件状态的 exact replace 改写")) {
                     return "";
                 }
                 if (userPrompt.contains("allowedSymbols: alpha, beta, gamma, delta")) {
@@ -653,7 +653,7 @@ class FileEditCoordinatorTests {
 
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
-                if (!systemPrompt.contains("符号级精确改写")) {
+                if (!systemPrompt.contains("基于当前文件状态的 exact replace 改写")) {
                     return "";
                 }
                 capturedSystemPrompt.set(systemPrompt);
@@ -715,7 +715,7 @@ class FileEditCoordinatorTests {
         );
 
         assertTrue(capturedSystemPrompt.get().contains("当前编辑单元已缩到单个受限符号"));
-        assertTrue(capturedSystemPrompt.get().contains("hunk 只能覆盖 \"tick\" 对应的现有实现区域"));
+        assertTrue(capturedSystemPrompt.get().contains("`oldText` 只能围绕 \"tick\" 对应的现有实现区域选取"));
         assertTrue(capturedSystemPrompt.get().contains("不要额外追加 helper"));
         assertEquals(GenerationBudgetProfile.preciseCodeUnitOutputRatio(), capturedOutputBudgetRatio.get());
         assertTrue(generated.contains("return 1;"));
@@ -733,7 +733,7 @@ class FileEditCoordinatorTests {
 
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
-                if (!systemPrompt.contains("符号级精确改写")) {
+                if (!systemPrompt.contains("基于当前文件状态的 exact replace 改写")) {
                     return "";
                 }
                 return StructuredDiffTestSupport.appendAtEnd(
@@ -795,7 +795,7 @@ class FileEditCoordinatorTests {
 
         assertTrue(exception.getCause() instanceof GenerationFailureException);
         GenerationFailureException failure = (GenerationFailureException) exception.getCause();
-        assertEquals(GenerationFailureType.RESULT_FILE_INVALID, failure.report().failureType());
+        assertEquals(GenerationFailureType.EDIT_UNIT_SCOPE_VIOLATION, failure.report().failureType());
     }
 
     @Test
@@ -811,7 +811,7 @@ class FileEditCoordinatorTests {
 
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
-                if (!systemPrompt.contains("符号级精确改写")) {
+                if (!systemPrompt.contains("基于当前文件状态的 exact replace 改写")) {
                     return "";
                 }
                 if (userPrompt.contains("allowedSymbols: alpha, beta, gamma, delta")) {
@@ -935,7 +935,10 @@ class FileEditCoordinatorTests {
                 }
                 if (systemPrompt.contains("请只改写 HTML 中 <style id=\"app-style\">")) {
                     focusedStyleCalled.set(true);
-                    return "#app { color: green; }";
+                    return StructuredDiffTestSupport.replaceCurrentContent(
+                            userPrompt,
+                            "#app { color: green; }"
+                    );
                 }
                 return "";
             }
@@ -1039,7 +1042,9 @@ class FileEditCoordinatorTests {
                 }
                 if (systemPrompt.contains("请只改写 HTML 中 <style id=\"app-style\">")) {
                     focusedStyleCalled.set(true);
-                    return """
+                    return StructuredDiffTestSupport.replaceCurrentContent(
+                            userPrompt,
+                            """
                             #app {
                               color: blue;
                             }
@@ -1048,7 +1053,8 @@ class FileEditCoordinatorTests {
                               display: grid;
                               gap: 12px;
                             }
-                            """;
+                            """
+                    );
                 }
                 return "";
             }
@@ -1133,7 +1139,7 @@ class FileEditCoordinatorTests {
 
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
-                if (systemPrompt.contains("符号级精确改写")) {
+                if (systemPrompt.contains("基于当前文件状态的 exact replace 改写")) {
                     return StructuredDiffTestSupport.staleHash(
                             StructuredDiffTestSupport.replaceRangeStartingAt(
                                     userPrompt,
@@ -1147,7 +1153,9 @@ class FileEditCoordinatorTests {
                 }
                 if (systemPrompt.contains("script id=\"app-script\"")) {
                     focusedScriptCalled.set(true);
-                    return """
+                    return StructuredDiffTestSupport.replaceCurrentContent(
+                            userPrompt,
+                            """
                             function bootstrap() {
                               const canvas = document.getElementById('game-canvas');
                               const ctx = canvas.getContext('2d');
@@ -1157,7 +1165,8 @@ class FileEditCoordinatorTests {
                             document.addEventListener('DOMContentLoaded', () => {
                               bootstrap();
                             });
-                            """;
+                            """
+                    );
                 }
                 if (systemPrompt.contains("精确改写")) {
                     preciseHtmlCalled.set(true);
@@ -1270,7 +1279,7 @@ class FileEditCoordinatorTests {
                 if (systemPrompt.contains("JSON 载荷修复器")) {
                     fail("这类 JSON 应先被本地 deterministic repair 吸收");
                 }
-                if (systemPrompt.contains("符号级精确改写")) {
+                if (systemPrompt.contains("基于当前文件状态的 exact replace 改写")) {
                     preciseCodeCalls.incrementAndGet();
                     return StructuredDiffTestSupport.malformedJson(
                             StructuredDiffTestSupport.replaceRangeStartingAt(
@@ -1359,7 +1368,7 @@ class FileEditCoordinatorTests {
 
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
-                if (systemPrompt.contains("符号级精确改写")) {
+                if (systemPrompt.contains("基于当前文件状态的 exact replace 改写")) {
                     preciseCodeCalls.incrementAndGet();
                     if (userPrompt.contains("- allowedSymbols: alpha, beta")) {
                         parentUnitPromptSeen.set(true);
@@ -1405,13 +1414,9 @@ class FileEditCoordinatorTests {
                 Path.of("game.js"),
                 FileEditStrategyNames.PRECISE_CODE,
                 existingContent,
-                List.of(new EditUnit(
-                        EditUnitKind.CODE_SYMBOL_BATCH,
-                        "game.js#code-unit-1-a",
-                        List.of("alpha", "beta"),
-                        0,
-                        1
-                ))
+                "hash-1",
+                List.of(),
+                "game.js#code-unit-1-a"
         ));
 
         String generated = invokeGenerateFileContent(
@@ -1462,17 +1467,27 @@ class FileEditCoordinatorTests {
                             "function shouldNotRun() {}"
                     );
                 }
-                if (systemPrompt.contains("精确改写")) {
+                if (systemPrompt.contains("精确的 exact replace 改写")) {
                     preciseHtmlCalled.set(true);
-                    return """
-                            {
-                              "markupHtml": "<section class=\\"playfield\\"></section>",
-                              "styleCss": "body { background: #111; }",
-                              "scriptJs": "window.hostPatchReady = true;",
-                              "headAppendHtml": null,
-                              "bodyAppendHtml": null
-                            }
-                            """;
+                    return StructuredDiffTestSupport.replaceCurrentContent(
+                            userPrompt,
+                            """
+                            <!doctype html>
+                            <html>
+                            <head>
+                              <style id="app-style">
+                                body { background: #111; }
+                              </style>
+                            </head>
+                            <body>
+                              <main id="app-root"><section class="playfield"></section></main>
+                              <script id="app-script">
+                                window.hostPatchReady = true;
+                              </script>
+                            </body>
+                            </html>
+                            """
+                    );
                 }
                 return "";
             }
@@ -1559,17 +1574,20 @@ class FileEditCoordinatorTests {
                     jsonRepairCalls.incrementAndGet();
                     return "still invalid json";
                 }
-                if (systemPrompt.contains("请对现有 HTML 页面做“精确改写”")) {
+                if (systemPrompt.contains("请对现有 HTML 页面做精确的 exact replace 改写")) {
                     preciseHtmlCalls.incrementAndGet();
                     return "not-json";
                 }
                 if (systemPrompt.contains("请只改写 HTML 中 <script id=\"app-script\"> 的内部 JavaScript")) {
                     focusedScriptCalls.incrementAndGet();
-                    return """
+                    return StructuredDiffTestSupport.replaceCurrentContent(
+                            userPrompt,
+                            """
                             function bootstrap() {
                               window.focusedReady = true;
                             }
-                            """;
+                            """
+                    );
                 }
                 return "";
             }
@@ -1658,7 +1676,9 @@ class FileEditCoordinatorTests {
                 }
                 if (systemPrompt.contains("script id=\"app-script\"")) {
                     focusedScriptCalled.set(true);
-                    return """
+                    return StructuredDiffTestSupport.replaceCurrentContent(
+                            userPrompt,
+                            """
                             function bindButton() {
                               document.getElementById('start-btn')?.addEventListener('click', bootstrap);
                             }
@@ -1666,9 +1686,10 @@ class FileEditCoordinatorTests {
                             function bootstrap() {
                               bindButton();
                             }
-                            """;
+                            """
+                    );
                 }
-                if (systemPrompt.contains("精确改写")) {
+                if (systemPrompt.contains("精确的 exact replace 改写")) {
                     preciseHtmlCalled.set(true);
                     return """
                             {
@@ -1772,7 +1793,9 @@ class FileEditCoordinatorTests {
                 }
                 if (systemPrompt.contains("script id=\"app-script\"")) {
                     focusedScriptCalled.set(true);
-                    return """
+                    return StructuredDiffTestSupport.replaceCurrentContent(
+                            userPrompt,
+                            """
                             function updateScore(value) {
                               const score = document.getElementById('score');
                               score.textContent = value;
@@ -1783,7 +1806,8 @@ class FileEditCoordinatorTests {
                             }
 
                             document.addEventListener('DOMContentLoaded', bootstrap);
-                            """;
+                            """
+                    );
                 }
                 return "";
             }
@@ -1872,7 +1896,9 @@ class FileEditCoordinatorTests {
                 }
                 if (systemPrompt.contains("script id=\"app-script\"")) {
                     focusedScriptCalled.set(true);
-                    return """
+                    return StructuredDiffTestSupport.replaceCurrentContent(
+                            userPrompt,
+                            """
                             function updateScore(value) {
                               document.getElementById('score').textContent = value;
                             }
@@ -1882,7 +1908,8 @@ class FileEditCoordinatorTests {
                             }
 
                             document.addEventListener('DOMContentLoaded', bootstrap);
-                            """;
+                            """
+                    );
                 }
                 return "";
             }
@@ -1936,12 +1963,9 @@ class FileEditCoordinatorTests {
                   staleHelper();
                 }
                 """,
-                List.of(new EditUnit(
-                        EditUnitKind.INLINE_SCRIPT_SYMBOL_BATCH,
-                        "index.html.inline.js#inline-unit-append",
-                        List.of(),
-                        1
-                ))
+                "hash-2",
+                List.of(),
+                "index.html.inline.js#inline-unit-append"
         ));
 
         String generated = invokeGenerateFileContent(
@@ -2146,48 +2170,6 @@ class FileEditCoordinatorTests {
         );
 
         assertTrue(capturedSystemPrompt.get().contains("命名的顶层函数/类"), "结构化 HTML 骨架应优先生成命名脚本骨架，避免匿名大回调");
-    }
-
-    @Test
-    void focusedScriptRegionUnwrapsSingleScriptWrapper() throws Exception {
-        FocusedHtmlRegionNormalizer normalizer = new FocusedHtmlRegionNormalizer(
-                new GeneratedPayloadSupport(new StructuredPayloadReader(new ObjectMapper()))
-        );
-
-        devflow.agent.editing.HtmlPrecisePatch patch = normalizer.toPatch(
-                HtmlEditRegion.SCRIPT,
-                """
-                <script id="app-script">
-                function startGame() {
-                  return 1;
-                }
-                </script>
-                """
-        );
-
-        assertEquals("""
-                function startGame() {
-                  return 1;
-                }""", patch.scriptJs());
-    }
-
-    @Test
-    void focusedScriptRegionRejectsMixedWrappedMarkup() throws Exception {
-        FocusedHtmlRegionNormalizer normalizer = new FocusedHtmlRegionNormalizer(
-                new GeneratedPayloadSupport(new StructuredPayloadReader(new ObjectMapper()))
-        );
-
-        devflow.agent.editing.PreciseEditException exception = assertThrows(
-                devflow.agent.editing.PreciseEditException.class,
-                () -> normalizer.toPatch(
-                        HtmlEditRegion.SCRIPT,
-                        """
-                        <script>const value = 1;</script>
-                        <div>extra</div>
-                        """
-                )
-        );
-        assertTrue(exception.getMessage().contains("Focused script region"));
     }
 
     private String extractFirstAllowedSymbol(String prompt) {

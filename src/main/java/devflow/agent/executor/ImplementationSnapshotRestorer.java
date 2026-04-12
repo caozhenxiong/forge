@@ -156,7 +156,9 @@ final class ImplementationSnapshotRestorer {
                     Path.of(snapshot.relativePath()).normalize(),
                     blankIfNull(snapshot.strategyName()),
                     blankIfNull(snapshot.workingContent()),
-                    restoreEditUnits(snapshot.pendingUnits())
+                    blankIfNull(snapshot.plannedFromHash()),
+                    safeList(snapshot.completedUnitLabels()),
+                    blankIfNull(snapshot.currentUnitLabel())
             ));
         }
         return restored;
@@ -178,26 +180,6 @@ final class ImplementationSnapshotRestorer {
                     EnumParsers.parseIgnoreCase(FileEditScope.class, snapshot.editScope(), FileEditScope.AUTO),
                     EnumParsers.parseIgnoreCase(RuntimeOwnershipMode.class, snapshot.runtimeOwnership(), null),
                     snapshot.hostHtmlPatchRequired()
-            ));
-        }
-        return restored;
-    }
-
-    private List<EditUnit> restoreEditUnits(List<ImplementationStateSnapshot.EditUnitState> snapshots) {
-        if (snapshots == null || snapshots.isEmpty()) {
-            return List.of();
-        }
-        List<EditUnit> restored = new ArrayList<>();
-        for (ImplementationStateSnapshot.EditUnitState snapshot : snapshots) {
-            if (snapshot == null) {
-                continue;
-            }
-            restored.add(new EditUnit(
-                    EnumParsers.parseIgnoreCase(EditUnitKind.class, snapshot.kind(), EditUnitKind.CODE_SYMBOL_BATCH),
-                    blankIfNull(snapshot.label()),
-                    safeList(snapshot.allowedSymbols()),
-                    Math.max(0, snapshot.appendSymbolBudget()),
-                    Math.max(0, snapshot.splitDepth())
             ));
         }
         return restored;

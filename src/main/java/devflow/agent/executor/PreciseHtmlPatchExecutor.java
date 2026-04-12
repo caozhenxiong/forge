@@ -1,7 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.editing.ExactReplaceApplySupport;
+import devflow.agent.editing.ExactReplaceEdit;
 import devflow.agent.editing.HtmlPreciseEditor;
-import devflow.agent.editing.HtmlPrecisePatch;
 
 /**
  * 精确 HTML patch 执行器。
@@ -20,6 +21,7 @@ final class PreciseHtmlPatchExecutor {
     private final PatchPayloadRepairSupport patchPayloadRepairSupport;
     private final ExternalizedRuntimeHostNormalizer externalizedRuntimeHostNormalizer;
     private final PatchExecutionSupport executionSupport;
+    private final ExactReplaceApplySupport exactReplaceApplySupport;
 
     PreciseHtmlPatchExecutor(
             LlmProvider llmProvider,
@@ -37,6 +39,7 @@ final class PreciseHtmlPatchExecutor {
         this.patchPayloadRepairSupport = patchPayloadRepairSupport;
         this.externalizedRuntimeHostNormalizer = externalizedRuntimeHostNormalizer;
         this.executionSupport = executionSupport;
+        this.exactReplaceApplySupport = new ExactReplaceApplySupport();
     }
 
     String generate(HostHtmlPatchRequest request) {
@@ -50,10 +53,7 @@ final class PreciseHtmlPatchExecutor {
                 executionSupport.nullToEmpty(request.feedback()),
                 htmlPreciseEditor.describeAnchors(request.existingContent()),
                 request.targetedContext(),
-                executionSupport.summarizeForVerification(
-                        request.existingContent(),
-                        GenerationBudgetProfile.fileContextPreviewChars()
-                )
+                request.existingContent()
         );
         String generationSystem = generationPrompt.systemPrompt();
         String generationUser = generationPrompt.userPrompt();
@@ -79,14 +79,18 @@ final class PreciseHtmlPatchExecutor {
                                         ModelRole.IMPLEMENTATION
                                 )
                         );
-                        HtmlPrecisePatch patch = patchPayloadRepairSupport.readStructuredPayload(
+                        ExactReplaceEdit edit = patchPayloadRepairSupport.readStructuredPayload(
                                 request.relativePath(),
                                 FileEditStrategyNames.PRECISE_HTML,
                                 generated,
-                                HtmlPrecisePatch.class,
+                                ExactReplaceEdit.class,
                                 request.eventJournal()
                         );
-                        String merged = htmlPreciseEditor.applyPatch(request.existingContent(), patch);
+                        String merged = exactReplaceApplySupport.applyEdit(
+                                request.relativePath().toString(),
+                                request.existingContent(),
+                                edit
+                        );
                         merged = externalizedRuntimeHostNormalizer.normalize(
                                 request.relativePath(),
                                 request.runtimeContract(),

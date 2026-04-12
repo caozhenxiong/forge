@@ -1,12 +1,11 @@
 package devflow.agent.executor;
 
 import devflow.agent.editing.FileStateLedger;
-import devflow.agent.editing.StructuredDiffHunk;
-import devflow.agent.editing.StructuredDiffPatch;
+import devflow.agent.editing.ExactReplaceEdit;
 import devflow.agent.parsing.TreeSitterSupport;
 import devflow.agent.project.FileProjectWorkspace;
+import devflow.agent.util.ProjectPathSupport;
 import java.nio.file.Path;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -34,12 +33,17 @@ class CodePatchKernelTests {
         PatchApplyResult result = patchKernel.applyInlineStyle(
                 Path.of("index.html"),
                 source,
-                patch(Path.of("index.html.inline-style.css"), source, 4, List.of(), List.of(
-                        "",
-                        "body {",
-                        "  margin: 0;",
-                        "}"
-                ))
+                exactEdit(
+                        ProjectPathSupport.inlineStyleSyntheticPath(Path.of("index.html")),
+                        source,
+                        source,
+                        source + """
+
+                        body {
+                          margin: 0;
+                        }
+                        """
+                )
         );
 
         assertTrue(result.succeeded());
@@ -57,7 +61,12 @@ class CodePatchKernelTests {
                 tempDir,
                 Path.of("game.py"),
                 source,
-                patch(Path.of("game.py"), source, 2, List.of("    return 0"), List.of("    return 1"))
+                exactEdit(
+                        Path.of("game.py"),
+                        source,
+                        "    return 0",
+                        "    return 1"
+                )
         );
 
         assertTrue(result.succeeded());
@@ -77,7 +86,12 @@ class CodePatchKernelTests {
                 tempDir,
                 Path.of("Game.java"),
                 source,
-                patch(Path.of("Game.java"), source, 3, List.of("    return 0;"), List.of("    return 1;"))
+                exactEdit(
+                        Path.of("Game.java"),
+                        source,
+                        "    return 0;",
+                        "    return 1;"
+                )
         );
 
         assertTrue(result.succeeded());
@@ -95,15 +109,16 @@ class CodePatchKernelTests {
                 tempDir,
                 Path.of("style.css"),
                 source,
-                patch(Path.of("style.css"), source, 1, List.of(
-                        "#app {",
-                        "  color: red;",
-                        "}"
-                ), List.of(
-                        "#app {",
-                        "  color: blue;",
-                        "}"
-                ))
+                exactEdit(
+                        Path.of("style.css"),
+                        source,
+                        source,
+                        """
+                        #app {
+                          color: blue;
+                        }
+                        """
+                )
         );
 
         assertTrue(result.succeeded());
@@ -111,28 +126,39 @@ class CodePatchKernelTests {
     }
 
     @Test
-    void anchorMissingReturnsTypedPatchAnchorFailure() {
+    void missingOldTextReturnsTypedExactEditFailure() {
+        String currentContent = """
+                def start():
+                    return 0
+                """;
         PatchApplyResult result = patchKernel.applyCodeFile(
                 tempDir,
                 Path.of("game.py"),
-                "",
-                patch(Path.of("game.py"), "def tick():\n    return 0\n", 2, List.of("    return 0"), List.of("    return 1"))
+                currentContent,
+                exactEdit(
+                        Path.of("game.py"),
+                        currentContent,
+                        "    return 2",
+                        "    return 1"
+                )
         );
 
-        assertEquals(ToolFailureCode.PATCH_ANCHOR_MISSING, result.failureResult().failureCode());
+        assertEquals(ToolFailureCode.EXACT_EDIT_TARGET_NOT_FOUND, result.failureResult().failureCode());
         assertEquals(ToolName.PATCH_APPLY, result.failureResult().toolName());
     }
 
-    private StructuredDiffPatch patch(
-            Path relativePath,
+    private ExactReplaceEdit exactEdit(
+            Path targetPath,
             String source,
-            int startLine,
-            List<String> beforeLines,
-            List<String> afterLines
+            String oldText,
+            String newText
     ) {
-        return new StructuredDiffPatch(
-                fileStateLedger.capture(relativePath, source).contentHash(),
-                List.of(new StructuredDiffHunk(startLine, beforeLines, afterLines))
+        return new ExactReplaceEdit(
+                targetPath.toString(),
+                fileStateLedger.capture(targetPath, source).contentHash(),
+                oldText,
+                newText,
+                false
         );
     }
 }

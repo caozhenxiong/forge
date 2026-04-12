@@ -49,7 +49,6 @@ final class FileRoutingRuntimeBuilder {
         );
         return new FileEditRuntimeComponents(
                 patchRuntime.generatedContentGate(),
-                patchRuntime.focusedHtmlRegionNormalizer(),
                 patchRuntime.wholeFilePatchExecutor(),
                 htmlFilePatchExecutor,
                 codeFilePatchExecutor,

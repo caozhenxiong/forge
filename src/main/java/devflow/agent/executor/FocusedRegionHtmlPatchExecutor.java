@@ -1,7 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.editing.ExactReplaceApplySupport;
+import devflow.agent.editing.ExactReplaceEdit;
 import devflow.agent.editing.HtmlPreciseEditor;
-import devflow.agent.editing.HtmlPrecisePatch;
 import java.util.Locale;
 
 /**
@@ -17,20 +18,19 @@ final class FocusedRegionHtmlPatchExecutor {
     private final HtmlPreciseEditor htmlPreciseEditor;
     private final GenerationEngine generationEngine;
     private final GeneratedContentGate generatedContentGate;
-    private final GeneratedPayloadSupport generatedPayloadSupport;
-    private final FocusedHtmlRegionNormalizer focusedHtmlRegionNormalizer;
+    private final PatchPayloadRepairSupport patchPayloadRepairSupport;
     private final HtmlFocusedRegionResolver htmlFocusedRegionResolver;
     private final ExternalizedRuntimeHostNormalizer externalizedRuntimeHostNormalizer;
     private final int maxFileGenerationAttempts;
     private final PatchExecutionSupport executionSupport;
+    private final ExactReplaceApplySupport exactReplaceApplySupport;
 
     FocusedRegionHtmlPatchExecutor(
             LlmProvider llmProvider,
             HtmlPreciseEditor htmlPreciseEditor,
             GenerationEngine generationEngine,
             GeneratedContentGate generatedContentGate,
-            GeneratedPayloadSupport generatedPayloadSupport,
-            FocusedHtmlRegionNormalizer focusedHtmlRegionNormalizer,
+            PatchPayloadRepairSupport patchPayloadRepairSupport,
             HtmlFocusedRegionResolver htmlFocusedRegionResolver,
             ExternalizedRuntimeHostNormalizer externalizedRuntimeHostNormalizer,
             int maxFileGenerationAttempts,
@@ -40,16 +40,17 @@ final class FocusedRegionHtmlPatchExecutor {
         this.htmlPreciseEditor = htmlPreciseEditor;
         this.generationEngine = generationEngine;
         this.generatedContentGate = generatedContentGate;
-        this.generatedPayloadSupport = generatedPayloadSupport;
-        this.focusedHtmlRegionNormalizer = focusedHtmlRegionNormalizer;
+        this.patchPayloadRepairSupport = patchPayloadRepairSupport;
         this.htmlFocusedRegionResolver = htmlFocusedRegionResolver;
         this.externalizedRuntimeHostNormalizer = externalizedRuntimeHostNormalizer;
         this.maxFileGenerationAttempts = maxFileGenerationAttempts;
         this.executionSupport = executionSupport;
+        this.exactReplaceApplySupport = new ExactReplaceApplySupport();
     }
 
     String generate(HostHtmlPatchRequest request, HtmlEditRegion preferredRegion) {
         HtmlEditRegion region = htmlFocusedRegionResolver.resolvePreferredRegion(request.existingContent(), preferredRegion);
+        String currentRegionContent = htmlPreciseEditor.extractRegionContent(request.existingContent(), region);
         PatchGenerationPrompt generationPrompt = HtmlPatchPromptAssembler.focusedRegionPrompt(
                 request.relativePath(),
                 region,
@@ -60,10 +61,7 @@ final class FocusedRegionHtmlPatchExecutor {
                 request.reason(),
                 executionSupport.nullToEmpty(request.feedback()),
                 request.targetedContext(),
-                executionSupport.summarizeForVerification(
-                        request.existingContent(),
-                        GenerationBudgetProfile.fileContextPreviewChars()
-                )
+                currentRegionContent
         );
         String system = generationPrompt.systemPrompt();
         String user = generationPrompt.userPrompt();
@@ -84,7 +82,7 @@ final class FocusedRegionHtmlPatchExecutor {
                     ),
                     (attempt, retryFeedback) -> {
                         String prompt = RetryPromptComposer.append(user, retryFeedback, "上一轮聚焦区块改写不可接受，请修正后重新生成：");
-                        String generated = generatedPayloadSupport.normalizeGeneratedPayload(
+                        String generated = patchPayloadRepairSupport.normalizeGeneratedPayload(
                                 request.relativePath(),
                                 llmProvider.generate(
                                         system,
@@ -93,8 +91,23 @@ final class FocusedRegionHtmlPatchExecutor {
                                         ModelRole.IMPLEMENTATION
                                 )
                         );
-                        HtmlPrecisePatch patch = focusedHtmlRegionNormalizer.toPatch(region, generated);
-                        String merged = htmlPreciseEditor.applyPatch(request.existingContent(), patch);
+                        ExactReplaceEdit edit = patchPayloadRepairSupport.readStructuredPayload(
+                                request.relativePath(),
+                                FileEditStrategyNames.focusedHtmlRegion(region),
+                                generated,
+                                ExactReplaceEdit.class,
+                                request.eventJournal()
+                        );
+                        String mergedRegionContent = exactReplaceApplySupport.applyEdit(
+                                request.relativePath().toString() + "#" + region.name().toLowerCase(Locale.ROOT),
+                                currentRegionContent,
+                                edit
+                        );
+                        String merged = htmlPreciseEditor.replaceRegionContent(
+                                request.existingContent(),
+                                region,
+                                mergedRegionContent
+                        );
                         merged = externalizedRuntimeHostNormalizer.normalize(
                                 request.relativePath(),
                                 request.runtimeContract(),

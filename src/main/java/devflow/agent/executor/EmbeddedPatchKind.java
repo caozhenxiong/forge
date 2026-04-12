@@ -1,6 +1,6 @@
 package devflow.agent.executor;
 
-import devflow.agent.editing.StructuredDiffPatch;
+import devflow.agent.editing.ExactReplaceEdit;
 import devflow.agent.util.ProjectPathSupport;
 import java.nio.file.Path;
 
@@ -96,8 +96,8 @@ enum EmbeddedPatchKind {
         return behavior.describeTargets(patchContextBuilder, relativePath, currentContent);
     }
 
-    PatchApplyResult applyPatch(CodePatchKernel codePatchKernel, Path relativePath, String currentContent, StructuredDiffPatch patch) {
-        return behavior.applyPatch(codePatchKernel, relativePath, currentContent, patch);
+    PatchApplyResult applyPatch(CodePatchKernel codePatchKernel, Path relativePath, String currentContent, ExactReplaceEdit edit) {
+        return behavior.applyPatch(codePatchKernel, relativePath, currentContent, edit);
     }
 
     String immutableHostRegionInstruction() {

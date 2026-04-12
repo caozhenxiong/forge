@@ -1,6 +1,6 @@
 package devflow.agent.executor;
 
-import devflow.agent.editing.StructuredDiffPatch;
+import devflow.agent.editing.ExactReplaceEdit;
 
 /**
  * 统一维护宿主内嵌 patch 的 decode / validate / apply。
@@ -29,13 +29,13 @@ final class EmbeddedPatchApplySupport {
                 patchKind.syntheticPath(request.relativePath()),
                 generated
         );
-        StructuredDiffPatch patch = patchPayloadRepairSupport.readStructuredPayload(
+        ExactReplaceEdit edit = patchPayloadRepairSupport.readStructuredPayload(
                 request.relativePath(),
                 unit,
                 normalizedPayload,
-                StructuredDiffPatch.class,
+                ExactReplaceEdit.class,
                 request.eventJournal()
         );
-        return patchKind.applyPatch(codePatchKernel, request.relativePath(), currentContent, patch);
+        return patchKind.applyPatch(codePatchKernel, request.relativePath(), currentContent, edit);
     }
 }

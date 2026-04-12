@@ -150,6 +150,63 @@ public final class ImplementationEventMessages {
         return "实现阶段｜复用旧计划｜已完成前缀=%d｜计划子任务=%d".formatted(completedPrefix, plannedSubtasks);
     }
 
+    public static String planningUnitStarted(
+            ImplementationPlanningUnitKind unitKind,
+            String unitId,
+            int attempt,
+            int maxAttempts
+    ) {
+        return "实现规划｜单元开始｜类型=%s｜单元=%s｜尝试=%d/%d"
+                .formatted(unitKind, unitId, attempt, maxAttempts);
+    }
+
+    public static String planningUnitAccepted(
+            ImplementationPlanningUnitKind unitKind,
+            String unitId,
+            int attempt,
+            int maxAttempts,
+            GenerationTelemetry telemetry
+    ) {
+        return "实现规划｜单元通过｜类型=%s｜单元=%s｜尝试=%d/%d%s"
+                .formatted(unitKind, unitId, attempt, maxAttempts, GenerationTelemetryFormatter.renderInline(telemetry));
+    }
+
+    public static String planningUnitRejected(
+            ImplementationPlanningUnitKind unitKind,
+            String unitId,
+            int attempt,
+            int maxAttempts,
+            String reason,
+            GenerationTelemetry telemetry
+    ) {
+        return "实现规划｜单元驳回｜类型=%s｜单元=%s｜尝试=%d/%d｜原因=%s%s"
+                .formatted(
+                        unitKind,
+                        unitId,
+                        attempt,
+                        maxAttempts,
+                        reason == null || reason.isBlank() ? "未知" : reason,
+                        GenerationTelemetryFormatter.renderInline(telemetry)
+                );
+    }
+
+    public static String planningUnitRepairApplied(
+            ImplementationPlanningUnitKind unitKind,
+            String unitId
+    ) {
+        return "实现规划｜单元修复｜类型=%s｜单元=%s｜来源=repair-model"
+                .formatted(unitKind, unitId);
+    }
+
+    public static String planningFinalGateReroute(
+            ImplementationPlanningUnitKind unitKind,
+            String unitId,
+            String reason
+    ) {
+        return "实现规划｜最终 gate 回退｜目标=%s｜单元=%s｜原因=%s"
+                .formatted(unitKind, unitId, reason == null || reason.isBlank() ? "未知" : reason);
+    }
+
     public static String repairTrace(
             String step,
             Path relativePath,

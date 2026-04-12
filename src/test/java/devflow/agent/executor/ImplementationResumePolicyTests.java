@@ -60,13 +60,9 @@ class ImplementationResumePolicyTests {
                                         "app.js",
                                         FileEditStrategyNames.PRECISE_CODE,
                                         "export function tick() {}\n",
-                                        List.of(new ImplementationStateSnapshot.EditUnitState(
-                                                EditUnitKind.CODE_SYMBOL_BATCH.name(),
-                                                "code-unit-16",
-                                                List.of("render"),
-                                                0,
-                                                0
-                                        ))
+                                        "hash-1",
+                                        List.of("code-unit-1", "code-unit-2"),
+                                        "code-unit-16"
                                 ))
                         )
                 ),
@@ -94,7 +90,8 @@ class ImplementationResumePolicyTests {
         assertNotNull(progressState);
         assertEquals(FileEditStrategyNames.PRECISE_CODE, progressState.strategyName());
         assertEquals("export function tick() {}\n", progressState.workingContent());
-        assertEquals("code-unit-16", progressState.pendingUnits().getFirst().label());
+        assertEquals("code-unit-16", progressState.currentUnitLabel());
+        assertEquals(List.of("code-unit-1", "code-unit-2"), progressState.completedUnitLabels());
     }
 
     @Test

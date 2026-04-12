@@ -15,27 +15,19 @@ import devflow.agent.review.ImplementationPatchTarget;
  */
 final class ImplementationPlanningPromptAssembler {
 
-    private final ImplementationPlanningSystemPromptBuilder systemPromptBuilder;
-    private final ImplementationPlanningUserPromptBuilder userPromptBuilder;
+    private final ImplementationOutlinePromptBuilder outlinePromptBuilder;
+    private final ImplementationSubtaskDetailPromptBuilder detailPromptBuilder;
 
     ImplementationPlanningPromptAssembler(int maxFilesPerSubtask, int maxDeliveryPolicyFiles) {
-        this.systemPromptBuilder = new ImplementationPlanningSystemPromptBuilder(
-                maxFilesPerSubtask,
-                maxDeliveryPolicyFiles
-        );
-        this.userPromptBuilder = new ImplementationPlanningUserPromptBuilder();
+        this.outlinePromptBuilder = new ImplementationOutlinePromptBuilder(maxFilesPerSubtask);
+        this.detailPromptBuilder = new ImplementationSubtaskDetailPromptBuilder(maxDeliveryPolicyFiles);
     }
 
-    ImplementationPlanningPrompt assemble(
+    ImplementationPlanningPrompt assembleOutline(
             RunRecord runRecord,
-            String analysis,
-            String prd,
-            String design,
             String note,
             String workspaceContext,
             String plannerContextMarkdown,
-            String performanceValidationGuidance,
-            boolean preferSkeletonFlow,
             DeliveryPolicyEnvelope deliveryPolicy,
             ContractView contractView,
             QualityPlan qualityPlan,
@@ -46,30 +38,56 @@ final class ImplementationPlanningPromptAssembler {
             ImplementationContinuationConstraints continuationConstraints,
             String planningFeedback
     ) {
-        String system = systemPromptBuilder.build(
+        String system = outlinePromptBuilder.systemPrompt(
                 note,
-                performanceValidationGuidance,
-                preferSkeletonFlow,
                 deliveryPolicy,
                 fixMode,
                 implementationPatchTarget,
                 continuationConstraints
         );
-        String user = userPromptBuilder.build(
+        String user = outlinePromptBuilder.userPrompt(
                 runRecord,
-                analysis,
-                prd,
-                design,
-                note,
                 workspaceContext,
                 plannerContextMarkdown,
-                performanceValidationGuidance,
                 deliveryPolicy,
                 contractView,
                 qualityPlan,
                 language,
                 requirementCatalog,
                 continuationConstraints,
+                planningFeedback
+        );
+        return new ImplementationPlanningPrompt(system, user);
+    }
+
+    ImplementationPlanningPrompt assembleSubtaskDetail(
+            RunRecord runRecord,
+            String workspaceContext,
+            ContractView contractView,
+            QualityPlan qualityPlan,
+            DocumentLanguage language,
+            DeliveryPolicyEnvelope deliveryPolicy,
+            FixMode fixMode,
+            ImplementationPatchTarget implementationPatchTarget,
+            ImplementationContinuationConstraints continuationConstraints,
+            ImplementationOutline outline,
+            ImplementationOutlineSubtask subtask,
+            String planningFeedback
+    ) {
+        String system = detailPromptBuilder.systemPrompt(
+                deliveryPolicy,
+                fixMode,
+                implementationPatchTarget,
+                continuationConstraints
+        );
+        String user = detailPromptBuilder.userPrompt(
+                runRecord,
+                contractView,
+                qualityPlan,
+                language,
+                workspaceContext,
+                outline,
+                subtask,
                 planningFeedback
         );
         return new ImplementationPlanningPrompt(system, user);

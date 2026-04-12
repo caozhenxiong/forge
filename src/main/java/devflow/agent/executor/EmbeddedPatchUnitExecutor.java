@@ -28,6 +28,7 @@ final class EmbeddedPatchUnitExecutor {
     private final EmbeddedPatchPromptSupport promptSupport;
     private final EmbeddedPatchApplySupport applySupport;
     private final SyntaxRepairSupport syntaxRepairSupport;
+    private final RepairScopeValidator repairScopeValidator;
     private final int maxFileGenerationAttempts;
 
     EmbeddedPatchUnitExecutor(
@@ -63,6 +64,7 @@ final class EmbeddedPatchUnitExecutor {
                 codePatchKernel
         );
         this.syntaxRepairSupport = syntaxRepairSupport;
+        this.repairScopeValidator = new RepairScopeValidator(patchContextBuilder);
         this.maxFileGenerationAttempts = maxFileGenerationAttempts;
     }
 
@@ -101,6 +103,7 @@ final class EmbeddedPatchUnitExecutor {
                                         ModelRole.IMPLEMENTATION
                                 )
                         );
+                        applyResult = validateRestrictedScope(request, patchKind, currentContent, unit, applyResult);
                         if (applyResult.succeeded()) {
                             return GenerationAttemptResult.success(applyResult.content());
                         }
@@ -166,5 +169,28 @@ final class EmbeddedPatchUnitExecutor {
                 ),
                 llmProvider::consumeLastTelemetry
         ));
+    }
+
+    /**
+     * 宿主 workset 的 restricted unit 也必须在首次 apply 后做本地 scope 校验，
+     * 防止 exact-replace 通过整段替换把当前符号批次扩成新的顶层符号。
+     */
+    private PatchApplyResult validateRestrictedScope(
+            EmbeddedPatchRequest request,
+            EmbeddedPatchKind patchKind,
+            String baselineContent,
+            EditUnit unit,
+            PatchApplyResult applyResult
+    ) {
+        if (applyResult == null || !applyResult.succeeded()) {
+            return applyResult;
+        }
+        ToolResult scopeResult = patchKind == EmbeddedPatchKind.SCRIPT
+                ? repairScopeValidator.verifyInlineScript(request.relativePath(), baselineContent, applyResult.content(), unit)
+                : repairScopeValidator.verifyInlineStyle(request.relativePath(), baselineContent, applyResult.content(), unit);
+        if (scopeResult.succeeded()) {
+            return applyResult;
+        }
+        return new PatchApplyResult(applyResult.content(), applyResult.applyResult(), scopeResult);
     }
 }

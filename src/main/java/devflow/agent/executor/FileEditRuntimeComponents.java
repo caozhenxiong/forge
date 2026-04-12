@@ -13,7 +13,6 @@ package devflow.agent.executor;
  */
 record FileEditRuntimeComponents(
         GeneratedContentGate generatedContentGate,
-        FocusedHtmlRegionNormalizer focusedHtmlRegionNormalizer,
         WholeFilePatchExecutor wholeFilePatchExecutor,
         HtmlFilePatchExecutor htmlFilePatchExecutor,
         CodeFilePatchExecutor codeFilePatchExecutor,

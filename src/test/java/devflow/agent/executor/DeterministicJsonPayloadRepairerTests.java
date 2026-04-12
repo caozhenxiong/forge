@@ -1,7 +1,7 @@
 package devflow.agent.executor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import devflow.agent.editing.StructuredDiffPatch;
+import devflow.agent.editing.ExactReplaceEdit;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -17,22 +17,21 @@ class DeterministicJsonPayloadRepairerTests {
         String repaired = repairer.repair("""
                 ```json
                 {
-                  "expectedSourceHash": "abc123
+                  "targetPath": "game.js",
+                  "baseContentHash": "abc123
                 ",
-                  "hunks": [
-                    {
-                      "sourceStartLine": 2,
-                      "beforeLines": ["return 0;"],
-                      "afterLines": ["return 1;"]
-                    },
-                  ]
+                  "oldText": "return 0;",
+                  "newText": "return 1;",
+                  "replaceAll": false,
                 }
                 ```
                 """);
 
-        StructuredDiffPatch patch = reader.readJsonObject(repaired, StructuredDiffPatch.class);
-        assertTrue(patch.hasAnyHunk());
-        assertEquals("abc123", patch.expectedSourceHash());
-        assertEquals(2, patch.hunks().getFirst().sourceStartLine());
+        ExactReplaceEdit patch = reader.readJsonObject(repaired, ExactReplaceEdit.class);
+        assertEquals("game.js", patch.targetPath());
+        assertEquals("abc123", patch.baseContentHash());
+        assertEquals("return 0;", patch.oldText());
+        assertEquals("return 1;", patch.newText());
+        assertTrue(!patch.replaceAll());
     }
 }

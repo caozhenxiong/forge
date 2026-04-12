@@ -13,14 +13,14 @@ package devflow.agent.executor;
 public final class ImplementationExecutionPolicy {
 
     private static final int DEFAULT_SUBTASK_ATTEMPTS = 3;
-    private static final int DEFAULT_PLAN_PARSE_ATTEMPTS = 3;
-    private static final int DEFAULT_INTERNAL_PLAN_RETRIES = 3;
+    private static final int DEFAULT_PLANNING_PAYLOAD_REPAIR_ATTEMPTS = 3;
+    private static final int DEFAULT_PLANNING_UNIT_ATTEMPTS = 3;
     private static final int DEFAULT_FILE_GENERATION_ATTEMPTS = 3;
     private static final int DEFAULT_MAX_FILES_PER_SUBTASK = 2;
     private static final int DEFAULT_MAX_DELIVERY_POLICY_FILES = 3;
     private static final String SUBTASK_ATTEMPTS_KEY = "devflow.implementation.subtask-attempts";
-    private static final String PLAN_PARSE_ATTEMPTS_KEY = "devflow.implementation.plan-parse-attempts";
-    private static final String INTERNAL_PLAN_RETRIES_KEY = "devflow.implementation.internal-plan-retries";
+    private static final String PLANNING_PAYLOAD_REPAIR_ATTEMPTS_KEY = "devflow.implementation.planning-payload-repair-attempts";
+    private static final String PLANNING_UNIT_ATTEMPTS_KEY = "devflow.implementation.planning-unit-attempts";
     private static final String FILE_GENERATION_ATTEMPTS_KEY = "devflow.implementation.file-generation-attempts";
     private static final String MAX_FILES_PER_SUBTASK_KEY = "devflow.implementation.max-files-per-subtask";
     private static final String MAX_DELIVERY_POLICY_FILES_KEY = "devflow.implementation.max-delivery-policy-files";
@@ -32,12 +32,12 @@ public final class ImplementationExecutionPolicy {
         return readPositiveInt(SUBTASK_ATTEMPTS_KEY, DEFAULT_SUBTASK_ATTEMPTS);
     }
 
-    public static int planParseAttempts() {
-        return readPositiveInt(PLAN_PARSE_ATTEMPTS_KEY, DEFAULT_PLAN_PARSE_ATTEMPTS);
+    public static int planningPayloadRepairAttempts() {
+        return readPositiveInt(PLANNING_PAYLOAD_REPAIR_ATTEMPTS_KEY, DEFAULT_PLANNING_PAYLOAD_REPAIR_ATTEMPTS);
     }
 
-    public static int internalPlanRetries() {
-        return readPositiveInt(INTERNAL_PLAN_RETRIES_KEY, DEFAULT_INTERNAL_PLAN_RETRIES);
+    public static int planningUnitAttempts() {
+        return readPositiveInt(PLANNING_UNIT_ATTEMPTS_KEY, DEFAULT_PLANNING_UNIT_ATTEMPTS);
     }
 
     public static int fileGenerationAttempts() {

@@ -1,6 +1,6 @@
 package devflow.agent.executor;
 
-import devflow.agent.editing.StructuredDiffPatch;
+import devflow.agent.editing.ExactReplaceEdit;
 
 /**
  * 负责 `precise-code` 的单个 patch 单元执行。
@@ -21,6 +21,7 @@ final class CodePatchUnitExecutor {
     private final PatchExecutionSupport executionSupport;
     private final PatchAttemptFailureSupport attemptFailureSupport;
     private final CodePatchFeedbackPolicyFactory feedbackPolicyFactory;
+    private final RepairScopeValidator repairScopeValidator;
     private final int maxFileGenerationAttempts;
 
     CodePatchUnitExecutor(
@@ -32,6 +33,7 @@ final class CodePatchUnitExecutor {
             PatchBudgetPolicy patchBudgetPolicy,
             PatchPayloadRepairSupport patchPayloadRepairSupport,
             SyntaxRepairSupport syntaxRepairSupport,
+            PatchContextBuilder patchContextBuilder,
             FileGenerationFailureFactory fileGenerationFailureFactory,
             ImplementationGenerationObserverFactory implementationGenerationObserverFactory,
             int maxFileGenerationAttempts
@@ -53,6 +55,7 @@ final class CodePatchUnitExecutor {
                 patchFailureRouter
         );
         this.feedbackPolicyFactory = new CodePatchFeedbackPolicyFactory();
+        this.repairScopeValidator = new RepairScopeValidator(patchContextBuilder);
         this.maxFileGenerationAttempts = maxFileGenerationAttempts;
     }
 
@@ -118,19 +121,20 @@ final class CodePatchUnitExecutor {
                                                 ModelRole.IMPLEMENTATION
                                         )
                         );
-                        StructuredDiffPatch patch = patchPayloadRepairSupport.readStructuredPayload(
+                        ExactReplaceEdit edit = patchPayloadRepairSupport.readStructuredPayload(
                                 request.relativePath(),
                                 unit,
                                 generated,
-                                StructuredDiffPatch.class,
+                                ExactReplaceEdit.class,
                                 request.eventJournal()
                         );
                         PatchApplyResult applyResult = codeEditAdapter.applyPatch(
                                 request.projectPath(),
                                 request.relativePath(),
                                 currentContent,
-                                patch
+                                edit
                         );
+                        applyResult = validateRestrictedScope(request, currentContent, unit, applyResult);
                         if (applyResult.succeeded()) {
                             return GenerationAttemptResult.success(applyResult.content());
                         }
@@ -194,6 +198,31 @@ final class CodePatchUnitExecutor {
                 ),
                 llmProvider::consumeLastTelemetry
         ));
+    }
+
+    /**
+     * exact-replace 主链也必须保留 restricted unit 的本地 scope guard。
+     * 这里在首次 apply 成功后立刻校验，避免模型通过整段替换偷偷扩到 allowedSymbols 之外。
+     */
+    private PatchApplyResult validateRestrictedScope(
+            CodePatchRequest request,
+            String baselineContent,
+            EditUnit unit,
+            PatchApplyResult applyResult
+    ) {
+        if (applyResult == null || !applyResult.succeeded()) {
+            return applyResult;
+        }
+        ToolResult scopeResult = repairScopeValidator.verifyCodeFile(
+                request.relativePath(),
+                baselineContent,
+                applyResult.content(),
+                unit
+        );
+        if (scopeResult.succeeded()) {
+            return applyResult;
+        }
+        return new PatchApplyResult(applyResult.content(), applyResult.applyResult(), scopeResult);
     }
 
     private boolean isRestrictedUnit(EditUnit unit) {

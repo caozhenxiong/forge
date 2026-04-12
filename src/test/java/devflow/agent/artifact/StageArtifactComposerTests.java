@@ -1,6 +1,8 @@
 package devflow.agent.artifact;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ValidationMetadata;
 import devflow.agent.executor.ImplementationExecutor;
@@ -1789,7 +1791,7 @@ class StageArtifactComposerTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "先建立最小页面骨架",
                               "subtasks": [
@@ -1808,7 +1810,7 @@ class StageArtifactComposerTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
                 if (role == ModelRole.IMPLEMENTATION) {
                     return """
@@ -2371,5 +2373,87 @@ class StageArtifactComposerTests {
         ) {
             return new StructuredReviewResult(review(systemPrompt, candidateContent, options, role), ReviewSemantics.empty());
         }
+    }
+
+    private static String legacyPlanningResponse(String userPrompt, String legacyPlanJson) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode legacyPlan = objectMapper.readTree(legacyPlanJson);
+            if (userPrompt != null && userPrompt.contains("上一轮 outline 反馈")) {
+                ObjectNode outline = objectMapper.createObjectNode();
+                outline.put("summary", legacyPlan.path("summary").asText(""));
+                ArrayNode subtasks = outline.putArray("subtasks");
+                ArrayNode legacySubtasks = legacyPlan.withArray("subtasks");
+                for (int index = 0; index < legacySubtasks.size(); index++) {
+                    com.fasterxml.jackson.databind.JsonNode legacySubtask = legacySubtasks.get(index);
+                    ObjectNode subtask = subtasks.addObject();
+                    subtask.put("id", "subtask-" + (index + 1));
+                    subtask.put("title", legacySubtask.path("title").asText(""));
+                    subtask.put("goal", legacySubtask.path("goal").asText(""));
+                    ArrayNode targetPaths = subtask.putArray("targetPaths");
+                    java.util.LinkedHashSet<String> paths = new java.util.LinkedHashSet<>();
+                    for (com.fasterxml.jackson.databind.JsonNode change : legacySubtask.withArray("changes")) {
+                        String path = change.path("path").asText("");
+                        if (!path.isBlank()) {
+                            paths.add(path);
+                        }
+                    }
+                    for (String path : paths) {
+                        targetPaths.add(path);
+                    }
+                    boolean touchesHtmlEntry = paths.stream().anyMatch(devflow.agent.util.ProjectPathSupport::isHtml);
+                    String deliveryMode = legacySubtask.hasNonNull("deliveryMode")
+                            ? legacySubtask.path("deliveryMode").asText("INCREMENTAL")
+                            : (index == 0 && touchesHtmlEntry ? "SKELETON" : "INCREMENTAL");
+                    boolean runnableMilestone = legacySubtask.has("runnableMilestone")
+                            ? legacySubtask.path("runnableMilestone").asBoolean(false)
+                            : (index == 0 && touchesHtmlEntry);
+                    subtask.put("deliveryMode", deliveryMode);
+                    subtask.put("runnableMilestone", runnableMilestone);
+                    subtask.set("coverageRefs", copyArray(objectMapper, legacySubtask, "coverageRefs"));
+                    subtask.set("ownedCapabilities", copyArray(objectMapper, legacySubtask, "ownedCapabilities"));
+                    subtask.set("deferredCapabilities", copyArray(objectMapper, legacySubtask, "deferredCapabilities"));
+                    subtask.set("acceptanceCriteria", copyArray(objectMapper, legacySubtask, "acceptanceCriteria"));
+                }
+                return objectMapper.writeValueAsString(outline);
+            }
+            String subtaskId = extractSubtaskId(userPrompt);
+            if (subtaskId != null) {
+                int index = Integer.parseInt(subtaskId.substring("subtask-".length())) - 1;
+                com.fasterxml.jackson.databind.JsonNode legacySubtask = legacyPlan.withArray("subtasks").get(index);
+                ObjectNode detail = objectMapper.createObjectNode();
+                detail.put("subtaskId", subtaskId);
+                detail.set("changes", copyArray(objectMapper, legacySubtask, "changes"));
+                return objectMapper.writeValueAsString(detail);
+            }
+            return legacyPlanJson;
+        } catch (Exception exception) {
+            throw new IllegalStateException("Failed to adapt legacy planning fixture", exception);
+        }
+    }
+
+    private static ArrayNode copyArray(
+            ObjectMapper objectMapper,
+            com.fasterxml.jackson.databind.JsonNode node,
+            String fieldName
+    ) {
+        com.fasterxml.jackson.databind.JsonNode field = node == null ? null : node.get(fieldName);
+        if (field == null || !field.isArray()) {
+            return objectMapper.createArrayNode();
+        }
+        return field.deepCopy();
+    }
+
+    private static String extractSubtaskId(String userPrompt) {
+        if (userPrompt == null) {
+            return null;
+        }
+        int index = userPrompt.indexOf("- id: subtask-");
+        if (index < 0) {
+            return null;
+        }
+        int start = index + "- id: ".length();
+        int end = userPrompt.indexOf('\n', start);
+        return end < 0 ? userPrompt.substring(start).trim() : userPrompt.substring(start, end).trim();
     }
 }

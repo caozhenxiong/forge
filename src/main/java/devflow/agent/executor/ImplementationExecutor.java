@@ -78,17 +78,14 @@ public class ImplementationExecutor {
                 objectMapper,
                 implementationPlanCoverageAnalyzer,
                 new AgentTurnLoop(),
-                ImplementationExecutionPolicy.planParseAttempts(),
+                ImplementationExecutionPolicy.planningPayloadRepairAttempts(),
+                ImplementationExecutionPolicy.planningUnitAttempts(),
                 ImplementationExecutionPolicy.maxFilesPerSubtask(),
                 ImplementationExecutionPolicy.maxDeliveryPolicyFiles()
         );
         ImplementationStageGate implementationStageGate = new ImplementationStageGate();
         ImplementationGateEngine implementationGateEngine = new ImplementationGateEngine(implementationStageGate, architectIntegrationCheck);
         ImplementationResumePolicy implementationResumePolicy = new ImplementationResumePolicy(objectMapper);
-        ImplementationPlanningRetryPolicy implementationPlanningRetryPolicy = new ImplementationPlanningRetryPolicy(
-                implementationPlanner,
-                ImplementationExecutionPolicy.internalPlanRetries()
-        );
         ImplementationArtifactRenderer implementationArtifactRenderer = new ImplementationArtifactRenderer(objectMapper);
         FileEditCoordinator fileEditCoordinator = new FileEditCoordinator(
                 llmProvider,
@@ -134,7 +131,7 @@ public class ImplementationExecutor {
                 implementationStageGate,
                 implementationGateEngine,
                 implementationResumePolicy,
-                implementationPlanningRetryPolicy,
+                implementationPlanner,
                 implementationPlanRunner,
                 implementationSnapshotAssembler,
                 implementationContextResolver

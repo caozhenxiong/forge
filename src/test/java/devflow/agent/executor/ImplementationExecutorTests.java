@@ -1,6 +1,8 @@
 package devflow.agent.executor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import devflow.agent.artifact.FileArtifactStore;
 import devflow.agent.context.ArtifactSummaryBuilder;
 import devflow.agent.context.ContractExtractor;
@@ -149,7 +151,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "先建立俄罗斯方块的可运行骨架。",
                               "subtasks": [
@@ -186,7 +188,7 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
                 if (role == ModelRole.IMPLEMENTATION) {
                     capturedFileSystemPrompt.compareAndSet("", systemPrompt);
@@ -322,7 +324,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "先做入口，再补行为。",
                               "subtasks": [
@@ -364,7 +366,7 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
                 if (role == ModelRole.IMPLEMENTATION) {
                     if (implementationCalls.incrementAndGet() == 1) {
@@ -469,7 +471,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "先交付可运行入口，再补游戏逻辑。",
                               "subtasks": [
@@ -512,7 +514,7 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
                 if (role == ModelRole.IMPLEMENTATION) {
                     if (implementationCalls.incrementAndGet() == 1) {
@@ -621,7 +623,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "先做基础骨架。",
                               "subtasks": [
@@ -646,7 +648,7 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
                 return "";
             }
@@ -961,7 +963,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "先做入口。",
                               "subtasks": [
@@ -1003,7 +1005,7 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
                 if (role == ModelRole.IMPLEMENTATION) {
                     if (implementationCalls.getAndIncrement() == 0) {
@@ -1083,9 +1085,9 @@ class ImplementationExecutorTests {
 
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
-                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
+                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("implementation outline 规划器")) {
                     capturedPlanningPrompt.set(systemPrompt);
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "先拆一个很小的步骤。",
                               "subtasks": [
@@ -1107,7 +1109,32 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                            """);
+                }
+                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
+                    return legacyPlanningResponse(userPrompt, """
+                            {
+                              "summary": "先拆一个很小的步骤。",
+                              "subtasks": [
+                                {
+                                  "title": "建立入口",
+                                  "goal": "创建入口文件",
+                                  "deliveryMode": "PATCH",
+                                  "acceptanceCriteria": ["页面存在"],
+                                  "changes": [
+                                    {
+                                      "path": "index.html",
+                                      "action": "WRITE",
+                                      "reason": "创建入口",
+                                    "editScope": "HOST_HTML_PATCH",
+                                    "runtimeOwnership": "INLINE_HOST",
+                                    "hostHtmlPatchRequired": true
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                            """);
                 }
                 if (role == ModelRole.IMPLEMENTATION) {
                     return """
@@ -1170,7 +1197,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "建立浏览器 ESM 骨架。",
                               "subtasks": [
@@ -1188,10 +1215,10 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
                 if (role == ModelRole.IMPLEMENTATION) {
-                    if (systemPrompt.contains("符号级精确改写")) {
+                    if (systemPrompt.contains("基于当前文件状态的 exact replace 改写")) {
                         if (systemPrompt.contains("当前文件为空或新建文件")) {
                             return StructuredDiffTestSupport.appendAtEnd(
                                     userPrompt,
@@ -1285,7 +1312,9 @@ class ImplementationExecutorTests {
                         throw new AssertionError("single-entry inline script patch should not use inline-script workset");
                     }
                     if (systemPrompt.contains("请只改写 HTML 中 <script id=\"app-script\"> 的内部 JavaScript。")) {
-                        return """
+                        return StructuredDiffTestSupport.replaceCurrentContent(
+                                userPrompt,
+                                """
                                 document.addEventListener('DOMContentLoaded', () => {
                                   const button = document.getElementById('start-btn');
                                   const status = document.getElementById('status');
@@ -1296,18 +1325,40 @@ class ImplementationExecutorTests {
                                     });
                                   }
                                 });
-                                """;
+                                """
+                        );
                     }
-                    if (systemPrompt.contains("请对现有 HTML 页面做“精确改写”")) {
-                        return """
-                                {
-                                  "markupHtml": null,
-                                  "styleCss": null,
-                                  "scriptJs": "document.addEventListener('DOMContentLoaded', () => {\\n  const button = document.getElementById('start-btn');\\n  const status = document.getElementById('status');\\n  if (button && status) {\\n    button.textContent = '开始';\\n    button.addEventListener('click', () => {\\n      status.textContent = 'started';\\n    });\\n  }\\n});",
-                                  "headAppendHtml": null,
-                                  "bodyAppendHtml": null
-                                }
-                                """;
+                    if (systemPrompt.contains("请对现有 HTML 页面做精确的 exact replace 改写")) {
+                        return StructuredDiffTestSupport.replaceCurrentContent(
+                                userPrompt,
+                                """
+                                <!DOCTYPE html>
+                                <html lang="zh-CN">
+                                <head>
+                                  <meta charset="UTF-8">
+                                  <title>Tetris</title>
+                                </head>
+                                <body>
+                                  <main id="app-root">
+                                    <button id="start-btn">开始</button>
+                                    <p id="status">ready</p>
+                                  </main>
+                                  <script id="app-script">
+                                    document.addEventListener('DOMContentLoaded', () => {
+                                      const button = document.getElementById('start-btn');
+                                      const status = document.getElementById('status');
+                                      if (button && status) {
+                                        button.textContent = '开始';
+                                        button.addEventListener('click', () => {
+                                          status.textContent = 'started';
+                                        });
+                                      }
+                                    });
+                                  </script>
+                                </body>
+                                </html>
+                                """
+                        );
                     }
                     generationCalls.incrementAndGet();
                     return """
@@ -1533,7 +1584,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "先补逻辑模块。",
                               "subtasks": [
@@ -1552,7 +1603,7 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
                 if (role == ModelRole.REPAIR) {
                     return """
@@ -1683,7 +1734,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "先创建一个可运行壳。",
                               "subtasks": [
@@ -1705,7 +1756,7 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
                 if (role == ModelRole.REPAIR) {
                     return """
@@ -1801,7 +1852,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return invalidPlan();
+                    return legacyPlanningResponse(userPrompt, invalidPlan());
                 }
                 if (role == ModelRole.REPAIR) {
                     return invalidPlan();
@@ -1828,7 +1879,8 @@ class ImplementationExecutorTests {
         ));
 
         assertTrue(exception.getMessage().contains("Implementation planning exhausted internal retries"));
-        assertTrue(exception.getMessage().contains("Failed to parse implementation plan"));
+        assertTrue(exception.getMessage().contains("targetPaths 不能超过")
+                || exception.getMessage().contains("当前子任务的变更文件数超过上限"));
     }
 
     @Test
@@ -1844,7 +1896,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "建立页面骨架",
                               "subtasks": [
@@ -1866,7 +1918,7 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
                 if (role == ModelRole.IMPLEMENTATION) {
                     return """
@@ -1935,7 +1987,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "先建立入口，再补逻辑。",
                               "subtasks": [
@@ -1970,7 +2022,7 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("结构化页面草稿")) {
                     return """
@@ -1984,7 +2036,7 @@ class ImplementationExecutorTests {
                             }
                             """;
                 }
-                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("符号级精确改写")) {
+                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("基于当前文件状态的 exact replace 改写")) {
                     return StructuredDiffTestSupport.appendAtEnd(
                             userPrompt,
                             "export function tick() {",
@@ -2051,7 +2103,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "先建立壳层，再补行为。",
                               "subtasks": [
@@ -2089,7 +2141,7 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
                 if (role == ModelRole.IMPLEMENTATION) {
                     return """
@@ -2199,7 +2251,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "先建立入口壳层，再补齐游戏行为。",
                               "subtasks": [
@@ -2241,7 +2293,7 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
                 if (role == ModelRole.IMPLEMENTATION) {
                     if (implementationCalls.incrementAndGet() == 1) {
@@ -2423,7 +2475,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "精确补齐页面内容",
                               "subtasks": [
@@ -2446,16 +2498,32 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
-                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("精确改写")) {
-                    return """
-                            {
-                              "markupHtml": "<section class=\\"playfield\\"><canvas id=\\"gameCanvas\\"></canvas></section>",
-                              "styleCss": "body { margin: 0; background: #10131a; }",
-                              "scriptJs": "window.tetrisReady = true;"
-                            }
-                            """;
+                if (role == ModelRole.IMPLEMENTATION
+                        && systemPrompt.contains("精确的 exact replace 改写")) {
+                    return StructuredDiffTestSupport.replaceCurrentContent(
+                            userPrompt,
+                            """
+                            <!DOCTYPE html>
+                            <html>
+                            <head>
+                              <title>Tetris</title>
+                              <style id="app-style">
+                                body { margin: 0; background: #10131a; }
+                              </style>
+                            </head>
+                            <body>
+                              <main id="app-root">
+                                <section class="playfield"><canvas id="gameCanvas"></canvas></section>
+                              </main>
+                              <script id="app-script">
+                                window.tetrisReady = true;
+                              </script>
+                            </body>
+                            </html>
+                            """
+                    );
                 }
                 if (role == ModelRole.VALIDATION_STRATEGY) {
                     return """
@@ -2525,7 +2593,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "定点修补 Java 方法",
                               "subtasks": [
@@ -2544,9 +2612,9 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
-                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("符号级精确改写")) {
+                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("基于当前文件状态的 exact replace 改写")) {
                     return StructuredDiffTestSupport.replaceRangeStartingAt(
                             userPrompt,
                             "    void tick() {",
@@ -2615,7 +2683,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "定点修补 JavaScript 方法",
                               "subtasks": [
@@ -2634,9 +2702,9 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
-                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("符号级精确改写")) {
+                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("基于当前文件状态的 exact replace 改写")) {
                     return StructuredDiffTestSupport.replaceRangeStartingAt(
                             userPrompt,
                             "    tick() {",
@@ -2705,7 +2773,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "定点修补 JavaScript 方法",
                               "subtasks": [
@@ -2724,9 +2792,9 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
-                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("符号级精确改写")) {
+                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("基于当前文件状态的 exact replace 改写")) {
                     int call = patchCalls.getAndUpdate(value -> value + 1);
                     if (call < 3) {
                         return "{}";
@@ -2817,7 +2885,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "定点修补 JavaScript 方法",
                               "subtasks": [
@@ -2836,9 +2904,9 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
-                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("符号级精确改写")) {
+                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("基于当前文件状态的 exact replace 改写")) {
                     return "{}";
                 }
                 if (role == ModelRole.VALIDATION_STRATEGY) {
@@ -2921,7 +2989,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "在现有 HTML 入口上增量补齐页面功能。",
                               "subtasks": [
@@ -2944,7 +3012,7 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("精确改写")) {
                     throw new IllegalStateException(
@@ -3063,7 +3131,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "在现有 HTML 入口上增量补齐页面功能。",
                               "subtasks": [
@@ -3091,7 +3159,7 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("当前 HTML 入口文件里的主脚本已被抽成独立代码工作集")) {
                     if (inlineScriptCalls.incrementAndGet() == 1) {
@@ -3117,7 +3185,7 @@ class ImplementationExecutorTests {
                             "}"
                     );
                 }
-                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("符号级精确改写")) {
+                if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("基于当前文件状态的 exact replace 改写")) {
                     int call = codeFileCalls.incrementAndGet();
                     if (systemPrompt.contains("当前文件为空或新建文件")) {
                         return StructuredDiffTestSupport.appendAtEnd(
@@ -3235,7 +3303,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "创建网页入口并补齐最小交互。",
                               "subtasks": [
@@ -3259,7 +3327,7 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
                 if (role == ModelRole.IMPLEMENTATION) {
                     return """
@@ -3330,7 +3398,7 @@ class ImplementationExecutorTests {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
                 if (role == ModelRole.IMPLEMENTATION && systemPrompt.contains("拆成可落地、可验证的子步骤")) {
-                    return """
+                    return legacyPlanningResponse(userPrompt, """
                             {
                               "summary": "创建入口页面并补齐最小交互。",
                               "subtasks": [
@@ -3354,7 +3422,7 @@ class ImplementationExecutorTests {
                                 }
                               ]
                             }
-                            """;
+                    """);
                 }
                 if (role == ModelRole.IMPLEMENTATION) {
                     return """
@@ -3569,5 +3637,87 @@ class ImplementationExecutorTests {
         ) {
             return new StructuredReviewResult(review(systemPrompt, candidateContent, options, role), ReviewSemantics.empty());
         }
+    }
+
+    private static String legacyPlanningResponse(String userPrompt, String legacyPlanJson) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode legacyPlan = objectMapper.readTree(legacyPlanJson);
+            if (userPrompt != null && userPrompt.contains("上一轮 outline 反馈")) {
+                ObjectNode outline = objectMapper.createObjectNode();
+                outline.put("summary", legacyPlan.path("summary").asText(""));
+                ArrayNode subtasks = outline.putArray("subtasks");
+                ArrayNode legacySubtasks = legacyPlan.withArray("subtasks");
+                for (int index = 0; index < legacySubtasks.size(); index++) {
+                    com.fasterxml.jackson.databind.JsonNode legacySubtask = legacySubtasks.get(index);
+                    ObjectNode subtask = subtasks.addObject();
+                    subtask.put("id", "subtask-" + (index + 1));
+                    subtask.put("title", legacySubtask.path("title").asText(""));
+                    subtask.put("goal", legacySubtask.path("goal").asText(""));
+                    ArrayNode targetPaths = subtask.putArray("targetPaths");
+                    java.util.LinkedHashSet<String> paths = new java.util.LinkedHashSet<>();
+                    for (com.fasterxml.jackson.databind.JsonNode change : legacySubtask.withArray("changes")) {
+                        String path = change.path("path").asText("");
+                        if (!path.isBlank()) {
+                            paths.add(path);
+                        }
+                    }
+                    for (String path : paths) {
+                        targetPaths.add(path);
+                    }
+                    boolean touchesHtmlEntry = paths.stream().anyMatch(devflow.agent.util.ProjectPathSupport::isHtml);
+                    String deliveryMode = legacySubtask.hasNonNull("deliveryMode")
+                            ? legacySubtask.path("deliveryMode").asText("INCREMENTAL")
+                            : (index == 0 && touchesHtmlEntry ? "SKELETON" : "INCREMENTAL");
+                    boolean runnableMilestone = legacySubtask.has("runnableMilestone")
+                            ? legacySubtask.path("runnableMilestone").asBoolean(false)
+                            : (index == 0 && touchesHtmlEntry);
+                    subtask.put("deliveryMode", deliveryMode);
+                    subtask.put("runnableMilestone", runnableMilestone);
+                    subtask.set("coverageRefs", copyArray(objectMapper, legacySubtask, "coverageRefs"));
+                    subtask.set("ownedCapabilities", copyArray(objectMapper, legacySubtask, "ownedCapabilities"));
+                    subtask.set("deferredCapabilities", copyArray(objectMapper, legacySubtask, "deferredCapabilities"));
+                    subtask.set("acceptanceCriteria", copyArray(objectMapper, legacySubtask, "acceptanceCriteria"));
+                }
+                return objectMapper.writeValueAsString(outline);
+            }
+            String subtaskId = extractSubtaskId(userPrompt);
+            if (subtaskId != null) {
+                int index = Integer.parseInt(subtaskId.substring("subtask-".length())) - 1;
+                com.fasterxml.jackson.databind.JsonNode legacySubtask = legacyPlan.withArray("subtasks").get(index);
+                ObjectNode detail = objectMapper.createObjectNode();
+                detail.put("subtaskId", subtaskId);
+                detail.set("changes", copyArray(objectMapper, legacySubtask, "changes"));
+                return objectMapper.writeValueAsString(detail);
+            }
+            return legacyPlanJson;
+        } catch (Exception exception) {
+            throw new IllegalStateException("Failed to adapt legacy planning fixture", exception);
+        }
+    }
+
+    private static ArrayNode copyArray(
+            ObjectMapper objectMapper,
+            com.fasterxml.jackson.databind.JsonNode node,
+            String fieldName
+    ) {
+        com.fasterxml.jackson.databind.JsonNode field = node == null ? null : node.get(fieldName);
+        if (field == null || !field.isArray()) {
+            return objectMapper.createArrayNode();
+        }
+        return field.deepCopy();
+    }
+
+    private static String extractSubtaskId(String userPrompt) {
+        if (userPrompt == null) {
+            return null;
+        }
+        int index = userPrompt.indexOf("- id: subtask-");
+        if (index < 0) {
+            return null;
+        }
+        int start = index + "- id: ".length();
+        int end = userPrompt.indexOf('\n', start);
+        return end < 0 ? userPrompt.substring(start).trim() : userPrompt.substring(start, end).trim();
     }
 }

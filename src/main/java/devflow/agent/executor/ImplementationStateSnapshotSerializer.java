@@ -175,15 +175,9 @@ final class ImplementationStateSnapshotSerializer {
                         progressState.relativePath() == null ? "" : progressState.relativePath().toString(),
                         progressState.strategyName(),
                         progressState.workingContent(),
-                        progressState.pendingUnits().stream()
-                                .map(unit -> new ImplementationStateSnapshot.EditUnitState(
-                                        unit.kind().name(),
-                                        unit.label(),
-                                        unit.allowedSymbols(),
-                                        unit.appendSymbolBudget(),
-                                        unit.splitDepth()
-                                ))
-                                .toList()
+                        progressState.plannedFromHash(),
+                        progressState.completedUnitLabels(),
+                        progressState.currentUnitLabel()
                 ))
                 .toList();
     }

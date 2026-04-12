@@ -55,7 +55,10 @@ record PatchFailure(
         if (failureCode == ToolFailureCode.PATCH_SYMBOL_NOT_FOUND) {
             return GenerationFailureType.SYMBOL_NOT_FOUND;
         }
-        if (failureCode == ToolFailureCode.PATCH_ANCHOR_MISSING) {
+        if (failureCode == ToolFailureCode.PATCH_ANCHOR_MISSING
+                || failureCode == ToolFailureCode.EXACT_EDIT_BASE_STATE_MISMATCH
+                || failureCode == ToolFailureCode.EXACT_EDIT_TARGET_NOT_FOUND
+                || failureCode == ToolFailureCode.EXACT_EDIT_TARGET_NOT_UNIQUE) {
             return GenerationFailureType.RESULT_FILE_INVALID;
         }
         if (failureCode == ToolFailureCode.TREE_SITTER_PARSE_FAILED) {

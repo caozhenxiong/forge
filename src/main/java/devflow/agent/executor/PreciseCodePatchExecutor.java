@@ -1,6 +1,9 @@
 package devflow.agent.executor;
 
+import devflow.agent.editing.FileStateLedger;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -28,6 +31,7 @@ final class PreciseCodePatchExecutor {
     private final PatchExecutionSupport executionSupport;
     private final CodePatchUnitExecutor unitExecutor;
     private final CodeScaffoldExpansionPlanner scaffoldExpansionPlanner;
+    private final FileStateLedger fileStateLedger;
 
     PreciseCodePatchExecutor(
             LlmProvider llmProvider,
@@ -62,11 +66,13 @@ final class PreciseCodePatchExecutor {
                 patchBudgetPolicy,
                 patchPayloadRepairSupport,
                 syntaxRepairSupport,
+                patchContextBuilder,
                 fileGenerationFailureFactory,
                 implementationGenerationObserverFactory,
                 maxFileGenerationAttempts
         );
         this.scaffoldExpansionPlanner = new CodeScaffoldExpansionPlanner(editUnitPlanner);
+        this.fileStateLedger = new FileStateLedger();
     }
 
     String generate(CodePatchRequest request) {
@@ -78,11 +84,13 @@ final class PreciseCodePatchExecutor {
         );
         LinkedList<EditUnit> pendingUnits = initialPendingUnits(request.relativePath(), patchPlan, patchProgressState);
         String currentContent = initialContent(request.existingContent(), patchProgressState);
+        ArrayList<String> completedUnitLabels = initialCompletedUnitLabels(patchProgressState);
         while (!pendingUnits.isEmpty()) {
             EditUnit unit = pendingUnits.removeFirst();
             boolean scaffoldBootstrapUnit = scaffoldExpansionPlanner.isBootstrapUnit(unit, currentContent);
             try {
                 currentContent = unitExecutor.execute(request, currentContent, unit, patchContextBuilder);
+                completedUnitLabels.add(unit.label());
                 if (scaffoldBootstrapUnit && pendingUnits.isEmpty()) {
                     List<EditUnit> followUpUnits = scaffoldExpansionPlanner.planFollowUpCodeUnitsAfterScaffold(
                             request.relativePath(),
@@ -112,7 +120,9 @@ final class PreciseCodePatchExecutor {
                             request.relativePath(),
                             FileEditStrategyNames.PRECISE_CODE,
                             currentContent,
-                            remainingUnits(unit, pendingUnits)
+                            fileStateLedger.capture(request.relativePath(), currentContent).contentHash(),
+                            List.copyOf(new LinkedHashSet<>(completedUnitLabels)),
+                            unit.label()
                     ));
                 }
                 executionSupport.appendImplementationEvent(
@@ -135,12 +145,13 @@ final class PreciseCodePatchExecutor {
             PatchPlan patchPlan,
             FilePatchProgressState patchProgressState
     ) {
+        List<EditUnit> freshUnits = expandRestrictedParentUnits(patchPlan.units());
         if (patchProgressState != null
                 && patchProgressState.matches(relativePath, FileEditStrategyNames.PRECISE_CODE)
                 && patchProgressState.resumable()) {
-            return new LinkedList<>(expandRestrictedParentUnits(patchProgressState.pendingUnits()));
+            return new LinkedList<>(resumeUnits(freshUnits, patchProgressState));
         }
-        return new LinkedList<>(expandRestrictedParentUnits(patchPlan.units()));
+        return new LinkedList<>(freshUnits);
     }
 
     private String initialContent(String existingContent, FilePatchProgressState patchProgressState) {
@@ -150,11 +161,35 @@ final class PreciseCodePatchExecutor {
         return patchProgressState.workingContent();
     }
 
-    private List<EditUnit> remainingUnits(EditUnit failedUnit, LinkedList<EditUnit> pendingUnits) {
-        LinkedList<EditUnit> remaining = new LinkedList<>();
-        remaining.add(failedUnit);
-        remaining.addAll(pendingUnits);
-        return List.copyOf(remaining);
+    private ArrayList<String> initialCompletedUnitLabels(FilePatchProgressState patchProgressState) {
+        if (patchProgressState == null || patchProgressState.completedUnitLabels() == null) {
+            return new ArrayList<>();
+        }
+        return new ArrayList<>(patchProgressState.completedUnitLabels());
+    }
+
+    private List<EditUnit> resumeUnits(List<EditUnit> freshUnits, FilePatchProgressState patchProgressState) {
+        if (freshUnits == null || freshUnits.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<String> completed = new LinkedHashSet<>(patchProgressState.completedUnitLabels());
+        List<EditUnit> remaining = freshUnits.stream()
+                .filter(unit -> unit != null && !completed.contains(unit.label()))
+                .toList();
+        if (patchProgressState.currentUnitLabel().isBlank()) {
+            return remaining;
+        }
+        int resumeIndex = -1;
+        for (int index = 0; index < remaining.size(); index++) {
+            if (patchProgressState.currentUnitLabel().equals(remaining.get(index).label())) {
+                resumeIndex = index;
+                break;
+            }
+        }
+        if (resumeIndex < 0) {
+            return remaining;
+        }
+        return remaining.subList(resumeIndex, remaining.size());
     }
 
     private List<EditUnit> expandRestrictedParentUnits(List<EditUnit> units) {

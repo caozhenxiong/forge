@@ -260,7 +260,7 @@ class SupervisorAgentTests {
                 true,
                 "game.js 的符号级精确改写 JSON 非法。",
                 "No JSON object found in model response",
-                "请只返回合法 JSON；必须提供 expectedSourceHash 与 hunks，beforeLines/afterLines 逐行承载源码，且 hunk 范围必须留在当前编辑单元。"
+                "请只返回合法 JSON；必须提供 targetPath、baseContentHash、oldText、newText、replaceAll，且 oldText 范围必须留在当前编辑单元。"
         );
 
         GenerationRecoveryDecision firstDecision = supervisorAgent.decideGenerationFailure(

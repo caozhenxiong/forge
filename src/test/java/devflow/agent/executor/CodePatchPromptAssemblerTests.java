@@ -28,7 +28,7 @@ class CodePatchPromptAssemblerTests {
                 true
         );
 
-        assertTrue(prompt.systemPrompt().contains("hunk 只能覆盖 \"GameLogic\" 对应的现有实现区域"));
+        assertTrue(prompt.systemPrompt().contains("`oldText` 只能围绕 \"GameLogic\" 对应的现有实现区域选取"));
         assertTrue(prompt.userPrompt().contains("- strictTargetSymbol: GameLogic"));
     }
 }

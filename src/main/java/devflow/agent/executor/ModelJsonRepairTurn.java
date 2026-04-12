@@ -14,7 +14,7 @@ final class ModelJsonRepairTurn {
             2. 保持原有 patch 语义，不要扩展编辑范围。
             3. 不要添加解释、Markdown 或代码块。
             4. 直接返回修复后的 JSON 对象。
-            5. 对 structured diff patch，必须保留 expectedSourceHash，并把多行源码逐行放进 hunks[].beforeLines / afterLines。
+            5. 对 exact replace edit，必须保留 targetPath、baseContentHash、oldText、newText、replaceAll，不要把原文改写成摘要。
             """;
 
     private final LlmProvider llmProvider;

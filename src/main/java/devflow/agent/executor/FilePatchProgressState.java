@@ -13,13 +13,17 @@ record FilePatchProgressState(
         Path relativePath,
         String strategyName,
         String workingContent,
-        List<EditUnit> pendingUnits
+        String plannedFromHash,
+        List<String> completedUnitLabels,
+        String currentUnitLabel
 ) {
     FilePatchProgressState {
         relativePath = relativePath == null ? null : relativePath.normalize();
         strategyName = strategyName == null ? "" : strategyName;
         workingContent = workingContent == null ? "" : workingContent;
-        pendingUnits = pendingUnits == null ? List.of() : List.copyOf(pendingUnits);
+        plannedFromHash = plannedFromHash == null ? "" : plannedFromHash;
+        completedUnitLabels = completedUnitLabels == null ? List.of() : List.copyOf(completedUnitLabels);
+        currentUnitLabel = currentUnitLabel == null ? "" : currentUnitLabel;
     }
 
     boolean matches(Path path, String strategyName) {
@@ -31,6 +35,6 @@ record FilePatchProgressState(
     }
 
     boolean resumable() {
-        return !pendingUnits.isEmpty();
+        return !currentUnitLabel.isBlank();
     }
 }

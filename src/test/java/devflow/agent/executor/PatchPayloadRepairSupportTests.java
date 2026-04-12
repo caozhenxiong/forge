@@ -1,7 +1,7 @@
 package devflow.agent.executor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import devflow.agent.editing.StructuredDiffPatch;
+import devflow.agent.editing.ExactReplaceEdit;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -22,14 +22,11 @@ class PatchPayloadRepairSupportTests {
                     modelRepairCalled.set(true);
                     return """
                             {
-                              "expectedSourceHash": "abc123",
-                              "hunks": [
-                                {
-                                  "sourceStartLine": 2,
-                                  "beforeLines": ["return 0;"],
-                                  "afterLines": ["return 1;"]
-                                }
-                              ]
+                              "targetPath": "game.js",
+                              "baseContentHash": "abc123",
+                              "oldText": "return 0;",
+                              "newText": "return 1;",
+                              "replaceAll": false
                             }
                             """;
                 }
@@ -58,16 +55,18 @@ class PatchPayloadRepairSupportTests {
                 new PatchExecutionSupport(new FileGenerationFailureFactory(), new ImplementationGenerationObserverFactory())
         );
 
-        StructuredDiffPatch patch = repairSupport.readStructuredPayload(
+        ExactReplaceEdit patch = repairSupport.readStructuredPayload(
                 Path.of("game.js"),
                 new EditUnit(EditUnitKind.CODE_SYMBOL_BATCH, "code-unit-1", java.util.List.of("tick")),
                 "{ invalid json",
-                StructuredDiffPatch.class,
+                ExactReplaceEdit.class,
                 null
         );
 
         assertTrue(modelRepairCalled.get());
-        assertEquals(2, patch.hunks().getFirst().sourceStartLine());
+        assertEquals("game.js", patch.targetPath());
+        assertEquals("abc123", patch.baseContentHash());
+        assertEquals("return 1;", patch.newText());
     }
 
     @Test

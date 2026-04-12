@@ -1,6 +1,6 @@
 package devflow.agent.executor;
 
-import devflow.agent.editing.StructuredDiffPatch;
+import devflow.agent.editing.ExactReplaceEdit;
 import java.nio.file.Path;
 
 /**
@@ -17,7 +17,7 @@ interface EmbeddedPatchBehavior {
 
     String describeTargets(PatchContextBuilder patchContextBuilder, Path relativePath, String currentContent);
 
-    PatchApplyResult applyPatch(CodePatchKernel codePatchKernel, Path relativePath, String currentContent, StructuredDiffPatch patch);
+    PatchApplyResult applyPatch(CodePatchKernel codePatchKernel, Path relativePath, String currentContent, ExactReplaceEdit edit);
 
     String immutableHostRegionInstruction();
 

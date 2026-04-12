@@ -3,6 +3,7 @@ package devflow.agent.editing;
 import devflow.agent.parsing.ByteRange;
 import devflow.agent.parsing.HtmlEditableStructure;
 import devflow.agent.parsing.TreeSitterSupport;
+import devflow.agent.executor.HtmlEditRegion;
 import devflow.agent.text.TextCanonicalizer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -38,6 +39,28 @@ public class HtmlPreciseEditor {
                 structure.appStyleInnerRange() != null,
                 structure.appScriptInnerRange() != null
         ).strip();
+    }
+
+    public String extractRegionContent(String source, HtmlEditRegion region) {
+        HtmlEditableStructure structure = treeSitterSupport.inspectEditableHtml(source);
+        ByteRange range = rangeForRegion(structure, region);
+        if (range == null || !range.isValid()) {
+            throw new PreciseEditException(
+                    PreciseEditFailureReason.ANCHOR_MISSING,
+                    "Current HTML does not expose the requested focused region."
+            );
+        }
+        return extractRange(source, range);
+    }
+
+    public String replaceRegionContent(String source, HtmlEditRegion region, String content) {
+        if (region == HtmlEditRegion.SCRIPT) {
+            return applyPatch(source, new HtmlPrecisePatch(null, null, content, null, null));
+        }
+        if (region == HtmlEditRegion.STYLE) {
+            return applyPatch(source, new HtmlPrecisePatch(null, content, null, null, null));
+        }
+        return applyPatch(source, new HtmlPrecisePatch(content, null, null, null, null));
     }
 
     public String applyPatch(String source, HtmlPrecisePatch patch) {
@@ -142,6 +165,19 @@ public class HtmlPreciseEditor {
         int start = Math.max(0, Math.min(range.startByte(), bytes.length));
         int end = Math.max(start, Math.min(range.endByte(), bytes.length));
         return new String(bytes, start, end - start, StandardCharsets.UTF_8);
+    }
+
+    private ByteRange rangeForRegion(HtmlEditableStructure structure, HtmlEditRegion region) {
+        if (structure == null || region == null) {
+            return null;
+        }
+        if (region == HtmlEditRegion.SCRIPT) {
+            return structure.appScriptInnerRange();
+        }
+        if (region == HtmlEditRegion.STYLE) {
+            return structure.appStyleInnerRange();
+        }
+        return structure.appRootInnerRange();
     }
 
     private boolean containsHtmlFragment(String container, String fragment) {

@@ -60,8 +60,6 @@ final class PatchRuntimeBuilder {
         GeneratedContentGate generatedContentGate = new GeneratedContentGate(workspace, treeSitterSupport);
         StructuredPayloadReader structuredPayloadReader = new StructuredPayloadReader(objectMapper);
         GeneratedPayloadSupport generatedPayloadSupport = new GeneratedPayloadSupport(structuredPayloadReader);
-        FocusedHtmlRegionNormalizer focusedHtmlRegionNormalizer =
-                new FocusedHtmlRegionNormalizer(generatedPayloadSupport);
         FileGenerationFailureFactory fileGenerationFailureFactory = new FileGenerationFailureFactory();
         ImplementationGenerationObserverFactory implementationGenerationObserverFactory =
                 new ImplementationGenerationObserverFactory();
@@ -87,7 +85,6 @@ final class PatchRuntimeBuilder {
                 generatedContentGate,
                 generatedPayloadSupport,
                 patchPayloadRepairSupport,
-                focusedHtmlRegionNormalizer,
                 htmlFocusedRegionResolver,
                 fileGenerationFailureFactory,
                 implementationGenerationObserverFactory,
@@ -153,7 +150,6 @@ final class PatchRuntimeBuilder {
         );
         return new PatchRuntimeComponents(
                 generatedContentGate,
-                focusedHtmlRegionNormalizer,
                 htmlFocusedRegionResolver,
                 wholeFilePatchExecutor,
                 hostHtmlPatchExecutor,

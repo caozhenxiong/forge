@@ -51,6 +51,22 @@ class ImplementationEventJournal {
         return List.copyOf(entries);
     }
 
+    Path writePlanningArtifact(String fileName, String content) {
+        if (fileArtifactStore == null || runRecord == null || fileName == null || fileName.isBlank()
+                || content == null || content.isBlank()) {
+            return null;
+        }
+        return fileArtifactStore.writeAuxiliaryArtifact(projectPath, runRecord.runId(), fileName, content);
+    }
+
+    Path writeAttemptScopedPlanningArtifact(String fileName, int attempt, String content) {
+        if (fileArtifactStore == null || runRecord == null || fileName == null || fileName.isBlank()
+                || content == null || content.isBlank()) {
+            return null;
+        }
+        return fileArtifactStore.writeAttemptScopedAuxiliaryArtifact(projectPath, runRecord.runId(), fileName, attempt, content);
+    }
+
     Path appendSyntaxRepairFailureArtifact(
             Path relativePath,
             String unitLabel,

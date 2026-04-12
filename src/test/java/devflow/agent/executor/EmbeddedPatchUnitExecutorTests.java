@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.editing.CodePreciseEditor;
 import devflow.agent.editing.FileStateLedger;
 import devflow.agent.project.FileProjectWorkspace;
+import devflow.agent.util.ProjectPathSupport;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -34,8 +35,9 @@ class EmbeddedPatchUnitExecutorTests {
                 });
                 """;
         String expectedHash = new FileStateLedger()
-                .capture(Path.of("index.html.inline-script.js"), currentScript)
+                .capture(ProjectPathSupport.inlineScriptSyntheticPath(Path.of("index.html")), currentScript)
                 .contentHash();
+        String syntheticPath = ProjectPathSupport.inlineScriptSyntheticPath(Path.of("index.html")).toString();
         LlmProvider provider = new LlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
@@ -56,22 +58,13 @@ class EmbeddedPatchUnitExecutorTests {
                     inlineScriptCalls.incrementAndGet();
                             return """
                                     {
-                                      "expectedSourceHash": "%s",
-                                      "hunks": [
-                                        {
-                                          "sourceStartLine": 2,
-                                          "beforeLines": [
-                                            "  const canvas = document.getElementById('game-canvas');",
-                                            "  return canvas;"
-                                          ],
-                                          "afterLines": [
-                                            "  const = document.getElementById('game-canvas');",
-                                            "  return canvas;"
-                                          ]
-                                        }
-                                      ]
+                                      "targetPath": "%s",
+                                      "baseContentHash": "%s",
+                                      "oldText": "  const canvas = document.getElementById('game-canvas');",
+                                      "newText": "  const = document.getElementById('game-canvas');",
+                                      "replaceAll": false
                                     }
-                                    """.formatted(expectedHash);
+                                    """.formatted(syntheticPath, expectedHash);
                 }
                 return "";
             }

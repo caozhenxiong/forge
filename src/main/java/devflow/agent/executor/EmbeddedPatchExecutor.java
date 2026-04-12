@@ -1,9 +1,10 @@
 package devflow.agent.executor;
 
-import java.util.LinkedList;
+import devflow.agent.editing.FileStateLedger;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.Set;
 
 /**
  * 宿主内嵌脚本/样式的共享 patch 执行器。
@@ -26,6 +27,7 @@ final class EmbeddedPatchExecutor {
     private final PatchExecutionSupport executionSupport;
     private final EmbeddedPatchUnitExecutor unitExecutor;
     private final EmbeddedPatchHostValidator hostValidator;
+    private final FileStateLedger fileStateLedger;
 
     EmbeddedPatchExecutor(
             LlmProvider llmProvider,
@@ -70,6 +72,7 @@ final class EmbeddedPatchExecutor {
                 implementationGenerationObserverFactory,
                 maxFileGenerationAttempts
         );
+        this.fileStateLedger = new FileStateLedger();
     }
 
     <T extends EmbeddingEditPlan> GeneratedFileOutput generate(
@@ -156,25 +159,24 @@ final class EmbeddedPatchExecutor {
             boolean allowExternalize
     ) {
         FilePatchProgressState patchProgressState = request.patchProgressState();
-        boolean resumeCompatible = canResumePatchProgress(request.relativePath(), patchKind, patchPlan, patchProgressState);
         LinkedList<EditUnit> pendingUnits = initialPendingUnits(
                 request.relativePath(),
                 patchKind,
                 patchPlan,
-                patchProgressState,
-                resumeCompatible
+                patchProgressState
         );
         String currentContent = initialContent(
                 initialContent,
                 patchProgressState,
                 request.relativePath(),
-                patchKind,
-                resumeCompatible
+                patchKind
         );
+        ArrayList<String> completedUnitLabels = initialCompletedUnitLabels(patchProgressState);
         while (!pendingUnits.isEmpty()) {
             EditUnit unit = pendingUnits.removeFirst();
             try {
                 currentContent = executeUnit(request, patchKind, currentContent, unit);
+                completedUnitLabels.add(unit.label());
             } catch (GenerationFailureException exception) {
                 PatchFailure patchFailure = PatchFailure.of(exception.report().failureType(), exception.report().evidence());
                 List<EditUnit> splitUnits = patchFailureRouter.splitIfNeeded(unit, patchFailure);
@@ -200,7 +202,9 @@ final class EmbeddedPatchExecutor {
                             request.relativePath(),
                             patchKind.strategyName(),
                             currentContent,
-                            remainingUnits(unit, pendingUnits)
+                            fileStateLedger.capture(patchKind.syntheticPath(request.relativePath()), currentContent).contentHash(),
+                            List.copyOf(new LinkedHashSet<>(completedUnitLabels)),
+                            unit.label()
                     ));
                 }
                 executionSupport.appendImplementationEvent(
@@ -222,24 +226,24 @@ final class EmbeddedPatchExecutor {
             java.nio.file.Path relativePath,
             EmbeddedPatchKind patchKind,
             PatchPlan patchPlan,
-            FilePatchProgressState patchProgressState,
-            boolean resumeCompatible
+            FilePatchProgressState patchProgressState
     ) {
-        if (resumeCompatible && patchProgressState != null) {
-            return new LinkedList<>(patchProgressState.pendingUnits());
+        List<EditUnit> freshUnits = patchPlan == null ? List.of() : patchPlan.units();
+        if (patchProgressState != null
+                && patchProgressState.matches(relativePath, patchKind.strategyName())
+                && patchProgressState.resumable()) {
+            return new LinkedList<>(resumeUnits(freshUnits, patchProgressState));
         }
-        return new LinkedList<>(patchPlan.units());
+        return new LinkedList<>(freshUnits);
     }
 
     private String initialContent(
             String initialContent,
             FilePatchProgressState patchProgressState,
             java.nio.file.Path relativePath,
-            EmbeddedPatchKind patchKind,
-            boolean resumeCompatible
+            EmbeddedPatchKind patchKind
     ) {
-        if (resumeCompatible
-                && patchProgressState != null
+        if (patchProgressState != null
                 && patchProgressState.matches(relativePath, patchKind.strategyName())
                 && patchProgressState.workingContent() != null
                 && !patchProgressState.workingContent().isBlank()) {
@@ -248,65 +252,35 @@ final class EmbeddedPatchExecutor {
         return initialContent;
     }
 
-    /**
-     * 旧 patchProgress 只能在“当前内容仍属于同一骨架”时复用。
-     *
-     * <p>这里不做兼容修补，也不尝试把旧骨架硬转成新骨架；结果只有两种：
-     * 1. 仍与 fresh plan 同骨架，继续；
-     * 2. 已失配，直接丢弃旧 progress，回到 fresh plan。
-     */
-    private boolean canResumePatchProgress(
-            java.nio.file.Path relativePath,
-            EmbeddedPatchKind patchKind,
-            PatchPlan patchPlan,
-            FilePatchProgressState patchProgressState
-    ) {
-        if (patchProgressState == null
-                || !patchProgressState.matches(relativePath, patchKind.strategyName())
-                || !patchProgressState.resumable()
-                || patchPlan == null
-                || patchPlan.units().isEmpty()) {
-            return false;
+    private ArrayList<String> initialCompletedUnitLabels(FilePatchProgressState patchProgressState) {
+        if (patchProgressState == null || patchProgressState.completedUnitLabels() == null) {
+            return new ArrayList<>();
         }
-        Set<EditUnitKind> freshKinds = new LinkedHashSet<>();
-        Set<String> freshSymbols = new LinkedHashSet<>();
-        boolean freshAllowsAppendOnly = false;
-        for (EditUnit freshUnit : patchPlan.units()) {
-            if (freshUnit == null) {
-                continue;
-            }
-            freshKinds.add(freshUnit.kind());
-            if (freshUnit.appendOnly()) {
-                freshAllowsAppendOnly = true;
-                continue;
-            }
-            freshSymbols.addAll(freshUnit.allowedSymbols());
-        }
-        if (freshKinds.isEmpty()) {
-            return false;
-        }
-        for (EditUnit pendingUnit : patchProgressState.pendingUnits()) {
-            if (pendingUnit == null || !freshKinds.contains(pendingUnit.kind())) {
-                return false;
-            }
-            if (pendingUnit.appendOnly()) {
-                if (!freshAllowsAppendOnly) {
-                    return false;
-                }
-                continue;
-            }
-            if (!freshSymbols.containsAll(pendingUnit.allowedSymbols())) {
-                return false;
-            }
-        }
-        return true;
+        return new ArrayList<>(patchProgressState.completedUnitLabels());
     }
 
-    private List<EditUnit> remainingUnits(EditUnit failedUnit, LinkedList<EditUnit> pendingUnits) {
-        LinkedList<EditUnit> remaining = new LinkedList<>();
-        remaining.add(failedUnit);
-        remaining.addAll(pendingUnits);
-        return List.copyOf(remaining);
+    private List<EditUnit> resumeUnits(List<EditUnit> freshUnits, FilePatchProgressState patchProgressState) {
+        if (freshUnits == null || freshUnits.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<String> completed = new LinkedHashSet<>(patchProgressState.completedUnitLabels());
+        List<EditUnit> remaining = freshUnits.stream()
+                .filter(unit -> unit != null && !completed.contains(unit.label()))
+                .toList();
+        if (patchProgressState.currentUnitLabel().isBlank()) {
+            return remaining;
+        }
+        int resumeIndex = -1;
+        for (int index = 0; index < remaining.size(); index++) {
+            if (patchProgressState.currentUnitLabel().equals(remaining.get(index).label())) {
+                resumeIndex = index;
+                break;
+            }
+        }
+        if (resumeIndex < 0) {
+            return remaining;
+        }
+        return remaining.subList(resumeIndex, remaining.size());
     }
 
     private String executeUnit(

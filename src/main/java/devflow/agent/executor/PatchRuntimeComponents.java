@@ -7,7 +7,6 @@ package devflow.agent.executor;
  */
 record PatchRuntimeComponents(
         GeneratedContentGate generatedContentGate,
-        FocusedHtmlRegionNormalizer focusedHtmlRegionNormalizer,
         HtmlFocusedRegionResolver htmlFocusedRegionResolver,
         WholeFilePatchExecutor wholeFilePatchExecutor,
         HostHtmlPatchExecutor hostHtmlPatchExecutor,

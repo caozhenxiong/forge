@@ -113,7 +113,9 @@ final class StructuredHtmlPatchExecutor {
                     request.relativePath(),
                     FileEditStrategyNames.STRUCTURED_HTML,
                     request.existingContent(),
-                    List.of()
+                    "",
+                    List.of(),
+                    ""
             ));
         }
     }

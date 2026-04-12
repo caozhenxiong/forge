@@ -19,9 +19,9 @@ final class HtmlPatchFeedbackRenderer {
                 - 文件: %s
                 - 问题: %s
                 要求：
-                1. 继续使用 JSON 精确改写格式
-                2. 只返回需要修改的区块
-                3. 如需补入口接线，可使用 headAppendHtml / bodyAppendHtml 追加资源片段
+                1. 继续使用 JSON exact replace 格式
+                2. 只返回最小替换
+                3. 如需补入口接线，应围绕现有 HTML 锚点做最小替换
                 4. 保证改写后 HTML、脚本和样式都可解析
                 """.formatted(attempt, relativePath, validationFailure);
     }
@@ -38,20 +38,20 @@ final class HtmlPatchFeedbackRenderer {
                 - 聚焦区块: %s
                 - 问题: %s
                 要求：
-                1. 只输出当前聚焦区块的完整内容
-                2. 不要输出其他区块
+                1. 只返回当前聚焦区块的 exact replace JSON
+                2. 不要输出其他区块内容
                 3. 保证改写后 HTML/脚本/样式整体可解析
                 """.formatted(attempt, relativePath, region, validationFailure);
     }
 
     static String generationFailureAdvice(GenerationFailureType failureType) {
         return isPatchLikeFailure(failureType)
-                ? "请只返回合法 JSON，并保持 markupHtml/styleCss/scriptJs/headAppendHtml/bodyAppendHtml 至少有一个非 null。"
-                : "请继续使用 JSON 精确改写格式，只修改必要区块；如果需要接线外部资源，可使用 headAppendHtml/bodyAppendHtml，并确保改写后的 HTML/脚本/样式都可解析。";
+                ? "请只返回合法 JSON，并提供 targetPath、baseContentHash、oldText、newText、replaceAll。"
+                : "请继续使用 JSON exact replace 格式，只修改必要区块，并确保改写后的 HTML/脚本/样式都可解析。";
     }
 
     static String focusedRegionFailureAdvice() {
-        return "请只改写当前聚焦区块，避免再次回到整页或整脚本的大块输出。";
+        return "请只改写当前聚焦区块，返回最小 exact replace，避免再次回到整页或整脚本的大块输出。";
     }
 
     private static boolean isPatchLikeFailure(GenerationFailureType failureType) {

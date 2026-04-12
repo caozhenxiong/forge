@@ -1,6 +1,6 @@
 package devflow.agent.executor;
 
-import devflow.agent.editing.StructuredDiffPatch;
+import devflow.agent.editing.ExactReplaceEdit;
 import java.nio.file.Path;
 
 /**
@@ -32,5 +32,5 @@ interface LanguageEditAdapter {
 
     PatchTargetContext locateTargets(Path relativePath, String source);
 
-    PatchApplyResult applyPatch(Path projectPath, Path relativePath, String currentContent, StructuredDiffPatch patch);
+    PatchApplyResult applyPatch(Path projectPath, Path relativePath, String currentContent, ExactReplaceEdit edit);
 }

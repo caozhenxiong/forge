@@ -1,6 +1,6 @@
 package devflow.agent.executor;
 
-import devflow.agent.editing.StructuredDiffPatch;
+import devflow.agent.editing.ExactReplaceEdit;
 import devflow.agent.util.ProjectPathSupport;
 import java.nio.file.Path;
 
@@ -21,31 +21,18 @@ final class InlineScriptEmbeddedPatchBehavior implements EmbeddedPatchBehavior {
     public String baseSystemPrompt() {
         return """
                 你是资深前端工程师。当前 HTML 入口文件里的主脚本已被抽成独立代码工作集。
-                请只对这段内联脚本做基于当前状态的结构化 diff 改写，不要重写整份 HTML，也不要返回整段脚本。
-                这条链承接旧的“符号级精确改写”意图，但输出协议已经切到结构化 diff hunk。
-                你必须只返回一个 JSON 对象，格式如下：
-                {
-                  "expectedSourceHash": "必须原样拷贝输入中的 sourceHash",
-                  "hunks": [
-                    {
-                      "sourceStartLine": 1,
-                      "beforeLines": ["原样脚本行；纯插入可为空数组"],
-                      "afterLines": ["修改后的脚本行；纯删除可为空数组"]
-                    }
-                  ]
-                }
+                请只对这段内联脚本做基于当前状态的 exact replace 改写，不要重写整份 HTML，也不要返回 HTML。
+                %s
 
-                规则：
-                1. 只返回 JSON，不要解释，不要 markdown
-                2. 不要返回 HTML，不要包裹 <script> 标签
-                3. `expectedSourceHash` 必须与输入中的 sourceHash 完全一致
-                4. `sourceStartLine` 必须严格对应输入里的脚本行号
-                5. `beforeLines` 必须与当前脚本该位置逐行完全一致
-                6. 不要返回整段脚本，只输出最小 hunk
-                7. 当前编辑单元给出 allowedSymbols 时，只能修改这些现有符号对应区域
-                8. 当前编辑单元没有 allowedSymbols 时，只能在脚本尾部追加最小辅助结构
-                9. 当前宿主 HTML 的非脚本区域是只读的，%s
-                """.formatted(immutableHostRegionInstruction());
+                额外规则：
+                1. 不要包裹 <script> 标签
+                2. 当前编辑单元给出 allowedSymbols 时，只能修改这些现有符号对应区域
+                3. 当前编辑单元没有 allowedSymbols 时，只能在脚本尾部追加最小辅助结构
+                4. 当前宿主 HTML 的非脚本区域是只读的，%s
+                """.formatted(
+                ExactReplacePromptSupport.exactReplaceProtocol("脚本工作集"),
+                immutableHostRegionInstruction()
+        );
     }
 
     @Override
@@ -54,8 +41,8 @@ final class InlineScriptEmbeddedPatchBehavior implements EmbeddedPatchBehavior {
     }
 
     @Override
-    public PatchApplyResult applyPatch(CodePatchKernel codePatchKernel, Path relativePath, String currentContent, StructuredDiffPatch patch) {
-        return codePatchKernel.applyInlineScript(relativePath, currentContent, patch);
+    public PatchApplyResult applyPatch(CodePatchKernel codePatchKernel, Path relativePath, String currentContent, ExactReplaceEdit edit) {
+        return codePatchKernel.applyInlineScript(relativePath, currentContent, edit);
     }
 
     @Override

@@ -8,12 +8,18 @@ package devflow.agent.executor;
 public record GateIssue(
         String code,
         String message,
-        GateFailureDisposition disposition
+        GateFailureDisposition disposition,
+        GateIssueContext context
 ) {
+
+    public GateIssue(String code, String message, GateFailureDisposition disposition) {
+        this(code, message, disposition, GateIssueContext.empty());
+    }
 
     public GateIssue {
         code = code == null ? "" : code.trim();
         message = message == null ? "" : message.trim();
         disposition = disposition == null ? GateFailureDisposition.ESCALATE : disposition;
+        context = context == null ? GateIssueContext.empty() : context;
     }
 }

@@ -1,6 +1,5 @@
 package devflow.agent.executor;
 
-import devflow.agent.editing.FileStateSnapshot;
 import java.nio.file.Path;
 
 /**
@@ -30,8 +29,8 @@ final class EmbeddedPatchPromptAssembler {
             boolean restrictedUnit,
             boolean strictAppendOnlyUnit
     ) {
-        FileStateSnapshot fileState = StructuredDiffPromptSupport.capture(patchKind.syntheticPath(relativePath), currentContent);
-        String numberedContent = StructuredDiffPromptSupport.renderNumberedContent(currentContent);
+        String targetPath = patchKind.syntheticPath(relativePath).toString().replace('\\', '/');
+        var fileState = ExactReplacePromptSupport.capture(targetPath, currentContent);
         String system = patchKind.baseSystemPrompt();
         if (unit.appendOnly() && unit.appendSymbolBudget() > 0) {
             system = system + patchKind.appendBudgetInstruction(unit);
@@ -55,7 +54,8 @@ final class EmbeddedPatchPromptAssembler {
                 %s
 
                 当前工作集状态：
-                - sourceHash: %s
+                - targetPath: %s
+                - contentHash: %s
                 - lineCount: %s
 
                 当前编辑单元：
@@ -75,13 +75,14 @@ final class EmbeddedPatchPromptAssembler {
                 当前%s可精确编辑的%s：
                 %s
 
-                当前%s内容（带行号）：
+                当前%s内容（必须原样引用 oldText）：
                 %s
                 """.formatted(
                 planSummary,
                 taskPackageMarkdown,
                 coderContextMarkdown == null ? "" : coderContextMarkdown,
                 relativePath,
+                targetPath,
                 fileState.contentHash(),
                 fileState.lineCount(),
                 unit.label(),
@@ -95,7 +96,7 @@ final class EmbeddedPatchPromptAssembler {
                 patchKind.targetName(),
                 describedTargets,
                 patchKind.contentName(),
-                numberedContent
+                ExactReplacePromptSupport.renderCurrentContent(currentContent)
         );
         return new PatchGenerationPrompt(system, user);
     }

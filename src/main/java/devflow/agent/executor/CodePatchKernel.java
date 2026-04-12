@@ -1,7 +1,7 @@
 package devflow.agent.executor;
 
-import devflow.agent.editing.StructuredDiffPatch;
-import devflow.agent.editing.StructuredDiffPatchApplySupport;
+import devflow.agent.editing.ExactReplaceApplySupport;
+import devflow.agent.editing.ExactReplaceEdit;
 import devflow.agent.editing.PreciseEditException;
 import devflow.agent.editing.PreciseEditFailureReason;
 import java.nio.file.Path;
@@ -17,24 +17,24 @@ import java.nio.file.Path;
  */
 final class CodePatchKernel {
 
-    private final StructuredDiffPatchApplySupport patchApplySupport;
+    private final ExactReplaceApplySupport exactReplaceApplySupport;
     private final PatchVerifier patchVerifier;
 
     CodePatchKernel(PatchVerifier patchVerifier) {
-        this.patchApplySupport = new StructuredDiffPatchApplySupport();
+        this.exactReplaceApplySupport = new ExactReplaceApplySupport();
         this.patchVerifier = patchVerifier;
     }
 
     PatchApplyResult applyInlineScript(
             Path relativePath,
             String currentScript,
-            StructuredDiffPatch patch
+            ExactReplaceEdit edit
     ) {
         try {
-            String merged = patchApplySupport.applyPatch(
-                    devflow.agent.util.ProjectPathSupport.inlineScriptSyntheticPath(relativePath),
+            String merged = exactReplaceApplySupport.applyEdit(
+                    devflow.agent.util.ProjectPathSupport.inlineScriptSyntheticPath(relativePath).toString(),
                     currentScript,
-                    patch
+                    edit
             );
             ToolResult verifyResult = patchVerifier.verifyInlineScript(relativePath, merged);
             if (verifyResult.succeeded()) {
@@ -72,13 +72,13 @@ final class CodePatchKernel {
     PatchApplyResult applyInlineStyle(
             Path relativePath,
             String currentStyle,
-            StructuredDiffPatch patch
+            ExactReplaceEdit edit
     ) {
         try {
-            String merged = patchApplySupport.applyPatch(
-                    devflow.agent.util.ProjectPathSupport.inlineStyleSyntheticPath(relativePath),
+            String merged = exactReplaceApplySupport.applyEdit(
+                    devflow.agent.util.ProjectPathSupport.inlineStyleSyntheticPath(relativePath).toString(),
                     currentStyle,
-                    patch
+                    edit
             );
             ToolResult verifyResult = patchVerifier.verifyInlineStyle(relativePath, merged);
             if (verifyResult.succeeded()) {
@@ -117,10 +117,10 @@ final class CodePatchKernel {
             Path projectPath,
             Path relativePath,
             String currentContent,
-            StructuredDiffPatch patch
+            ExactReplaceEdit edit
     ) {
         try {
-            String merged = patchApplySupport.applyPatch(relativePath, currentContent, patch);
+            String merged = exactReplaceApplySupport.applyEdit(relativePath.toString(), currentContent, edit);
             ToolResult verifyResult = patchVerifier.verifyCodeFile(projectPath, relativePath, merged);
             if (verifyResult.succeeded()) {
                 return new PatchApplyResult(
@@ -175,6 +175,18 @@ final class CodePatchKernel {
         }
         if (reason == PreciseEditFailureReason.SYMBOL_NOT_FOUND) {
             return ToolFailureCode.PATCH_SYMBOL_NOT_FOUND;
+        }
+        if (reason == PreciseEditFailureReason.BASE_STATE_MISMATCH) {
+            return ToolFailureCode.EXACT_EDIT_BASE_STATE_MISMATCH;
+        }
+        if (reason == PreciseEditFailureReason.TARGET_TEXT_NOT_FOUND) {
+            return ToolFailureCode.EXACT_EDIT_TARGET_NOT_FOUND;
+        }
+        if (reason == PreciseEditFailureReason.TARGET_TEXT_NOT_UNIQUE) {
+            return ToolFailureCode.EXACT_EDIT_TARGET_NOT_UNIQUE;
+        }
+        if (reason == PreciseEditFailureReason.EDIT_UNIT_SCOPE_VIOLATION) {
+            return ToolFailureCode.PATCH_SCOPE_VIOLATION;
         }
         return ToolFailureCode.PATCH_ANCHOR_MISSING;
     }
