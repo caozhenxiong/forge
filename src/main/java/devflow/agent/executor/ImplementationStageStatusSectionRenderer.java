@@ -38,14 +38,22 @@ final class ImplementationStageStatusSectionRenderer {
         builder.append("- incompleteSubtasks: ").append(stageStatus.incompleteSubtasks().isEmpty()
                 ? PlaceholderValues.machineNone()
                 : String.join(language.choose("；", "; "), stageStatus.incompleteSubtasks())).append("\n\n");
-        if (stageStatus.blockedForHuman()) {
+        if (stageStatus.hasContinuationDirective()) {
             builder.append("- continuationSummary: ").append(stageStatus.continuationSummary()).append('\n');
-            builder.append("- continuationReasonCode: ").append(stageStatus.continuationReasonCode()).append('\n');
+            if (stageStatus.continuationPatchTarget().concretePatch()) {
+                builder.append("- continuationPatchTarget: ").append(stageStatus.continuationPatchTarget()).append('\n');
+            }
+            if (stageStatus.continuationReasonCode() != devflow.agent.review.ReviewReasonCode.NONE) {
+                builder.append("- continuationReasonCode: ").append(stageStatus.continuationReasonCode()).append('\n');
+            }
             if (!stageStatus.continuationChangeRequest().isBlank()) {
                 builder.append("- continuationChangeRequest: ").append(stageStatus.continuationChangeRequest()).append('\n');
             }
             if (!stageStatus.continuationEvidence().isBlank()) {
                 builder.append("- continuationEvidence: ").append(stageStatus.continuationEvidence()).append('\n');
+            }
+            if (!stageStatus.continuationActionItems().isBlank()) {
+                builder.append("- continuationActionItems: ").append(stageStatus.continuationActionItems()).append('\n');
             }
             builder.append('\n');
         }

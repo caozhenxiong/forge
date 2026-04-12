@@ -129,4 +129,36 @@ class ValidationExecutorTests {
         assertFalse(result.passed());
         assertTrue(result.details().contains("接入运行时") || result.details().contains("运行脚本"));
     }
+
+    @Test
+    void passesRuntimeWiringWhenSelectorsTargetRuntimeCreatedNodes() throws Exception {
+        Files.writeString(tempDir.resolve("index.html"), """
+                <!doctype html>
+                <html>
+                <body>
+                  <main id="board"></main>
+                  <script>
+                    const board = document.getElementById('board');
+                    for (let index = 0; index < 4; index += 1) {
+                      const cell = document.createElement('div');
+                      cell.className = 'cell';
+                      board.appendChild(cell);
+                    }
+                    const cells = document.querySelectorAll('.cell');
+                    console.log(cells.length);
+                  </script>
+                </body>
+                </html>
+                """);
+
+        ValidationPlan plan = new ValidationPlan(
+                "检查网页 runtime 接线。",
+                List.of(new ValidationStep(ValidationCapability.WEB_RUNTIME_WIRING_CHECK, "检查入口与 runtime 接线。", true))
+        );
+
+        SelfCheckResult result = executor.execute(tempDir, null, plan);
+
+        assertTrue(result.passed());
+        assertFalse(result.details().contains("missing class selector"));
+    }
 }

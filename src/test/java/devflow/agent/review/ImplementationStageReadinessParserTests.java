@@ -71,4 +71,36 @@ class ImplementationStageReadinessParserTests {
         assertEquals(ReviewReasonCode.RUNTIME_PROBE_INVALID, readiness.reasonCode());
         assertTrue(readiness.evidence().contains("bodyTextLength"));
     }
+
+    @Test
+    void preservesStructuredContinuationForIncompleteStagePatch() {
+        ImplementationStageReadiness readiness = parser.parse(
+                StructuredArtifactBlocks.renderJsonBlock(
+                        ArtifactBlockKind.IMPLEMENTATION_STAGE_STATUS,
+                        new ImplementationStageStatusPayload(
+                                false,
+                                false,
+                                true,
+                                "",
+                                "",
+                                "",
+                                java.util.List.of("补齐接线"),
+                                ImplementationContinuationMode.CONTINUE_SUBTASKS,
+                                "继续修复当前入口接线",
+                                "只修 index.html 与 companion runtime 的接线，不要重做实现。",
+                                "continuationSubtask=修接线\nindex.app.js exists but index.html does not reference it",
+                                "1. 接入 companion runtime。 2. 保持当前实现骨架。",
+                                ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                                ReviewReasonCode.NONE
+                        )
+                )
+        );
+
+        assertFalse(readiness.stageReady());
+        assertEquals(ImplementationContinuationMode.CONTINUE_SUBTASKS, readiness.continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, readiness.implementationPatchTarget());
+        assertEquals("继续修复当前入口接线", readiness.summary());
+        assertTrue(readiness.changeRequest().contains("只修 index.html"));
+        assertTrue(readiness.evidence().contains("continuationSubtask=修接线"));
+    }
 }

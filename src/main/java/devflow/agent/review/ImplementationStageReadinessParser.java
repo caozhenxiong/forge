@@ -35,6 +35,25 @@ public final class ImplementationStageReadinessParser {
                     payload.continuationReasonCode()
             );
         }
+        ImplementationPatchTarget continuationPatchTarget = payload.continuationPatchTarget() == null
+                ? ImplementationPatchTarget.NONE
+                : payload.continuationPatchTarget();
+        if (continuationPatchTarget.concretePatch()
+                || hasText(payload.continuationSummary())
+                || hasText(payload.continuationChangeRequest())
+                || hasText(payload.continuationEvidence())
+                || hasText(payload.continuationActionItems())
+                || payload.continuationReasonCode() != null && payload.continuationReasonCode() != ReviewReasonCode.NONE) {
+            return ImplementationStageReadiness.continuation(
+                    payload.continuationMode(),
+                    payload.continuationSummary(),
+                    payload.continuationChangeRequest(),
+                    payload.continuationEvidence(),
+                    payload.continuationActionItems(),
+                    continuationPatchTarget,
+                    payload.continuationReasonCode()
+            );
+        }
         String incomplete = payload.incompleteSubtasks() == null || payload.incompleteSubtasks().isEmpty()
                 ? ""
                 : String.join("；", payload.incompleteSubtasks());
@@ -57,6 +76,10 @@ public final class ImplementationStageReadinessParser {
                 ? "当前实现计划仍有未执行或未完成的子任务。"
                 : "未完成子任务：" + incomplete.trim();
         return ImplementationStageReadiness.incomplete(normalizedIncomplete);
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private ImplementationPatchTarget parsePatchTarget(String value) {

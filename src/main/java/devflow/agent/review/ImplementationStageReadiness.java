@@ -57,6 +57,36 @@ public record ImplementationStageReadiness(
         );
     }
 
+    public static ImplementationStageReadiness continuation(
+            ImplementationContinuationMode continuationMode,
+            String summary,
+            String changeRequest,
+            String evidence,
+            String actionItems,
+            ImplementationPatchTarget implementationPatchTarget,
+            ReviewReasonCode reasonCode
+    ) {
+        ImplementationContinuationMode normalizedMode = continuationMode == null
+                ? ImplementationContinuationMode.CONTINUE_SUBTASKS
+                : continuationMode;
+        return new ImplementationStageReadiness(
+                false,
+                normalizedMode == ImplementationContinuationMode.BLOCK_STAGE
+                        ? ImplementationContinuationMode.CONTINUE_SUBTASKS
+                        : normalizedMode,
+                summary == null || summary.isBlank()
+                        ? "当前实现仍需在当前阶段内继续修补后再重新进入 implementation review。"
+                        : summary,
+                changeRequest == null || changeRequest.isBlank()
+                        ? "请继续按当前阶段的结构化修复要求补齐实现，再重新进入 implementation review。"
+                        : changeRequest,
+                evidence == null ? "" : evidence,
+                actionItems == null ? "" : actionItems,
+                implementationPatchTarget == null ? ImplementationPatchTarget.NONE : implementationPatchTarget,
+                reasonCode == null ? ReviewReasonCode.NONE : reasonCode
+        );
+    }
+
     public static ImplementationStageReadiness blocked(
             String summary,
             String changeRequest,

@@ -2,6 +2,7 @@ package devflow.agent.executor;
 
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;
+import devflow.agent.review.ReviewReasonCode;
 import java.util.List;
 
 /**
@@ -38,10 +39,19 @@ final class ImplementationProgressRenderer {
             builder.append("- architectFailureReason: ").append(runtimeSnapshot.architectCheckResult().failureReason()).append('\n');
             builder.append("- architectFailureDetails: ").append(runtimeSnapshot.architectCheckResult().details()).append('\n');
         }
-        if (stageStatus.blockedForHuman()) {
+        if (stageStatus.hasContinuationDirective()) {
             builder.append("- continuationSummary: ").append(stageStatus.continuationSummary()).append('\n');
+            if (stageStatus.continuationPatchTarget().concretePatch()) {
+                builder.append("- continuationPatchTarget: ").append(stageStatus.continuationPatchTarget()).append('\n');
+            }
+            if (!stageStatus.continuationChangeRequest().isBlank()) {
+                builder.append("- continuationChangeRequest: ").append(stageStatus.continuationChangeRequest()).append('\n');
+            }
             if (!stageStatus.continuationEvidence().isBlank()) {
                 builder.append("- continuationEvidence: ").append(stageStatus.continuationEvidence()).append('\n');
+            }
+            if (stageStatus.continuationReasonCode() != ReviewReasonCode.NONE) {
+                builder.append("- continuationReasonCode: ").append(stageStatus.continuationReasonCode()).append('\n');
             }
         }
         builder.append("\n");

@@ -3,7 +3,9 @@ package devflow.agent.executor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
+import devflow.agent.review.ReviewReasonCode;
 import devflow.agent.review.ReviewResult;
 import java.time.Instant;
 import java.util.List;
@@ -82,5 +84,56 @@ class ImplementationArtifactRendererTests {
         assertTrue(renderer.renderWorkerResults(snapshot).contains("执行结果"));
         assertTrue(renderer.renderEvents(snapshot).contains("实现阶段｜子任务失败"));
         assertTrue(renderer.renderStateJson(snapshot).contains("\"generationFailure\""));
+    }
+
+    @Test
+    void renderersExposeStructuredContinuationForIncompleteStage() {
+        ImplementationArtifactRenderer renderer = new ImplementationArtifactRenderer(new ObjectMapper());
+        Subtask subtask = new Subtask(
+                "修接线",
+                "修入口接线",
+                List.of("CAP-1"),
+                List.of("接线"),
+                List.of(),
+                List.of("宿主 HTML 接入 companion runtime"),
+                false,
+                DeliveryMode.PATCH,
+                List.of(new FileChange("index.html", ChangeAction.WRITE, "修入口接线", FileEditScope.AUTO))
+        );
+        ImplementationPlan plan = new ImplementationPlan("修接线", List.of(subtask));
+        ImplementationStageStatus stageStatus = new ImplementationStageStatus(
+                1,
+                1,
+                0,
+                false,
+                true,
+                false,
+                List.of("修接线"),
+                devflow.agent.protocol.ImplementationContinuationMode.CONTINUE_SUBTASKS,
+                "继续修当前入口接线",
+                "只修宿主 HTML 与 companion runtime 的接线。",
+                "continuationSubtask=修接线\nindex.app.js exists but index.html does not reference it",
+                "1. 引入 companion runtime。 2. 保持当前实现结构。",
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                ReviewReasonCode.NONE
+        );
+        ImplementationRuntimeSnapshot snapshot = new ImplementationRuntimeSnapshot(
+                plan,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                "",
+                DocumentLanguage.ZH,
+                new DeliveryPolicyEnvelope(DeliveryMode.PATCH, 2, 4, true, false, true, List.of()),
+                null,
+                stageStatus,
+                null
+        );
+
+        assertTrue(renderer.renderReport(snapshot).contains("continuationPatchTarget: PATCH_RUNTIME_WIRING"));
+        assertTrue(renderer.renderReport(snapshot).contains("continuationChangeRequest: 只修宿主 HTML 与 companion runtime 的接线。"));
+        assertTrue(renderer.renderProgress(snapshot).contains("continuationPatchTarget: PATCH_RUNTIME_WIRING"));
+        assertTrue(renderer.renderProgress(snapshot).contains("continuationSummary: 继续修当前入口接线"));
     }
 }

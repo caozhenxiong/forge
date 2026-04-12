@@ -154,6 +154,119 @@ class StageProgressCoordinatorTests {
     }
 
     @Test
+    void incompleteImplementationForwardsStructuredContinuationPatch() {
+        FileRunRepository runRepository = new FileRunRepository();
+        FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
+        EventLogStore eventLogStore = new EventLogStore(runRepository);
+        WorkflowArtifactRenderer workflowArtifactRenderer = new WorkflowArtifactRenderer();
+        AtomicBoolean reviewerCalled = new AtomicBoolean(false);
+        AtomicBoolean diagnosisCalled = new AtomicBoolean(false);
+        AtomicBoolean supervisorCalled = new AtomicBoolean(false);
+        AtomicBoolean contextProjected = new AtomicBoolean(false);
+        AtomicReference<String> continuationSummary = new AtomicReference<>();
+        AtomicReference<String> continuationChangeRequest = new AtomicReference<>();
+        AtomicReference<String> continuationEvidence = new AtomicReference<>();
+        AtomicReference<String> continuationActionItems = new AtomicReference<>();
+        AtomicReference<ImplementationPatchTarget> continuationPatchTarget = new AtomicReference<>();
+
+        RunRecord runRecord = runningImplementationRun();
+        runRepository.save(runRecord);
+        artifactStore.writeArtifact(
+                tempDir,
+                runRecord.runId(),
+                StageType.IMPLEMENTATION,
+                StructuredArtifactBlocks.renderJsonBlock(
+                        ArtifactBlockKind.IMPLEMENTATION_STAGE_STATUS,
+                        new ImplementationStageStatusPayload(
+                                false,
+                                false,
+                                true,
+                                "",
+                                "",
+                                "",
+                                java.util.List.of("补齐接线"),
+                                ImplementationContinuationMode.CONTINUE_SUBTASKS,
+                                "继续修当前入口接线",
+                                "只修宿主 HTML 与 companion runtime 的接线。",
+                                "continuationSubtask=修接线\nindex.app.js exists but index.html does not reference it",
+                                "1. 引入 companion runtime。 2. 不要重做业务逻辑。",
+                                ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                                ReviewReasonCode.NONE
+                        )
+                )
+        );
+
+        StageOperationExecutor stageOperationExecutor = new StageOperationExecutor(
+                null,
+                reviewerThatSetsFlag(reviewerCalled),
+                eventLogStore,
+                new GenerationEngine(),
+                new StageOperationPolicy()
+        );
+        DiagnosisAgent diagnosisAgent = diagnosisAgentThatSetsFlag(artifactStore, diagnosisCalled);
+        SupervisorAgent supervisorAgent = supervisorAgentThatSetsFlag(artifactStore, supervisorCalled);
+        ContextProjector contextProjector = new ContextProjector(
+                artifactStore,
+                new FileProjectWorkspace(),
+                new ArtifactSummaryBuilder(),
+                new ContractExtractor(),
+                new devflow.agent.context.ContextLayerAssembler()
+        ) {
+            @Override
+            public ProjectedContext project(Path projectPath, RunRecord currentRun, StageType currentStage) {
+                contextProjected.set(true);
+                throw new AssertionError("structured implementation continuation should not project context");
+            }
+        };
+        FlowDecisionExecutor flowDecisionExecutor = new FlowDecisionExecutor(null, null) {
+            @Override
+            public RunRecord continueStage(
+                    Path projectPath,
+                    RunRecord currentRun,
+                    StageType stageType,
+                    String summary,
+                    String changeRequest,
+                    String evidence,
+                    String actionItems,
+                    ImplementationPatchTarget implementationPatchTarget
+            ) {
+                continuationSummary.set(summary);
+                continuationChangeRequest.set(changeRequest);
+                continuationEvidence.set(evidence);
+                continuationActionItems.set(actionItems);
+                continuationPatchTarget.set(implementationPatchTarget);
+                return currentRun;
+            }
+        };
+        StageProgressCoordinator coordinator = new StageProgressCoordinator(
+                artifactStore,
+                diagnosisAgent,
+                supervisorAgent,
+                new FlowController(),
+                contextProjector,
+                stageOperationExecutor,
+                flowDecisionExecutor,
+                new StageProgressArtifactSupport(artifactStore, eventLogStore, workflowArtifactRenderer),
+                new StageToolResultLoader(artifactStore),
+                new StageToolResultGuard()
+        );
+
+        var result = coordinator.progress(tempDir, runRecord);
+
+        assertFalse(reviewerCalled.get());
+        assertFalse(diagnosisCalled.get());
+        assertFalse(supervisorCalled.get());
+        assertFalse(contextProjected.get());
+        assertEquals("继续修当前入口接线", continuationSummary.get());
+        assertEquals("只修宿主 HTML 与 companion runtime 的接线。", continuationChangeRequest.get());
+        assertTrue(continuationEvidence.get().contains("continuationSubtask=修接线"));
+        assertTrue(continuationActionItems.get().contains("引入 companion runtime"));
+        assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, continuationPatchTarget.get());
+        assertNotNull(result.transitionDecision());
+        assertEquals(devflow.agent.loop.TransitionReason.STAGE_CONTINUE, result.transitionDecision().reason());
+    }
+
+    @Test
     void blockedImplementationRequestsHumanWithoutContinuingStage() {
         FileRunRepository runRepository = new FileRunRepository();
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);

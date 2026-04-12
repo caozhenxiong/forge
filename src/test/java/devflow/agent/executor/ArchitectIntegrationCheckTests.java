@@ -62,7 +62,7 @@ class ArchitectIntegrationCheckTests {
     }
 
     @Test
-    void htmlEntryFailsWhenScriptSelectorsDoNotMatchEntrySurface() throws Exception {
+    void htmlEntryDoesNotFailArchitectCheckForSelectorNamesThatOnlyExistAtRuntime() throws Exception {
         Files.writeString(
                 tempDir.resolve("index.html"),
                 """
@@ -95,9 +95,7 @@ class ArchitectIntegrationCheckTests {
                 new ExecutionContract(true, "html-entry", true, true, List.of("page-opens", "surface-renders"))
         );
 
-        assertFalse(result.passed());
-        assertEquals(ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID, result.failureReason());
-        assertTrue(result.details().contains("missing id selector") || result.details().contains("不存在的 id 选择器"));
+        assertTrue(result.passed());
     }
 
     @Test

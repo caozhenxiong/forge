@@ -72,4 +72,14 @@ record ImplementationStageStatus(
     boolean blockedForHuman() {
         return continuationMode == ImplementationContinuationMode.BLOCK_STAGE;
     }
+
+    boolean hasContinuationDirective() {
+        return blockedForHuman()
+                || continuationPatchTarget.concretePatch()
+                || continuationReasonCode != ReviewReasonCode.NONE
+                || !continuationSummary.isBlank()
+                || !continuationChangeRequest().isBlank()
+                || !continuationEvidence().isBlank()
+                || !continuationActionItems().isBlank();
+    }
 }

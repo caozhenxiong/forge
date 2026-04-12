@@ -51,7 +51,7 @@ class ImplementationStageGate {
                 && executedSubtasks == plannedSubtasks
                 && completedSubtasks == plannedSubtasks;
         boolean stageReady = planCompleted && architectCheckPassed;
-        BlockingStageDisposition blockingDisposition = blockingDisposition(reports);
+        ContinuationDisposition continuationDisposition = continuationDisposition(reports);
         return new ImplementationStageStatus(
                 plannedSubtasks,
                 executedSubtasks,
@@ -60,13 +60,17 @@ class ImplementationStageGate {
                 architectCheckPassed,
                 stageReady,
                 List.copyOf(incompleteSubtasks),
-                blockingDisposition == null ? ImplementationContinuationMode.CONTINUE_SUBTASKS : ImplementationContinuationMode.BLOCK_STAGE,
-                blockingDisposition == null ? "" : blockingDisposition.summary(),
-                blockingDisposition == null ? "" : blockingDisposition.changeRequest(),
-                blockingDisposition == null ? "" : blockingDisposition.evidence(),
-                blockingDisposition == null ? "" : blockingDisposition.actionItems(),
-                blockingDisposition == null ? ImplementationPatchTarget.NONE : blockingDisposition.implementationPatchTarget(),
-                blockingDisposition == null ? ReviewReasonCode.NONE : blockingDisposition.reasonCode()
+                continuationDisposition == null
+                        ? ImplementationContinuationMode.CONTINUE_SUBTASKS
+                        : continuationDisposition.mode(),
+                continuationDisposition == null ? "" : continuationDisposition.summary(),
+                continuationDisposition == null ? "" : continuationDisposition.changeRequest(),
+                continuationDisposition == null ? "" : continuationDisposition.evidence(),
+                continuationDisposition == null ? "" : continuationDisposition.actionItems(),
+                continuationDisposition == null
+                        ? ImplementationPatchTarget.NONE
+                        : continuationDisposition.implementationPatchTarget(),
+                continuationDisposition == null ? ReviewReasonCode.NONE : continuationDisposition.reasonCode()
         );
     }
 
@@ -117,40 +121,73 @@ class ImplementationStageGate {
         return extended;
     }
 
-    private BlockingStageDisposition blockingDisposition(List<SubtaskExecutionReport> reports) {
+    private ContinuationDisposition continuationDisposition(List<SubtaskExecutionReport> reports) {
         if (reports == null || reports.isEmpty()) {
             return null;
         }
-        for (SubtaskExecutionReport report : reports) {
+        for (int index = reports.size() - 1; index >= 0; index--) {
+            SubtaskExecutionReport report = reports.get(index);
             if (report == null || report.attempts() == null || report.attempts().isEmpty()) {
                 continue;
             }
             SubtaskAttemptReport latest = report.attempts().get(report.attempts().size() - 1);
             ReviewResult review = latest.review();
-            if (review == null || review.revisionRoute() != devflow.agent.review.ReviewRevisionRoute.REQUEST_HUMAN) {
+            if (review == null) {
                 continue;
             }
-            String subtaskTitle = report.subtask() == null ? "" : report.subtask().title();
-            String evidencePrefix = subtaskTitle == null || subtaskTitle.isBlank()
-                    ? ""
-                    : "blockedSubtask=" + subtaskTitle + "\n";
-            return new BlockingStageDisposition(
-                    review.summary(),
-                    review.changeRequest(),
-                    evidencePrefix + blank(review.evidence()),
-                    review.actionItems(),
-                    review.implementationPatchTarget(),
-                    review.reasonCode()
-            );
+            if (review.revisionRoute() == devflow.agent.review.ReviewRevisionRoute.REQUEST_HUMAN) {
+                return continuationDisposition(
+                        report,
+                        review,
+                        ImplementationContinuationMode.BLOCK_STAGE,
+                        blank(review.summary()).isBlank()
+                                ? "实现阶段遇到确定性工具阻塞，当前不能继续自动续跑。"
+                                : review.summary()
+                );
+            }
+            if (review.revisionRoute() == devflow.agent.review.ReviewRevisionRoute.PATCH_CURRENT_STAGE
+                    && review.fixMode() == FixMode.PATCH
+                    && review.implementationPatchTarget().concretePatch()) {
+                return continuationDisposition(
+                        report,
+                        review,
+                        ImplementationContinuationMode.CONTINUE_SUBTASKS,
+                        blank(review.summary()).isBlank()
+                                ? "实现阶段需要继续修补当前子任务，再重新验证。"
+                                : review.summary()
+                );
+            }
         }
         return null;
+    }
+
+    private ContinuationDisposition continuationDisposition(
+            SubtaskExecutionReport report,
+            ReviewResult review,
+            ImplementationContinuationMode mode,
+            String summary
+    ) {
+        String subtaskTitle = report.subtask() == null ? "" : report.subtask().title();
+        String evidencePrefix = subtaskTitle == null || subtaskTitle.isBlank()
+                ? ""
+                : "continuationSubtask=" + subtaskTitle + "\n";
+        return new ContinuationDisposition(
+                mode,
+                summary,
+                review.changeRequest(),
+                evidencePrefix + blank(review.evidence()),
+                review.actionItems(),
+                review.implementationPatchTarget(),
+                review.reasonCode()
+        );
     }
 
     private String blank(String value) {
         return value == null ? "" : value;
     }
 
-    private record BlockingStageDisposition(
+    private record ContinuationDisposition(
+            ImplementationContinuationMode mode,
             String summary,
             String changeRequest,
             String evidence,

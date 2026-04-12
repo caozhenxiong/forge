@@ -195,9 +195,11 @@
 - `precise-code` 当前会在执行前把受限多符号父单元直接拆成 leaf unit，不再让 parent unit 先执行、再靠 scope failure 拆分补救
 - `IMPLEMENTATION` 未完成不再经过 fake review/supervisor continuation；当前剩余验证重点已回到真实 patch/repair 行为，而不是阶段流转语义本身
 - implementation state snapshot 已持久化 `architectImplementationPatchTarget / reviewImplementationPatchTarget`；completed-plan PATCH continuation 现在只消费结构化 target，不再根据 `architectFailureReason` 猜修复语义
+- implementation 未完成时，如果最新失败子任务已经给出结构化 `continuationPatchTarget / changeRequest / evidence`，这些字段现在会直接提升到 stage artifact 和 continuation 主链，不再退回成“继续完成未完成子任务”的泛化 prose
 - runtime wiring retry 已改为 `SubtaskRevisionDirective` 结构化 override 驱动，失败后直接续跑当前子任务，不再靠 prose change request 猜下一轮 HTML scope
 - `PATCH_EXISTING_IMPLEMENTATION` 已统一成结构化 `overrideChanges` 协议；review、revision note、repair note 和 completed-plan continuation 现在都消费同一份文件级 patch scope，不再允许空 scope 静默 replanning
 - runtime ownership / wiring 检查只认宿主显式 `<script src>` 接线和 inline module import；`index.app.js` 默认 companion 路径、basename 猜测与 orphan root ownership 推断已从主链删除
+- runtime wiring 检查不再把 JS 里引用的 `.class/#id` 与静态 HTML 宿主做逐字比对；动态创建节点属于运行时行为，不再被误判成接线失败
 - html-entry planning contract 已显式化：`editScope / runtimeOwnership / hostHtmlPatchRequired` 必须成组声明，宿主 HTML 不再允许含混 `AUTO` scope
 - testcase runtime contract 已改成按 capability surface 独立解析：
   - `primary-visual-surface`
