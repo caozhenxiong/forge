@@ -77,6 +77,14 @@ final class PatchRuntimeBuilder {
                 patchRepairClassifier,
                 patchExecutionSupport
         );
+        ExactReplaceSemanticRepairSupport exactReplaceSemanticRepairSupport = new ExactReplaceSemanticRepairSupport(
+                patchPayloadRepairSupport,
+                new DeterministicExactReplaceRepairer(),
+                new ExactReplaceSemanticRepairTurn(llmProvider, patchRepairSettings),
+                patchRepairSettings,
+                patchRepairClassifier,
+                patchExecutionSupport
+        );
         HostHtmlPatchExecutor hostHtmlPatchExecutor = new HostHtmlPatchExecutor(
                 llmProvider,
                 htmlPreciseEditor,
@@ -128,6 +136,7 @@ final class PatchRuntimeBuilder {
                 patchFailureRouter,
                 patchBudgetPolicy,
                 patchPayloadRepairSupport,
+                exactReplaceSemanticRepairSupport,
                 syntaxRepairSupport,
                 editUnitPlanner,
                 patchContextBuilder,

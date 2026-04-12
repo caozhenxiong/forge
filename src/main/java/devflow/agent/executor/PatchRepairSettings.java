@@ -9,8 +9,10 @@ final class PatchRepairSettings {
 
     private static final String PREFIX = "devflow.patch-repair.";
     private static final int DEFAULT_JSON_REPAIR_ATTEMPTS = 1;
+    private static final int DEFAULT_SEMANTIC_REPAIR_ATTEMPTS = 1;
     private static final int DEFAULT_SYNTAX_REPAIR_ATTEMPTS = 1;
     private static final double DEFAULT_JSON_REPAIR_OUTPUT_RATIO = GenerationBudgetProfile.patchOutputRatio();
+    private static final double DEFAULT_SEMANTIC_REPAIR_OUTPUT_RATIO = GenerationBudgetProfile.patchOutputRatio();
     private static final double DEFAULT_SYNTAX_REPAIR_OUTPUT_RATIO = GenerationBudgetProfile.fullBudgetRatio();
     private static final double DEFAULT_REPAIR_CHARS_PER_TOKEN = 3.2d;
     private static final double DEFAULT_JSON_REPAIR_GROWTH_FACTOR = 1.15d;
@@ -27,12 +29,20 @@ final class PatchRepairSettings {
         return readPositiveInt(PREFIX + "syntax-model-repair-attempts", DEFAULT_SYNTAX_REPAIR_ATTEMPTS);
     }
 
+    int semanticModelRepairAttempts() {
+        return readPositiveInt(PREFIX + "semantic-model-repair-attempts", DEFAULT_SEMANTIC_REPAIR_ATTEMPTS);
+    }
+
     double jsonRepairOutputRatio() {
         return readPositiveDouble(PREFIX + "json-repair-output-ratio", DEFAULT_JSON_REPAIR_OUTPUT_RATIO);
     }
 
     double syntaxRepairOutputRatio() {
         return readPositiveDouble(PREFIX + "syntax-repair-output-ratio", DEFAULT_SYNTAX_REPAIR_OUTPUT_RATIO);
+    }
+
+    double semanticRepairOutputRatio() {
+        return readPositiveDouble(PREFIX + "semantic-repair-output-ratio", DEFAULT_SEMANTIC_REPAIR_OUTPUT_RATIO);
     }
 
     int estimateJsonRepairNumPredict(String payload) {

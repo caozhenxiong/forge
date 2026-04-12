@@ -18,7 +18,7 @@
 
 ## 设计原则
 
-### 1. 执行内核继续对齐 Codex
+### 1. 执行内核继续对齐 Claude Code
 
 底层执行主链继续保持：
 
@@ -93,7 +93,7 @@
 - 项目级 repo rules
 - 项目路径下的显式 repo rule 覆写
 
-也就是说，`Forge` 不应长期把默认质量规则写死在 Java 常量里，而应该更接近 `Codex / Claude Code` 的做法：
+也就是说，`Forge` 不应长期把默认质量规则写死在 Java 常量里，而应该更接近成熟 coding agent 的 repo-rule 做法：
 
 - 默认规则来自版本化资源
 - 项目可以通过 repo rule 文件覆盖
@@ -419,9 +419,9 @@ tester 不再从零自由生成 case，而是：
 5. 把 testcase planner 改成 capability matrix 驱动 + 动态 output budget；
 6. 再重跑黄金路径。
 
-## 与 Codex 继续对齐的收口项
+## 与 Claude Code 对齐的收口项
 
-在完成上面的基础收口后，最近的黄金路径又暴露出 3 个“执行一致性”问题，它们更接近 `Codex` 的 file-oriented patch 要求：
+在完成上面的基础收口后，最近的黄金路径又暴露出 3 个“执行一致性”问题，它们更接近 `Claude Code` 的 file-oriented exact-replace 要求：
 
 ### 1. 计划、artifact 与执行链必须共享同一份变更真相
 
@@ -439,7 +439,7 @@ tester 不再从零自由生成 case，而是：
 
 都不应再退回成旧的 `INLINE_SCRIPT_PATCH` 视图。
 
-这对应 `Codex` 的一个核心习惯：文件级 patch 和工具结果是唯一真相，不能“计划是一套、落盘又是一套”。
+这对应 `Claude Code` 的一个核心习惯：文件级 patch 和工具结果是唯一真相，不能“计划是一套、落盘又是一套”。
 
 ### 2. 外提脚本后的宿主 HTML 必须保持稳定入口形态
 
@@ -496,9 +496,9 @@ tester 不再从零自由生成 case，而是：
 - review findings
 - gate outcome
 
-## 为什么这版更贴近 Codex
+## 为什么这版更贴近 Claude Code
 
-这套设计和 Codex 对齐的点在于：
+这套设计和 Claude Code 对齐的点在于：
 
 - 规则前置，而不是临时补 prompt
 - patch 和工具结果继续作为执行核心

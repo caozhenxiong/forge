@@ -182,6 +182,95 @@ class ImplementationPlanGateTests {
         assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("runtimeOwnership")));
     }
 
+    @Test
+    void failsWhenStandaloneScriptDeclaresRuntimeOwnershipOrInlineScope() {
+        ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
+        GateReport report = gate.evaluate(new ImplementationPlanGateInput(
+                new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html"), List.of()),
+                contractView(),
+                List.of("index.html", "src/app.js"),
+                List.of("补齐入口与脚本"),
+                List.of("CAP-1"),
+                List.of("PATCH"),
+                true,
+                true,
+                null,
+                ImplementationPatchTarget.NONE,
+                ImplementationContinuationConstraints.empty(),
+                List.of(new Subtask(
+                        "补齐入口与脚本",
+                        "同时补宿主与脚本",
+                        List.of("CAP-1"),
+                        List.of("页面可运行"),
+                        List.of(),
+                        List.of("页面可运行"),
+                        true,
+                        DeliveryMode.PATCH,
+                        List.of(
+                                new FileChange(
+                                        "index.html",
+                                        ChangeAction.WRITE,
+                                        "补齐宿主入口",
+                                        FileEditScope.HOST_HTML_PATCH,
+                                        RuntimeOwnershipMode.INLINE_HOST
+                                ),
+                                new FileChange(
+                                        "src/app.js",
+                                        ChangeAction.WRITE,
+                                        "误把脚本当成宿主内联片段",
+                                        FileEditScope.INLINE_SCRIPT_PATCH,
+                                        RuntimeOwnershipMode.INLINE_HOST
+                                )
+                        )
+                ))
+        ));
+
+        assertFalse(report.passed());
+        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("非 HTML 文件必须为 null")));
+        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("必须使用 AUTO")));
+    }
+
+    @Test
+    void failsWhenInlineHostSubtaskAlsoDeclaresCompanionRuntimeScript() {
+        ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
+        GateReport report = gate.evaluate(new ImplementationPlanGateInput(
+                new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html"), List.of()),
+                contractView(),
+                List.of("index.html", "index.app.js"),
+                List.of("补齐入口"),
+                List.of("CAP-1"),
+                List.of("PATCH"),
+                true,
+                true,
+                null,
+                ImplementationPatchTarget.NONE,
+                ImplementationContinuationConstraints.empty(),
+                List.of(new Subtask(
+                        "补齐入口",
+                        "错误地同时保留宿主 ownership 和 companion script",
+                        List.of("CAP-1"),
+                        List.of("页面可运行"),
+                        List.of(),
+                        List.of("页面可运行"),
+                        true,
+                        DeliveryMode.PATCH,
+                        List.of(
+                                new FileChange(
+                                        "index.html",
+                                        ChangeAction.WRITE,
+                                        "保留 inline host",
+                                        FileEditScope.HOST_HTML_PATCH,
+                                        RuntimeOwnershipMode.INLINE_HOST
+                                ),
+                                new FileChange("index.app.js", ChangeAction.WRITE, "又声明 companion runtime")
+                        )
+                ))
+        ));
+
+        assertFalse(report.passed());
+        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("宿主与 companion ownership 不能并存")));
+    }
+
     private ContractView contractView() {
         return new ContractView(
                 ProductContract.projectedFromPrdSections(

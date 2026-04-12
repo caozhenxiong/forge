@@ -119,7 +119,9 @@ class SubtaskExecutor {
                     eventJournal
             );
             if (attemptOutcome.generationFailure() != null) {
-                GenerationFailureReport failureReport = attemptOutcome.generationFailure().report();
+                GenerationFailureException generationFailure = attemptOutcome.generationFailure();
+                executionState.applyFileScopedGenerationFailure(subtask, generationFailure);
+                GenerationFailureReport failureReport = generationFailure.report();
                 GenerationRecoveryDecision recoveryDecision = decideGenerationRecovery(
                         projectPath,
                         runRecord,

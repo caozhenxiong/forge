@@ -69,6 +69,8 @@ final class ImplementationPlanningRepairSupport {
         String system = """
                 你是 JSON 修复器。请修复输入中的 implementation planning 载荷，使其成为合法 JSON。
                 你必须只返回修复后的 JSON 对象，不要输出任何额外解释。
+                非 HTML 文件必须使用 editScope=AUTO、runtimeOwnership=null、hostHtmlPatchRequired=false。
+                只有 HTML 入口文件允许声明 runtimeOwnership / hostHtmlPatchRequired。
                 保持原有字段语义不变，字段格式必须符合：
                 %s
                 """.formatted(schema);

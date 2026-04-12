@@ -44,6 +44,16 @@ final class PatchRepairClassifier {
                 || failure.toolFailureCode() == ToolFailureCode.INLINE_SCRIPT_INVALID;
     }
 
+    boolean supportsExactReplaceSemanticRepair(PatchFailure failure) {
+        if (failure == null || failure.toolFailureCode() == null) {
+            return false;
+        }
+        return failure.toolFailureCode() == ToolFailureCode.PATCH_SCHEMA_INVALID
+                || failure.toolFailureCode() == ToolFailureCode.EXACT_EDIT_BASE_STATE_MISMATCH
+                || failure.toolFailureCode() == ToolFailureCode.EXACT_EDIT_TARGET_NOT_FOUND
+                || failure.toolFailureCode() == ToolFailureCode.EXACT_EDIT_TARGET_NOT_UNIQUE;
+    }
+
     private PatchFailureClass classifyResultFileFailure(PatchFailure failure) {
         ToolFailureCode code = failure.toolFailureCode();
         if (code == ToolFailureCode.TREE_SITTER_PARSE_FAILED

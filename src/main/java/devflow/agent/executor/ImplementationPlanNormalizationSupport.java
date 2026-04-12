@@ -45,7 +45,10 @@ final class ImplementationPlanNormalizationSupport {
                         "Each subtask may change at most %d files".formatted(deliveryPolicy.maxFiles())
                 );
             }
-            List<FileChange> normalizedChanges = sanitizeStandaloneAssetScopes(subtask.changes());
+            // 这里不再静默改写非法声明。
+            // 非 HTML 文件携带 runtimeOwnership / INLINE_* scope 必须由 gate 明确打回，
+            // 不能先被 normalize 成“看起来合法”的 AUTO 再混进主链。
+            List<FileChange> normalizedChanges = List.copyOf(subtask.changes());
             DeliveryMode deliveryMode = resolveDeliveryMode(
                     subtask.deliveryMode(),
                     fixMode,
@@ -210,29 +213,6 @@ final class ImplementationPlanNormalizationSupport {
         return changes.stream()
                 .map(FileChange::path)
                 .anyMatch(continuationConstraints::marksExistingPath);
-    }
-
-    private List<FileChange> sanitizeStandaloneAssetScopes(List<FileChange> changes) {
-        if (changes == null || changes.isEmpty()) {
-            return List.of();
-        }
-        List<FileChange> normalized = new ArrayList<>(changes.size());
-        for (FileChange change : changes) {
-            if (change == null) {
-                continue;
-            }
-            FileEditScope scope = change.effectiveEditScope();
-            if (scope == FileEditScope.INLINE_SCRIPT_PATCH && ProjectPathSupport.isRuntimeScript(change.path())) {
-                normalized.add(new FileChange(change.path(), change.action(), change.reason(), FileEditScope.AUTO));
-                continue;
-            }
-            if (scope == FileEditScope.INLINE_STYLE_PATCH && ProjectPathSupport.isStyle(change.path())) {
-                normalized.add(new FileChange(change.path(), change.action(), change.reason(), FileEditScope.AUTO));
-                continue;
-            }
-            normalized.add(change);
-        }
-        return List.copyOf(normalized);
     }
 
 }

@@ -17,6 +17,7 @@ final class CodePatchUnitExecutor {
     private final PatchFailureRouter patchFailureRouter;
     private final PatchBudgetPolicy patchBudgetPolicy;
     private final PatchPayloadRepairSupport patchPayloadRepairSupport;
+    private final ExactReplaceSemanticRepairSupport exactReplaceSemanticRepairSupport;
     private final SyntaxRepairSupport syntaxRepairSupport;
     private final PatchExecutionSupport executionSupport;
     private final PatchAttemptFailureSupport attemptFailureSupport;
@@ -32,6 +33,7 @@ final class CodePatchUnitExecutor {
             PatchFailureRouter patchFailureRouter,
             PatchBudgetPolicy patchBudgetPolicy,
             PatchPayloadRepairSupport patchPayloadRepairSupport,
+            ExactReplaceSemanticRepairSupport exactReplaceSemanticRepairSupport,
             SyntaxRepairSupport syntaxRepairSupport,
             PatchContextBuilder patchContextBuilder,
             FileGenerationFailureFactory fileGenerationFailureFactory,
@@ -45,6 +47,7 @@ final class CodePatchUnitExecutor {
         this.patchFailureRouter = patchFailureRouter;
         this.patchBudgetPolicy = patchBudgetPolicy;
         this.patchPayloadRepairSupport = patchPayloadRepairSupport;
+        this.exactReplaceSemanticRepairSupport = exactReplaceSemanticRepairSupport;
         this.syntaxRepairSupport = syntaxRepairSupport;
         this.executionSupport = new PatchExecutionSupport(
                 fileGenerationFailureFactory,
@@ -134,6 +137,14 @@ final class CodePatchUnitExecutor {
                                 currentContent,
                                 edit
                         );
+                        applyResult = repairSemanticPatchFailure(
+                                request,
+                                currentContent,
+                                unit,
+                                generated,
+                                edit,
+                                applyResult
+                        );
                         applyResult = validateRestrictedScope(request, currentContent, unit, applyResult);
                         if (applyResult.succeeded()) {
                             return GenerationAttemptResult.success(applyResult.content());
@@ -198,6 +209,41 @@ final class CodePatchUnitExecutor {
                 ),
                 llmProvider::consumeLastTelemetry
         ));
+    }
+
+    private PatchApplyResult repairSemanticPatchFailure(
+            CodePatchRequest request,
+            String currentContent,
+            EditUnit unit,
+            String normalizedPayload,
+            ExactReplaceEdit edit,
+            PatchApplyResult applyResult
+    ) {
+        if (applyResult == null || applyResult.succeeded() || applyResult.failureResult() == null) {
+            return applyResult;
+        }
+        PatchFailure failure = PatchFailure.fromToolResult(
+                applyResult.failureResult(),
+                GenerationFailureType.RESULT_FILE_INVALID
+        );
+        ExactReplaceEdit repairedEdit = exactReplaceSemanticRepairSupport.repair(
+                request.relativePath(),
+                unit,
+                currentContent,
+                normalizedPayload,
+                edit,
+                failure,
+                request.eventJournal()
+        );
+        if (repairedEdit == null) {
+            return applyResult;
+        }
+        return codeEditAdapter.applyPatch(
+                request.projectPath(),
+                request.relativePath(),
+                currentContent,
+                repairedEdit
+        );
     }
 
     /**

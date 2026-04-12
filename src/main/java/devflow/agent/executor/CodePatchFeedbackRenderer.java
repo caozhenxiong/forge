@@ -5,7 +5,7 @@ import java.nio.file.Path;
 /**
  * 统一渲染代码 patch 的重试/终止反馈。
  *
- * <p>Codex 风格的 patch-first 主链里，失败反馈本身也是协议的一部分。
+ * <p>Claude Code 风格的 patch-first 主链里，失败反馈本身也是协议的一部分。
  * 这里把“哪类失败应该如何提示下一轮”从协调器里抽出来，避免门面类继续堆积大段字面量。
  */
 final class CodePatchFeedbackRenderer {

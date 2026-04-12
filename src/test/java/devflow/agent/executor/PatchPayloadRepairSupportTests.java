@@ -2,12 +2,14 @@ package devflow.agent.executor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.editing.ExactReplaceEdit;
+import devflow.agent.editing.FileStateLedger;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PatchPayloadRepairSupportTests {
@@ -122,5 +124,160 @@ class PatchPayloadRepairSupportTests {
 
         assertTrue(modelRepairCalled.get());
         assertEquals("<main id=\"app-root\"></main>", patch.markupHtml());
+    }
+
+    @Test
+    void repairsExactReplaceBaseHashDeterministically() {
+        PatchRepairSettings settings = new PatchRepairSettings();
+        PatchPayloadRepairSupport payloadRepairSupport = new PatchPayloadRepairSupport(
+                new GeneratedPayloadSupport(new StructuredPayloadReader(new ObjectMapper())),
+                new DeterministicJsonPayloadRepairer(),
+                new ModelJsonRepairTurn(noopProvider(), settings),
+                settings,
+                new PatchRepairClassifier(),
+                new PatchExecutionSupport(new FileGenerationFailureFactory(), new ImplementationGenerationObserverFactory())
+        );
+        ExactReplaceSemanticRepairSupport semanticRepairSupport = new ExactReplaceSemanticRepairSupport(
+                payloadRepairSupport,
+                new DeterministicExactReplaceRepairer(),
+                new ExactReplaceSemanticRepairTurn(noopProvider(), settings),
+                settings,
+                new PatchRepairClassifier(),
+                new PatchExecutionSupport(new FileGenerationFailureFactory(), new ImplementationGenerationObserverFactory())
+        );
+        String currentContent = "export function tick() {\n  return 0;\n}\n";
+        ExactReplaceEdit repaired = semanticRepairSupport.repair(
+                Path.of("src/app.js"),
+                new EditUnit(EditUnitKind.CODE_SYMBOL_BATCH, "code-unit-1", java.util.List.of("tick")),
+                currentContent,
+                """
+                        {
+                          "targetPath": "stale.js",
+                          "baseContentHash": "stale-hash",
+                          "oldText": "return 0;",
+                          "newText": "return 1;",
+                          "replaceAll": false
+                        }
+                        """,
+                new ExactReplaceEdit("stale.js", "stale-hash", "return 0;", "return 1;", false),
+                PatchFailure.fromToolResult(
+                        ToolResult.failure(
+                                ToolName.PATCH_APPLY,
+                                ToolFailureCode.EXACT_EDIT_BASE_STATE_MISMATCH,
+                                "stale hash",
+                                "repair current unit"
+                        ),
+                        GenerationFailureType.RESULT_FILE_INVALID
+                ),
+                null
+        );
+
+        assertNotNull(repaired);
+        assertEquals("src/app.js", repaired.targetPath());
+        assertEquals(
+                new FileStateLedger().capture(Path.of("src/app.js"), currentContent).contentHash(),
+                repaired.baseContentHash()
+        );
+    }
+
+    @Test
+    void usesModelSemanticRepairForPatchEmpty() {
+        AtomicBoolean semanticRepairCalled = new AtomicBoolean(false);
+        String currentContent = "export function tick() {\n  return 0;\n}\n";
+        String contentHash = new FileStateLedger().capture(Path.of("src/app.js"), currentContent).contentHash();
+        LlmProvider provider = new LlmProvider() {
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
+                if (systemPrompt.contains("exact-replace 语义修复器")) {
+                    semanticRepairCalled.set(true);
+                    return """
+                            {
+                              "targetPath": "src/app.js",
+                              "baseContentHash": "%s",
+                              "oldText": "return 0;",
+                              "newText": "return 1;",
+                              "replaceAll": false
+                            }
+                            """.formatted(contentHash);
+                }
+                return "";
+            }
+
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
+                return generate(systemPrompt, userPrompt, options, null);
+            }
+
+            @Override
+            public devflow.agent.review.ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
+                throw new UnsupportedOperationException();
+            }
+        };
+        PatchRepairSettings settings = new PatchRepairSettings();
+        PatchPayloadRepairSupport payloadRepairSupport = new PatchPayloadRepairSupport(
+                new GeneratedPayloadSupport(new StructuredPayloadReader(new ObjectMapper())),
+                new DeterministicJsonPayloadRepairer(),
+                new ModelJsonRepairTurn(provider, settings),
+                settings,
+                new PatchRepairClassifier(),
+                new PatchExecutionSupport(new FileGenerationFailureFactory(), new ImplementationGenerationObserverFactory())
+        );
+        ExactReplaceSemanticRepairSupport semanticRepairSupport = new ExactReplaceSemanticRepairSupport(
+                payloadRepairSupport,
+                new DeterministicExactReplaceRepairer(),
+                new ExactReplaceSemanticRepairTurn(provider, settings),
+                settings,
+                new PatchRepairClassifier(),
+                new PatchExecutionSupport(new FileGenerationFailureFactory(), new ImplementationGenerationObserverFactory())
+        );
+
+        ExactReplaceEdit repaired = semanticRepairSupport.repair(
+                Path.of("src/app.js"),
+                new EditUnit(EditUnitKind.CODE_SYMBOL_BATCH, "code-unit-3", java.util.List.of("tick")),
+                currentContent,
+                """
+                        {
+                          "targetPath": "src/app.js",
+                          "baseContentHash": "%s",
+                          "oldText": "return 0;",
+                          "newText": "return 0;",
+                          "replaceAll": false
+                        }
+                        """.formatted(contentHash),
+                new ExactReplaceEdit("src/app.js", contentHash, "return 0;", "return 0;", false),
+                PatchFailure.fromToolResult(
+                        ToolResult.failure(
+                                ToolName.PATCH_APPLY,
+                                ToolFailureCode.PATCH_SCHEMA_INVALID,
+                                "Exact replace edit oldText and newText must differ.",
+                                "repair current unit"
+                        ),
+                        GenerationFailureType.RESULT_FILE_INVALID
+                ),
+                null
+        );
+
+        assertTrue(semanticRepairCalled.get());
+        assertNotNull(repaired);
+        assertEquals("return 1;", repaired.newText());
+    }
+
+    private LlmProvider noopProvider() {
+        return new LlmProvider() {
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
+                return generate(systemPrompt, userPrompt, options, null);
+            }
+
+            @Override
+            public devflow.agent.review.ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
+                throw new UnsupportedOperationException();
+            }
+        };
     }
 }

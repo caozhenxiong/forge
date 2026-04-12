@@ -53,8 +53,10 @@ final class ImplementationSubtaskDetailPromptBuilder {
                 3. 不要新增不在 targetPaths 内的文件
                 4. changes 至少 1 个，最多 %d 个
                 5. html-entry 变更必须显式声明 editScope / runtimeOwnership / hostHtmlPatchRequired
-                6. EXTERNAL_COMPANION 不能只改宿主 HTML，必须同步声明 external runtime root 文件
-                7. 不要改动当前子任务 targetPaths 之外的路径
+                6. 非 HTML 文件必须使用 editScope=AUTO、runtimeOwnership=null、hostHtmlPatchRequired=false
+                7. EXTERNAL_COMPANION 不能只改宿主 HTML，必须同步声明 external runtime root 文件
+                8. INLINE_HOST 不能和 external runtime script 在同一子任务里并存
+                9. 不要改动当前子任务 targetPaths 之外的路径
                 """.formatted(maxFilesPerSubtask));
         if (deliveryPolicy != null) {
             builder.append("""

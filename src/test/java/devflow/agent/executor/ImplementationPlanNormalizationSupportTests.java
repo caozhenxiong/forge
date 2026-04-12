@@ -66,7 +66,7 @@ class ImplementationPlanNormalizationSupportTests {
     }
 
     @Test
-    void sanitizeStandaloneAssetScopesResetsInlineScriptScopeOnRuntimeScriptFiles() {
+    void normalizeDoesNotSilentlyRewriteStandaloneAssetScopes() {
         ImplementationPlanNormalizationSupport support = new ImplementationPlanNormalizationSupport();
         ImplementationPlan plan = new ImplementationPlan(
                 "plan",
@@ -93,7 +93,7 @@ class ImplementationPlanNormalizationSupportTests {
                 ImplementationContinuationConstraints.empty()
         );
 
-        assertEquals(FileEditScope.AUTO, normalized.subtasks().getFirst().changes().getFirst().effectiveEditScope());
+        assertEquals(FileEditScope.INLINE_SCRIPT_PATCH, normalized.subtasks().getFirst().changes().getFirst().effectiveEditScope());
     }
 
     @Test

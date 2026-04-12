@@ -124,6 +124,28 @@ final class SubtaskExecutionState {
         setEffectiveChanges(directive.retryChanges());
     }
 
+    /**
+     * 文件级生成失败已经携带了 patch progress 时，下一轮必须冻结兄弟文件，
+     * 只续跑当前失败文件，避免把局部失败又放大回整子任务重写。
+     */
+    void applyFileScopedGenerationFailure(Subtask subtask, GenerationFailureException failure) {
+        Path failedPath = resolveFailedPath(failure);
+        if (failedPath == null) {
+            return;
+        }
+        List<FileChange> sourceChanges = effectiveChanges.isEmpty()
+                ? normalizeChanges(subtask == null ? List.of() : subtask.changes())
+                : normalizeChanges(effectiveChanges);
+        List<FileChange> failedChanges = sourceChanges.stream()
+                .filter(change -> change != null && change.path() != null && !change.path().isBlank())
+                .filter(change -> failedPath.equals(Path.of(change.path()).normalize()))
+                .toList();
+        if (failedChanges.isEmpty()) {
+            return;
+        }
+        setEffectiveChanges(failedChanges);
+    }
+
     List<FileChange> effectiveChanges() {
         return List.copyOf(effectiveChanges);
     }
@@ -193,5 +215,16 @@ final class SubtaskExecutionState {
             normalized.put(Path.of(change.path()).normalize(), change);
         }
         return List.copyOf(normalized.values());
+    }
+
+    private Path resolveFailedPath(GenerationFailureException failure) {
+        if (failure == null) {
+            return null;
+        }
+        FilePatchProgressState patchProgressState = failure.patchProgressState();
+        if (patchProgressState != null && patchProgressState.relativePath() != null) {
+            return patchProgressState.relativePath().normalize();
+        }
+        return null;
     }
 }

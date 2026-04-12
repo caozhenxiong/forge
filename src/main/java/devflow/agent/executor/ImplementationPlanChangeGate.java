@@ -29,6 +29,7 @@ final class ImplementationPlanChangeGate {
         }
         List<GateIssue> issues = new ArrayList<>();
         issues.addAll(evaluateContinuationConstraints(continuationConstraints, subtasks));
+        issues.addAll(evaluateChangeMetadataDeclarations(subtasks));
         issues.addAll(evaluateRuntimeOwnership(fingerprint, contractView, continuationConstraints, subtasks));
         return issues;
     }
@@ -75,6 +76,49 @@ final class ImplementationPlanChangeGate {
                             "PLAN_CONTINUATION_" + issueIndex++,
                             "Continuation 计划不能切换现有 HTML 入口的 runtimeOwnership: %s -> %s (%s)"
                                     .formatted(protectedRuntimeOwnership, change.runtimeOwnership(), change.path()),
+                            GateFailureDisposition.REPLAN_CURRENT_STAGE,
+                            GateIssueContext.forPath(change.path())
+                    ));
+                }
+            }
+        }
+        return issues;
+    }
+
+    private List<GateIssue> evaluateChangeMetadataDeclarations(List<Subtask> subtasks) {
+        List<GateIssue> issues = new ArrayList<>();
+        int issueIndex = 1;
+        for (Subtask subtask : subtasks) {
+            if (subtask == null || subtask.changes() == null || subtask.changes().isEmpty()) {
+                continue;
+            }
+            for (FileChange change : subtask.changes()) {
+                if (change == null || change.path() == null || change.path().isBlank()) {
+                    continue;
+                }
+                if (ProjectPathSupport.isHtml(change.path())) {
+                    continue;
+                }
+                if (change.runtimeOwnership() != null) {
+                    issues.add(new GateIssue(
+                            "PLAN_RUNTIME_" + issueIndex++,
+                            "只有 HTML 入口文件允许声明 runtimeOwnership，非 HTML 文件必须为 null: " + change.path(),
+                            GateFailureDisposition.REPLAN_CURRENT_STAGE,
+                            GateIssueContext.forPath(change.path())
+                    ));
+                }
+                if (change.effectiveEditScope() != FileEditScope.AUTO) {
+                    issues.add(new GateIssue(
+                            "PLAN_RUNTIME_" + issueIndex++,
+                            "非 HTML 文件不能声明宿主/内联 editScope，必须使用 AUTO: " + change.path(),
+                            GateFailureDisposition.REPLAN_CURRENT_STAGE,
+                            GateIssueContext.forPath(change.path())
+                    ));
+                }
+                if (change.hostHtmlPatchRequired()) {
+                    issues.add(new GateIssue(
+                            "PLAN_RUNTIME_" + issueIndex++,
+                            "只有 HTML 入口文件允许声明 hostHtmlPatchRequired=true: " + change.path(),
                             GateFailureDisposition.REPLAN_CURRENT_STAGE,
                             GateIssueContext.forPath(change.path())
                     ));
@@ -169,6 +213,14 @@ final class ImplementationPlanChangeGate {
                 issues.add(new GateIssue(
                         "PLAN_RUNTIME_" + issueIndex++,
                         "EXTERNAL_COMPANION 子任务必须同步声明 external runtime root 文件，不能只改宿主 HTML。",
+                        GateFailureDisposition.REPLAN_CURRENT_STAGE,
+                        GateIssueContext.forPath(htmlEntryPath.toString())
+                ));
+            }
+            if (htmlChangeOwnership == RuntimeOwnershipMode.INLINE_HOST && !runtimeScriptChanges.isEmpty()) {
+                issues.add(new GateIssue(
+                        "PLAN_RUNTIME_" + issueIndex++,
+                        "INLINE_HOST 子任务不能同时声明 external runtime script 文件，宿主与 companion ownership 不能并存。",
                         GateFailureDisposition.REPLAN_CURRENT_STAGE,
                         GateIssueContext.forPath(htmlEntryPath.toString())
                 ));
