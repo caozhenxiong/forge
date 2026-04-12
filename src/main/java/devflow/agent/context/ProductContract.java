@@ -15,11 +15,21 @@ public record ProductContract(
         List<RequirementReference> requirementReferences
 ) {
 
+    public ProductContract {
+        objectives = freezeTextList(objectives);
+        userScenarios = freezeTextList(userScenarios);
+        requiredCapabilities = freezeTextList(requiredCapabilities);
+        nonFunctionalRequirements = freezeTextList(nonFunctionalRequirements);
+        acceptanceCriteria = freezeTextList(acceptanceCriteria);
+        nonGoals = freezeTextList(nonGoals);
+        requirementReferences = normalizeRequirementReferences(requirementReferences, requiredCapabilities, acceptanceCriteria);
+    }
+
     /**
      * 兼容旧的六段式 ProductContract 构造方式。
      *
-     * <p>这批字段主要服务人类可读文档和参考语义；如果没有显式的 requirementReferences，
-     * 流程层不能再把 prose 能力列表自动升级成 planning-required 的硬覆盖要求。
+     * <p>旧调用方只提供 prose 列表时，这里会在数据模型层补齐稳定 requirement refs，
+     * 避免结构化 PRODUCT_CONTRACT 持久化后仍然丢失覆盖锚点。
      */
     public ProductContract(
             List<String> objectives,
@@ -78,15 +88,7 @@ public record ProductContract(
     }
 
     public List<RequirementReference> bindingRequirements() {
-        if (requirementReferences != null && !requirementReferences.isEmpty()) {
-            return requirementReferences.stream()
-                    .filter(reference -> reference != null && reference.id() != null && !reference.id().isBlank())
-                    .toList();
-        }
-        List<RequirementReference> references = new ArrayList<>();
-        appendReferences(references, "CAP", "required-capability", requiredCapabilities, false);
-        appendReferences(references, "ACC", "acceptance-criterion", acceptanceCriteria, false);
-        return List.copyOf(references);
+        return requirementReferences;
     }
 
     public List<RequirementReference> planningCoverageRequirements() {
@@ -145,6 +147,50 @@ public record ProductContract(
             boolean effectivePlanningRequired = planningRequired;
             target.add(new RequirementReference(prefix + "-" + index++, category, normalized, effectivePlanningRequired));
         }
+    }
+
+    /**
+     * requirement refs 是后续 planning / test / review 的稳定锚点。
+     *
+     * <p>如果这里只在读取时临时回填，而对象本身仍然保存空列表，
+     * 那么写回 PRODUCT_CONTRACT 结构化块时仍会把 refs 落成空值，
+     * 下游阶段就只能重新从 prose 猜覆盖范围。这里直接在数据模型层补齐，
+     * 保证持久化后的 contract 本身就是完整的权威载体。
+     */
+    private List<RequirementReference> normalizeRequirementReferences(
+            List<RequirementReference> references,
+            List<String> normalizedRequiredCapabilities,
+            List<String> normalizedAcceptanceCriteria
+    ) {
+        List<RequirementReference> explicitReferences = references == null
+                ? List.of()
+                : references.stream()
+                .filter(reference -> reference != null && reference.id() != null && !reference.id().isBlank())
+                .map(reference -> new RequirementReference(
+                        reference.id().trim(),
+                        reference.category() == null ? "" : reference.category().trim(),
+                        reference.text() == null ? "" : reference.text().trim(),
+                        reference.planningRequired()
+                ))
+                .toList();
+        if (!explicitReferences.isEmpty()) {
+            return List.copyOf(explicitReferences);
+        }
+        List<RequirementReference> fallbackReferences = new ArrayList<>();
+        appendReferences(fallbackReferences, "CAP", "required-capability", normalizedRequiredCapabilities, true);
+        appendReferences(fallbackReferences, "ACC", "acceptance-criterion", normalizedAcceptanceCriteria, false);
+        return List.copyOf(fallbackReferences);
+    }
+
+    private List<String> freezeTextList(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        return values.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .map(String::trim)
+                .distinct()
+                .toList();
     }
 
     private String bullets(List<String> items, DocumentLanguage language) {

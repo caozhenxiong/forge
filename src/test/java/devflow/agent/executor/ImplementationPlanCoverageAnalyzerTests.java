@@ -154,7 +154,7 @@ class ImplementationPlanCoverageAnalyzerTests {
     }
 
     @Test
-    void proseCapabilitiesDoNotBecomePlanningRequirementsWithoutStructuredRefs() {
+    void defaultRequirementRefsAlsoParticipateInPlanningCoverage() {
         ImplementationPlanCoverageAnalyzer analyzer = new ImplementationPlanCoverageAnalyzer();
         ContractView contractView = new ContractView(
                 new devflow.agent.context.ProductContract(
@@ -182,11 +182,12 @@ class ImplementationPlanCoverageAnalyzerTests {
                 null
         );
 
-        assertTrue(result.passed(), result.issues().toString());
+        assertFalse(result.passed());
+        assertTrue(result.issues().stream().anyMatch(issue -> issue.contains("CAP-2")));
     }
 
     @Test
-    void proseCapabilitiesWithOptionalWordsDoNotAffectPlanningCoverage() {
+    void analyzerDoesNotGuessOptionalityFromCapabilityProse() {
         ImplementationPlanCoverageAnalyzer analyzer = new ImplementationPlanCoverageAnalyzer();
         ContractView contractView = new ContractView(
                 new devflow.agent.context.ProductContract(
@@ -214,7 +215,9 @@ class ImplementationPlanCoverageAnalyzerTests {
                 null
         );
 
-        assertTrue(result.passed(), result.issues().toString());
+        assertFalse(result.passed());
+        assertTrue(result.issues().stream().anyMatch(issue -> issue.contains("CAP-2")));
+        assertTrue(result.issues().stream().anyMatch(issue -> issue.contains("CAP-3")));
     }
 
     @Test

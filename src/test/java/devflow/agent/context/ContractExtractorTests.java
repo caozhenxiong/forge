@@ -287,6 +287,51 @@ class ContractExtractorTests {
     }
 
     @Test
+    void productContractKeepsAllPrimaryCapabilitiesInsteadOfTruncatingAfterEightItems() {
+        String prd = """
+                # 产品需求文档
+
+                ## 1. 产品目标
+                - 实现一个可玩的网页应用
+
+                ## 2. 目标用户与使用场景
+                - 用户打开页面即可游玩
+
+                ## 3. 功能范围
+
+                ### 3.1 核心功能
+                - 能力 1
+                - 能力 2
+                - 能力 3
+                - 能力 4
+                - 能力 5
+                - 能力 6
+                - 能力 7
+                - 能力 8
+
+                ### 3.2 辅助功能
+                - 能力 9
+                - 能力 10
+
+                ## 4. 非功能要求
+                - 可直接打开运行
+
+                ## 5. 验收标准
+                - 页面可打开
+
+                ## 6. 不做什么
+                - 不做后端
+                """;
+
+        ProductContract contract = extractor.extractProductContract(prd);
+
+        assertEquals(10, contract.requiredCapabilities().size());
+        assertTrue(contract.requiredCapabilities().contains("能力 9"));
+        assertTrue(contract.requiredCapabilities().contains("能力 10"));
+        assertTrue(contract.bindingRequirements().stream().anyMatch(reference -> "CAP-10".equals(reference.id())));
+    }
+
+    @Test
     void keepsReferenceContractContentAsAuthoredInsteadOfGuessingLowAuthorityLabels() {
         String prd = """
                 # 产品需求文档

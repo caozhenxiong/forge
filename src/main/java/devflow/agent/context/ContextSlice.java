@@ -37,12 +37,18 @@ public record ContextSlice(
                 - %s: %s
                 - %s: %s
                 - %s: %s
-                - %s: %s
+
+                ### %s
+                %s
+
+                ### %s
+                %s
                 """.formatted(
                 language.choose("目标", "Goal"), blank(durableContext.goal(), language),
                 language.choose("约束", "Constraints"), blank(durableContext.constraints(), language),
                 language.choose("上游契约摘要", "Upstream Contract Summary"), blank(durableContext.upstreamContractSummary(), language),
-                language.choose("结构化契约摘要", "Structured Contract Summary"), blank(durableContext.structuredContractSummary(), language)
+                language.choose("权威需求目录", "Authoritative Requirement Catalog"), block(durableContext.authoritativeRequirementCatalog(), language),
+                language.choose("执行契约", "Execution Contract"), renderExecutionContract(language)
         );
     }
 
@@ -80,5 +86,19 @@ public record ContextSlice(
 
     private String blank(String value, DocumentLanguage language) {
         return PlaceholderValues.orNone(value, language);
+    }
+
+    private String block(String value, DocumentLanguage language) {
+        String normalized = value == null ? "" : value.trim();
+        return normalized.isBlank() ? PlaceholderValues.none(language) : normalized;
+    }
+
+    private String renderExecutionContract(DocumentLanguage language) {
+        if (durableContext.contractView() == null || durableContext.contractView().executionContract() == null) {
+            return PlaceholderValues.none(language);
+        }
+        return durableContext.contractView().executionContract().toMarkdown(language)
+                .replaceFirst("^# .+\\n\\n", "")
+                .trim();
     }
 }

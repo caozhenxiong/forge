@@ -17,12 +17,16 @@ final class ContractListSupport {
     private static final char[] COMMA_DELIMITERS = new char[]{',', '，'};
     private static final char[] LOOSE_LIST_DELIMITERS = new char[]{',', '，', ';', '；', '\n'};
 
+    List<String> collectReferenceItems(String sectionBody) {
+        return collectReferenceItems(sectionBody, Integer.MAX_VALUE);
+    }
+
     List<String> collectReferenceItems(String sectionBody, int maxItems) {
         if (sectionBody == null || sectionBody.isBlank()) {
             return List.of();
         }
         Set<String> items = new LinkedHashSet<>();
-        collectBulletItems(sectionBody, maxItems, items);
+        collectBulletItems(sectionBody, maxItems <= 0 ? Integer.MAX_VALUE : maxItems, items);
         return List.copyOf(items);
     }
 

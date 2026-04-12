@@ -231,6 +231,23 @@
   - 真正阻断只来自 contract、一致性检查和可运行性验证
 - `PRD/DESIGN` 的 `Contract Metadata` 章节现在会同时持久化 `runtime.*` 与 `validation.*`，validation authority 不再在 post-process 阶段丢失
 - `PRD` 的 `4.1 性能 / 5.2 质量验收` 已接入本地 authority canonicalization：无来源数值阈值会被删除；有 `hard.* / validation.*` 支撑的条目会被规范化保留
+- `ProductContract` 现在会直接持久化稳定 `requirementReferences`：
+  - 未显式提供 refs 时，`requiredCapabilities -> CAP-* (planning-required)`、`acceptanceCriteria -> ACC-* (final-acceptance)` 会在结构化 contract 层自动补齐
+  - `PRODUCT_CONTRACT` 不再出现“正文有能力，结构化块里 refs 为空”的缩水状态
+- contract 抽取主链已改成无损：
+  - 关键 contract 列表不再按固定条数截断
+  - `3.1 / 3.2` 之类分段能力不会再因为前几条已满被挤掉
+- projected context / task memory 已改成 authority 与 trace 分层：
+  - `upstreamContractSummary` 仍保留为可压缩 trace 信息
+  - 下游真正消费的 durable contract 信息已切成 `authoritative requirement catalog`
+  - 权威 requirement catalog 不再走 `contractView.toMarkdown() -> summarizeMarkdown(...)` 这条缩水链
+- `QualityPlan` 现在会把 product contract 中 `planning-required` 的 requirement refs 直接提升成 required capability：
+  - implementation planning、coverage analyzer、testcase planning、coverage ledger 已开始消费同一批 `CAP-* / cap-*`
+  - test prompt 也会显式注入产品需求覆盖引用，不再只给 prose 摘要或只给技术 capability id
+- implementation requirement catalog 已去掉重复锚点：
+  - `CAP-*` 由产品 requirement catalog 承载
+  - 纯质量能力继续走 `QCAP-*`
+  - 不再向 planner 暴露 `CAP-1` 与 `QCAP-CAP_1` 两套重复引用
 
 ### 当前 agent / model 关系
 

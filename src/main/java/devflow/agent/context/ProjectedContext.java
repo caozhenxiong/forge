@@ -6,7 +6,7 @@ import devflow.agent.i18n.PlaceholderValues;
 public record ProjectedContext(
         String currentStageSummary,
         String upstreamContractSummary,
-        String structuredContractSummary,
+        String authoritativeRequirementCatalog,
         String recentHistorySummary,
         String failureSummary,
         String repairSummary,
@@ -18,7 +18,7 @@ public record ProjectedContext(
     public ProjectedContext(
             String currentStageSummary,
             String upstreamContractSummary,
-            String structuredContractSummary,
+            String authoritativeRequirementCatalog,
             String recentHistorySummary,
             String failureSummary,
             String repairSummary,
@@ -28,7 +28,7 @@ public record ProjectedContext(
         this(
                 currentStageSummary,
                 upstreamContractSummary,
-                structuredContractSummary,
+                authoritativeRequirementCatalog,
                 recentHistorySummary,
                 failureSummary,
                 repairSummary,
@@ -79,8 +79,8 @@ public record ProjectedContext(
                 blank(currentStageSummary, language),
                 language.choose("上游契约", "Upstream Contract"),
                 blank(upstreamContractSummary, language),
-                language.choose("结构化契约", "Structured Contracts"),
-                blank(structuredContractSummary, language),
+                language.choose("权威需求目录", "Authoritative Requirement Catalog"),
+                blank(authoritativeRequirementCatalog, language),
                 language.choose("最近历史", "Recent History"),
                 blank(recentHistorySummary, language),
                 language.choose("失败摘要", "Failure Summary"),

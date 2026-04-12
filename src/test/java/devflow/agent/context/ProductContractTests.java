@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ProductContractTests {
 
     @Test
-    void proseCapabilitiesDefaultToFinalAcceptanceReferences() {
+    void defaultRequirementReferencesPromoteRequiredCapabilitiesIntoPlanningCoverage() {
         ProductContract contract = new ProductContract(
                 List.of("实现俄罗斯方块"),
                 List.of("浏览器用户"),
@@ -24,9 +24,10 @@ class ProductContractTests {
         List<RequirementReference> references = contract.bindingRequirements();
 
         assertEquals(3, references.size());
-        assertFalse(references.get(0).planningRequired());
-        assertFalse(references.get(1).planningRequired());
+        assertTrue(references.get(0).planningRequired());
+        assertTrue(references.get(1).planningRequired());
         assertFalse(references.get(2).planningRequired());
+        assertTrue(contract.planningCoverageRequirements().stream().anyMatch(reference -> "CAP-1".equals(reference.id())));
     }
 
     @Test

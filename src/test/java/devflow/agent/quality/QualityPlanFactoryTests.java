@@ -2,9 +2,11 @@ package devflow.agent.quality;
 
 import devflow.agent.context.ConstraintSourceMetadata;
 import devflow.agent.context.ContractRuntimeOwnershipMode;
+import devflow.agent.context.ProductContract;
 import devflow.agent.context.ContractView;
 import devflow.agent.context.EntryPackagingMode;
 import devflow.agent.context.ExecutionContract;
+import devflow.agent.context.RequirementReference;
 import devflow.agent.context.ValidationMetadata;
 import devflow.agent.executor.RuntimeSnapshot;
 import devflow.agent.validation.ProjectFingerprint;
@@ -111,6 +113,41 @@ class QualityPlanFactoryTests {
 
         assertTrue(plan.qualityIntent().requiredCapabilityIds().contains(CapabilityIds.TIMED_STATE_PROGRESSION));
         assertTrue(plan.capabilityMatrix().requires(CapabilityIds.TIMED_STATE_PROGRESSION));
+    }
+
+    @Test
+    void planningRequiredProductReferencesAlsoFlowIntoRequiredCapabilityMatrix() {
+        ContractView contractView = new ContractView(
+                new ProductContract(
+                        List.of("实现网页应用"),
+                        List.of("用户打开页面即可使用"),
+                        List.of("显示预览", "支持重置"),
+                        List.of(),
+                        List.of("页面可打开"),
+                        List.of(),
+                        List.of(
+                                new RequirementReference("CAP-1", "required-capability", "显示预览", true),
+                                new RequirementReference("CAP-2", "required-capability", "支持重置", true),
+                                new RequirementReference("ACC-1", "acceptance-criterion", "页面可打开", false)
+                        )
+                ),
+                null,
+                new ExecutionContract(true, "html-entry", true, true, List.of("page-opens")).normalized(),
+                ConstraintSourceMetadata.empty()
+        );
+
+        QualityPlan plan = new QualityPlanFactory().build(
+                null,
+                contractView,
+                ValidationMetadata.empty(),
+                null,
+                List.of()
+        );
+
+        assertTrue(plan.qualityIntent().requiredCapabilityIds().contains("cap-1"));
+        assertTrue(plan.qualityIntent().requiredCapabilityIds().contains("cap-2"));
+        assertTrue(plan.capabilityMatrix().requires("cap-1"));
+        assertTrue(plan.capabilityMatrix().requires("cap-2"));
     }
 
     @Test

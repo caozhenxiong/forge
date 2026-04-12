@@ -130,6 +130,9 @@ final class TestCasePromptAssembler {
                 结构化契约：
                 %s
 
+                产品需求覆盖引用：
+                %s
+
                 质量计划：
                 %s
 
@@ -163,6 +166,8 @@ final class TestCasePromptAssembler {
                 shrink(prd),
                 shrink(design),
                 contractView == null ? "" : shrink(contractView.toMarkdown(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints))),
+                contractView == null ? PlaceholderValues.none(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints))
+                        : shrink(contractView.productRequirementCatalogMarkdown(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints))),
                 qualityPlan == null ? "" : shrink(qualityPlan.toMarkdown(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints))),
                 requiredCapabilitySurfaceCatalog(qualityPlan),
                 capabilityCatalog(qualityPlan),

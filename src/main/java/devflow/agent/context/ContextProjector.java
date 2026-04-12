@@ -64,7 +64,9 @@ public class ContextProjector {
                 1800
         );
         String upstreamContractSummary = summaryBuilder.summarizeMarkdown(readUpstreamContract(projectPath, runRecord, currentStage, authorityCorpus), 2600);
-        String structuredContractSummary = summaryBuilder.summarizeMarkdown(contractView.toMarkdown(language), 2600);
+        // requirement refs 是下游 planning / test / review 的权威覆盖锚点，
+        // 这里必须直接保留结构化目录，不能再先压成单行摘要后交给后续阶段消费。
+        String authoritativeRequirementCatalog = contractView.productRequirementCatalogMarkdown(language);
         String recentHistorySummary = summaryBuilder.summarizeMarkdown(artifactReader.readRecentHistory(projectPath, runRecord, currentStage), 2200);
         String repairSummary = summaryBuilder.summarizeMarkdown(artifactReader.readRepairBrief(projectPath, runRecord), 1800);
         String workingSetSummary = summaryBuilder.summarizeMarkdown(workspace.collectContext(projectPath, 6, 900, 5000), 2200);
@@ -82,7 +84,7 @@ public class ContextProjector {
                 runRecord.constraints(),
                 currentStageSummary,
                 upstreamContractSummary,
-                structuredContractSummary,
+                authoritativeRequirementCatalog,
                 recentHistorySummary,
                 failureSummary,
                 repairSummary,
@@ -95,7 +97,7 @@ public class ContextProjector {
                 contractView,
                 currentStageSummary,
                 upstreamContractSummary,
-                structuredContractSummary,
+                authoritativeRequirementCatalog,
                 recentHistorySummary,
                 failureSummary,
                 repairSummary,
@@ -105,7 +107,7 @@ public class ContextProjector {
         return new ProjectedContext(
                 currentStageSummary,
                 upstreamContractSummary,
-                structuredContractSummary,
+                authoritativeRequirementCatalog,
                 recentHistorySummary,
                 failureSummary,
                 repairSummary,

@@ -23,24 +23,24 @@ public class ContractExtractor {
             return blockValue;
         }
         return new ProductContract(
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 1), 4),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 2), 5),
-                listSupport.collectReferenceItems(sectionResolver.productCapabilitiesSection(prd), 8),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 4), 5),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 5), 8),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 6), 5)
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 1)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 2)),
+                listSupport.collectReferenceItems(sectionResolver.productCapabilitiesSection(prd)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 4)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 5)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 6))
         );
     }
 
     public DesignContract extractDesignContract(String design) {
         return new DesignContract(
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 1), 5),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 2), 8),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 3), 6),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 4), 8),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 5), 8),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 6), 6),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 7), 6)
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 1)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 2)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 3)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 4)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 5)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 6)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 7))
         );
     }
 
@@ -145,24 +145,24 @@ public class ContractExtractor {
 
     private ProductContract extractProductContract(String prd, String authorityCorpus) {
         return new ProductContract(
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 1), 4),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 2), 5),
-                listSupport.collectReferenceItems(sectionResolver.productCapabilitiesSection(prd), 8),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 4), 5),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 5), 8),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 6), 5)
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 1)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 2)),
+                listSupport.collectReferenceItems(sectionResolver.productCapabilitiesSection(prd)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 4)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 5)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 6))
         );
     }
 
     private DesignContract extractDesignContract(String design, String authorityCorpus) {
         return new DesignContract(
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 1), 5),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 2), 8),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 3), 6),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 4), 8),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 5), 8),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 6), 6),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 7), 6)
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 1)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 2)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 3)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 4)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 5)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 6)),
+                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 7))
         );
     }
 }

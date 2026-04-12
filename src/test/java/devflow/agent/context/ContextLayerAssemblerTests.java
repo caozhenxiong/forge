@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ContextLayerAssemblerTests {
 
@@ -34,7 +35,7 @@ class ContextLayerAssemblerTests {
                 contractView,
                 "当前在实现阶段补入口接线",
                 "上游要求提供可直接运行入口",
-                "execution contract 已提取",
+                "- CAP-1 [required-capability, planning-required]: 提供可运行入口",
                 "ANALYSIS -> PRD -> DESIGN 均已通过",
                 "最近一次 implementation 失败在入口接线",
                 "优先修入口接线",
@@ -47,6 +48,7 @@ class ContextLayerAssemblerTests {
         assertNotNull(views.evidenceContext());
         assertNotNull(views.traceContext());
         assertEquals("实现可直接运行的俄罗斯方块网页小游戏", views.durableContext().goal());
+        assertTrue(views.durableContext().authoritativeRequirementCatalog().contains("CAP-1"));
         assertEquals(StageType.IMPLEMENTATION, views.workingContext().currentStage());
         assertEquals("最近一次 implementation 失败在入口接线", views.evidenceContext().failureSummary());
         assertEquals("ANALYSIS -> PRD -> DESIGN 均已通过", views.traceContext().recentHistorySummary());

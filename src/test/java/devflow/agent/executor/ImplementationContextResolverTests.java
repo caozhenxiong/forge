@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -153,6 +154,7 @@ class ImplementationContextResolverTests {
         assertTrue(context.sharedContextBundle().requiredEvidence().contains("页面可打开"));
         assertTrue(context.productRequirementCatalog().contains("CAP-1"));
         assertTrue(context.productRequirementCatalog().contains("QCAP-TIMED_STATE_PROGRESSION"));
+        assertFalse(context.productRequirementCatalog().contains("QCAP-CAP_1"));
         assertTrue(context.qualityPlan().capabilityMatrix().requires(CapabilityIds.TIMED_STATE_PROGRESSION));
         assertTrue(context.continuationConstraints().active());
         assertTrue(context.continuationConstraints().marksExistingPath("index.html"));

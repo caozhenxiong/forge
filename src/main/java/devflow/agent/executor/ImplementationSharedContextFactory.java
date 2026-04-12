@@ -2,13 +2,17 @@ package devflow.agent.executor;
 
 import devflow.agent.context.ContractView;
 import devflow.agent.context.ProductContract;
+import devflow.agent.context.RequirementReference;
 import devflow.agent.context.SharedContextBundle;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;
 import devflow.agent.orchestrator.RunRecord;
+import devflow.agent.quality.CapabilityIds;
+import devflow.agent.quality.CapabilityMatrixEntry;
 import devflow.agent.protocol.ExecutionDirectivePayload;
-import devflow.agent.quality.QualityCoverageRefCatalog;
 import devflow.agent.quality.QualityPlan;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * 统一构造 implementation 阶段共享上下文。
@@ -44,7 +48,7 @@ final class ImplementationSharedContextFactory {
         String productCatalog = productContract == null
                 ? PlaceholderValues.none(language)
                 : productContract.requirementCatalogMarkdown(language);
-        String qualityCatalog = QualityCoverageRefCatalog.renderCatalog(qualityPlan, language);
+        String qualityCatalog = renderQualityRequirementCatalog(productContract, qualityPlan, language);
         if (qualityCatalog.equals(PlaceholderValues.none(language))) {
             return productCatalog;
         }
@@ -62,5 +66,55 @@ final class ImplementationSharedContextFactory {
 
     private String summarize(String content, int maxChars) {
         return PlaceholderValues.truncateMiddle(content, maxChars);
+    }
+
+    private String renderQualityRequirementCatalog(
+            ProductContract productContract,
+            QualityPlan qualityPlan,
+            DocumentLanguage language
+    ) {
+        if (qualityPlan == null || qualityPlan.qualityIntent().requiredCapabilityIds().isEmpty()) {
+            return PlaceholderValues.none(language);
+        }
+        Set<String> normalizedProductRequirementIds = normalizedProductRequirementIds(productContract);
+        StringBuilder builder = new StringBuilder();
+        for (CapabilityMatrixEntry entry : qualityPlan.capabilityMatrix().entries()) {
+            if (entry == null || entry.capabilityId().isBlank() || !entry.required()) {
+                continue;
+            }
+            // CAP-* 已经由产品 requirement catalog 承载；这里保留纯质量能力，
+            // 避免 planner 同时看到 CAP-1 和 QCAP-CAP_1 两套重复锚点。
+            if (normalizedProductRequirementIds.contains(CapabilityIds.normalize(entry.capabilityId()))) {
+                continue;
+            }
+            if (!builder.isEmpty()) {
+                builder.append('\n');
+            }
+            builder.append("- ")
+                    .append(devflow.agent.quality.QualityCoverageRefCatalog.referenceId(entry.capabilityId()))
+                    .append(": ")
+                    .append(entry.capabilityId())
+                    .append(" [")
+                    .append(entry.expectation().name())
+                    .append("]");
+            if (entry.rationale() != null && !entry.rationale().isBlank()) {
+                builder.append(" - ").append(entry.rationale().trim());
+            }
+        }
+        return builder.isEmpty() ? PlaceholderValues.none(language) : builder.toString();
+    }
+
+    private Set<String> normalizedProductRequirementIds(ProductContract productContract) {
+        if (productContract == null) {
+            return Set.of();
+        }
+        LinkedHashSet<String> ids = new LinkedHashSet<>();
+        for (RequirementReference reference : productContract.bindingRequirements()) {
+            if (reference == null || reference.id() == null || reference.id().isBlank()) {
+                continue;
+            }
+            ids.add(CapabilityIds.normalize(reference.id()));
+        }
+        return Set.copyOf(ids);
     }
 }

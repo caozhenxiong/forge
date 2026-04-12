@@ -10,7 +10,7 @@ public record DurableContextView(
         String goal,
         String constraints,
         String upstreamContractSummary,
-        String structuredContractSummary,
+        String authoritativeRequirementCatalog,
         ContractView contractView,
         String repairSummary
 ) {

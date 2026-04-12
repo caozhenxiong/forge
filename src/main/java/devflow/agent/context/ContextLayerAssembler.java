@@ -22,7 +22,7 @@ public class ContextLayerAssembler {
             ContractView contractView,
             String currentStageSummary,
             String upstreamContractSummary,
-            String structuredContractSummary,
+            String authoritativeRequirementCatalog,
             String recentHistorySummary,
             String failureSummary,
             String repairSummary,
@@ -34,7 +34,7 @@ public class ContextLayerAssembler {
                         runRecord.goal(),
                         runRecord.constraints(),
                         upstreamContractSummary,
-                        structuredContractSummary,
+                        authoritativeRequirementCatalog,
                         contractView,
                         repairSummary
                 ),
