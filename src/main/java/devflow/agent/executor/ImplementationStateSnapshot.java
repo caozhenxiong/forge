@@ -177,15 +177,16 @@ record ImplementationStateSnapshot(
             List<SubtaskAttemptState> attempts,
             String deliveryMode,
             boolean preferPreciseEditing,
-            List<FilePatchProgressStateSnapshot> filePatchProgressStates,
-            List<FileChangeState> effectiveChanges
+            List<FileEditAttemptStateSnapshot> fileEditAttemptStates,
+            List<FileChangeState> effectiveChanges,
+            ToolLoopRuntimeStateSnapshot toolLoopRuntimeState
     ) {
         SubtaskExecutionStateSnapshot(
                 String title,
                 boolean completed,
                 List<SubtaskAttemptState> attempts
         ) {
-            this(title, completed, attempts, null, false, List.of(), List.of());
+            this(title, completed, attempts, null, false, List.of(), List.of(), null);
         }
 
         SubtaskExecutionStateSnapshot(
@@ -194,19 +195,87 @@ record ImplementationStateSnapshot(
                 List<SubtaskAttemptState> attempts,
                 String deliveryMode,
                 boolean preferPreciseEditing,
-                List<FilePatchProgressStateSnapshot> filePatchProgressStates
+                List<FileEditAttemptStateSnapshot> fileEditAttemptStates
         ) {
-            this(title, completed, attempts, deliveryMode, preferPreciseEditing, filePatchProgressStates, List.of());
+            this(title, completed, attempts, deliveryMode, preferPreciseEditing, fileEditAttemptStates, List.of(), null);
+        }
+
+        SubtaskExecutionStateSnapshot(
+                String title,
+                boolean completed,
+                List<SubtaskAttemptState> attempts,
+                String deliveryMode,
+                boolean preferPreciseEditing,
+                List<FileEditAttemptStateSnapshot> fileEditAttemptStates,
+                List<FileChangeState> effectiveChanges
+        ) {
+            this(title, completed, attempts, deliveryMode, preferPreciseEditing, fileEditAttemptStates, effectiveChanges, null);
         }
     }
 
-    record FilePatchProgressStateSnapshot(
+    record ToolLoopRuntimeStateSnapshot(
+            List<ChatMessageState> transcript,
+            long readFileStateMaxEntries,
+            long readFileStateMaxSizeBytes,
+            List<ReadFileStateEntry> readFileStates,
+            List<String> seenToolResultIds,
+            List<ToolResultReplacementEntry> toolResultReplacements,
+            List<FileMutationState> fileMutations
+    ) {
+    }
+
+    record ChatMessageState(
+            String role,
+            String content,
+            String toolName,
+            String toolCallId,
+            List<ToolCallState> toolCalls
+    ) {
+    }
+
+    record ToolCallState(
+            String id,
+            String name,
+            java.util.Map<String, Object> arguments
+    ) {
+    }
+
+    record ReadFileStateEntry(
+            String absolutePath,
+            String content,
+            long timestamp,
+            Integer offset,
+            Integer limit,
+            boolean partialView
+    ) {
+    }
+
+    record ToolResultReplacementEntry(
+            String toolUseId,
+            String replacement
+    ) {
+    }
+
+    record FileMutationState(
+            String operation,
             String relativePath,
+            String beforeHash,
+            String afterHash,
+            List<StructuredPatchHunk> structuredPatch,
+            long timestamp,
+            String diagnosticStatus,
+            String diagnosticEvidence
+    ) {
+    }
+
+    record FileEditAttemptStateSnapshot(
+            String relativePath,
+            String protocolName,
             String strategyName,
             String workingContent,
             String plannedFromHash,
-            List<String> completedUnitLabels,
-            String currentUnitLabel
+            List<String> completedTargetLabels,
+            String currentTargetLabel
     ) {
     }
 

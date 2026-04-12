@@ -143,7 +143,7 @@ class CodePatchKernelTests {
                 )
         );
 
-        assertEquals(ToolFailureCode.EXACT_EDIT_TARGET_NOT_FOUND, result.failureResult().failureCode());
+        assertEquals(ToolFailureCode.TARGET_NOT_FOUND, result.failureResult().failureCode());
         assertEquals(ToolName.PATCH_APPLY, result.failureResult().toolName());
     }
 

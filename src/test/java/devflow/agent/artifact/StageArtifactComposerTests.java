@@ -5,8 +5,12 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ValidationMetadata;
+import devflow.agent.executor.ChatCapableLlmProvider;
 import devflow.agent.executor.ImplementationExecutor;
+import devflow.agent.executor.LlmChatRequest;
+import devflow.agent.executor.LlmChatResponse;
 import devflow.agent.executor.LlmProvider;
+import devflow.agent.executor.LlmToolCall;
 import devflow.agent.executor.ModelRole;
 import devflow.agent.executor.TestExecutor;
 import devflow.agent.orchestrator.FileRunRepository;
@@ -1027,6 +1031,8 @@ class StageArtifactComposerTests {
         AtomicReference<String> prdPrompt = new AtomicReference<>("");
         AtomicReference<String> designPrompt = new AtomicReference<>("");
         LlmProvider provider = new StructuredTestLlmProvider() {
+            private int toolLoopTurn;
+
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, null);
@@ -1137,6 +1143,32 @@ class StageArtifactComposerTests {
                             """;
                 }
                 return "";
+            }
+
+            @Override
+            public LlmChatResponse chat(LlmChatRequest request) {
+                if (toolLoopTurn++ == 0) {
+                    return new LlmChatResponse(
+                            "",
+                            List.of(new LlmToolCall(
+                                    "tool-1",
+                                    "Write",
+                                    Map.of(
+                                            "file_path", tempDir.resolve("index.html").toString(),
+                                            "content", """
+                                                    <!DOCTYPE html>
+                                                    <html lang="zh-CN">
+                                                    <head><meta charset="UTF-8"><title>Tetris</title></head>
+                                                    <body><h1>Tetris</h1></body>
+                                                    </html>
+                                                    """
+                                    )
+                            )),
+                            null,
+                            ""
+                    );
+                }
+                return new LlmChatResponse("done", List.of(), null, "stop");
             }
 
             @Override
@@ -2347,7 +2379,12 @@ class StageArtifactComposerTests {
         );
     }
 
-    private abstract static class StructuredTestLlmProvider implements LlmProvider {
+    private abstract static class StructuredTestLlmProvider implements LlmProvider, ChatCapableLlmProvider {
+
+        @Override
+        public LlmChatResponse chat(LlmChatRequest request) {
+            throw new UnsupportedOperationException("chat is not used in this test provider");
+        }
 
         @Override
         public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {

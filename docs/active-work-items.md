@@ -104,6 +104,11 @@
 - [x] 将 implementation review 改成 contract-first gate，不再因为 `single html / 外提脚本 / embedded dominance` 直接回退 `DESIGN`
 - [x] 将阶段 directive 从 canonical artifact 中移出，单独持久化到 `*_directive.md`
 - [x] 将结构风险 gate 降为 advisory，不再把“是否外提主逻辑”作为 implementation/completeness 的阻断条件
+- [x] 将 implementation 子任务执行主链切到 `tool loop`，删除旧逐文件生成主入口在 implementation 主路径中的执行职责
+- [x] 将 task package / snapshot / verification 的 targeted context 渲染改为独立 `TargetedFileContextRenderer`
+- [x] 为 `tool loop` 主链接入 `Read/Edit/Write/Delete/Glob/Grep/Bash` 工具运行时，并优先复用 `Caffeine / commons-exec / ripgrep / java-diff-utils`
+- [x] 为 `tool loop` 主链补充定向单测
+- [x] 将 `ImplementationExecutorTests` 中仍绑定旧文件级生成 prompt 的断言迁移到 `tool loop` 协议断言
 - [ ] 重跑黄金路径集成测试
 - [x] 将 `IMPLEMENTATION` 未完成的 continuation 改成原生阶段流转，不再伪造 `ReviewResult / SupervisorDecision`
 - [ ] 根据集成结果更新 [current-state.md](/home/linus/workspace/forge/docs/current-state.md)
@@ -112,7 +117,7 @@
 
 ## 当前状态
 
-- `AGENTS 合规收口与黄金路径稳定化`：`unit-tested, awaiting integration`
+- `AGENTS 合规收口与黄金路径稳定化`：`tool-loop landed, executor tests aligned, awaiting integration`
 
 ## 当前说明
 
@@ -143,4 +148,39 @@
 
 因此当前主线调整为：
 
-- 质量规则收口
+- Claude 编码层对齐收口
+
+## D. Claude 编码层对齐清单
+
+目标：把“编码层是否已经对齐 Claude Code”从口头判断改成显式清单。后续只按这份表收口；做完一项，就直接在这里打勾。
+
+范围约束：
+
+- 这里只看 `IMPLEMENTATION` 编码内核
+- 不包含 `PLAN / REVIEW / TEST` 的一般稳定性问题
+- 判定标准不是“能跑”，而是“对应 contract 已对齐、旧语义已删除、同类问题已收口”
+
+### 对齐总表
+
+| 编号 | 对齐面 | Claude 参考 | Forge 参考 | 当前状态 |
+| --- | --- | --- | --- | --- |
+| C1 | `assistant -> tool_use -> tool_result -> assistant` 主环协议 | `claude-code/QueryEngine.ts` | `ImplementationToolLoopExecutor` | 已对齐 |
+| C2 | `Read/Edit/Write` 读后改写、partial-view 阻断、stale-write 阻断 | `claude-code/tools/FileEditTool/*` `claude-code/tools/FileWriteTool/*` | `FileReadTool` `FileEditTool` `FileWriteTool` | 已对齐 |
+| C3 | `readFileState` 生命周期是线程级/续跑级，而不是单次 loop 级 | `claude-code/QueryEngine.ts` `claude-code/cli/print.ts` | `ToolLoopRuntimeState` `ImplementationToolLoopExecutor` | 已对齐 |
+| C4 | `readFileState` cache 同时受 `maxEntries + maxSize` 约束 | `claude-code/utils/fileStateCache.ts` | `ToolLoopReadFileStateLedger` | 已对齐 |
+| C5 | 编码主链只认 `chat/tool` 单协议，不保留 `generate -> chat` 默认桥接 | `claude-code/QueryEngine.ts` | `ChatCapableLlmProvider` `ImplementationToolLoopExecutor` | 已对齐 |
+| C6 | tool result budget 是线程级 replacement state，不是局部落盘截断器 | `claude-code/query.ts` `claude-code/Tool.ts` | `ImplementationToolResultBudgetManager` | 已对齐 |
+| C7 | continuation / resume 会显式带回 `readFileState`，不会丢掉已读文件事实 | `claude-code/cli/print.ts` | `ImplementationStateSnapshot` `ImplementationSnapshotRestorer` | 已对齐 |
+| C8 | edit/write 后的外围基础设施一致：history / diff / diagnostics 等副作用契约清晰 | `claude-code/tools/FileEditTool/*` | `FileMutationRecord` `FileEditTool` `FileWriteTool` | 已对齐 |
+
+### 执行清单
+
+- [x] `tool loop` 主环已经切到 `assistant -> tool_use -> tool_result -> assistant`
+- [x] `Read/Edit/Write` 已要求先读后改，且阻断 partial-view / stale-write
+- [x] 把 `readFileState` 从 `ImplementationToolContext` 的单次新建状态，提升为 `subtask/continuation` 级持有状态
+- [x] 将 `readFileState` 接入 snapshot / restore / continuation，确保失败续跑不会丢失“已读文件”事实
+- [x] 修正 `CoderReadFileStateCache`，同时启用 `maxEntries` 和 `maxSizeBytes`
+- [x] 删除 `LlmProvider` 中编码主链的 `generate -> chat` 默认桥接；未实现 `chat/tool` 的 provider 直接失败
+- [x] 将 `ImplementationToolResultStorage` 从固定阈值落盘器升级为线程级 tool-result replacement state
+- [x] 明确 edit/write 后的外围副作用 contract：保留什么、删除什么、哪些必须进入统一基础设施
+- [x] 完成一轮 `self-test + code review`，并按这份清单逐项复核，不允许再用“主链已经像了”代替“已经对齐”

@@ -68,11 +68,9 @@ public class ImplementationExecutor {
         ImplementationPlanCoverageAnalyzer implementationPlanCoverageAnalyzer = new ImplementationPlanCoverageAnalyzer();
         ImplementationCompletenessCheck implementationCompletenessCheck = new ImplementationCompletenessCheck(workspace, treeSitterSupport);
         ArchitectIntegrationCheck architectIntegrationCheck = new ArchitectIntegrationCheck(workspace, treeSitterSupport);
-        var htmlPreciseEditor = new devflow.agent.editing.HtmlPreciseEditor(treeSitterSupport);
-        var codePreciseEditor = new devflow.agent.editing.CodePreciseEditor(treeSitterSupport);
-        var htmlDocumentAssembler = new devflow.agent.editing.HtmlDocumentAssembler();
         var generationEngine = new GenerationEngine();
         var runtimeWorkingSetResolver = new RuntimeWorkingSetResolver();
+        var targetedFileContextRenderer = new TargetedFileContextRenderer(workspace, runtimeWorkingSetResolver);
         ImplementationPlanner implementationPlanner = new ImplementationPlanner(
                 llmProvider,
                 objectMapper,
@@ -87,21 +85,14 @@ public class ImplementationExecutor {
         ImplementationGateEngine implementationGateEngine = new ImplementationGateEngine(implementationStageGate, architectIntegrationCheck);
         ImplementationResumePolicy implementationResumePolicy = new ImplementationResumePolicy(objectMapper);
         ImplementationArtifactRenderer implementationArtifactRenderer = new ImplementationArtifactRenderer(objectMapper);
-        FileEditCoordinator fileEditCoordinator = new FileEditCoordinator(
+        ImplementationToolLoopExecutor implementationToolLoopExecutor = new ImplementationToolLoopExecutor(
                 llmProvider,
-                workspace,
                 objectMapper,
-                treeSitterSupport,
-                htmlPreciseEditor,
-                codePreciseEditor,
-                htmlDocumentAssembler,
-                generationEngine,
-                runtimeWorkingSetResolver,
-                ImplementationExecutionPolicy.fileGenerationAttempts()
+                ImplementationExecutionPolicy.toolLoopTurns()
         );
         ImplementationSnapshotAssembler implementationSnapshotAssembler = new ImplementationSnapshotAssembler(
                 implementationArtifactRenderer,
-                fileEditCoordinator
+                targetedFileContextRenderer
         );
         ImplementationContextResolver implementationContextResolver = new ImplementationContextResolver(
                 workspace,
@@ -119,7 +110,8 @@ public class ImplementationExecutor {
                 architectIntegrationCheck,
                 supervisorAgent,
                 workspace,
-                fileEditCoordinator,
+                targetedFileContextRenderer,
+                implementationToolLoopExecutor,
                 generationEngine,
                 new AgentTurnLoop(),
                 ImplementationExecutionPolicy.subtaskAttempts()

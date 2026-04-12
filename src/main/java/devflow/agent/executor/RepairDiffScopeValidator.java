@@ -26,7 +26,7 @@ final class RepairDiffScopeValidator {
             if (!fitsAllowedRanges(repairRange, allowedRanges)) {
                 return ToolResult.failure(
                         ToolName.CONTENT_VERIFY,
-                        ToolFailureCode.PATCH_SCOPE_VIOLATION,
+                        ToolFailureCode.TARGET_SCOPE_VIOLATION,
                         "repair changed lines outside the current failing diff region: " + repairRange,
                         "请只修复当前失败补丁已经触达的代码区域，不要在 syntax repair 中扩散到新的远端代码块。"
                 );

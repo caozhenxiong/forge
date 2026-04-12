@@ -64,7 +64,7 @@ final class RepairScopeValidator {
         if (!missingAllowed.isEmpty()) {
             return ToolResult.failure(
                     ToolName.CONTENT_VERIFY,
-                    ToolFailureCode.PATCH_SCOPE_VIOLATION,
+                    ToolFailureCode.TARGET_SCOPE_VIOLATION,
                     "repair 后缺失当前 edit unit 允许的目标符号: " + String.join(", ", missingAllowed),
                     "请仅修复当前 allowedSymbols 对应的现有符号体，不要删掉目标符号声明。"
             );
@@ -76,7 +76,7 @@ final class RepairScopeValidator {
         if (!addedOutsideAllowed.isEmpty()) {
             return ToolResult.failure(
                     ToolName.CONTENT_VERIFY,
-                    ToolFailureCode.PATCH_SCOPE_VIOLATION,
+                    ToolFailureCode.TARGET_SCOPE_VIOLATION,
                     "repair 后新增了越界顶层符号: " + String.join(", ", addedOutsideAllowed),
                     "请不要在 syntax repair 中新增当前 allowedSymbols 之外的顶层符号。"
             );
@@ -88,7 +88,7 @@ final class RepairScopeValidator {
         if (!removedOutsideAllowed.isEmpty()) {
             return ToolResult.failure(
                     ToolName.CONTENT_VERIFY,
-                    ToolFailureCode.PATCH_SCOPE_VIOLATION,
+                    ToolFailureCode.TARGET_SCOPE_VIOLATION,
                     "repair 后删除了越界顶层符号: " + String.join(", ", removedOutsideAllowed),
                     "请不要在 syntax repair 中删除当前 allowedSymbols 之外的既有顶层符号。"
             );

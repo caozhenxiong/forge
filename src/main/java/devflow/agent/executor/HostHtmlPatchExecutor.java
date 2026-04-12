@@ -11,8 +11,8 @@ import devflow.agent.editing.HtmlPreciseEditor;
  * 2. `precise-html`
  * 3. `focused-html-region`
  *
- * <p>这样 `FileEditCoordinator` 只保留文件级路由和事务写盘，
- * 不再继续内联宿主 HTML 的生成、apply、verify、失败装配逻辑。
+ * <p>这样宿主 HTML 的生成、apply、verify、失败装配逻辑就和上层文件级路由分离，
+ * 不再揉回同一个编排层。
  */
 final class HostHtmlPatchExecutor {
 
@@ -69,15 +69,15 @@ final class HostHtmlPatchExecutor {
         );
     }
 
-    String generateStructuredHtmlDocument(HostHtmlPatchRequest request) {
+    String generateStructuredHtmlDocument(HtmlTargetedRewriteRequest request) {
         return structuredHtmlPatchExecutor.generate(request);
     }
 
-    String generatePreciseHtml(HostHtmlPatchRequest request) {
+    String generatePreciseHtml(HtmlTargetedRewriteRequest request) {
         return preciseHtmlPatchExecutor.generate(request);
     }
 
-    String generateFocusedRegion(HostHtmlPatchRequest request, HtmlEditRegion preferredRegion) {
+    String generateFocusedRegion(HtmlTargetedRewriteRequest request, HtmlEditRegion preferredRegion) {
         return focusedRegionHtmlPatchExecutor.generate(request, preferredRegion);
     }
 }

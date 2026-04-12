@@ -26,10 +26,10 @@ class ImplementationSnapshotAssembler {
 
     ImplementationSnapshotAssembler(
             ImplementationArtifactRenderer implementationArtifactRenderer,
-            FileEditCoordinator fileEditCoordinator
+            TargetedFileContextRenderer targetedFileContextRenderer
     ) {
         this.implementationArtifactRenderer = implementationArtifactRenderer;
-        this.taskPackageAssembler = new TaskPackageAssembler(fileEditCoordinator);
+        this.taskPackageAssembler = new TaskPackageAssembler(targetedFileContextRenderer);
         this.workerResultAssembler = new WorkerResultAssembler();
     }
 

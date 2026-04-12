@@ -163,11 +163,11 @@ class PatchPayloadRepairSupportTests {
                 PatchFailure.fromToolResult(
                         ToolResult.failure(
                                 ToolName.PATCH_APPLY,
-                                ToolFailureCode.EXACT_EDIT_BASE_STATE_MISMATCH,
+                                ToolFailureCode.SNAPSHOT_STALE,
                                 "stale hash",
                                 "repair current unit"
                         ),
-                        GenerationFailureType.RESULT_FILE_INVALID
+                        GenerationFailureType.VALIDATION_FAILED
                 ),
                 null
         );
@@ -248,11 +248,11 @@ class PatchPayloadRepairSupportTests {
                 PatchFailure.fromToolResult(
                         ToolResult.failure(
                                 ToolName.PATCH_APPLY,
-                                ToolFailureCode.PATCH_SCHEMA_INVALID,
+                                ToolFailureCode.MODEL_OUTPUT_INVALID,
                                 "Exact replace edit oldText and newText must differ.",
                                 "repair current unit"
                         ),
-                        GenerationFailureType.RESULT_FILE_INVALID
+                        GenerationFailureType.VALIDATION_FAILED
                 ),
                 null
         );

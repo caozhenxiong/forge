@@ -65,7 +65,7 @@ class GeneratedContentGate implements DeterministicGate<GeneratedContentGateInpu
 
     GenerationFailureType failureTypeFor(GateReport report) {
         if (report == null || report.passed() || report.issues().isEmpty()) {
-            return GenerationFailureType.RESULT_FILE_INVALID;
+            return GenerationFailureType.VALIDATION_FAILED;
         }
         return GeneratedContentValidationCode.valueOf(report.issues().get(0).code()).failureType();
     }

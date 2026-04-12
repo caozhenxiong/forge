@@ -138,6 +138,10 @@ final class OllamaStructuredReviewExecutor {
         }
     }
 
+    GenerationTelemetry consumeLastTelemetry() {
+        return generationExecutor.consumeLastTelemetry();
+    }
+
     private String sanitizeFallback(String content) {
         String singleLine = content.replace("```json", "")
                 .replace("```", "")

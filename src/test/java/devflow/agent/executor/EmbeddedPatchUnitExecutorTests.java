@@ -128,7 +128,7 @@ class EmbeddedPatchUnitExecutorTests {
         );
 
         String generated = executor.execute(
-                new EmbeddedPatchRequest(
+                new EmbeddedTargetedRewriteRequest(
                         tempDir,
                         Path.of("index.html"),
                         "",

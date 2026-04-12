@@ -16,12 +16,14 @@ public final class ImplementationExecutionPolicy {
     private static final int DEFAULT_PLANNING_PAYLOAD_REPAIR_ATTEMPTS = 3;
     private static final int DEFAULT_PLANNING_UNIT_ATTEMPTS = 3;
     private static final int DEFAULT_FILE_GENERATION_ATTEMPTS = 3;
+    private static final int DEFAULT_TOOL_LOOP_TURNS = 12;
     private static final int DEFAULT_MAX_FILES_PER_SUBTASK = 2;
     private static final int DEFAULT_MAX_DELIVERY_POLICY_FILES = 3;
     private static final String SUBTASK_ATTEMPTS_KEY = "devflow.implementation.subtask-attempts";
     private static final String PLANNING_PAYLOAD_REPAIR_ATTEMPTS_KEY = "devflow.implementation.planning-payload-repair-attempts";
     private static final String PLANNING_UNIT_ATTEMPTS_KEY = "devflow.implementation.planning-unit-attempts";
     private static final String FILE_GENERATION_ATTEMPTS_KEY = "devflow.implementation.file-generation-attempts";
+    private static final String TOOL_LOOP_TURNS_KEY = "devflow.implementation.tool-loop-turns";
     private static final String MAX_FILES_PER_SUBTASK_KEY = "devflow.implementation.max-files-per-subtask";
     private static final String MAX_DELIVERY_POLICY_FILES_KEY = "devflow.implementation.max-delivery-policy-files";
 
@@ -42,6 +44,10 @@ public final class ImplementationExecutionPolicy {
 
     public static int fileGenerationAttempts() {
         return readPositiveInt(FILE_GENERATION_ATTEMPTS_KEY, DEFAULT_FILE_GENERATION_ATTEMPTS);
+    }
+
+    public static int toolLoopTurns() {
+        return readPositiveInt(TOOL_LOOP_TURNS_KEY, DEFAULT_TOOL_LOOP_TURNS);
     }
 
     public static int maxFilesPerSubtask() {

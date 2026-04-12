@@ -17,18 +17,21 @@ final class SubtaskAttemptStepExecutor {
 
     private final TestExecutor testExecutor;
     private final ImplementationCompletenessGate implementationCompletenessGate;
-    private final FileEditCoordinator fileEditCoordinator;
+    private final TargetedFileContextRenderer targetedFileContextRenderer;
+    private final ImplementationToolLoopExecutor implementationToolLoopExecutor;
     private final SubtaskVerificationSupport subtaskVerificationSupport;
 
     SubtaskAttemptStepExecutor(
             TestExecutor testExecutor,
             ImplementationCompletenessGate implementationCompletenessGate,
-            FileEditCoordinator fileEditCoordinator,
+            TargetedFileContextRenderer targetedFileContextRenderer,
+            ImplementationToolLoopExecutor implementationToolLoopExecutor,
             SubtaskVerificationSupport subtaskVerificationSupport
     ) {
         this.testExecutor = testExecutor;
         this.implementationCompletenessGate = implementationCompletenessGate;
-        this.fileEditCoordinator = fileEditCoordinator;
+        this.targetedFileContextRenderer = targetedFileContextRenderer;
+        this.implementationToolLoopExecutor = implementationToolLoopExecutor;
         this.subtaskVerificationSupport = subtaskVerificationSupport;
     }
 
@@ -110,13 +113,7 @@ final class SubtaskAttemptStepExecutor {
                 context.qualityPlan(),
                 context.fingerprint(),
                 context.language(),
-                fileEditCoordinator.renderTargetedContext(
-                        context.projectPath(),
-                        effectiveSubtask.changes(),
-                        null,
-                        context.contractView(),
-                        context.fingerprint()
-                ),
+                renderTargetedContext(context, effectiveSubtask),
                 context.eventJournal()
         );
         progress.verification(verificationOutcome.review());
@@ -135,23 +132,23 @@ final class SubtaskAttemptStepExecutor {
     }
 
     private void applySubtask(SubtaskAttemptContext context) {
-        SubtaskExecutionState executionState = context.executionState();
         Subtask effectiveSubtask = effectiveSubtask(context);
-        for (FileChange change : effectiveSubtask.changes()) {
-            executionState = fileEditCoordinator.applyChange(
-                    context.projectPath(),
-                    context.planSummary(),
-                    effectiveSubtask,
-                    context.taskPackage(),
-                    context.feedback(),
-                    change,
-                    executionState,
-                    context.contractView(),
-                    context.fingerprint(),
-                    context.coderContextMarkdown(),
-                    context.eventJournal()
-            );
+        if (effectiveSubtask.changes() == null || effectiveSubtask.changes().isEmpty()) {
+            return;
         }
+        implementationToolLoopExecutor.execute(
+                context.projectPath(),
+                context.runRecord(),
+                effectiveSubtask,
+                context.taskPackage(),
+                context.contractView(),
+                context.qualityPlan(),
+                context.fingerprint(),
+                context.feedback(),
+                context.coderContextMarkdown(),
+                context.eventJournal(),
+                context.executionState()
+        );
     }
 
     private AgentTurnStepResult advance(
@@ -177,6 +174,19 @@ final class SubtaskAttemptStepExecutor {
                 context.subtask().runnableMilestone(),
                 context.subtask().deliveryMode(),
                 activeChanges
+        );
+    }
+
+    private String renderTargetedContext(SubtaskAttemptContext context, Subtask effectiveSubtask) {
+        if (targetedFileContextRenderer == null) {
+            return "";
+        }
+        return targetedFileContextRenderer.render(
+                context.projectPath(),
+                effectiveSubtask.changes(),
+                null,
+                context.contractView(),
+                context.fingerprint()
         );
     }
 }

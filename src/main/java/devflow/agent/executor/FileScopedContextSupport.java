@@ -15,7 +15,7 @@ import java.util.List;
  * 2. 把共享任务包收缩到单文件视角；
  * 3. 过滤只属于当前文件/当前符号的重试反馈。
  *
- * <p>把它从 {@link FileEditCoordinator} 拆出来后，协调器只保留路由和执行职责。
+ * <p>把它从旧文件级编辑链拆出来后，上层编排只保留路由和执行职责。
  */
 final class FileScopedContextSupport {
 

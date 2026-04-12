@@ -8,23 +8,23 @@ import java.util.EnumSet;
  * 统一维护 HTML 宿主 patch、内联脚本/样式 patch 与 focused region 的路由条件。
  *
  * <p>这层只负责“该走哪条 HTML 编辑主链”的确定性判断，不负责真正执行编辑。
- * 这样 FileEditCoordinator 可以继续缩成编排门面，而不是自己维护多组 fallback 条件。
+ * 这样上层路由层不需要自己维护多组 fallback 条件。
  */
 final class HtmlEditRoutingPolicy {
 
     private static final EnumSet<GenerationFailureType> EMBEDDED_PATCH_FALLBACK_FAILURES = EnumSet.of(
-            GenerationFailureType.SYMBOL_NOT_FOUND,
-            GenerationFailureType.INVALID_PATCH_JSON,
-            GenerationFailureType.PATCH_SCHEMA_INVALID,
-            GenerationFailureType.EDIT_UNIT_SCOPE_VIOLATION,
-            GenerationFailureType.TREE_SITTER_PARSE_FAILED,
-            GenerationFailureType.RESULT_FILE_INVALID
+            GenerationFailureType.TARGET_NOT_FOUND,
+            GenerationFailureType.MODEL_OUTPUT_INVALID,
+            GenerationFailureType.SNAPSHOT_STALE,
+            GenerationFailureType.TARGET_SCOPE_VIOLATION,
+            GenerationFailureType.SYNTAX_INVALID,
+            GenerationFailureType.VALIDATION_FAILED
     );
     private static final EnumSet<GenerationFailureType> HOST_HTML_REGION_FAILURES = EnumSet.of(
             GenerationFailureType.OUTPUT_TRUNCATED,
-            GenerationFailureType.INVALID_PATCH_JSON,
-            GenerationFailureType.PATCH_SCHEMA_INVALID,
-            GenerationFailureType.RESULT_FILE_INVALID
+            GenerationFailureType.MODEL_OUTPUT_INVALID,
+            GenerationFailureType.SNAPSHOT_STALE,
+            GenerationFailureType.VALIDATION_FAILED
     );
 
     private final EmbeddingAdapter<InlineScriptEditPlan> htmlInlineScriptEmbeddingAdapter;

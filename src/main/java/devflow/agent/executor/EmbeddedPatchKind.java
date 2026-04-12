@@ -13,8 +13,7 @@ import java.nio.file.Path;
  * 3. 统一目标摘要入口；
  * 4. 统一 apply + verify 入口。
  *
- * <p>这样 `FileEditCoordinator` 后续继续接新的宿主片段类型时，
- * 不需要再复制一套脚本/样式分支。
+ * <p>这样宿主片段类型继续扩展时，不需要再复制一套脚本/样式分支。
  */
 enum EmbeddedPatchKind {
     SCRIPT(

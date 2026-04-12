@@ -43,20 +43,26 @@ final class FileGenerationFailureFactory {
         if (failureType == GenerationFailureType.OUTPUT_TRUNCATED) {
             return relativePath + " 的模型输出被截断或未完整返回。";
         }
-        if (failureType == GenerationFailureType.INVALID_PATCH_JSON) {
-            return relativePath + " 的精确改写 JSON 非法。";
+        if (failureType == GenerationFailureType.MODEL_OUTPUT_INVALID) {
+            return relativePath + " 的模型返回不符合编辑协议。";
         }
-        if (failureType == GenerationFailureType.PATCH_SCHEMA_INVALID) {
-            return relativePath + " 的精确改写 schema 不合法。";
+        if (failureType == GenerationFailureType.SNAPSHOT_STALE) {
+            return relativePath + " 的编辑请求使用了过期快照。";
         }
-        if (failureType == GenerationFailureType.EDIT_UNIT_SCOPE_VIOLATION) {
+        if (failureType == GenerationFailureType.TARGET_SCOPE_VIOLATION) {
             return relativePath + " 的精确改写越过了当前 edit unit 的边界。";
         }
-        if (failureType == GenerationFailureType.SYMBOL_NOT_FOUND) {
+        if (failureType == GenerationFailureType.TARGET_NOT_FOUND) {
             return relativePath + " 的精确改写目标符号未匹配到现有代码。";
         }
-        if (failureType == GenerationFailureType.TREE_SITTER_PARSE_FAILED) {
+        if (failureType == GenerationFailureType.TARGET_NOT_UNIQUE) {
+            return relativePath + " 的编辑目标在当前内容中不是唯一命中。";
+        }
+        if (failureType == GenerationFailureType.SYNTAX_INVALID) {
             return relativePath + " 的改写结果未通过 tree-sitter 解析。";
+        }
+        if (failureType == GenerationFailureType.NO_MATERIAL_CHANGE) {
+            return relativePath + " 的编辑结果没有产生实际内容变化。";
         }
         if (failureType == GenerationFailureType.MODEL_INVOCATION_FAILED) {
             return relativePath + " 的模型调用失败，当前结果不可用。";

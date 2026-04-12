@@ -11,7 +11,7 @@ public class GenerationEngine {
 
     public <T> T execute(GenerationSpec<T> spec) {
         String retryFeedback = "";
-        GenerationFailureType lastFailureType = GenerationFailureType.RESULT_FILE_INVALID;
+        GenerationFailureType lastFailureType = GenerationFailureType.VALIDATION_FAILED;
         String lastFailureEvidence = "";
         for (int attempt = 1; attempt <= spec.maxAttempts(); attempt++) {
             int currentAttempt = attempt;

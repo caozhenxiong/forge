@@ -56,8 +56,9 @@ class ImplementationResumePolicyTests {
                                 List.of(),
                                 "PATCH",
                                 true,
-                                List.of(new ImplementationStateSnapshot.FilePatchProgressStateSnapshot(
+                                List.of(new ImplementationStateSnapshot.FileEditAttemptStateSnapshot(
                                         "app.js",
+                                        FileEditProtocolNames.TARGETED_REWRITE,
                                         FileEditStrategyNames.PRECISE_CODE,
                                         "export function tick() {}\n",
                                         "hash-1",
@@ -86,12 +87,12 @@ class ImplementationResumePolicyTests {
         assertNotNull(reusableState.resumedExecutionState());
         assertEquals(DeliveryMode.PATCH, reusableState.resumedExecutionState().deliveryMode());
         assertTrue(reusableState.resumedExecutionState().preferPreciseEditing());
-        FilePatchProgressState progressState = reusableState.resumedExecutionState().filePatchProgress(Path.of("app.js"));
+        FileEditAttemptState progressState = reusableState.resumedExecutionState().fileEditAttemptState(Path.of("app.js"));
         assertNotNull(progressState);
         assertEquals(FileEditStrategyNames.PRECISE_CODE, progressState.strategyName());
         assertEquals("export function tick() {}\n", progressState.workingContent());
-        assertEquals("code-unit-16", progressState.currentUnitLabel());
-        assertEquals(List.of("code-unit-1", "code-unit-2"), progressState.completedUnitLabels());
+        assertEquals("code-unit-16", progressState.currentTargetLabel());
+        assertEquals(List.of("code-unit-1", "code-unit-2"), progressState.completedTargetLabels());
     }
 
     @Test

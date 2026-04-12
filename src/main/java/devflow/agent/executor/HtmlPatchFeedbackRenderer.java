@@ -6,7 +6,7 @@ import java.nio.file.Path;
  * 统一渲染宿主 HTML 精确改写的失败反馈。
  *
  * <p>HTML 宿主 patch 仍然走单独协议，但它的 retry/diagnosis 提示也应该和代码 patch 一样
- * 从协调器中抽离，避免 FileEditCoordinator 继续堆积流程文案。
+ * 从上层编排中抽离，避免旧文件级编辑链继续堆积流程文案。
  */
 final class HtmlPatchFeedbackRenderer {
 
@@ -55,9 +55,9 @@ final class HtmlPatchFeedbackRenderer {
     }
 
     private static boolean isPatchLikeFailure(GenerationFailureType failureType) {
-        return failureType == GenerationFailureType.INVALID_PATCH_JSON
-                || failureType == GenerationFailureType.PATCH_SCHEMA_INVALID
-                || failureType == GenerationFailureType.EDIT_UNIT_SCOPE_VIOLATION
-                || failureType == GenerationFailureType.SYMBOL_NOT_FOUND;
+        return failureType == GenerationFailureType.MODEL_OUTPUT_INVALID
+                || failureType == GenerationFailureType.SNAPSHOT_STALE
+                || failureType == GenerationFailureType.TARGET_SCOPE_VIOLATION
+                || failureType == GenerationFailureType.TARGET_NOT_FOUND;
     }
 }

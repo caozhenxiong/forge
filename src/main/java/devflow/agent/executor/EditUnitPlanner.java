@@ -79,7 +79,7 @@ class EditUnitPlanner {
      *
      * <p>如果直接把所有 targetNames 下发给模型，函数内局部变量也会被规划成 edit unit，
      * 但 precise patch apply 并不稳定支持这类锚点，最终会在实现阶段反复触发
-     * SYMBOL_NOT_FOUND / EDIT_UNIT_SCOPE_VIOLATION。只有在源码里完全不存在 insertable symbol
+     * TARGET_NOT_FOUND / TARGET_SCOPE_VIOLATION。只有在源码里完全不存在 insertable symbol
      * 时，才回退到更宽的 targetNames 集合。
      */
     private List<EditUnit> batchCodeSymbols(
@@ -106,7 +106,7 @@ class EditUnitPlanner {
      * 内联脚本比普通代码文件更容易退化成“大段 script 重写”。
      *
      * <p>因此这里只接受支持插入/替换 body 的稳定符号，避免把局部变量声明等脆弱锚点
-     * 继续下发给模型，导致 working-set 路径反复命中 SYMBOL_NOT_FOUND。
+     * 继续下发给模型，导致 working-set 路径反复命中 TARGET_NOT_FOUND。
      */
     private List<EditUnit> batchInsertableSymbols(
             Path relativePath,

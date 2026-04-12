@@ -56,7 +56,7 @@ public record GenerationAttemptResult<T>(
             GenerationTelemetry telemetry
     ) {
         return patchFailure == null
-                ? failure(GenerationFailureType.RESULT_FILE_INVALID, "", retryFeedback, telemetry)
+                ? failure(GenerationFailureType.VALIDATION_FAILED, "", retryFeedback, telemetry)
                 : failure(patchFailure.failureType(), patchFailure.evidence(), retryFeedback, telemetry);
     }
 
@@ -98,7 +98,7 @@ public record GenerationAttemptResult<T>(
             GenerationTelemetry telemetry
     ) {
         return patchFailure == null
-                ? terminalFailure(GenerationFailureType.RESULT_FILE_INVALID, "", retryFeedback, telemetry)
+                ? terminalFailure(GenerationFailureType.VALIDATION_FAILED, "", retryFeedback, telemetry)
                 : terminalFailure(patchFailure.failureType(), patchFailure.evidence(), retryFeedback, telemetry);
     }
 }

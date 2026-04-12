@@ -46,23 +46,29 @@ record PatchFailure(
         if (failureCode == null) {
             return fallback;
         }
-        if (failureCode == ToolFailureCode.PATCH_APPLY_FAILED || failureCode == ToolFailureCode.PATCH_SCHEMA_INVALID) {
-            return GenerationFailureType.PATCH_SCHEMA_INVALID;
+        if (failureCode == ToolFailureCode.APPLY_FAILED || failureCode == ToolFailureCode.MODEL_OUTPUT_INVALID) {
+            return GenerationFailureType.MODEL_OUTPUT_INVALID;
         }
-        if (failureCode == ToolFailureCode.PATCH_SCOPE_VIOLATION) {
-            return GenerationFailureType.EDIT_UNIT_SCOPE_VIOLATION;
+        if (failureCode == ToolFailureCode.TARGET_SCOPE_VIOLATION) {
+            return GenerationFailureType.TARGET_SCOPE_VIOLATION;
         }
-        if (failureCode == ToolFailureCode.PATCH_SYMBOL_NOT_FOUND) {
-            return GenerationFailureType.SYMBOL_NOT_FOUND;
+        if (failureCode == ToolFailureCode.TARGET_NOT_FOUND) {
+            return GenerationFailureType.TARGET_NOT_FOUND;
         }
-        if (failureCode == ToolFailureCode.PATCH_ANCHOR_MISSING
-                || failureCode == ToolFailureCode.EXACT_EDIT_BASE_STATE_MISMATCH
-                || failureCode == ToolFailureCode.EXACT_EDIT_TARGET_NOT_FOUND
-                || failureCode == ToolFailureCode.EXACT_EDIT_TARGET_NOT_UNIQUE) {
-            return GenerationFailureType.RESULT_FILE_INVALID;
+        if (failureCode == ToolFailureCode.TARGET_NOT_UNIQUE) {
+            return GenerationFailureType.TARGET_NOT_UNIQUE;
         }
-        if (failureCode == ToolFailureCode.TREE_SITTER_PARSE_FAILED) {
-            return GenerationFailureType.TREE_SITTER_PARSE_FAILED;
+        if (failureCode == ToolFailureCode.SNAPSHOT_STALE) {
+            return GenerationFailureType.SNAPSHOT_STALE;
+        }
+        if (failureCode == ToolFailureCode.NO_MATERIAL_CHANGE) {
+            return GenerationFailureType.NO_MATERIAL_CHANGE;
+        }
+        if (failureCode == ToolFailureCode.TARGET_NOT_ADDRESSABLE) {
+            return GenerationFailureType.VALIDATION_FAILED;
+        }
+        if (failureCode == ToolFailureCode.SYNTAX_INVALID) {
+            return GenerationFailureType.SYNTAX_INVALID;
         }
         if (failureCode == ToolFailureCode.GENERATED_CONTENT_EMPTY
                 || failureCode == ToolFailureCode.HTML_STRUCTURE_INVALID
@@ -70,7 +76,7 @@ record PatchFailure(
                 || failureCode == ToolFailureCode.CONTENT_VALIDATION_EXCEPTION
                 || failureCode == ToolFailureCode.GENERATED_CONTENT_INVALID
                 || failureCode == ToolFailureCode.JAVASCRIPT_SYNTAX_INVALID) {
-            return GenerationFailureType.RESULT_FILE_INVALID;
+            return GenerationFailureType.VALIDATION_FAILED;
         }
         return fallback;
     }

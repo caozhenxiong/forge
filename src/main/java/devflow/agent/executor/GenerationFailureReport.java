@@ -74,11 +74,13 @@ public record GenerationFailureReport(
         if (usesPreciseEditingStrategy()) {
             return true;
         }
-        return failureType == GenerationFailureType.INVALID_PATCH_JSON
-                || failureType == GenerationFailureType.PATCH_SCHEMA_INVALID
-                || failureType == GenerationFailureType.EDIT_UNIT_SCOPE_VIOLATION
-                || failureType == GenerationFailureType.SYMBOL_NOT_FOUND
-                || failureType == GenerationFailureType.TREE_SITTER_PARSE_FAILED;
+        return failureType == GenerationFailureType.MODEL_OUTPUT_INVALID
+                || failureType == GenerationFailureType.SNAPSHOT_STALE
+                || failureType == GenerationFailureType.TARGET_SCOPE_VIOLATION
+                || failureType == GenerationFailureType.TARGET_NOT_FOUND
+                || failureType == GenerationFailureType.TARGET_NOT_UNIQUE
+                || failureType == GenerationFailureType.NO_MATERIAL_CHANGE
+                || failureType == GenerationFailureType.SYNTAX_INVALID;
     }
 
     public boolean usesPreciseEditingStrategy() {

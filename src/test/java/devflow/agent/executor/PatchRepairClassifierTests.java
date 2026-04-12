@@ -14,15 +14,15 @@ class PatchRepairClassifierTests {
     void classifiesMechanicalAndNonMechanicalFailures() {
         assertEquals(
                 PatchFailureClass.MECHANICAL,
-                classifier.classify(PatchFailure.of(GenerationFailureType.INVALID_PATCH_JSON, "bad json"))
+                classifier.classify(PatchFailure.of(GenerationFailureType.MODEL_OUTPUT_INVALID, "bad json"))
         );
         assertEquals(
                 PatchFailureClass.MECHANICAL,
-                classifier.classify(PatchFailure.of(GenerationFailureType.TREE_SITTER_PARSE_FAILED, "parse failed"))
+                classifier.classify(PatchFailure.of(GenerationFailureType.SYNTAX_INVALID, "parse failed"))
         );
         assertEquals(
                 PatchFailureClass.NON_MECHANICAL,
-                classifier.classify(PatchFailure.of(GenerationFailureType.EDIT_UNIT_SCOPE_VIOLATION, "scope"))
+                classifier.classify(PatchFailure.of(GenerationFailureType.TARGET_SCOPE_VIOLATION, "scope"))
         );
         assertEquals(
                 PatchFailureClass.NON_MECHANICAL,
@@ -43,7 +43,7 @@ class PatchRepairClassifierTests {
     @Test
     void scopeViolationAndTruncationNeverEnterSyntaxRepair() {
         assertFalse(classifier.supportsSyntaxRepair(
-                PatchFailure.of(GenerationFailureType.EDIT_UNIT_SCOPE_VIOLATION, "scope")
+                PatchFailure.of(GenerationFailureType.TARGET_SCOPE_VIOLATION, "scope")
         ));
         assertFalse(classifier.supportsSyntaxRepair(
                 PatchFailure.of(GenerationFailureType.OUTPUT_TRUNCATED, "length")
@@ -52,11 +52,11 @@ class PatchRepairClassifierTests {
                 PatchFailure.fromToolResult(
                         ToolResult.failure(
                                 ToolName.CONTENT_VERIFY,
-                                ToolFailureCode.TREE_SITTER_PARSE_FAILED,
+                                ToolFailureCode.SYNTAX_INVALID,
                                 "parse failed",
                                 ""
                         ),
-                        GenerationFailureType.RESULT_FILE_INVALID
+                        GenerationFailureType.VALIDATION_FAILED
                 )
         ));
         assertTrue(classifier.supportsSyntaxRepair(
@@ -67,7 +67,7 @@ class PatchRepairClassifierTests {
                                 "duplicated wrapper",
                                 ""
                         ),
-                        GenerationFailureType.RESULT_FILE_INVALID
+                        GenerationFailureType.VALIDATION_FAILED
                 )
         ));
     }

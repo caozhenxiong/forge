@@ -133,16 +133,16 @@
 
 ### 当前整体状态
 
-截至 `2026-04-12`：
+截至 `2026-04-13`：
 
 - 代码重构阶段：`100%`
-- 仓库级单测：已通过
-  - `mvn -q clean test`
+- 仓库级单测：全量 `mvn -q test` 已通过
+  - `mvn -q -Dtest=ImplementationToolLoopExecutorTests,ImplementationToolResultBudgetManagerTests,ImplementationExecutorTests,ImplementationResumePolicyTests,OllamaLlmProviderTests,ImplementationRuntimeContractResolverTests test`
   - `mvn -q test`
 - 正式黄金路径集成验收：最近一次稳定通过为 `v102`
 - `AGENTS` 合规收口主线：continuation、planning 约束、patch 主链入口和 quality rules 严格加载均已通过单元测试；黄金路径集成尚未用这版代码重跑
 
-这意味着底层重构主线已经完成正式业务验收；当前剩余工作主要是把最新这版合规收口结果拿到黄金路径验证。
+这意味着本轮 implementation/tool-loop 与 Claude 风格编码运行时收口已经完成代码级闭环；当前剩余主线只剩黄金路径集成验证。
 
 ### 最近一次收口评审结论
 
@@ -160,37 +160,94 @@
 
 ### 当前编辑主链
 
-文件编辑主链已经明确收口到 `Claude Code` 风格的 exact-replace / file-scoped patch：
+文件编辑内核已经收口到 `Claude Code` 风格的双协议骨架：
 
-- `patch-first`
-- `tool-result-first`
-- `budget-first`
-- `compact-first`
+- `targeted-rewrite`
+- `full-rewrite`
 
-当前主链能力：
+当前主链事实：
 
-- 代码文件优先走 patch 主链，而不是 `whole-file`
-- provider 调用前会先做上下文压缩与预算裁剪
-- patch apply / local verify / test evidence 已收成结构化结果
-- `precise-code / inline-script-workset / inline-style-workset` 主链已经统一成 `StructuredDiffPatch`：
-  - `expectedSourceHash`
-  - `hunks[].sourceStartLine / beforeLines / afterLines`
-  - 旧的 `operations / REPLACE_SYMBOL* / APPEND_FILE` 协议已从主代码路径删除
-- 宿主 HTML、内联脚本、内联样式已经进入显式嵌入适配层
-- `inline-script-workset` 已收紧为“多稳定符号批次”专用骨架；单入口 bootstrap 脚本直接走 `focused script region`，失配旧 `INLINE_SCRIPT_WORKSET` progress 会被丢弃而不是强行续跑
-- diagnosis / repair 已能直接消费最新测试产物，不再只靠 review 摘要
-- `repair-before-regenerate` 已在黄金路径中真实生效：
-  - `INVALID_PATCH_JSON` 会先进入 `deterministic-json-repair`
-  - `exact-replace` 的 `targetPath/baseContentHash` 漂移会先进入确定性语义修复
-  - `PATCH_EMPTY / TARGET_TEXT_NOT_FOUND / TARGET_TEXT_NOT_UNIQUE / BASE_STATE_MISMATCH` 会先留在当前 code unit 内走 semantic repair，再决定 split/abort
-  - 本地修复失败后再进入 `model-json-repair`
-  - `EDIT_UNIT_SCOPE_VIOLATION` 会触发单元重切或 focused patch 收窄，而不是直接整轮重生成
-- 文件级 patch progress 现在会直接冻结兄弟文件：
-  - 某个 `precise-code` 文件在 `code-unit-N` 失败后，下一轮只续跑该文件
-  - 已成功的 sibling file 不会再从头重写
-- `token budget` 分层预算已在黄金路径中真实生效：
-  - 日志会输出 `fixed / retrieved / output-reserve / material-budget`
-  - 文档阶段、实现阶段、测试阶段都按分层预算记录 telemetry
+- implementation 子任务执行主链已经切到 `Claude Code` 风格 `tool loop`：
+  - `SubtaskAttemptStepExecutor` 不再回退到旧逐文件生成入口
+  - 当前实现执行改成一次 subtask 内的 `assistant -> tool_use -> tool_result -> assistant`
+  - 主执行器为 `ImplementationToolLoopExecutor`
+  - `ImplementationExecutorTests` 已改成 `tool loop` 协议断言，不再绑定旧文件级 prompt
+- tool runtime 当前内建的稳定工具为：
+  - `Read`
+  - `Edit`
+  - `Write`
+  - `Delete`
+  - `Glob`
+  - `Grep`
+  - `Bash`
+- tool runtime 的复杂底层能力已明确走现成方案，不再继续手搓：
+  - diff/patch 结构化结果使用 `java-diff-utils`
+  - shell 执行使用 `commons-exec`
+  - 文件搜索使用 `ripgrep`
+- `tool loop` 现在以子任务线程级 `ToolLoopRuntimeState` 作为唯一状态源：
+  - `transcript`
+  - `readFileState`
+  - `tool-result replacement state`
+  - `file mutation records`
+- `readFileState` 不再是单次执行期内存对象，而是：
+  - 同子任务 retry 直接复用
+  - continuation / resume 进入 `implementation_state.json` 后可恢复
+  - 同时受 `maxEntries + maxSizeBytes` 双上限约束
+- 编码主链现在只认 `chat/tool` provider 能力：
+  - `ImplementationToolLoopExecutor` 运行时要求 `ChatCapableLlmProvider`
+  - 非编码阶段仍保留原生 `generate`
+- tool result budget 已从 batch-local 截断改成线程级 replacement state：
+  - 按 `toolUseId` 落盘大结果
+  - transcript 统一重放 replacement
+  - resume 后不会重复持久化同一结果
+- `Edit/Write/Delete` 成功后会统一记录 `FileMutationRecord`：
+  - 操作类型
+  - 前后哈希
+  - structured diff
+  - 诊断状态与证据
+- `TaskPackageAssembler`、implementation snapshot 和 subtask verification 的 targeted context
+  已经改走独立 `TargetedFileContextRenderer`，不再通过旧文件执行器反向借上下文
+- 旧 `FileEditCoordinator`、runtime factory / builder 骨架及对应主测试已经删除，不再保留实现阶段旧入口
+- 保留的底层编辑协议都会绑定显式 `FileStateSnapshot`：
+  - `targeted-rewrite`
+  - `full-rewrite`
+- 现有文件的两类协议都绑定显式 `FileStateSnapshot`：
+  - `relativePath`
+  - `exists`
+  - `content`
+  - `contentHash`
+  - `lineCount`
+- 文件级 continuation 不再持有旧 `patch progress`，而是统一记录 `FileEditAttemptState`：
+  - `protocolName`
+  - `strategyName`
+  - `workingContent`
+  - `plannedFromHash`
+  - `completedTargetLabels`
+  - `currentTargetLabel`
+- 某个文件在 `targeted-rewrite` 的 `code-unit-N` / `inline-unit-N` 失败后：
+  - 下一轮只续跑当前失败文件
+  - 只续跑当前失败 target
+  - 已成功 sibling file 不会再被整轮回卷
+- `full-rewrite` 不再只靠裸 `existingContent`：
+  - 请求对象必须显式携带 `FileStateSnapshot`
+  - prompt 会显式带入 `exists / sha256 / lineCount`
+- 失败语义已经从旧 patch 术语切到编辑语义：
+  - `MODEL_OUTPUT_INVALID`
+  - `SNAPSHOT_STALE`
+  - `TARGET_SCOPE_VIOLATION`
+  - `TARGET_NOT_FOUND`
+  - `TARGET_NOT_UNIQUE`
+  - `SYNTAX_INVALID`
+  - `NO_MATERIAL_CHANGE`
+  - `VALIDATION_FAILED`
+- `repair-before-regenerate` 仍然保留，并继续以“当前 target 内先修复、再决定是否重生”为主路径：
+  - 结构化 payload 非法先走本地 / 模型 JSON repair
+  - stale snapshot / target 未命中 / target 不唯一先走当前 target 语义修复
+  - syntax invalid 先走本地 syntax repair
+  - 只有 repair 失败后才升级到下一轮生成
+- `token budget` 分层预算仍在主链生效：
+  - 日志继续输出 `input / output / reserve / effective output`
+  - 文档阶段、实现阶段、测试阶段都按动态预算记录 telemetry
 
 当前仍待收口的点：
 
@@ -282,16 +339,17 @@
 
 - `ValidationStrategyPlanner -> ValidationCapabilityCandidateBuilder / ValidationPlanningPromptBuilder / ValidationPlanSanitizer`
 - `GeneratedContentGate -> GeneratedTreeSitterValidator / GeneratedJavaScriptContentValidator / GeneratedHtmlContentValidator`
-- `FileEditRuntimeFactory -> PatchRuntimeBuilder / FileRoutingRuntimeBuilder`
+- `ImplementationExecutorTests -> tool-loop 协议断言`
 - `PlaywrightCaseExecutor -> PlaywrightCaseRunSupport / PlaywrightRuntimeSnapshotSupport / PlaywrightSupport`
+- `FileEditCoordinator / FileEditRuntimeFactory / FileRoutingRuntimeBuilder` 旧入口骨架已删除
 
 当前几个典型门面体量：
 
-- `ValidationStrategyPlanner`: `49` 行
-- `GeneratedContentGate`: `116` 行
-- `FileEditRuntimeFactory`: `54` 行
+- `ValidationStrategyPlanner`: `50` 行
+- `GeneratedContentGate`: `142` 行
+- `ImplementationToolLoopExecutor`: `242` 行
 - `PlaywrightCaseExecutor`: `26` 行
-- `FileEditCoordinator`: `281` 行
+- `ImplementationExecutorTests`: `426` 行
 
 ## 文档分层
 

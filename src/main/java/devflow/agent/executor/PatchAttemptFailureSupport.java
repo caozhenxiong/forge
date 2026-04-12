@@ -45,25 +45,25 @@ final class PatchAttemptFailureSupport {
                     feedbackPolicy.truncationRetryFeedback().apply(attempt)
             );
         }
-        if (failureType == GenerationFailureType.INVALID_PATCH_JSON) {
+        if (failureType == GenerationFailureType.MODEL_OUTPUT_INVALID) {
             return GenerationAttemptResult.failure(
                     patchFailure,
                     feedbackPolicy.invalidJsonFeedback().apply(attempt)
             );
         }
-        if (failureType == GenerationFailureType.PATCH_SCHEMA_INVALID) {
+        if (failureType == GenerationFailureType.SNAPSHOT_STALE) {
             return GenerationAttemptResult.failure(
                     patchFailure,
                     feedbackPolicy.patchSchemaFeedback().apply(attempt)
             );
         }
-        if (failureType == GenerationFailureType.EDIT_UNIT_SCOPE_VIOLATION) {
+        if (failureType == GenerationFailureType.TARGET_SCOPE_VIOLATION) {
             return GenerationAttemptResult.failure(
                     patchFailure,
                     feedbackPolicy.scopeViolationFeedback().apply(attempt)
             );
         }
-        if (failureType == GenerationFailureType.SYMBOL_NOT_FOUND) {
+        if (failureType == GenerationFailureType.TARGET_NOT_FOUND) {
             return GenerationAttemptResult.terminalFailure(
                     patchFailure,
                     feedbackPolicy.symbolNotFoundFeedback().apply(evidence)

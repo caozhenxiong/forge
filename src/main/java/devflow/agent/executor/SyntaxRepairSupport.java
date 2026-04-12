@@ -34,7 +34,7 @@ final class SyntaxRepairSupport {
     }
 
     PatchApplyResult repairCodeFile(
-            CodePatchRequest request,
+            CodeTargetedRewriteRequest request,
             String baselineContent,
             EditUnit unit,
             PatchFailure patchFailure,
@@ -51,7 +51,7 @@ final class SyntaxRepairSupport {
     }
 
     PatchApplyResult repairEmbedded(
-            EmbeddedPatchRequest request,
+            EmbeddedTargetedRewriteRequest request,
             EmbeddedPatchKind patchKind,
             String baselineContent,
             EditUnit unit,
@@ -169,7 +169,7 @@ final class SyntaxRepairSupport {
     }
 
     private ToolResult validateRepairedCodeFile(
-            CodePatchRequest request,
+            CodeTargetedRewriteRequest request,
             String baselineContent,
             String candidateContent,
             String repairedContent
@@ -182,7 +182,7 @@ final class SyntaxRepairSupport {
     }
 
     private ToolResult validateRepairedEmbeddedContent(
-            EmbeddedPatchRequest request,
+            EmbeddedTargetedRewriteRequest request,
             EmbeddedPatchKind patchKind,
             String baselineContent,
             String candidateContent,
@@ -198,7 +198,7 @@ final class SyntaxRepairSupport {
     }
 
     private boolean shouldStopRepairLoop(ToolResult verifyResult) {
-        return verifyResult != null && verifyResult.failureCode() == ToolFailureCode.PATCH_SCOPE_VIOLATION;
+        return verifyResult != null && verifyResult.failureCode() == ToolFailureCode.TARGET_SCOPE_VIOLATION;
     }
 
     private String repairValidationResultLabel(ToolResult verifyResult) {
@@ -210,7 +210,7 @@ final class SyntaxRepairSupport {
         }
         return switch (verifyResult.failureCode()) {
             case HTML_STRUCTURE_INVALID, JAVASCRIPT_STRUCTURE_INVALID, INLINE_SCRIPT_INVALID -> "structure-failed";
-            case TREE_SITTER_PARSE_FAILED, JAVASCRIPT_SYNTAX_INVALID -> "syntax-failed";
+            case SYNTAX_INVALID, JAVASCRIPT_SYNTAX_INVALID -> "syntax-failed";
             default -> "validate-failed";
         };
     }
@@ -249,7 +249,7 @@ final class SyntaxRepairSupport {
             return false;
         }
         return switch (verifyResult.failureCode()) {
-            case TREE_SITTER_PARSE_FAILED, JAVASCRIPT_SYNTAX_INVALID -> true;
+            case SYNTAX_INVALID, JAVASCRIPT_SYNTAX_INVALID -> true;
             default -> false;
         };
     }

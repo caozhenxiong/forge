@@ -21,7 +21,7 @@ class GenerationFailureClassifierTests {
     @Test
     void mapsStructuredPayloadFailureToInvalidPatchJson() {
         assertEquals(
-                GenerationFailureType.INVALID_PATCH_JSON,
+                GenerationFailureType.MODEL_OUTPUT_INVALID,
                 classifier.classify(new StructuredPayloadException(StructuredPayloadFailureReason.JSON_PAYLOAD_INVALID, "bad json"))
         );
     }
@@ -29,16 +29,16 @@ class GenerationFailureClassifierTests {
     @Test
     void mapsPreciseEditReasonsToStableFailureTypes() {
         assertEquals(
-                GenerationFailureType.SYMBOL_NOT_FOUND,
-                classifier.classify(new PreciseEditException(PreciseEditFailureReason.SYMBOL_NOT_FOUND, "missing"))
+                GenerationFailureType.TARGET_NOT_FOUND,
+                classifier.classify(new PreciseEditException(PreciseEditFailureReason.TARGET_NOT_FOUND, "missing"))
         );
         assertEquals(
-                GenerationFailureType.PATCH_SCHEMA_INVALID,
-                classifier.classify(new PreciseEditException(PreciseEditFailureReason.PATCH_SCHEMA_INVALID, "invalid"))
+                GenerationFailureType.MODEL_OUTPUT_INVALID,
+                classifier.classify(new PreciseEditException(PreciseEditFailureReason.MODEL_OUTPUT_INVALID, "invalid"))
         );
         assertEquals(
-                GenerationFailureType.EDIT_UNIT_SCOPE_VIOLATION,
-                classifier.classify(new PreciseEditException(PreciseEditFailureReason.EDIT_UNIT_SCOPE_VIOLATION, "scope"))
+                GenerationFailureType.TARGET_SCOPE_VIOLATION,
+                classifier.classify(new PreciseEditException(PreciseEditFailureReason.TARGET_SCOPE_VIOLATION, "scope"))
         );
     }
 }

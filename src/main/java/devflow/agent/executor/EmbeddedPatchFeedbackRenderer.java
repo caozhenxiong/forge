@@ -6,7 +6,7 @@ import java.nio.file.Path;
  * 统一渲染宿主内嵌 patch 的失败反馈。
  *
  * <p>这层只负责把结构化失败信息转成下一轮提示需要的文本，不承担路由判断。
- * 这样 FileEditCoordinator 可以继续缩成编排门面，不再自己维护大量重试/终止文案。
+ * 这样旧文件级编辑编排层就不需要再自己维护大量重试/终止文案。
  */
 final class EmbeddedPatchFeedbackRenderer {
 

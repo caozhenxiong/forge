@@ -12,16 +12,18 @@ class SubtaskExecutionStateTests {
     @Test
     void revisionDirectiveReplacesActiveChangesAndPrunesOldPatchProgress() {
         SubtaskExecutionState state = new SubtaskExecutionState(DeliveryMode.PATCH, true);
-        state.recordPatchProgress(new FilePatchProgressState(
+        state.recordEditAttemptState(new FileEditAttemptState(
                 Path.of("js/game-engine.js"),
+                FileEditProtocolNames.TARGETED_REWRITE,
                 FileEditStrategyNames.PRECISE_CODE,
                 "export function tick() {}",
                 "hash-a",
                 List.of(),
                 "js/game-engine.js#code-unit-1"
         ));
-        state.recordPatchProgress(new FilePatchProgressState(
+        state.recordEditAttemptState(new FileEditAttemptState(
                 Path.of("index.html"),
+                FileEditProtocolNames.TARGETED_REWRITE,
                 FileEditStrategyNames.PRECISE_HTML,
                 "<html></html>",
                 "hash-b",
@@ -39,23 +41,25 @@ class SubtaskExecutionStateTests {
         ))));
 
         assertEquals(List.of("index.html"), state.effectiveChanges().stream().map(FileChange::path).toList());
-        assertNull(state.filePatchProgress(Path.of("js/game-engine.js")));
-        assertEquals("<html></html>", state.filePatchProgress(Path.of("index.html")).workingContent());
+        assertNull(state.fileEditAttemptState(Path.of("js/game-engine.js")));
+        assertEquals("<html></html>", state.fileEditAttemptState(Path.of("index.html")).workingContent());
     }
 
     @Test
     void generationFailureFreezesSiblingFilesAndKeepsFailedUnitProgress() {
         SubtaskExecutionState state = new SubtaskExecutionState(DeliveryMode.PATCH, true);
-        state.recordPatchProgress(new FilePatchProgressState(
+        state.recordEditAttemptState(new FileEditAttemptState(
                 Path.of("index.html"),
+                FileEditProtocolNames.TARGETED_REWRITE,
                 FileEditStrategyNames.PRECISE_HTML,
                 "<html></html>",
                 "hash-html",
                 List.of("markup-unit"),
                 "markup-unit"
         ));
-        state.recordPatchProgress(new FilePatchProgressState(
+        state.recordEditAttemptState(new FileEditAttemptState(
                 Path.of("src/app.js"),
+                FileEditProtocolNames.TARGETED_REWRITE,
                 FileEditStrategyNames.PRECISE_CODE,
                 "export function tick() {}\n",
                 "hash-js",
@@ -84,15 +88,16 @@ class SubtaskExecutionStateTests {
                                 "src/app.js",
                                 DeliveryMode.PATCH.name(),
                                 FileEditStrategyNames.PRECISE_CODE,
-                                GenerationFailureType.RESULT_FILE_INVALID,
+                                GenerationFailureType.VALIDATION_FAILED,
                                 1,
                                 true,
                                 "app.js patch failed",
-                                "PATCH_EMPTY",
+                                "NO_MATERIAL_CHANGE",
                                 "repair in current unit"
                         ),
-                        new FilePatchProgressState(
+                        new FileEditAttemptState(
                                 Path.of("src/app.js"),
+                                FileEditProtocolNames.TARGETED_REWRITE,
                                 FileEditStrategyNames.PRECISE_CODE,
                                 "export function tick() {}\n",
                                 "hash-js",
@@ -103,9 +108,9 @@ class SubtaskExecutionStateTests {
         );
 
         assertEquals(List.of("src/app.js"), state.effectiveChanges().stream().map(FileChange::path).toList());
-        assertNull(state.filePatchProgress(Path.of("index.html")));
-        FilePatchProgressState progressState = state.filePatchProgress(Path.of("src/app.js"));
-        assertEquals("code-unit-16", progressState.currentUnitLabel());
-        assertEquals(List.of("code-unit-1", "code-unit-2"), progressState.completedUnitLabels());
+        assertNull(state.fileEditAttemptState(Path.of("index.html")));
+        FileEditAttemptState progressState = state.fileEditAttemptState(Path.of("src/app.js"));
+        assertEquals("code-unit-16", progressState.currentTargetLabel());
+        assertEquals(List.of("code-unit-1", "code-unit-2"), progressState.completedTargetLabels());
     }
 }

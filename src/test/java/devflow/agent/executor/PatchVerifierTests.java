@@ -71,7 +71,7 @@ class PatchVerifierTests {
     void verifyCodeFileReturnsTypedFailureForInvalidContent() {
         ToolResult result = patchVerifier.verifyCodeFile(tempDir, Path.of("game.js"), "const broken =");
 
-        assertEquals(ToolFailureCode.TREE_SITTER_PARSE_FAILED, result.failureCode());
+        assertEquals(ToolFailureCode.SYNTAX_INVALID, result.failureCode());
         assertEquals(ToolName.CONTENT_VERIFY, result.toolName());
     }
 
@@ -79,7 +79,7 @@ class PatchVerifierTests {
     void verifyCodeFileReturnsTypedFailureWhenPreciseAnchorsDisappear() {
         ToolResult result = patchVerifier.verifyCodeFile(tempDir, Path.of("style.css"), "/* only comment */");
 
-        assertEquals(ToolFailureCode.PATCH_ANCHOR_MISSING, result.failureCode());
+        assertEquals(ToolFailureCode.TARGET_NOT_ADDRESSABLE, result.failureCode());
         assertEquals(ToolName.CONTENT_VERIFY, result.toolName());
     }
 
@@ -93,7 +93,7 @@ class PatchVerifierTests {
                 """
         );
 
-        assertEquals(ToolFailureCode.TREE_SITTER_PARSE_FAILED, result.failureCode());
+        assertEquals(ToolFailureCode.SYNTAX_INVALID, result.failureCode());
         assertEquals(ToolName.TREE_SITTER_VERIFY, result.toolName());
     }
 }

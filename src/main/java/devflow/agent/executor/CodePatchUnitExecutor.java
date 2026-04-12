@@ -63,7 +63,7 @@ final class CodePatchUnitExecutor {
     }
 
     String execute(
-            CodePatchRequest request,
+            CodeTargetedRewriteRequest request,
             String currentContent,
             EditUnit unit,
             PatchContextBuilder patchContextBuilder
@@ -151,7 +151,7 @@ final class CodePatchUnitExecutor {
                         }
                         PatchFailure patchFailure = PatchFailure.fromToolResult(
                                 applyResult.failureResult(),
-                                GenerationFailureType.RESULT_FILE_INVALID
+                                GenerationFailureType.VALIDATION_FAILED
                         );
                         applyResult = syntaxRepairSupport.repairCodeFile(
                                 request,
@@ -166,7 +166,7 @@ final class CodePatchUnitExecutor {
                         ToolResult failureResult = applyResult.failureResult();
                         patchFailure = PatchFailure.fromToolResult(
                                 failureResult,
-                                GenerationFailureType.RESULT_FILE_INVALID
+                                GenerationFailureType.VALIDATION_FAILED
                         );
                         if (patchFailureRouter.shouldAbortCurrentUnit(unit, patchFailure)) {
                             return GenerationAttemptResult.terminalFailure(
@@ -212,7 +212,7 @@ final class CodePatchUnitExecutor {
     }
 
     private PatchApplyResult repairSemanticPatchFailure(
-            CodePatchRequest request,
+            CodeTargetedRewriteRequest request,
             String currentContent,
             EditUnit unit,
             String normalizedPayload,
@@ -224,7 +224,7 @@ final class CodePatchUnitExecutor {
         }
         PatchFailure failure = PatchFailure.fromToolResult(
                 applyResult.failureResult(),
-                GenerationFailureType.RESULT_FILE_INVALID
+                GenerationFailureType.VALIDATION_FAILED
         );
         ExactReplaceEdit repairedEdit = exactReplaceSemanticRepairSupport.repair(
                 request.relativePath(),
@@ -251,7 +251,7 @@ final class CodePatchUnitExecutor {
      * 这里在首次 apply 成功后立刻校验，避免模型通过整段替换偷偷扩到 allowedSymbols 之外。
      */
     private PatchApplyResult validateRestrictedScope(
-            CodePatchRequest request,
+            CodeTargetedRewriteRequest request,
             String baselineContent,
             EditUnit unit,
             PatchApplyResult applyResult

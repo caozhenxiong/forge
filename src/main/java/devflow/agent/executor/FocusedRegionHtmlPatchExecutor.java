@@ -48,7 +48,7 @@ final class FocusedRegionHtmlPatchExecutor {
         this.exactReplaceApplySupport = new ExactReplaceApplySupport();
     }
 
-    String generate(HostHtmlPatchRequest request, HtmlEditRegion preferredRegion) {
+    String generate(HtmlTargetedRewriteRequest request, HtmlEditRegion preferredRegion) {
         HtmlEditRegion region = htmlFocusedRegionResolver.resolvePreferredRegion(request.existingContent(), preferredRegion);
         String currentRegionContent = htmlPreciseEditor.extractRegionContent(request.existingContent(), region);
         PatchGenerationPrompt generationPrompt = HtmlPatchPromptAssembler.focusedRegionPrompt(

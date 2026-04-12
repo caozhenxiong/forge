@@ -15,10 +15,10 @@ import java.util.List;
  */
 final class TaskPackageAssembler {
 
-    private final FileEditCoordinator fileEditCoordinator;
+    private final TargetedFileContextRenderer targetedFileContextRenderer;
 
-    TaskPackageAssembler(FileEditCoordinator fileEditCoordinator) {
-        this.fileEditCoordinator = fileEditCoordinator;
+    TaskPackageAssembler(TargetedFileContextRenderer targetedFileContextRenderer) {
+        this.targetedFileContextRenderer = targetedFileContextRenderer;
     }
 
     List<TaskPackage> buildTaskPackages(
@@ -42,11 +42,23 @@ final class TaskPackageAssembler {
                     safeList(subtask.acceptanceCriteria()),
                     sharedContextBundle.mustFixFirst(),
                     sharedContextBundle.forbiddenDirections(),
-                    fileEditCoordinator.renderTargetedContext(projectPath, subtask.changes(), null, contractView, fingerprint),
+                    renderTargetedContext(projectPath, subtask.changes(), contractView, fingerprint),
                     sharedContextBundle
             ));
         }
         return packages;
+    }
+
+    private String renderTargetedContext(
+            Path projectPath,
+            List<FileChange> changes,
+            ContractView contractView,
+            ProjectFingerprint fingerprint
+    ) {
+        if (targetedFileContextRenderer == null) {
+            return "";
+        }
+        return targetedFileContextRenderer.render(projectPath, changes, null, contractView, fingerprint);
     }
 
     private List<String> safeList(List<String> values) {

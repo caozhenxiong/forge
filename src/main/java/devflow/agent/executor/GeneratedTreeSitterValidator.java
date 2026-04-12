@@ -21,7 +21,7 @@ final class GeneratedTreeSitterValidator {
             return null;
         }
         return new GeneratedContentValidationFailure(
-                GeneratedContentValidationCode.TREE_SITTER_PARSE_FAILED,
+                GeneratedContentValidationCode.SYNTAX_INVALID,
                 summary.describe()
         );
     }

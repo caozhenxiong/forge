@@ -30,11 +30,11 @@ final class DeterministicExactReplaceRepairer {
         ToolFailureCode failureCode = failure.toolFailureCode();
         boolean targetPathMismatch = !normalizedTargetPath.equals(edit.targetPath());
         boolean baseHashMismatch = !snapshot.contentHash().equals(edit.baseContentHash());
-        if (failureCode == ToolFailureCode.EXACT_EDIT_BASE_STATE_MISMATCH && !baseHashMismatch && !targetPathMismatch) {
+        if (failureCode == ToolFailureCode.SNAPSHOT_STALE && !baseHashMismatch && !targetPathMismatch) {
             return null;
         }
-        if (failureCode != ToolFailureCode.EXACT_EDIT_BASE_STATE_MISMATCH
-                && failureCode != ToolFailureCode.PATCH_SCHEMA_INVALID) {
+        if (failureCode != ToolFailureCode.SNAPSHOT_STALE
+                && failureCode != ToolFailureCode.MODEL_OUTPUT_INVALID) {
             return null;
         }
         if (!targetPathMismatch && !baseHashMismatch) {

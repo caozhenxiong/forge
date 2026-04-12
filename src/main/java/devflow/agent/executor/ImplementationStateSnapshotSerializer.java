@@ -158,26 +158,28 @@ final class ImplementationStateSnapshotSerializer {
                                 .toList(),
                         report.executionState() == null ? null : report.executionState().deliveryMode().name(),
                         report.executionState() != null && report.executionState().preferPreciseEditing(),
-                        serializeFilePatchProgressStates(report.executionState()),
-                        serializeEffectiveChanges(report.executionState())
+                        serializeFileEditAttemptStates(report.executionState()),
+                        serializeEffectiveChanges(report.executionState()),
+                        serializeToolLoopRuntimeState(report.executionState())
                 ))
                 .toList();
     }
 
-    private List<ImplementationStateSnapshot.FilePatchProgressStateSnapshot> serializeFilePatchProgressStates(
+    private List<ImplementationStateSnapshot.FileEditAttemptStateSnapshot> serializeFileEditAttemptStates(
             SubtaskExecutionState executionState
     ) {
         if (executionState == null) {
             return List.of();
         }
-        return executionState.filePatchProgressStates().stream()
-                .map(progressState -> new ImplementationStateSnapshot.FilePatchProgressStateSnapshot(
+        return executionState.fileEditAttemptStates().stream()
+                .map(progressState -> new ImplementationStateSnapshot.FileEditAttemptStateSnapshot(
                         progressState.relativePath() == null ? "" : progressState.relativePath().toString(),
+                        progressState.protocolName(),
                         progressState.strategyName(),
                         progressState.workingContent(),
                         progressState.plannedFromHash(),
-                        progressState.completedUnitLabels(),
-                        progressState.currentUnitLabel()
+                        progressState.completedTargetLabels(),
+                        progressState.currentTargetLabel()
                 ))
                 .toList();
     }
@@ -198,6 +200,49 @@ final class ImplementationStateSnapshotSerializer {
                         change.hostHtmlPatchRequired()
                 ))
                 .toList();
+    }
+
+    private ImplementationStateSnapshot.ToolLoopRuntimeStateSnapshot serializeToolLoopRuntimeState(
+            SubtaskExecutionState executionState
+    ) {
+        if (executionState == null || executionState.toolLoopRuntimeState() == null) {
+            return null;
+        }
+        ToolLoopRuntimeState runtimeState = executionState.toolLoopRuntimeState();
+        return new ImplementationStateSnapshot.ToolLoopRuntimeStateSnapshot(
+                runtimeState.transcript().stream()
+                        .map(message -> new ImplementationStateSnapshot.ChatMessageState(
+                                message.role().name(),
+                                message.content(),
+                                message.toolName(),
+                                message.toolCallId(),
+                                message.toolCalls().stream()
+                                        .map(toolCall -> new ImplementationStateSnapshot.ToolCallState(
+                                                toolCall.id(),
+                                                toolCall.name(),
+                                                toolCall.arguments()
+                                        ))
+                                        .toList()
+                        ))
+                        .toList(),
+                runtimeState.readFileStateLedger().maxEntries(),
+                runtimeState.readFileStateLedger().maxSizeBytes(),
+                runtimeState.readFileStateLedger().snapshotEntries(),
+                runtimeState.resultReplacementState().snapshotSeenIds(),
+                runtimeState.resultReplacementState().snapshotReplacements(),
+                runtimeState.mutationRecords().stream()
+                        .map(mutation -> new ImplementationStateSnapshot.FileMutationState(
+                                mutation.operation().name(),
+                                mutation.relativePath() == null ? "" : mutation.relativePath().toString(),
+                                mutation.beforeHash(),
+                                mutation.afterHash(),
+                                mutation.structuredPatch(),
+                                mutation.timestamp(),
+                                mutation.diagnosticStatus().name(),
+                                mutation.diagnosticEvidence()
+                        ))
+                        .toList()
+        );
     }
 
     private ImplementationStateSnapshot.SubtaskAttemptState serializeAttempt(SubtaskAttemptReport attempt) {

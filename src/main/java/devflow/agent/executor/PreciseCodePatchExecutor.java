@@ -77,22 +77,22 @@ final class PreciseCodePatchExecutor {
         this.fileStateLedger = new FileStateLedger();
     }
 
-    String generate(CodePatchRequest request) {
-        FilePatchProgressState patchProgressState = request.patchProgressState();
+    String generate(CodeTargetedRewriteRequest request) {
+        FileEditAttemptState editAttemptState = request.editAttemptState();
         PatchPlan patchPlan = patchUnitSizer().resize(
                 editUnitPlanner.planCodePatch(request.relativePath(), request.existingContent()),
                 GenerationBudgetProfile.preciseCodeUnitOutputRatio(),
                 request.deliveryMode() == DeliveryMode.PATCH && request.substantiveFeedback()
         );
-        LinkedList<EditUnit> pendingUnits = initialPendingUnits(request.relativePath(), patchPlan, patchProgressState);
-        String currentContent = initialContent(request.existingContent(), patchProgressState);
-        ArrayList<String> completedUnitLabels = initialCompletedUnitLabels(patchProgressState);
+        LinkedList<EditUnit> pendingUnits = initialPendingUnits(request.relativePath(), patchPlan, editAttemptState);
+        String currentContent = initialContent(request.existingContent(), editAttemptState);
+        ArrayList<String> completedTargetLabels = initialCompletedUnitLabels(editAttemptState);
         while (!pendingUnits.isEmpty()) {
             EditUnit unit = pendingUnits.removeFirst();
             boolean scaffoldBootstrapUnit = scaffoldExpansionPlanner.isBootstrapUnit(unit, currentContent);
             try {
                 currentContent = unitExecutor.execute(request, currentContent, unit, patchContextBuilder);
-                completedUnitLabels.add(unit.label());
+                completedTargetLabels.add(unit.label());
                 if (scaffoldBootstrapUnit && pendingUnits.isEmpty()) {
                     List<EditUnit> followUpUnits = scaffoldExpansionPlanner.planFollowUpCodeUnitsAfterScaffold(
                             request.relativePath(),
@@ -118,12 +118,13 @@ final class PreciseCodePatchExecutor {
                 );
                 List<EditUnit> splitUnits = patchFailureRouter.splitIfNeeded(unit, patchFailure);
                 if (splitUnits.isEmpty()) {
-                    throw exception.withPatchProgressState(new FilePatchProgressState(
+                    throw exception.withEditAttemptState(new FileEditAttemptState(
                             request.relativePath(),
+                            FileEditProtocolNames.TARGETED_REWRITE,
                             FileEditStrategyNames.PRECISE_CODE,
                             currentContent,
                             fileStateLedger.capture(request.relativePath(), currentContent).contentHash(),
-                            List.copyOf(new LinkedHashSet<>(completedUnitLabels)),
+                            List.copyOf(new LinkedHashSet<>(completedTargetLabels)),
                             unit.label()
                     ));
                 }
@@ -145,45 +146,45 @@ final class PreciseCodePatchExecutor {
     private LinkedList<EditUnit> initialPendingUnits(
             Path relativePath,
             PatchPlan patchPlan,
-            FilePatchProgressState patchProgressState
+            FileEditAttemptState editAttemptState
     ) {
         List<EditUnit> freshUnits = expandRestrictedParentUnits(patchPlan.units());
-        if (patchProgressState != null
-                && patchProgressState.matches(relativePath, FileEditStrategyNames.PRECISE_CODE)
-                && patchProgressState.resumable()) {
-            return new LinkedList<>(resumeUnits(freshUnits, patchProgressState));
+        if (editAttemptState != null
+                && editAttemptState.matches(relativePath, FileEditStrategyNames.PRECISE_CODE)
+                && editAttemptState.resumable()) {
+            return new LinkedList<>(resumeUnits(freshUnits, editAttemptState));
         }
         return new LinkedList<>(freshUnits);
     }
 
-    private String initialContent(String existingContent, FilePatchProgressState patchProgressState) {
-        if (patchProgressState == null || patchProgressState.workingContent() == null || patchProgressState.workingContent().isBlank()) {
+    private String initialContent(String existingContent, FileEditAttemptState editAttemptState) {
+        if (editAttemptState == null || editAttemptState.workingContent() == null || editAttemptState.workingContent().isBlank()) {
             return existingContent;
         }
-        return patchProgressState.workingContent();
+        return editAttemptState.workingContent();
     }
 
-    private ArrayList<String> initialCompletedUnitLabels(FilePatchProgressState patchProgressState) {
-        if (patchProgressState == null || patchProgressState.completedUnitLabels() == null) {
+    private ArrayList<String> initialCompletedUnitLabels(FileEditAttemptState editAttemptState) {
+        if (editAttemptState == null || editAttemptState.completedTargetLabels() == null) {
             return new ArrayList<>();
         }
-        return new ArrayList<>(patchProgressState.completedUnitLabels());
+        return new ArrayList<>(editAttemptState.completedTargetLabels());
     }
 
-    private List<EditUnit> resumeUnits(List<EditUnit> freshUnits, FilePatchProgressState patchProgressState) {
+    private List<EditUnit> resumeUnits(List<EditUnit> freshUnits, FileEditAttemptState editAttemptState) {
         if (freshUnits == null || freshUnits.isEmpty()) {
             return List.of();
         }
-        LinkedHashSet<String> completed = new LinkedHashSet<>(patchProgressState.completedUnitLabels());
+        LinkedHashSet<String> completed = new LinkedHashSet<>(editAttemptState.completedTargetLabels());
         List<EditUnit> remaining = freshUnits.stream()
                 .filter(unit -> unit != null && !completed.contains(unit.label()))
                 .toList();
-        if (patchProgressState.currentUnitLabel().isBlank()) {
+        if (editAttemptState.currentTargetLabel().isBlank()) {
             return remaining;
         }
         int resumeIndex = -1;
         for (int index = 0; index < remaining.size(); index++) {
-            if (patchProgressState.currentUnitLabel().equals(remaining.get(index).label())) {
+            if (editAttemptState.currentTargetLabel().equals(remaining.get(index).label())) {
                 resumeIndex = index;
                 break;
             }

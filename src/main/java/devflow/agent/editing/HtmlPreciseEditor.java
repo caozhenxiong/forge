@@ -46,7 +46,7 @@ public class HtmlPreciseEditor {
         ByteRange range = rangeForRegion(structure, region);
         if (range == null || !range.isValid()) {
             throw new PreciseEditException(
-                    PreciseEditFailureReason.ANCHOR_MISSING,
+                    PreciseEditFailureReason.TARGET_NOT_ADDRESSABLE,
                     "Current HTML does not expose the requested focused region."
             );
         }
@@ -67,13 +67,13 @@ public class HtmlPreciseEditor {
         HtmlEditableStructure structure = treeSitterSupport.inspectEditableHtml(source);
         if (!structure.supportsPreciseEditing()) {
             throw new PreciseEditException(
-                    PreciseEditFailureReason.ANCHOR_MISSING,
+                    PreciseEditFailureReason.TARGET_NOT_ADDRESSABLE,
                     "Current HTML does not expose precise editing anchors."
             );
         }
         if (patch == null) {
             throw new PreciseEditException(
-                    PreciseEditFailureReason.PATCH_SCHEMA_INVALID,
+                    PreciseEditFailureReason.MODEL_OUTPUT_INVALID,
                     "Precise HTML patch must contain at least one section update."
             );
         }
@@ -91,7 +91,7 @@ public class HtmlPreciseEditor {
         if (patch.headAppendHtml() != null) {
             if (structure.headInnerRange() == null) {
                 throw new PreciseEditException(
-                        PreciseEditFailureReason.ANCHOR_MISSING,
+                        PreciseEditFailureReason.TARGET_NOT_ADDRESSABLE,
                         "Precise HTML patch requested headAppendHtml but the document has no editable <head> range."
                 );
             }
@@ -132,7 +132,7 @@ public class HtmlPreciseEditor {
         if (patch.bodyAppendHtml() != null) {
             if (structure.bodyInnerRange() == null) {
                 throw new PreciseEditException(
-                        PreciseEditFailureReason.ANCHOR_MISSING,
+                        PreciseEditFailureReason.TARGET_NOT_ADDRESSABLE,
                         "Precise HTML patch requested bodyAppendHtml but the document has no editable <body> range."
                 );
             }
@@ -152,7 +152,7 @@ public class HtmlPreciseEditor {
                 return source;
             }
             throw new PreciseEditException(
-                    PreciseEditFailureReason.PATCH_SCHEMA_INVALID,
+                    PreciseEditFailureReason.MODEL_OUTPUT_INVALID,
                     "Precise HTML patch did not produce any applicable changes."
             );
         }

@@ -3,27 +3,27 @@ package devflow.agent.executor;
 public class GenerationFailureException extends RuntimeException {
 
     private final GenerationFailureReport report;
-    private final FilePatchProgressState patchProgressState;
+    private final FileEditAttemptState editAttemptState;
 
     public GenerationFailureException(GenerationFailureReport report) {
         this(report, null);
     }
 
-    public GenerationFailureException(GenerationFailureReport report, FilePatchProgressState patchProgressState) {
+    public GenerationFailureException(GenerationFailureReport report, FileEditAttemptState editAttemptState) {
         super(report == null ? "Generation failure" : report.summary());
         this.report = report;
-        this.patchProgressState = patchProgressState;
+        this.editAttemptState = editAttemptState;
     }
 
     public GenerationFailureReport report() {
         return report;
     }
 
-    public FilePatchProgressState patchProgressState() {
-        return patchProgressState;
+    public FileEditAttemptState editAttemptState() {
+        return editAttemptState;
     }
 
-    public GenerationFailureException withPatchProgressState(FilePatchProgressState progressState) {
+    public GenerationFailureException withEditAttemptState(FileEditAttemptState progressState) {
         return new GenerationFailureException(report, progressState);
     }
 }

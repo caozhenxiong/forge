@@ -12,30 +12,33 @@ import java.util.Map;
  * 表示单个子任务在运行中的执行策略状态。
  *
  * <p>除了 delivery policy，这里还持有：
- * 1. 文件级 patch progress，让当前子任务能从失败单元继续；
+ * 1. 文件级 edit attempt state，让当前子任务能从失败 target 继续；
  * 2. 文件级 change override，让结构化 verification 可以直接改写下一轮执行约束。
  */
 final class SubtaskExecutionState {
 
     private final DeliveryMode deliveryMode;
     private final boolean preferPreciseEditing;
-    private final LinkedHashMap<Path, FilePatchProgressState> fileProgressByPath;
+    private final LinkedHashMap<Path, FileEditAttemptState> fileProgressByPath;
     private final ArrayList<FileChange> effectiveChanges;
+    private final ToolLoopRuntimeState toolLoopRuntimeState;
 
     SubtaskExecutionState(DeliveryMode deliveryMode, boolean preferPreciseEditing) {
-        this(deliveryMode, preferPreciseEditing, new LinkedHashMap<>(), List.of());
+        this(deliveryMode, preferPreciseEditing, new LinkedHashMap<>(), List.of(), new ToolLoopRuntimeState());
     }
 
     private SubtaskExecutionState(
             DeliveryMode deliveryMode,
             boolean preferPreciseEditing,
-            LinkedHashMap<Path, FilePatchProgressState> fileProgressByPath,
-            List<FileChange> effectiveChanges
+            LinkedHashMap<Path, FileEditAttemptState> fileProgressByPath,
+            List<FileChange> effectiveChanges,
+            ToolLoopRuntimeState toolLoopRuntimeState
     ) {
         this.deliveryMode = deliveryMode;
         this.preferPreciseEditing = preferPreciseEditing;
         this.fileProgressByPath = fileProgressByPath == null ? new LinkedHashMap<>() : fileProgressByPath;
         this.effectiveChanges = new ArrayList<>(normalizeChanges(effectiveChanges));
+        this.toolLoopRuntimeState = toolLoopRuntimeState == null ? new ToolLoopRuntimeState() : toolLoopRuntimeState;
     }
 
     DeliveryMode deliveryMode() {
@@ -48,43 +51,43 @@ final class SubtaskExecutionState {
 
     SubtaskExecutionState withRecoveryPolicy(DeliveryPolicy policy) {
         DeliveryMode nextMode = parseMode(policy.mode(), deliveryMode);
-        return new SubtaskExecutionState(nextMode, policy.preferPreciseEditing(), copyProgressMap(), copyEffectiveChanges());
+        return new SubtaskExecutionState(nextMode, policy.preferPreciseEditing(), copyProgressMap(), copyEffectiveChanges(), copyToolLoopRuntimeState());
     }
 
     SubtaskExecutionState copy() {
-        return new SubtaskExecutionState(deliveryMode, preferPreciseEditing, copyProgressMap(), copyEffectiveChanges());
+        return new SubtaskExecutionState(deliveryMode, preferPreciseEditing, copyProgressMap(), copyEffectiveChanges(), copyToolLoopRuntimeState());
     }
 
     String effectiveExistingContent(Path relativePath, String fallbackContent) {
-        FilePatchProgressState progressState = filePatchProgress(relativePath);
+        FileEditAttemptState progressState = fileEditAttemptState(relativePath);
         if (progressState == null || progressState.workingContent() == null) {
             return fallbackContent == null ? "" : fallbackContent;
         }
         return progressState.workingContent();
     }
 
-    FilePatchProgressState filePatchProgress(Path relativePath) {
+    FileEditAttemptState fileEditAttemptState(Path relativePath) {
         if (relativePath == null) {
             return null;
         }
         return fileProgressByPath.get(relativePath.normalize());
     }
 
-    void recordPatchProgress(FilePatchProgressState progressState) {
+    void recordEditAttemptState(FileEditAttemptState progressState) {
         if (progressState == null || progressState.relativePath() == null) {
             return;
         }
         fileProgressByPath.put(progressState.relativePath(), progressState);
     }
 
-    void clearPatchProgress(Path relativePath) {
+    void clearEditAttemptState(Path relativePath) {
         if (relativePath == null) {
             return;
         }
         fileProgressByPath.remove(relativePath.normalize());
     }
 
-    List<FilePatchProgressState> filePatchProgressStates() {
+    List<FileEditAttemptState> fileEditAttemptStates() {
         return List.copyOf(fileProgressByPath.values());
     }
 
@@ -114,7 +117,7 @@ final class SubtaskExecutionState {
         }
         effectiveChanges.clear();
         effectiveChanges.addAll(normalized);
-        prunePatchProgressToActivePaths();
+        pruneEditAttemptStatesToActivePaths();
     }
 
     void applyRevisionDirective(SubtaskRevisionDirective directive) {
@@ -125,7 +128,7 @@ final class SubtaskExecutionState {
     }
 
     /**
-     * 文件级生成失败已经携带了 patch progress 时，下一轮必须冻结兄弟文件，
+     * 文件级生成失败已经携带了 edit attempt state 时，下一轮必须冻结兄弟文件，
      * 只续跑当前失败文件，避免把局部失败又放大回整子任务重写。
      */
     void applyFileScopedGenerationFailure(Subtask subtask, GenerationFailureException failure) {
@@ -150,28 +153,33 @@ final class SubtaskExecutionState {
         return List.copyOf(effectiveChanges);
     }
 
+    ToolLoopRuntimeState toolLoopRuntimeState() {
+        return toolLoopRuntimeState;
+    }
+
     static SubtaskExecutionState restore(
             String deliveryMode,
             boolean preferPreciseEditing,
-            List<FilePatchProgressState> filePatchProgressStates,
-            List<FileChange> effectiveChanges
+            List<FileEditAttemptState> fileEditAttemptStates,
+            List<FileChange> effectiveChanges,
+            ToolLoopRuntimeState toolLoopRuntimeState
     ) {
         DeliveryMode resolvedMode = DeliveryMode.valueOf(deliveryMode);
-        LinkedHashMap<Path, FilePatchProgressState> progressByPath = new LinkedHashMap<>();
-        if (filePatchProgressStates != null) {
-            for (FilePatchProgressState progressState : filePatchProgressStates) {
+        LinkedHashMap<Path, FileEditAttemptState> progressByPath = new LinkedHashMap<>();
+        if (fileEditAttemptStates != null) {
+            for (FileEditAttemptState progressState : fileEditAttemptStates) {
                 if (progressState == null || progressState.relativePath() == null) {
                     continue;
                 }
                 progressByPath.put(progressState.relativePath(), progressState);
             }
         }
-        return new SubtaskExecutionState(resolvedMode, preferPreciseEditing, progressByPath, effectiveChanges);
+        return new SubtaskExecutionState(resolvedMode, preferPreciseEditing, progressByPath, effectiveChanges, toolLoopRuntimeState);
     }
 
-    private LinkedHashMap<Path, FilePatchProgressState> copyProgressMap() {
-        LinkedHashMap<Path, FilePatchProgressState> copy = new LinkedHashMap<>();
-        for (Map.Entry<Path, FilePatchProgressState> entry : fileProgressByPath.entrySet()) {
+    private LinkedHashMap<Path, FileEditAttemptState> copyProgressMap() {
+        LinkedHashMap<Path, FileEditAttemptState> copy = new LinkedHashMap<>();
+        for (Map.Entry<Path, FileEditAttemptState> entry : fileProgressByPath.entrySet()) {
             copy.put(entry.getKey(), entry.getValue());
         }
         return copy;
@@ -179,6 +187,10 @@ final class SubtaskExecutionState {
 
     private List<FileChange> copyEffectiveChanges() {
         return List.copyOf(effectiveChanges);
+    }
+
+    private ToolLoopRuntimeState copyToolLoopRuntimeState() {
+        return toolLoopRuntimeState == null ? new ToolLoopRuntimeState() : toolLoopRuntimeState.copy();
     }
 
     private DeliveryMode parseMode(DeliveryPolicyMode value, DeliveryMode fallback) {
@@ -189,7 +201,7 @@ final class SubtaskExecutionState {
         return resolved == null ? fallback : resolved;
     }
 
-    private void prunePatchProgressToActivePaths() {
+    private void pruneEditAttemptStatesToActivePaths() {
         if (effectiveChanges.isEmpty() || fileProgressByPath.isEmpty()) {
             return;
         }
@@ -221,9 +233,9 @@ final class SubtaskExecutionState {
         if (failure == null) {
             return null;
         }
-        FilePatchProgressState patchProgressState = failure.patchProgressState();
-        if (patchProgressState != null && patchProgressState.relativePath() != null) {
-            return patchProgressState.relativePath().normalize();
+        FileEditAttemptState editAttemptState = failure.editAttemptState();
+        if (editAttemptState != null && editAttemptState.relativePath() != null) {
+            return editAttemptState.relativePath().normalize();
         }
         return null;
     }

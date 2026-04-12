@@ -15,14 +15,14 @@ class PatchFailureRouterTests {
         PatchFailure patchFailure = PatchFailure.fromToolResult(
                 ToolResult.failure(
                         ToolName.PATCH_APPLY,
-                        ToolFailureCode.PATCH_SCOPE_VIOLATION,
+                        ToolFailureCode.TARGET_SCOPE_VIOLATION,
                         "target escaped current unit",
                         "请只保留当前单元允许的符号。"
                 ),
-                GenerationFailureType.RESULT_FILE_INVALID
+                GenerationFailureType.VALIDATION_FAILED
         );
 
-        assertEquals(GenerationFailureType.EDIT_UNIT_SCOPE_VIOLATION, patchFailure.failureType());
+        assertEquals(GenerationFailureType.TARGET_SCOPE_VIOLATION, patchFailure.failureType());
         assertEquals(PatchFailureDisposition.ESCALATE, router.dispositionFor(unit, patchFailure));
         assertTrue(!router.shouldAbortCurrentUnit(unit, patchFailure));
     }
@@ -61,7 +61,7 @@ class PatchFailureRouterTests {
     void unsplittableScopeViolationEscalatesInsteadOfRetryingCurrentUnit() {
         PatchFailureRouter router = new PatchFailureRouter(new PatchFailureRoutingSettings(2));
         EditUnit unit = new EditUnit(EditUnitKind.CODE_SYMBOL_BATCH, "game.js#code-unit-16", List.of("render"));
-        PatchFailure patchFailure = PatchFailure.of(GenerationFailureType.EDIT_UNIT_SCOPE_VIOLATION, "out of scope");
+        PatchFailure patchFailure = PatchFailure.of(GenerationFailureType.TARGET_SCOPE_VIOLATION, "out of scope");
 
         assertEquals(PatchFailureDisposition.ESCALATE, router.dispositionFor(unit, patchFailure));
         assertTrue(!router.shouldRetryCurrentUnit(unit, patchFailure));

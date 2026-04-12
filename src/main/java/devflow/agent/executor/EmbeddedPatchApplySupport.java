@@ -19,7 +19,7 @@ final class EmbeddedPatchApplySupport {
     }
 
     PatchApplyResult apply(
-            EmbeddedPatchRequest request,
+            EmbeddedTargetedRewriteRequest request,
             EmbeddedPatchKind patchKind,
             String currentContent,
             EditUnit unit,

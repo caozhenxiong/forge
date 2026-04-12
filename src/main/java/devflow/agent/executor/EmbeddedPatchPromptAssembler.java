@@ -6,7 +6,7 @@ import java.nio.file.Path;
  * 统一组装宿主内嵌 patch 的生成 prompt。
  *
  * <p>宿主脚本/样式主链共享同一套 prompt 结构，只在 patch kind 和单元约束上有稳定差异。
- * 这层把这些模板从 FileEditCoordinator 中抽离，避免协调器继续维护大段字面量。
+ * 这层把这些模板从旧文件级编辑编排层抽离，避免上层继续维护大段字面量。
  */
 final class EmbeddedPatchPromptAssembler {
 

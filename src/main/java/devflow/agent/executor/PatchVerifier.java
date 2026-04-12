@@ -39,7 +39,7 @@ final class PatchVerifier {
         }
         return ToolResult.failure(
                 ToolName.CONTENT_VERIFY,
-                ToolFailureCode.TREE_SITTER_PARSE_FAILED,
+                ToolFailureCode.SYNTAX_INVALID,
                 "内联脚本工作集未通过 tree-sitter 解析",
                 "请继续只改当前 patch 单元允许的符号，并保持脚本可解析。"
         );
@@ -53,7 +53,7 @@ final class PatchVerifier {
         }
         return ToolResult.failure(
                 ToolName.TREE_SITTER_VERIFY,
-                ToolFailureCode.TREE_SITTER_PARSE_FAILED,
+                ToolFailureCode.SYNTAX_INVALID,
                 "内联样式工作集未通过 tree-sitter 解析",
                 "请继续只改当前 patch 单元允许的样式规则，并保持样式可解析。"
         );

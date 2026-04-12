@@ -39,7 +39,7 @@ class HtmlInlineScriptWorkingSetResolver {
             return null;
         }
         // 如果脚本里只有局部变量这类“可替换但不可插入”的符号，
-        // working-set 精确编辑会很不稳定，容易直接退化成 SYMBOL_NOT_FOUND。
+        // working-set 精确编辑会很不稳定，容易直接退化成 TARGET_NOT_FOUND。
         // 这类脚本更适合走 script 区块级改写，而不是伪装成符号级编辑。
         if (!targetContext.hasInsertableTargets()) {
             return null;

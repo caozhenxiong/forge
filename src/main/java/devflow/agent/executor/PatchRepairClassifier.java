@@ -10,13 +10,16 @@ final class PatchRepairClassifier {
             return PatchFailureClass.NON_MECHANICAL;
         }
         return switch (failure.failureType()) {
-            case INVALID_PATCH_JSON, PATCH_SCHEMA_INVALID, TREE_SITTER_PARSE_FAILED -> PatchFailureClass.MECHANICAL;
-            case RESULT_FILE_INVALID -> classifyResultFileFailure(failure);
+            case MODEL_OUTPUT_INVALID, SYNTAX_INVALID -> PatchFailureClass.MECHANICAL;
+            case VALIDATION_FAILED -> classifyResultFileFailure(failure);
             case MODEL_INVOCATION_FAILED,
                     ATTEMPT_TIMEOUT,
                     OUTPUT_TRUNCATED,
-                    EDIT_UNIT_SCOPE_VIOLATION,
-                    SYMBOL_NOT_FOUND -> PatchFailureClass.NON_MECHANICAL;
+                    TARGET_SCOPE_VIOLATION,
+                    TARGET_NOT_FOUND,
+                    TARGET_NOT_UNIQUE,
+                    SNAPSHOT_STALE,
+                    NO_MATERIAL_CHANGE -> PatchFailureClass.NON_MECHANICAL;
         };
     }
 
@@ -33,12 +36,12 @@ final class PatchRepairClassifier {
         if (failure == null || classify(failure) != PatchFailureClass.MECHANICAL) {
             return false;
         }
-        if (failure.failureType() == GenerationFailureType.EDIT_UNIT_SCOPE_VIOLATION
+        if (failure.failureType() == GenerationFailureType.TARGET_SCOPE_VIOLATION
                 || failure.failureType() == GenerationFailureType.OUTPUT_TRUNCATED) {
             return false;
         }
-        return failure.failureType() == GenerationFailureType.TREE_SITTER_PARSE_FAILED
-                || failure.toolFailureCode() == ToolFailureCode.TREE_SITTER_PARSE_FAILED
+        return failure.failureType() == GenerationFailureType.SYNTAX_INVALID
+                || failure.toolFailureCode() == ToolFailureCode.SYNTAX_INVALID
                 || failure.toolFailureCode() == ToolFailureCode.JAVASCRIPT_SYNTAX_INVALID
                 || failure.toolFailureCode() == ToolFailureCode.JAVASCRIPT_STRUCTURE_INVALID
                 || failure.toolFailureCode() == ToolFailureCode.INLINE_SCRIPT_INVALID;
@@ -48,20 +51,20 @@ final class PatchRepairClassifier {
         if (failure == null || failure.toolFailureCode() == null) {
             return false;
         }
-        return failure.toolFailureCode() == ToolFailureCode.PATCH_SCHEMA_INVALID
-                || failure.toolFailureCode() == ToolFailureCode.EXACT_EDIT_BASE_STATE_MISMATCH
-                || failure.toolFailureCode() == ToolFailureCode.EXACT_EDIT_TARGET_NOT_FOUND
-                || failure.toolFailureCode() == ToolFailureCode.EXACT_EDIT_TARGET_NOT_UNIQUE;
+        return failure.toolFailureCode() == ToolFailureCode.MODEL_OUTPUT_INVALID
+                || failure.toolFailureCode() == ToolFailureCode.SNAPSHOT_STALE
+                || failure.toolFailureCode() == ToolFailureCode.TARGET_NOT_FOUND
+                || failure.toolFailureCode() == ToolFailureCode.TARGET_NOT_UNIQUE;
     }
 
     private PatchFailureClass classifyResultFileFailure(PatchFailure failure) {
         ToolFailureCode code = failure.toolFailureCode();
-        if (code == ToolFailureCode.TREE_SITTER_PARSE_FAILED
+        if (code == ToolFailureCode.SYNTAX_INVALID
                 || code == ToolFailureCode.JAVASCRIPT_SYNTAX_INVALID
                 || code == ToolFailureCode.JAVASCRIPT_STRUCTURE_INVALID
                 || code == ToolFailureCode.INLINE_SCRIPT_INVALID
                 || code == ToolFailureCode.HTML_STRUCTURE_INVALID
-                || code == ToolFailureCode.PATCH_SCHEMA_INVALID) {
+                || code == ToolFailureCode.MODEL_OUTPUT_INVALID) {
             return PatchFailureClass.MECHANICAL;
         }
         return PatchFailureClass.NON_MECHANICAL;

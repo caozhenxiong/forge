@@ -128,10 +128,10 @@ final class CodePatchFeedbackRenderer {
     }
 
     private static boolean isPatchLikeFailure(GenerationFailureType failureType) {
-        return failureType == GenerationFailureType.INVALID_PATCH_JSON
-                || failureType == GenerationFailureType.PATCH_SCHEMA_INVALID
-                || failureType == GenerationFailureType.EDIT_UNIT_SCOPE_VIOLATION
-                || failureType == GenerationFailureType.SYMBOL_NOT_FOUND;
+        return failureType == GenerationFailureType.MODEL_OUTPUT_INVALID
+                || failureType == GenerationFailureType.SNAPSHOT_STALE
+                || failureType == GenerationFailureType.TARGET_SCOPE_VIOLATION
+                || failureType == GenerationFailureType.TARGET_NOT_FOUND;
     }
 
     private static String strictSingleSymbolAdvice(EditUnit unit) {

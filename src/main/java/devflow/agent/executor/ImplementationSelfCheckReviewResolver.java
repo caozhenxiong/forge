@@ -76,7 +76,7 @@ final class ImplementationSelfCheckReviewResolver {
                     GENERATED_CONTENT_INVALID,
                     CONTENT_VALIDATION_EXCEPTION,
                     COMMAND_FAILED,
-                    TREE_SITTER_PARSE_FAILED -> patchReview(
+                    SYNTAX_INVALID -> patchReview(
                             language.choose("当前实现未通过本地结构或语法校验。", "The current implementation failed local structural or syntax validation."),
                             language.choose("请先修复当前实现中的确定性校验失败，再重新验证当前子任务。", "Repair the deterministic validation failure in the current implementation before rerunning the current subtask verification."),
                             failureEvidence(failedTool, selfCheck),

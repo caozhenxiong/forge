@@ -136,29 +136,31 @@ final class ImplementationSnapshotRestorer {
         return SubtaskExecutionState.restore(
                 report.deliveryMode(),
                 report.preferPreciseEditing(),
-                restoreFilePatchProgressStates(report.filePatchProgressStates()),
-                restoreEffectiveChanges(report.effectiveChanges())
+                restoreFileEditAttemptStates(report.fileEditAttemptStates()),
+                restoreEffectiveChanges(report.effectiveChanges()),
+                restoreToolLoopRuntimeState(report.toolLoopRuntimeState())
         );
     }
 
-    private List<FilePatchProgressState> restoreFilePatchProgressStates(
-            List<ImplementationStateSnapshot.FilePatchProgressStateSnapshot> snapshots
+    private List<FileEditAttemptState> restoreFileEditAttemptStates(
+            List<ImplementationStateSnapshot.FileEditAttemptStateSnapshot> snapshots
     ) {
         if (snapshots == null || snapshots.isEmpty()) {
             return List.of();
         }
-        List<FilePatchProgressState> restored = new ArrayList<>();
-        for (ImplementationStateSnapshot.FilePatchProgressStateSnapshot snapshot : snapshots) {
+        List<FileEditAttemptState> restored = new ArrayList<>();
+        for (ImplementationStateSnapshot.FileEditAttemptStateSnapshot snapshot : snapshots) {
             if (snapshot == null || snapshot.relativePath() == null || snapshot.relativePath().isBlank()) {
                 continue;
             }
-            restored.add(new FilePatchProgressState(
+            restored.add(new FileEditAttemptState(
                     Path.of(snapshot.relativePath()).normalize(),
+                    blankIfNull(snapshot.protocolName()),
                     blankIfNull(snapshot.strategyName()),
                     blankIfNull(snapshot.workingContent()),
                     blankIfNull(snapshot.plannedFromHash()),
-                    safeList(snapshot.completedUnitLabels()),
-                    blankIfNull(snapshot.currentUnitLabel())
+                    safeList(snapshot.completedTargetLabels()),
+                    blankIfNull(snapshot.currentTargetLabel())
             ));
         }
         return restored;
@@ -230,7 +232,7 @@ final class ImplementationSnapshotRestorer {
                     "",
                     "",
                     "",
-                    parseGenerationFailureType(failure.failureType(), GenerationFailureType.RESULT_FILE_INVALID),
+                    parseGenerationFailureType(failure.failureType(), GenerationFailureType.VALIDATION_FAILED),
                     0,
                     true,
                     blankIfNull(failure.summary()),
@@ -287,6 +289,103 @@ final class ImplementationSnapshotRestorer {
                     EnumParsers.parseIgnoreCase(ToolFailureCode.class, toolResult.failureCode(), null),
                     blankIfNull(toolResult.evidence()),
                     blankIfNull(toolResult.recommendedNextAction())
+            ));
+        }
+        return List.copyOf(restored);
+    }
+
+    private ToolLoopRuntimeState restoreToolLoopRuntimeState(
+            ImplementationStateSnapshot.ToolLoopRuntimeStateSnapshot snapshot
+    ) {
+        if (snapshot == null) {
+            return new ToolLoopRuntimeState();
+        }
+        ToolLoopReadFileStateLedger ledger = new ToolLoopReadFileStateLedger(
+                snapshot.readFileStateMaxEntries() <= 0 ? 100L : snapshot.readFileStateMaxEntries(),
+                snapshot.readFileStateMaxSizeBytes() <= 0 ? 25L * 1024L * 1024L : snapshot.readFileStateMaxSizeBytes(),
+                snapshot.readFileStates()
+        );
+        ToolLoopResultReplacementState replacementState = new ToolLoopResultReplacementState(
+                snapshot.seenToolResultIds(),
+                snapshot.toolResultReplacements()
+        );
+        return new ToolLoopRuntimeState(
+                restoreTranscript(snapshot.transcript()),
+                ledger,
+                replacementState,
+                restoreMutations(snapshot.fileMutations())
+        );
+    }
+
+    private List<LlmChatMessage> restoreTranscript(List<ImplementationStateSnapshot.ChatMessageState> transcript) {
+        if (transcript == null || transcript.isEmpty()) {
+            return List.of();
+        }
+        List<LlmChatMessage> restored = new ArrayList<>();
+        for (ImplementationStateSnapshot.ChatMessageState message : transcript) {
+            if (message == null) {
+                continue;
+            }
+            restored.add(new LlmChatMessage(
+                    EnumParsers.parseIgnoreCase(LlmChatRole.class, message.role(), LlmChatRole.USER),
+                    blankIfNull(message.content()),
+                    blankIfNull(message.toolName()),
+                    blankIfNull(message.toolCallId()),
+                    restoreToolCalls(message.toolCalls())
+            ));
+        }
+        return List.copyOf(restored);
+    }
+
+    private List<LlmToolCall> restoreToolCalls(List<ImplementationStateSnapshot.ToolCallState> toolCalls) {
+        if (toolCalls == null || toolCalls.isEmpty()) {
+            return List.of();
+        }
+        List<LlmToolCall> restored = new ArrayList<>();
+        for (ImplementationStateSnapshot.ToolCallState toolCall : toolCalls) {
+            if (toolCall == null || toolCall.id() == null || toolCall.name() == null) {
+                continue;
+            }
+            restored.add(new LlmToolCall(
+                    toolCall.id(),
+                    toolCall.name(),
+                    toolCall.arguments() == null ? java.util.Map.of() : java.util.Map.copyOf(toolCall.arguments())
+            ));
+        }
+        return List.copyOf(restored);
+    }
+
+    private List<FileMutationRecord> restoreMutations(List<ImplementationStateSnapshot.FileMutationState> fileMutations) {
+        if (fileMutations == null || fileMutations.isEmpty()) {
+            return List.of();
+        }
+        List<FileMutationRecord> restored = new ArrayList<>();
+        for (ImplementationStateSnapshot.FileMutationState mutation : fileMutations) {
+            if (mutation == null || mutation.relativePath() == null || mutation.relativePath().isBlank()) {
+                continue;
+            }
+            ToolLoopMutationOperation operation = EnumParsers.parseIgnoreCase(
+                    ToolLoopMutationOperation.class,
+                    mutation.operation(),
+                    null
+            );
+            ToolLoopDiagnosticStatus diagnosticStatus = EnumParsers.parseIgnoreCase(
+                    ToolLoopDiagnosticStatus.class,
+                    mutation.diagnosticStatus(),
+                    ToolLoopDiagnosticStatus.UNSUPPORTED
+            );
+            if (operation == null) {
+                continue;
+            }
+            restored.add(new FileMutationRecord(
+                    operation,
+                    Path.of(mutation.relativePath()).normalize(),
+                    blankIfNull(mutation.beforeHash()),
+                    blankIfNull(mutation.afterHash()),
+                    mutation.structuredPatch(),
+                    mutation.timestamp(),
+                    diagnosticStatus,
+                    blankIfNull(mutation.diagnosticEvidence())
             ));
         }
         return List.copyOf(restored);

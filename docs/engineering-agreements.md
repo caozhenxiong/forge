@@ -212,6 +212,12 @@ Prompt 不应用来堆：
 - 不允许用“先保留一层，后面再删”来换取当前任务通过
 - 每次代码改动完成后，必须先做自测，再做一次代码 review；没有 `self-test + code review`，本轮任务不得宣称完成
 
+补充到编辑内核：
+
+- 文件编辑主链只允许两种协议：`targeted-rewrite`、`full-rewrite`
+- 现有文件进入任一编辑协议时，必须绑定显式 file snapshot；不允许只靠裸 `existingContent` 或 prompt 记忆
+- 文件级续跑状态只能记录统一的 edit attempt state，不允许再引入旧 `patch progress`、旧 failure code 或同职责双轨状态
+
 ### 8. 禁止为了打通链路而引入临时硬编码
 
 不允许为了“先跑通当前案例”而引入以下内容：

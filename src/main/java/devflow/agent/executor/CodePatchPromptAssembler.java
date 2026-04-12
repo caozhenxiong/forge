@@ -7,7 +7,7 @@ import java.nio.file.Path;
  * 统一组装代码 patch 的生成 prompt。
  *
  * <p>这层只负责模板渲染，不负责决定 patch 单元怎么切、失败如何路由，
- * 让 FileEditCoordinator 可以继续向“编排门面”收敛。
+ * 让上层编排层保持最小职责。
  */
 final class CodePatchPromptAssembler {
 

@@ -36,7 +36,7 @@ public class CodePreciseEditor {
      * 只返回支持“插入/替换 body”的稳定符号名。
      *
      * <p>这层主要给 working-set 规划使用，避免把只有声明范围、没有 body 边界的局部变量
-     * 当成可持续精确编辑的锚点，导致模型反复命中 SYMBOL_NOT_FOUND。
+     * 当成可持续精确编辑的锚点，导致模型反复命中 TARGET_NOT_FOUND。
      */
     public List<String> listInsertableSymbolNames(Path relativePath, String source) {
         return symbolSupport.listInsertableSymbolNames(relativePath, source);

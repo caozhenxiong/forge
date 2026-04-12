@@ -13,9 +13,15 @@ import java.security.NoSuchAlgorithmException;
 public final class FileStateLedger {
 
     public FileStateSnapshot capture(Path relativePath, String content) {
+        return capture(relativePath, true, content);
+    }
+
+    public FileStateSnapshot capture(Path relativePath, boolean exists, String content) {
         String normalized = content == null ? "" : content;
         return new FileStateSnapshot(
                 relativePath,
+                exists,
+                normalized,
                 sha256(normalized),
                 lineCount(normalized)
         );

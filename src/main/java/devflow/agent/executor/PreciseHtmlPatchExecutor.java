@@ -42,7 +42,7 @@ final class PreciseHtmlPatchExecutor {
         this.exactReplaceApplySupport = new ExactReplaceApplySupport();
     }
 
-    String generate(HostHtmlPatchRequest request) {
+    String generate(HtmlTargetedRewriteRequest request) {
         PatchGenerationPrompt generationPrompt = HtmlPatchPromptAssembler.preciseHtmlPrompt(
                 request.relativePath(),
                 request.runtimeContract(),

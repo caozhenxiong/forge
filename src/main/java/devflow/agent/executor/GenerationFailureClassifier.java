@@ -18,7 +18,7 @@ final class GenerationFailureClassifier {
         }
         StructuredPayloadException structuredPayloadException = findCause(exception, StructuredPayloadException.class);
         if (structuredPayloadException != null) {
-            return GenerationFailureType.INVALID_PATCH_JSON;
+            return GenerationFailureType.MODEL_OUTPUT_INVALID;
         }
         PreciseEditException preciseEditException = findCause(exception, PreciseEditException.class);
         if (preciseEditException != null) {
@@ -29,18 +29,27 @@ final class GenerationFailureClassifier {
 
     private GenerationFailureType classifyPreciseEditFailure(PreciseEditFailureReason reason) {
         if (reason == null) {
-            return GenerationFailureType.RESULT_FILE_INVALID;
+            return GenerationFailureType.VALIDATION_FAILED;
         }
-        if (reason == PreciseEditFailureReason.SYMBOL_NOT_FOUND) {
-            return GenerationFailureType.SYMBOL_NOT_FOUND;
+        if (reason == PreciseEditFailureReason.SNAPSHOT_STALE) {
+            return GenerationFailureType.SNAPSHOT_STALE;
         }
-        if (reason == PreciseEditFailureReason.PATCH_EMPTY || reason == PreciseEditFailureReason.PATCH_SCHEMA_INVALID) {
-            return GenerationFailureType.PATCH_SCHEMA_INVALID;
+        if (reason == PreciseEditFailureReason.TARGET_NOT_FOUND) {
+            return GenerationFailureType.TARGET_NOT_FOUND;
         }
-        if (reason == PreciseEditFailureReason.EDIT_UNIT_SCOPE_VIOLATION) {
-            return GenerationFailureType.EDIT_UNIT_SCOPE_VIOLATION;
+        if (reason == PreciseEditFailureReason.TARGET_NOT_UNIQUE) {
+            return GenerationFailureType.TARGET_NOT_UNIQUE;
         }
-        return GenerationFailureType.RESULT_FILE_INVALID;
+        if (reason == PreciseEditFailureReason.NO_MATERIAL_CHANGE) {
+            return GenerationFailureType.NO_MATERIAL_CHANGE;
+        }
+        if (reason == PreciseEditFailureReason.MODEL_OUTPUT_INVALID) {
+            return GenerationFailureType.MODEL_OUTPUT_INVALID;
+        }
+        if (reason == PreciseEditFailureReason.TARGET_SCOPE_VIOLATION) {
+            return GenerationFailureType.TARGET_SCOPE_VIOLATION;
+        }
+        return GenerationFailureType.VALIDATION_FAILED;
     }
 
     private GenerationFailureType classifyInvocationFailure(LlmFailureReason reason) {

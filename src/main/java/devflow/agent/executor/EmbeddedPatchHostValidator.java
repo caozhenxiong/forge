@@ -28,7 +28,7 @@ final class EmbeddedPatchHostValidator {
 
     <T extends EmbeddingEditPlan> GeneratedFileOutput mergeAndValidate(
             EmbeddingAdapter<T> embeddingAdapter,
-            EmbeddedPatchRequest request,
+            EmbeddedTargetedRewriteRequest request,
             EmbeddedPatchKind patchKind,
             String embeddedContent,
             String validationAction

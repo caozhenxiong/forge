@@ -60,7 +60,7 @@ final class CodePatchKernel {
                     null,
                     ToolResult.failure(
                             ToolName.PATCH_APPLY,
-                            ToolFailureCode.PATCH_APPLY_FAILED,
+                            ToolFailureCode.APPLY_FAILED,
                             exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage(),
                             "请保持 patch 目标与当前脚本工作集边界一致。"
                     ),
@@ -104,7 +104,7 @@ final class CodePatchKernel {
                     null,
                     ToolResult.failure(
                             ToolName.PATCH_APPLY,
-                            ToolFailureCode.PATCH_APPLY_FAILED,
+                            ToolFailureCode.APPLY_FAILED,
                             exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage(),
                             "请保持 patch 目标与当前样式工作集边界一致。"
                     ),
@@ -145,7 +145,7 @@ final class CodePatchKernel {
                     null,
                     ToolResult.failure(
                             ToolName.PATCH_APPLY,
-                            ToolFailureCode.PATCH_APPLY_FAILED,
+                            ToolFailureCode.APPLY_FAILED,
                             exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage(),
                             "请保持 patch 目标与当前文件可编辑符号一致。"
                     ),
@@ -156,7 +156,7 @@ final class CodePatchKernel {
 
     /**
      * 本地 patch apply 失败时要保留结构化失败原因，
-     * 不能再把所有问题都折叠成同一个 PATCH_APPLY_FAILED。
+     * 不能再把所有问题都折叠成同一个 APPLY_FAILED。
      */
     private ToolResult preciseEditFailure(PreciseEditException exception, String defaultNextAction) {
         PreciseEditFailureReason reason = exception.reason();
@@ -170,24 +170,21 @@ final class CodePatchKernel {
     }
 
     private ToolFailureCode preciseEditFailureCode(PreciseEditFailureReason reason) {
-        if (reason == PreciseEditFailureReason.PATCH_EMPTY || reason == PreciseEditFailureReason.PATCH_SCHEMA_INVALID) {
-            return ToolFailureCode.PATCH_SCHEMA_INVALID;
+        if (reason == PreciseEditFailureReason.NO_MATERIAL_CHANGE || reason == PreciseEditFailureReason.MODEL_OUTPUT_INVALID) {
+            return ToolFailureCode.MODEL_OUTPUT_INVALID;
         }
-        if (reason == PreciseEditFailureReason.SYMBOL_NOT_FOUND) {
-            return ToolFailureCode.PATCH_SYMBOL_NOT_FOUND;
+        if (reason == PreciseEditFailureReason.TARGET_NOT_FOUND) {
+            return ToolFailureCode.TARGET_NOT_FOUND;
         }
-        if (reason == PreciseEditFailureReason.BASE_STATE_MISMATCH) {
-            return ToolFailureCode.EXACT_EDIT_BASE_STATE_MISMATCH;
+        if (reason == PreciseEditFailureReason.SNAPSHOT_STALE) {
+            return ToolFailureCode.SNAPSHOT_STALE;
         }
-        if (reason == PreciseEditFailureReason.TARGET_TEXT_NOT_FOUND) {
-            return ToolFailureCode.EXACT_EDIT_TARGET_NOT_FOUND;
+        if (reason == PreciseEditFailureReason.TARGET_NOT_UNIQUE) {
+            return ToolFailureCode.TARGET_NOT_UNIQUE;
         }
-        if (reason == PreciseEditFailureReason.TARGET_TEXT_NOT_UNIQUE) {
-            return ToolFailureCode.EXACT_EDIT_TARGET_NOT_UNIQUE;
+        if (reason == PreciseEditFailureReason.TARGET_SCOPE_VIOLATION) {
+            return ToolFailureCode.TARGET_SCOPE_VIOLATION;
         }
-        if (reason == PreciseEditFailureReason.EDIT_UNIT_SCOPE_VIOLATION) {
-            return ToolFailureCode.PATCH_SCOPE_VIOLATION;
-        }
-        return ToolFailureCode.PATCH_ANCHOR_MISSING;
+        return ToolFailureCode.TARGET_NOT_ADDRESSABLE;
     }
 }

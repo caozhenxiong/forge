@@ -14,7 +14,7 @@ final class EmbeddedPatchPromptSupport {
     }
 
     PatchGenerationPrompt assemble(
-            EmbeddedPatchRequest request,
+            EmbeddedTargetedRewriteRequest request,
             EmbeddedPatchKind patchKind,
             String currentContent,
             EditUnit unit

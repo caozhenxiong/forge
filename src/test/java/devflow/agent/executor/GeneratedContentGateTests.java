@@ -25,7 +25,7 @@ class GeneratedContentGateTests {
         assertFalse(report.passed());
         assertEquals("EMPTY_OUTPUT", report.issues().get(0).code());
         assertEquals(GateFailureDisposition.LOCAL_RETRYABLE, report.issues().get(0).disposition());
-        assertEquals(GenerationFailureType.RESULT_FILE_INVALID, gate.failureTypeFor(report));
+        assertEquals(GenerationFailureType.VALIDATION_FAILED, gate.failureTypeFor(report));
         assertEquals(ToolFailureCode.GENERATED_CONTENT_EMPTY, gate.toolFailureCodeFor(report));
     }
 
@@ -56,9 +56,9 @@ class GeneratedContentGateTests {
         ));
 
         assertFalse(report.passed());
-        assertEquals("TREE_SITTER_PARSE_FAILED", report.issues().get(0).code());
-        assertEquals(GenerationFailureType.TREE_SITTER_PARSE_FAILED, gate.failureTypeFor(report));
-        assertEquals(ToolFailureCode.TREE_SITTER_PARSE_FAILED, gate.toolFailureCodeFor(report));
+        assertEquals("SYNTAX_INVALID", report.issues().get(0).code());
+        assertEquals(GenerationFailureType.SYNTAX_INVALID, gate.failureTypeFor(report));
+        assertEquals(ToolFailureCode.SYNTAX_INVALID, gate.toolFailureCodeFor(report));
     }
 
     @Test
@@ -73,7 +73,7 @@ class GeneratedContentGateTests {
 
         assertFalse(report.passed());
         assertEquals("PRECISE_EDIT_ANCHORS_MISSING", report.issues().getFirst().code());
-        assertEquals(ToolFailureCode.PATCH_ANCHOR_MISSING, gate.toolFailureCodeFor(report));
+        assertEquals(ToolFailureCode.TARGET_NOT_ADDRESSABLE, gate.toolFailureCodeFor(report));
     }
 
     @Test

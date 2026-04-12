@@ -69,7 +69,7 @@ final class EmbeddedPatchUnitExecutor {
     }
 
     String execute(
-            EmbeddedPatchRequest request,
+            EmbeddedTargetedRewriteRequest request,
             EmbeddedPatchKind patchKind,
             String currentContent,
             EditUnit unit
@@ -109,7 +109,7 @@ final class EmbeddedPatchUnitExecutor {
                         }
                         PatchFailure patchFailure = PatchFailure.fromToolResult(
                                 applyResult.failureResult(),
-                                GenerationFailureType.TREE_SITTER_PARSE_FAILED
+                                GenerationFailureType.SYNTAX_INVALID
                         );
                         applyResult = syntaxRepairSupport.repairEmbedded(
                                 request,
@@ -124,7 +124,7 @@ final class EmbeddedPatchUnitExecutor {
                         }
                         patchFailure = PatchFailure.fromToolResult(
                                 applyResult.failureResult(),
-                                GenerationFailureType.TREE_SITTER_PARSE_FAILED
+                                GenerationFailureType.SYNTAX_INVALID
                         );
                         if (patchFailureRouter.shouldAbortCurrentUnit(unit, patchFailure)) {
                             return GenerationAttemptResult.terminalFailure(
@@ -176,7 +176,7 @@ final class EmbeddedPatchUnitExecutor {
      * 防止 exact-replace 通过整段替换把当前符号批次扩成新的顶层符号。
      */
     private PatchApplyResult validateRestrictedScope(
-            EmbeddedPatchRequest request,
+            EmbeddedTargetedRewriteRequest request,
             EmbeddedPatchKind patchKind,
             String baselineContent,
             EditUnit unit,

@@ -255,7 +255,7 @@ class SupervisorAgentTests {
                 "game.js",
                 "PATCH",
                 "precise-code",
-                GenerationFailureType.INVALID_PATCH_JSON,
+                GenerationFailureType.MODEL_OUTPUT_INVALID,
                 3,
                 true,
                 "game.js 的符号级精确改写 JSON 非法。",

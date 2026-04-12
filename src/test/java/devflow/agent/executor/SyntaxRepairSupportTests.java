@@ -28,14 +28,14 @@ class SyntaxRepairSupportTests {
     @Test
     void deterministicSyntaxRepairClosesMissingBlock() {
         SyntaxRepairSupport repairSupport = repairSupport(new NoOpRepairProvider());
-        CodePatchRequest request = codePatchRequest();
+        CodeTargetedRewriteRequest request = codePatchRequest();
         PatchApplyResult repaired = repairSupport.repairCodeFile(
                 request,
                 "",
                 new EditUnit(EditUnitKind.CODE_SYMBOL_BATCH, "code-unit-1", java.util.List.of("tick")),
                 PatchFailure.fromToolResult(
-                        ToolResult.failure(ToolName.CONTENT_VERIFY, ToolFailureCode.TREE_SITTER_PARSE_FAILED, "parse failed", ""),
-                        GenerationFailureType.TREE_SITTER_PARSE_FAILED
+                        ToolResult.failure(ToolName.CONTENT_VERIFY, ToolFailureCode.SYNTAX_INVALID, "parse failed", ""),
+                        GenerationFailureType.SYNTAX_INVALID
                 ),
                 new PatchApplyResult(
                         """
@@ -44,7 +44,7 @@ class SyntaxRepairSupportTests {
                             return 1;
                         """,
                         ToolResult.success(ToolName.PATCH_APPLY),
-                        ToolResult.failure(ToolName.CONTENT_VERIFY, ToolFailureCode.TREE_SITTER_PARSE_FAILED, "parse failed", "")
+                        ToolResult.failure(ToolName.CONTENT_VERIFY, ToolFailureCode.SYNTAX_INVALID, "parse failed", "")
                 )
         );
 
@@ -80,19 +80,19 @@ class SyntaxRepairSupportTests {
                 throw new UnsupportedOperationException();
             }
         });
-        CodePatchRequest request = codePatchRequest();
+        CodeTargetedRewriteRequest request = codePatchRequest();
         PatchApplyResult repaired = repairSupport.repairCodeFile(
                 request,
                 "",
                 new EditUnit(EditUnitKind.CODE_SYMBOL_BATCH, "code-unit-1", java.util.List.of("tick")),
                 PatchFailure.fromToolResult(
-                        ToolResult.failure(ToolName.CONTENT_VERIFY, ToolFailureCode.TREE_SITTER_PARSE_FAILED, "parse failed", ""),
-                        GenerationFailureType.TREE_SITTER_PARSE_FAILED
+                        ToolResult.failure(ToolName.CONTENT_VERIFY, ToolFailureCode.SYNTAX_INVALID, "parse failed", ""),
+                        GenerationFailureType.SYNTAX_INVALID
                 ),
                 new PatchApplyResult(
                         "function tick( { return 1; }",
                         ToolResult.success(ToolName.PATCH_APPLY),
-                        ToolResult.failure(ToolName.CONTENT_VERIFY, ToolFailureCode.TREE_SITTER_PARSE_FAILED, "parse failed", "")
+                        ToolResult.failure(ToolName.CONTENT_VERIFY, ToolFailureCode.SYNTAX_INVALID, "parse failed", "")
                 )
         );
 
@@ -104,7 +104,7 @@ class SyntaxRepairSupportTests {
     @Test
     void deterministicStructureRepairUnwrapsDuplicatedFunctionWrapper() {
         SyntaxRepairSupport repairSupport = repairSupport(new NoOpRepairProvider());
-        CodePatchRequest request = codePatchRequest();
+        CodeTargetedRewriteRequest request = codePatchRequest();
         PatchApplyResult repaired = repairSupport.repairCodeFile(
                 request,
                 "",
@@ -116,7 +116,7 @@ class SyntaxRepairSupportTests {
                                 "duplicated wrapper",
                                 ""
                         ),
-                        GenerationFailureType.RESULT_FILE_INVALID
+                        GenerationFailureType.VALIDATION_FAILED
                 ),
                 new PatchApplyResult(
                         """
@@ -144,7 +144,7 @@ class SyntaxRepairSupportTests {
     @Test
     void deterministicStructureRepairUnwrapsMultipleDuplicatedWrappersInOnePass() {
         SyntaxRepairSupport repairSupport = repairSupport(new NoOpRepairProvider());
-        CodePatchRequest request = codePatchRequest();
+        CodeTargetedRewriteRequest request = codePatchRequest();
         PatchApplyResult repaired = repairSupport.repairCodeFile(
                 request,
                 "",
@@ -156,7 +156,7 @@ class SyntaxRepairSupportTests {
                                 "duplicated wrapper",
                                 ""
                         ),
-                        GenerationFailureType.RESULT_FILE_INVALID
+                        GenerationFailureType.VALIDATION_FAILED
                 ),
                 new PatchApplyResult(
                         """
@@ -223,7 +223,7 @@ class SyntaxRepairSupportTests {
                     throw new UnsupportedOperationException();
                 }
             });
-            CodePatchRequest request = codePatchRequest();
+            CodeTargetedRewriteRequest request = codePatchRequest();
             PatchApplyResult repaired = repairSupport.repairCodeFile(
                     request,
                     """
@@ -239,11 +239,11 @@ class SyntaxRepairSupportTests {
                     PatchFailure.fromToolResult(
                             ToolResult.failure(
                                     ToolName.CONTENT_VERIFY,
-                                    ToolFailureCode.TREE_SITTER_PARSE_FAILED,
+                                    ToolFailureCode.SYNTAX_INVALID,
                                     "parse failed",
                                     ""
                             ),
-                            GenerationFailureType.TREE_SITTER_PARSE_FAILED
+                            GenerationFailureType.SYNTAX_INVALID
                     ),
                     new PatchApplyResult(
                             """
@@ -257,7 +257,7 @@ class SyntaxRepairSupportTests {
                             ToolResult.success(ToolName.PATCH_APPLY),
                             ToolResult.failure(
                                     ToolName.CONTENT_VERIFY,
-                                    ToolFailureCode.TREE_SITTER_PARSE_FAILED,
+                                    ToolFailureCode.SYNTAX_INVALID,
                                     "parse failed",
                                     ""
                             )
@@ -266,7 +266,7 @@ class SyntaxRepairSupportTests {
 
             assertTrue(modelRepairCalled.get());
             assertTrue(repaired.failureResult() != null);
-            assertEquals(ToolFailureCode.PATCH_SCOPE_VIOLATION, repaired.failureResult().failureCode());
+            assertEquals(ToolFailureCode.TARGET_SCOPE_VIOLATION, repaired.failureResult().failureCode());
             assertEquals(1, modelRepairAttempts.get(), "scope-failed 后不应继续在同一 repair loop 里再次模型修复");
         } finally {
             System.clearProperty("devflow.patch-repair.syntax-model-repair-attempts");
@@ -299,24 +299,24 @@ class SyntaxRepairSupportTests {
             }
         });
         ImplementationEventJournal eventJournal = implementationEventJournal();
-        CodePatchRequest request = codePatchRequest(eventJournal);
+        CodeTargetedRewriteRequest request = codePatchRequest(eventJournal);
         PatchApplyResult repaired = repairSupport.repairCodeFile(
                 request,
                 "",
                 new EditUnit(EditUnitKind.CODE_SYMBOL_BATCH, "code-unit-9", java.util.List.of("pauseGame")),
                 PatchFailure.fromToolResult(
-                        ToolResult.failure(ToolName.CONTENT_VERIFY, ToolFailureCode.TREE_SITTER_PARSE_FAILED, "parse failed", ""),
-                        GenerationFailureType.TREE_SITTER_PARSE_FAILED
+                        ToolResult.failure(ToolName.CONTENT_VERIFY, ToolFailureCode.SYNTAX_INVALID, "parse failed", ""),
+                        GenerationFailureType.SYNTAX_INVALID
                 ),
                 new PatchApplyResult(
                         "function pauseGame( { gameState.isPaused = !gameState.isPaused; ",
                         ToolResult.success(ToolName.PATCH_APPLY),
-                        ToolResult.failure(ToolName.CONTENT_VERIFY, ToolFailureCode.TREE_SITTER_PARSE_FAILED, "parse failed", "")
+                        ToolResult.failure(ToolName.CONTENT_VERIFY, ToolFailureCode.SYNTAX_INVALID, "parse failed", "")
                 )
         );
 
         assertNotNull(repaired.failureResult());
-        assertEquals(ToolFailureCode.TREE_SITTER_PARSE_FAILED, repaired.failureResult().failureCode());
+        assertEquals(ToolFailureCode.SYNTAX_INVALID, repaired.failureResult().failureCode());
         Path artifactPath = tempDir.resolve(".devflow/runs/" + runId() + "/syntax_repair_failures.md");
         assertTrue(java.nio.file.Files.exists(artifactPath));
         String artifact = readString(artifactPath);
@@ -339,12 +339,12 @@ class SyntaxRepairSupportTests {
         );
     }
 
-    private CodePatchRequest codePatchRequest() {
+    private CodeTargetedRewriteRequest codePatchRequest() {
         return codePatchRequest(null);
     }
 
-    private CodePatchRequest codePatchRequest(ImplementationEventJournal eventJournal) {
-        return new CodePatchRequest(
+    private CodeTargetedRewriteRequest codePatchRequest(ImplementationEventJournal eventJournal) {
+        return new CodeTargetedRewriteRequest(
                 tempDir,
                 Path.of("game.js"),
                 "",

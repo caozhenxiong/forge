@@ -41,7 +41,7 @@ final class StructuredHtmlPatchExecutor {
         this.executionSupport = executionSupport;
     }
 
-    String generate(HostHtmlPatchRequest request) {
+    String generate(HtmlTargetedRewriteRequest request) {
         PatchGenerationPrompt generationPrompt = StructuredHtmlDraftPromptAssembler.assemble(
                 request.relativePath(),
                 request.runtimeContract(),
@@ -109,8 +109,9 @@ final class StructuredHtmlPatchExecutor {
                     llmProvider::consumeLastTelemetry
             ));
         } catch (GenerationFailureException exception) {
-            throw exception.withPatchProgressState(new FilePatchProgressState(
+            throw exception.withEditAttemptState(new FileEditAttemptState(
                     request.relativePath(),
+                    FileEditProtocolNames.TARGETED_REWRITE,
                     FileEditStrategyNames.STRUCTURED_HTML,
                     request.existingContent(),
                     "",

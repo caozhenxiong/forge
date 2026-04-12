@@ -27,13 +27,13 @@ public final class ExactReplaceApplySupport {
         if (edit.oldText().isEmpty()) {
             if (!normalizedSource.isEmpty()) {
                 throw new PreciseEditException(
-                        PreciseEditFailureReason.TARGET_TEXT_NOT_UNIQUE,
+                        PreciseEditFailureReason.TARGET_NOT_UNIQUE,
                         "Exact replace edit may use empty oldText only when the current content is empty."
                 );
             }
             if (edit.newText().isEmpty()) {
                 throw new PreciseEditException(
-                        PreciseEditFailureReason.PATCH_EMPTY,
+                        PreciseEditFailureReason.NO_MATERIAL_CHANGE,
                         "Exact replace edit must change the target content."
                 );
             }
@@ -42,13 +42,13 @@ public final class ExactReplaceApplySupport {
         int occurrences = countOccurrences(normalizedSource, edit.oldText());
         if (occurrences == 0) {
             throw new PreciseEditException(
-                    PreciseEditFailureReason.TARGET_TEXT_NOT_FOUND,
+                    PreciseEditFailureReason.TARGET_NOT_FOUND,
                     "Exact replace edit oldText does not exist in the current content."
             );
         }
         if (!edit.replaceAll() && occurrences > 1) {
             throw new PreciseEditException(
-                    PreciseEditFailureReason.TARGET_TEXT_NOT_UNIQUE,
+                    PreciseEditFailureReason.TARGET_NOT_UNIQUE,
                     "Exact replace edit oldText is not unique in the current content."
             );
         }
@@ -57,7 +57,7 @@ public final class ExactReplaceApplySupport {
                 : replaceFirst(normalizedSource, edit.oldText(), edit.newText());
         if (revised.equals(normalizedSource)) {
             throw new PreciseEditException(
-                    PreciseEditFailureReason.PATCH_EMPTY,
+                    PreciseEditFailureReason.NO_MATERIAL_CHANGE,
                     "Exact replace edit did not change the target content."
             );
         }
@@ -67,37 +67,37 @@ public final class ExactReplaceApplySupport {
     private void validateEdit(FileStateSnapshot snapshot, String expectedTargetPath, ExactReplaceEdit edit) {
         if (edit == null) {
             throw new PreciseEditException(
-                    PreciseEditFailureReason.PATCH_SCHEMA_INVALID,
+                    PreciseEditFailureReason.MODEL_OUTPUT_INVALID,
                     "Exact replace edit payload is required."
             );
         }
         if (edit.targetPath().isBlank()) {
             throw new PreciseEditException(
-                    PreciseEditFailureReason.PATCH_SCHEMA_INVALID,
+                    PreciseEditFailureReason.MODEL_OUTPUT_INVALID,
                     "Exact replace edit must declare targetPath."
             );
         }
         if (!normalizeTargetPath(edit.targetPath()).equals(expectedTargetPath)) {
             throw new PreciseEditException(
-                    PreciseEditFailureReason.PATCH_SCHEMA_INVALID,
+                    PreciseEditFailureReason.MODEL_OUTPUT_INVALID,
                     "Exact replace edit targetPath does not match the current target."
             );
         }
         if (edit.baseContentHash().isBlank()) {
             throw new PreciseEditException(
-                    PreciseEditFailureReason.PATCH_SCHEMA_INVALID,
+                    PreciseEditFailureReason.MODEL_OUTPUT_INVALID,
                     "Exact replace edit must declare baseContentHash."
             );
         }
         if (!edit.baseContentHash().equals(snapshot.contentHash())) {
             throw new PreciseEditException(
-                    PreciseEditFailureReason.BASE_STATE_MISMATCH,
+                    PreciseEditFailureReason.SNAPSHOT_STALE,
                     "Exact replace edit was generated against stale content."
             );
         }
         if (edit.oldText().equals(edit.newText())) {
             throw new PreciseEditException(
-                    PreciseEditFailureReason.PATCH_EMPTY,
+                    PreciseEditFailureReason.NO_MATERIAL_CHANGE,
                     "Exact replace edit oldText and newText must differ."
             );
         }

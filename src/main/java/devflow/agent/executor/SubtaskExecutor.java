@@ -41,7 +41,8 @@ class SubtaskExecutor {
             ArchitectIntegrationCheck architectIntegrationCheck,
             SupervisorAgent supervisorAgent,
             FileProjectWorkspace workspace,
-            FileEditCoordinator fileEditCoordinator,
+            TargetedFileContextRenderer targetedFileContextRenderer,
+            ImplementationToolLoopExecutor implementationToolLoopExecutor,
             GenerationEngine generationEngine,
             AgentTurnLoop agentTurnLoop,
             int maxSubtaskAttempts
@@ -64,7 +65,8 @@ class SubtaskExecutor {
         this.subtaskAttemptRunner = new SubtaskAttemptRunner(
                 testExecutor,
                 this.implementationCompletenessGate,
-                fileEditCoordinator,
+                targetedFileContextRenderer,
+                implementationToolLoopExecutor,
                 this.subtaskVerificationSupport,
                 agentTurnLoop
         );

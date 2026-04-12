@@ -6,7 +6,7 @@ import java.util.List;
  * 统一维护 patch 单元失败后的硬路由。
  *
  * <p>这层的职责是把“模型失败”翻译成执行动作，而不是继续在
- * {@link FileEditCoordinator} 里散落 if/else：
+ * 旧文件级编辑链里散落 if/else：
  * 1. 哪些失败说明当前单元设计过宽，应立即拆小；
  * 2. 哪些失败还能在当前单元内继续一次结构化重试；
  * 3. 哪些失败已经不该再在当前单元里消耗预算，应直接升级。
@@ -14,7 +14,7 @@ import java.util.List;
 final class PatchFailureRouter {
 
     private static final List<ToolFailureCode> RETRYABLE_UNSPLITTABLE_TOOL_FAILURES = List.of(
-            ToolFailureCode.PATCH_SCHEMA_INVALID
+            ToolFailureCode.MODEL_OUTPUT_INVALID
     );
 
     /**
@@ -65,7 +65,7 @@ final class PatchFailureRouter {
         }
         GenerationFailureType failureType = patchFailure.failureType();
         return failureType == GenerationFailureType.OUTPUT_TRUNCATED
-                || failureType == GenerationFailureType.INVALID_PATCH_JSON;
+                || failureType == GenerationFailureType.MODEL_OUTPUT_INVALID;
     }
 
     private boolean shouldSplitCurrentUnit(PatchFailure patchFailure) {

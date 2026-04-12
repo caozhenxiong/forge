@@ -58,8 +58,8 @@ final class ImplementationContinuationConstraintResolver {
                     }
                 }
             }
-            if (report != null && report.filePatchProgressStates() != null) {
-                for (ImplementationStateSnapshot.FilePatchProgressStateSnapshot progress : report.filePatchProgressStates()) {
+            if (report != null && report.fileEditAttemptStates() != null) {
+                for (ImplementationStateSnapshot.FileEditAttemptStateSnapshot progress : report.fileEditAttemptStates()) {
                     if (progress != null && progress.relativePath() != null && !progress.relativePath().isBlank()) {
                         existingPaths.add(normalize(progress.relativePath()));
                     }

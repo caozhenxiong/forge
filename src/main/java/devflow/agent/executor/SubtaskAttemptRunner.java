@@ -17,7 +17,6 @@ final class SubtaskAttemptRunner {
 
     private final TestExecutor testExecutor;
     private final ImplementationCompletenessGate implementationCompletenessGate;
-    private final FileEditCoordinator fileEditCoordinator;
     private final SubtaskVerificationSupport subtaskVerificationSupport;
     private final AgentTurnLoop agentTurnLoop;
     private final SubtaskAttemptStepExecutor stepExecutor;
@@ -25,19 +24,20 @@ final class SubtaskAttemptRunner {
     SubtaskAttemptRunner(
             TestExecutor testExecutor,
             ImplementationCompletenessGate implementationCompletenessGate,
-            FileEditCoordinator fileEditCoordinator,
+            TargetedFileContextRenderer targetedFileContextRenderer,
+            ImplementationToolLoopExecutor implementationToolLoopExecutor,
             SubtaskVerificationSupport subtaskVerificationSupport,
             AgentTurnLoop agentTurnLoop
     ) {
         this.testExecutor = testExecutor;
         this.implementationCompletenessGate = implementationCompletenessGate;
-        this.fileEditCoordinator = fileEditCoordinator;
         this.subtaskVerificationSupport = subtaskVerificationSupport;
         this.agentTurnLoop = agentTurnLoop;
         this.stepExecutor = new SubtaskAttemptStepExecutor(
                 testExecutor,
                 implementationCompletenessGate,
-                fileEditCoordinator,
+                targetedFileContextRenderer,
+                implementationToolLoopExecutor,
                 subtaskVerificationSupport
         );
     }

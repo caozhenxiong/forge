@@ -77,7 +77,7 @@ final class EmbeddedPatchExecutor {
 
     <T extends EmbeddingEditPlan> GeneratedFileOutput generate(
             EmbeddingAdapter<T> embeddingAdapter,
-            EmbeddedPatchRequest request,
+            EmbeddedTargetedRewriteRequest request,
             EmbeddedPatchKind patchKind,
             String unavailableEvidence,
             String unavailableAction,
@@ -91,7 +91,7 @@ final class EmbeddedPatchExecutor {
                     request.deliveryMode(),
                     patchKind.strategyName(),
                     maxFileGenerationAttempts,
-                    GenerationFailureType.SYMBOL_NOT_FOUND,
+                    GenerationFailureType.TARGET_NOT_FOUND,
                     unavailableEvidence,
                     unavailableAction
             );
@@ -121,7 +121,7 @@ final class EmbeddedPatchExecutor {
 
     GeneratedFileOutput externalizeExistingScript(
             EmbeddingAdapter<InlineScriptEditPlan> embeddingAdapter,
-            EmbeddedPatchRequest request,
+            EmbeddedTargetedRewriteRequest request,
             String evidence
     ) {
         InlineScriptEditPlan editPlan = embeddingAdapter.buildEditPlan(request.relativePath(), request.existingContent());
@@ -131,7 +131,7 @@ final class EmbeddedPatchExecutor {
                     request.deliveryMode(),
                     FileEditStrategyNames.INLINE_SCRIPT_WORKSET,
                     maxFileGenerationAttempts,
-                    GenerationFailureType.SYMBOL_NOT_FOUND,
+                    GenerationFailureType.TARGET_NOT_FOUND,
                     evidence,
                     "请先暴露稳定的 HTML 主脚本工作集，再决定是否外提。"
             );
@@ -152,31 +152,31 @@ final class EmbeddedPatchExecutor {
     }
 
     private EmbeddedPatchOutcome executeUnits(
-            EmbeddedPatchRequest request,
+            EmbeddedTargetedRewriteRequest request,
             EmbeddedPatchKind patchKind,
             PatchPlan patchPlan,
             String initialContent,
             boolean allowExternalize
     ) {
-        FilePatchProgressState patchProgressState = request.patchProgressState();
+        FileEditAttemptState editAttemptState = request.editAttemptState();
         LinkedList<EditUnit> pendingUnits = initialPendingUnits(
                 request.relativePath(),
                 patchKind,
                 patchPlan,
-                patchProgressState
+                editAttemptState
         );
         String currentContent = initialContent(
                 initialContent,
-                patchProgressState,
+                editAttemptState,
                 request.relativePath(),
                 patchKind
         );
-        ArrayList<String> completedUnitLabels = initialCompletedUnitLabels(patchProgressState);
+        ArrayList<String> completedTargetLabels = initialCompletedUnitLabels(editAttemptState);
         while (!pendingUnits.isEmpty()) {
             EditUnit unit = pendingUnits.removeFirst();
             try {
                 currentContent = executeUnit(request, patchKind, currentContent, unit);
-                completedUnitLabels.add(unit.label());
+                completedTargetLabels.add(unit.label());
             } catch (GenerationFailureException exception) {
                 PatchFailure patchFailure = PatchFailure.of(exception.report().failureType(), exception.report().evidence());
                 List<EditUnit> splitUnits = patchFailureRouter.splitIfNeeded(unit, patchFailure);
@@ -198,12 +198,13 @@ final class EmbeddedPatchExecutor {
                         );
                         return EmbeddedPatchOutcome.externalize(currentContent);
                     }
-                    throw exception.withPatchProgressState(new FilePatchProgressState(
+                    throw exception.withEditAttemptState(new FileEditAttemptState(
                             request.relativePath(),
+                            FileEditProtocolNames.TARGETED_REWRITE,
                             patchKind.strategyName(),
                             currentContent,
                             fileStateLedger.capture(patchKind.syntheticPath(request.relativePath()), currentContent).contentHash(),
-                            List.copyOf(new LinkedHashSet<>(completedUnitLabels)),
+                            List.copyOf(new LinkedHashSet<>(completedTargetLabels)),
                             unit.label()
                     ));
                 }
@@ -226,53 +227,53 @@ final class EmbeddedPatchExecutor {
             java.nio.file.Path relativePath,
             EmbeddedPatchKind patchKind,
             PatchPlan patchPlan,
-            FilePatchProgressState patchProgressState
+            FileEditAttemptState editAttemptState
     ) {
         List<EditUnit> freshUnits = patchPlan == null ? List.of() : patchPlan.units();
-        if (patchProgressState != null
-                && patchProgressState.matches(relativePath, patchKind.strategyName())
-                && patchProgressState.resumable()) {
-            return new LinkedList<>(resumeUnits(freshUnits, patchProgressState));
+        if (editAttemptState != null
+                && editAttemptState.matches(relativePath, patchKind.strategyName())
+                && editAttemptState.resumable()) {
+            return new LinkedList<>(resumeUnits(freshUnits, editAttemptState));
         }
         return new LinkedList<>(freshUnits);
     }
 
     private String initialContent(
             String initialContent,
-            FilePatchProgressState patchProgressState,
+            FileEditAttemptState editAttemptState,
             java.nio.file.Path relativePath,
             EmbeddedPatchKind patchKind
     ) {
-        if (patchProgressState != null
-                && patchProgressState.matches(relativePath, patchKind.strategyName())
-                && patchProgressState.workingContent() != null
-                && !patchProgressState.workingContent().isBlank()) {
-            return patchProgressState.workingContent();
+        if (editAttemptState != null
+                && editAttemptState.matches(relativePath, patchKind.strategyName())
+                && editAttemptState.workingContent() != null
+                && !editAttemptState.workingContent().isBlank()) {
+            return editAttemptState.workingContent();
         }
         return initialContent;
     }
 
-    private ArrayList<String> initialCompletedUnitLabels(FilePatchProgressState patchProgressState) {
-        if (patchProgressState == null || patchProgressState.completedUnitLabels() == null) {
+    private ArrayList<String> initialCompletedUnitLabels(FileEditAttemptState editAttemptState) {
+        if (editAttemptState == null || editAttemptState.completedTargetLabels() == null) {
             return new ArrayList<>();
         }
-        return new ArrayList<>(patchProgressState.completedUnitLabels());
+        return new ArrayList<>(editAttemptState.completedTargetLabels());
     }
 
-    private List<EditUnit> resumeUnits(List<EditUnit> freshUnits, FilePatchProgressState patchProgressState) {
+    private List<EditUnit> resumeUnits(List<EditUnit> freshUnits, FileEditAttemptState editAttemptState) {
         if (freshUnits == null || freshUnits.isEmpty()) {
             return List.of();
         }
-        LinkedHashSet<String> completed = new LinkedHashSet<>(patchProgressState.completedUnitLabels());
+        LinkedHashSet<String> completed = new LinkedHashSet<>(editAttemptState.completedTargetLabels());
         List<EditUnit> remaining = freshUnits.stream()
                 .filter(unit -> unit != null && !completed.contains(unit.label()))
                 .toList();
-        if (patchProgressState.currentUnitLabel().isBlank()) {
+        if (editAttemptState.currentTargetLabel().isBlank()) {
             return remaining;
         }
         int resumeIndex = -1;
         for (int index = 0; index < remaining.size(); index++) {
-            if (patchProgressState.currentUnitLabel().equals(remaining.get(index).label())) {
+            if (editAttemptState.currentTargetLabel().equals(remaining.get(index).label())) {
                 resumeIndex = index;
                 break;
             }
@@ -284,7 +285,7 @@ final class EmbeddedPatchExecutor {
     }
 
     private String executeUnit(
-            EmbeddedPatchRequest request,
+            EmbeddedTargetedRewriteRequest request,
             EmbeddedPatchKind patchKind,
             String currentContent,
             EditUnit unit
