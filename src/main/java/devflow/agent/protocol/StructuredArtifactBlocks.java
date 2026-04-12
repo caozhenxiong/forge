@@ -74,6 +74,26 @@ public final class StructuredArtifactBlocks {
         return stripped;
     }
 
+    public static String collectAllKnownBlocks(String content) {
+        if (content == null || content.isBlank()) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder();
+        int cursor = 0;
+        while (cursor < content.length()) {
+            RawBlockMatch next = nextRawBlock(content, cursor);
+            if (next == null) {
+                break;
+            }
+            if (!builder.isEmpty()) {
+                builder.append("\n\n");
+            }
+            builder.append(content, next.beginOffset(), next.endOffset());
+            cursor = next.endOffset();
+        }
+        return builder.toString().trim();
+    }
+
     public static String upsertJsonBlock(String content, ArtifactBlockKind kind, Object payload) {
         String stripped = stripKindBlocks(content == null ? "" : content, kind).strip();
         String block = renderJsonBlock(kind, payload);
@@ -100,5 +120,31 @@ public final class StructuredArtifactBlocks {
             cursor = end + kind.endMarker().length();
         }
         return builder.toString().strip();
+    }
+
+    private static RawBlockMatch nextRawBlock(String content, int cursor) {
+        int bestBegin = -1;
+        ArtifactBlockKind bestKind = null;
+        for (ArtifactBlockKind kind : ArtifactBlockKind.values()) {
+            int begin = content.indexOf(kind.beginMarker(), cursor);
+            if (begin < 0) {
+                continue;
+            }
+            if (bestBegin < 0 || begin < bestBegin) {
+                bestBegin = begin;
+                bestKind = kind;
+            }
+        }
+        if (bestKind == null) {
+            return null;
+        }
+        int end = content.indexOf(bestKind.endMarker(), bestBegin + bestKind.beginMarker().length());
+        if (end < 0) {
+            return null;
+        }
+        return new RawBlockMatch(bestBegin, end + bestKind.endMarker().length());
+    }
+
+    private record RawBlockMatch(int beginOffset, int endOffset) {
     }
 }

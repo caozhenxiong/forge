@@ -1,10 +1,9 @@
 package devflow.agent.executor;
 
+import devflow.agent.context.AuthoritativeCoverageCatalog;
 import devflow.agent.context.ContractView;
 import devflow.agent.context.ExecutionContract;
-import devflow.agent.context.ProductContract;
 import devflow.agent.context.RequirementReference;
-import devflow.agent.quality.QualityCoverageRefCatalog;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.util.ProjectPathSupport;
 import devflow.agent.validation.ProjectFingerprint;
@@ -14,8 +13,6 @@ import java.util.Locale;
 import java.util.stream.IntStream;
 
 public class ImplementationPlanCoverageAnalyzer {
-
-    private final QualityChecklistCoverageAnalyzer qualityChecklistCoverageAnalyzer = new QualityChecklistCoverageAnalyzer();
 
     public CoverageResult analyze(
             ProjectFingerprint fingerprint,
@@ -55,14 +52,14 @@ public class ImplementationPlanCoverageAnalyzer {
         if (requiresBehaviorFill(executionContract) && hasRunnableMilestone && !hasNonSkeletonRunnableMilestone && planStopsAtSkeleton(normalizedModes)) {
             issues.add("当前实现计划把可运行里程碑停留在骨架层，没有安排非 SKELETON 的接线或行为补齐步骤。");
         }
-        if (executionContract.surfaceRequired()) {
-            issues.addAll(detectMissingCapabilityCoverage(
-                    contractView == null ? null : contractView.productContract(),
-                    plannedCoverageRefs,
-                    plannedCoverageItems
-            ));
-        }
-        issues.addAll(qualityChecklistCoverageAnalyzer.detectMissingRequiredCoverageRefs(qualityPlan, plannedCoverageRefs));
+        issues.addAll(detectMissingCapabilityCoverage(
+                AuthoritativeCoverageCatalog.from(
+                        contractView == null ? null : contractView.productContract(),
+                        qualityPlan
+                ),
+                plannedCoverageRefs,
+                plannedCoverageItems
+        ));
         return issues.isEmpty()
                 ? CoverageResult.success()
                 : CoverageResult.failure("当前实现计划未覆盖执行契约。", issues);
@@ -107,14 +104,14 @@ public class ImplementationPlanCoverageAnalyzer {
     }
 
     private List<String> detectMissingCapabilityCoverage(
-            ProductContract productContract,
+            AuthoritativeCoverageCatalog authoritativeCoverageCatalog,
             List<String> plannedCoverageRefs,
             List<String> plannedCoverageItems
     ) {
-        if (productContract == null) {
+        if (authoritativeCoverageCatalog == null) {
             return List.of();
         }
-        List<RequirementReference> requiredItems = productContract.planningCoverageRequirements();
+        List<RequirementReference> requiredItems = authoritativeCoverageCatalog.planningRequiredReferences();
         if (requiredItems.isEmpty()) {
             return List.of();
         }
@@ -137,7 +134,7 @@ public class ImplementationPlanCoverageAnalyzer {
             if (normalizedRefs.contains(normalizeCoverageRef(item.id()))) {
                 continue;
             }
-            issues.add("当前实现计划未覆盖产品要求 " + item.id() + "：" + trimForIssue(item.text()));
+            issues.add("当前实现计划未覆盖权威覆盖引用 " + item.id() + "：" + trimForIssue(item.text()));
             if (issues.size() >= 3) {
                 break;
             }

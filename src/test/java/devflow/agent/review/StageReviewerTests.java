@@ -3,6 +3,7 @@ package devflow.agent.review;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.artifact.AuxiliaryArtifactNames;
 import devflow.agent.artifact.FileArtifactStore;
+import devflow.agent.context.ContractExtractor;
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.ImplementationStageStatusPayload;
 import devflow.agent.protocol.ReviewArtifactPayload;
@@ -51,6 +52,8 @@ class StageReviewerTests {
 
     @TempDir
     Path tempDir;
+
+    private final ContractExtractor contractExtractor = new ContractExtractor();
 
     private StageReviewer newStageReviewer(LlmProvider provider) {
         return newStageReviewer(
@@ -1023,7 +1026,7 @@ class StageReviewerTests {
 
         StageReviewer reviewer = newStageReviewer(provider);
 
-        ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, """
+        ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, prdWithProductContractBlock("""
                 # 产品需求文档
 
                 ## 1. 产品目标
@@ -1060,7 +1063,7 @@ class StageReviewerTests {
                 - soft.designDecisions: (none)
                 - soft.recommendations: (none)
                 - open.questions: (none)
-                """);
+                """));
 
         assertEquals(ReviewDecision.APPROVED, result.decision());
     }
@@ -1287,7 +1290,7 @@ class StageReviewerTests {
 
         StageReviewer reviewer = newStageReviewer(provider);
 
-        ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, """
+        ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, prdWithProductContractBlock("""
                 # 产品需求文档
 
                 ## 1. 产品目标
@@ -1316,7 +1319,7 @@ class StageReviewerTests {
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, puzzle-renders
-                """);
+                """));
 
         assertEquals(ReviewDecision.APPROVED, result.decision());
         assertEquals(FixMode.NONE, result.fixMode());
@@ -1356,7 +1359,7 @@ class StageReviewerTests {
 
         StageReviewer reviewer = newStageReviewer(provider);
 
-        ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, """
+        ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, prdWithProductContractBlock("""
                 # 产品需求文档
 
                 ## 1. 产品目标
@@ -1397,7 +1400,7 @@ class StageReviewerTests {
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, input-works
-                """);
+                """));
 
         assertEquals(ReviewDecision.APPROVED, result.decision());
         assertEquals(FixMode.NONE, result.fixMode());
@@ -1430,7 +1433,7 @@ class StageReviewerTests {
 
         StageReviewer reviewer = newStageReviewer(provider);
 
-        ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, """
+        ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, prdWithProductContractBlock("""
                 # Product Requirements Document
 
                 ## 1. Product Goals
@@ -1469,7 +1472,7 @@ class StageReviewerTests {
                 - soft.designDecisions: use DOM or Canvas for rendering
                 - soft.recommendations: keep the UI responsive
                 - open.questions: whether to support hard drop
-                """);
+                """));
 
         assertEquals(ReviewDecision.APPROVED, result.decision());
         assertEquals(FixMode.NONE, result.fixMode());
@@ -1619,7 +1622,7 @@ class StageReviewerTests {
 
         StageReviewer reviewer = newStageReviewer(provider);
 
-        ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, """
+        ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, prdWithProductContractBlock("""
                 # Product Requirements Document
 
                 ## 1. Product Goals
@@ -1656,7 +1659,15 @@ class StageReviewerTests {
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, input-works
 
-                ## 8. Current Notes
+                ## 8. Source Metadata
+                - hard.userRequirements: implement a browser tetris game
+                - hard.upstreamFacts: pure web version, runnable directly in browser
+                - soft.inferences: (none)
+                - soft.designDecisions: (none)
+                - soft.recommendations: (none)
+                - open.questions: (none)
+
+                ## 9. Current Notes
 
                 [FIX_MODE=PATCH]
                 摘要：
@@ -1668,7 +1679,7 @@ class StageReviewerTests {
                 [SUPERVISOR_GUIDANCE]
                 [REQUIRED_EVIDENCE]
                 - 补充后的PRD文件中## 6. 章节完整内容
-                """);
+                """));
 
         assertEquals(ReviewDecision.APPROVED, result.decision());
         assertEquals(FixMode.NONE, result.fixMode());
@@ -1700,7 +1711,7 @@ class StageReviewerTests {
 
         StageReviewer reviewer = newStageReviewer(provider);
 
-        ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, """
+        ReviewResult result = reviewer.review(tempDir, dummyRun(), StageType.PRD, prdWithProductContractBlock("""
                 # 产品需求文档
 
                 ## 1. 产品目标
@@ -1736,7 +1747,7 @@ class StageReviewerTests {
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, input-works
-                """);
+                """));
 
         assertEquals(ReviewDecision.APPROVED, result.decision());
         assertEquals(FixMode.NONE, result.fixMode());
@@ -2574,6 +2585,13 @@ class StageReviewerTests {
                 states,
                 Instant.now(),
                 Instant.now()
+        );
+    }
+
+    private String prdWithProductContractBlock(String prd) {
+        return prd + "\n\n" + StructuredArtifactBlocks.renderJsonBlock(
+                ArtifactBlockKind.PRODUCT_CONTRACT,
+                contractExtractor.projectProductContractFromPrd(prd)
         );
     }
 }

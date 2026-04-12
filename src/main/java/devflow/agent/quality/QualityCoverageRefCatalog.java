@@ -1,8 +1,11 @@
 package devflow.agent.quality;
 
+import devflow.agent.context.RequirementReference;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -43,41 +46,59 @@ public final class QualityCoverageRefCatalog {
     }
 
     public static Set<String> requiredReferenceIds(QualityPlan qualityPlan) {
-        if (qualityPlan == null || qualityPlan.qualityIntent().requiredCapabilityIds().isEmpty()) {
-            return Set.of();
-        }
-        LinkedHashSet<String> refs = new LinkedHashSet<>();
-        for (String capabilityId : qualityPlan.qualityIntent().requiredCapabilityIds()) {
-            refs.add(referenceId(capabilityId));
-        }
-        return Set.copyOf(refs);
+        return requiredReferences(qualityPlan).stream()
+                .map(RequirementReference::id)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
     }
 
-    public static String renderCatalog(QualityPlan qualityPlan, DocumentLanguage language) {
+    public static List<RequirementReference> requiredReferences(QualityPlan qualityPlan) {
         if (qualityPlan == null || qualityPlan.qualityIntent().requiredCapabilityIds().isEmpty()) {
-            return PlaceholderValues.none(language);
+            return List.of();
         }
-        StringBuilder builder = new StringBuilder();
+        List<RequirementReference> references = new ArrayList<>();
         Set<String> requiredQualitySurfaces = qualityPlan.qualityIntent().requiredCapabilityIds();
         for (CapabilityMatrixEntry entry : qualityPlan.capabilityMatrix().entries()) {
             if (entry == null || entry.capabilityId().isBlank() || !entry.required()
                     || !requiredQualitySurfaces.contains(entry.capabilityId())) {
                 continue;
             }
+            references.add(new RequirementReference(
+                    referenceId(entry.capabilityId()),
+                    "quality-capability",
+                    renderReferenceText(entry),
+                    true
+            ));
+        }
+        return List.copyOf(references);
+    }
+
+    public static String renderCatalog(QualityPlan qualityPlan, DocumentLanguage language) {
+        List<RequirementReference> references = requiredReferences(qualityPlan);
+        if (references.isEmpty()) {
+            return PlaceholderValues.none(language);
+        }
+        StringBuilder builder = new StringBuilder();
+        for (RequirementReference reference : references) {
             if (!builder.isEmpty()) {
                 builder.append('\n');
             }
             builder.append("- ")
-                    .append(referenceId(entry.capabilityId()))
+                    .append(reference.id())
                     .append(": ")
-                    .append(entry.capabilityId())
-                    .append(" [")
-                    .append(entry.expectation().name())
-                    .append("]");
-            if (entry.rationale() != null && !entry.rationale().isBlank()) {
-                builder.append(" - ").append(entry.rationale().trim());
-            }
+                    .append(reference.text());
         }
         return builder.isEmpty() ? PlaceholderValues.none(language) : builder.toString();
+    }
+
+    private static String renderReferenceText(CapabilityMatrixEntry entry) {
+        StringBuilder builder = new StringBuilder()
+                .append(entry.capabilityId())
+                .append(" [")
+                .append(entry.expectation().name())
+                .append("]");
+        if (entry.rationale() != null && !entry.rationale().isBlank()) {
+            builder.append(" - ").append(entry.rationale().trim());
+        }
+        return builder.toString();
     }
 }

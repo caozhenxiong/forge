@@ -833,13 +833,13 @@ class DefaultWorkflowEngineTests {
                             面向研发流程使用者。
 
                             ## 3. 功能范围
-                            覆盖最小工作流与产物落盘。
+                            - 覆盖最小工作流与产物落盘。
 
                             ## 4. 非功能要求
                             保持实现简单且可测试。
 
                             ## 5. 验收标准
-                            能创建 run 并推进到 code review。
+                            - 能创建 run 并推进到 code review。
 
                             ## 6. 不做什么
                             不做完整 web UI。
@@ -1158,13 +1158,13 @@ class DefaultWorkflowEngineTests {
                             面向研发流程使用者。
 
                             ## 3. 功能范围
-                            覆盖最小工作流与产物落盘。
+                            - 覆盖最小工作流与产物落盘。
 
                             ## 4. 非功能要求
                             保持实现简单且可测试。
 
                             ## 5. 验收标准
-                            能创建 run 并推进到 code review。
+                            - 能创建 run 并推进到 code review。
 
                             ## 6. 不做什么
                             不做完整 web UI。

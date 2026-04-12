@@ -114,7 +114,7 @@ class DocumentStagePostProcessorTests {
                 DocumentLanguage.ZH
         );
 
-        ProductContract productContract = contractExtractor.extractProductContract(sanitized);
+        ProductContract productContract = contractExtractor.projectProductContractFromPrd(sanitized);
 
         assertFalse(sanitized.contains("2 秒"));
         assertTrue(sanitized.contains("控制无明显延迟"));

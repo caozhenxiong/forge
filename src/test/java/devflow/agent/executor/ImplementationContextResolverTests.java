@@ -51,7 +51,7 @@ class ImplementationContextResolverTests {
                 3
         );
         ContractView authoritativeContract = new ContractView(
-                new ProductContract(
+                ProductContract.projectedFromPrdSections(
                         List.of("实现俄罗斯方块"),
                         List.of("玩家打开页面后立即可见游戏表面"),
                         List.of("支持开始/暂停/重开", "空格键快速下落（可选）"),
@@ -152,9 +152,9 @@ class ImplementationContextResolverTests {
         assertTrue(context.sharedContextBundle().mustFixFirst().contains("先给出最小可运行入口"));
         assertTrue(context.sharedContextBundle().forbiddenDirections().contains("不要引入后端"));
         assertTrue(context.sharedContextBundle().requiredEvidence().contains("页面可打开"));
-        assertTrue(context.productRequirementCatalog().contains("CAP-1"));
-        assertTrue(context.productRequirementCatalog().contains("QCAP-TIMED_STATE_PROGRESSION"));
-        assertFalse(context.productRequirementCatalog().contains("QCAP-CAP_1"));
+        assertTrue(context.authoritativeCoverageCatalog().contains("CAP-1"));
+        assertTrue(context.authoritativeCoverageCatalog().contains("QCAP-TIMED_STATE_PROGRESSION"));
+        assertFalse(context.authoritativeCoverageCatalog().contains("QCAP-CAP_1"));
         assertTrue(context.qualityPlan().capabilityMatrix().requires(CapabilityIds.TIMED_STATE_PROGRESSION));
         assertTrue(context.continuationConstraints().active());
         assertTrue(context.continuationConstraints().marksExistingPath("index.html"));

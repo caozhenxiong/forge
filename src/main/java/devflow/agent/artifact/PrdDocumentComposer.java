@@ -80,7 +80,7 @@ final class PrdDocumentComposer {
         return postProcessor.upsertDocumentBlocks(
                 sanitized,
                 context.authoritativeSourceMetadata(),
-                contractExtractor.extractProductContract(sanitized),
+                contractExtractor.projectProductContractFromPrd(sanitized),
                 executionContract,
                 contractExtractor.extractValidationMetadata(sanitized)
         );

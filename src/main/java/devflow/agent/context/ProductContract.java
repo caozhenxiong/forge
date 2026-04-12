@@ -3,7 +3,10 @@ package devflow.agent.context;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 public record ProductContract(
         List<String> objectives,
@@ -22,16 +25,16 @@ public record ProductContract(
         nonFunctionalRequirements = freezeTextList(nonFunctionalRequirements);
         acceptanceCriteria = freezeTextList(acceptanceCriteria);
         nonGoals = freezeTextList(nonGoals);
-        requirementReferences = normalizeRequirementReferences(requirementReferences, requiredCapabilities, acceptanceCriteria);
+        requirementReferences = normalizeRequirementReferences(requirementReferences);
     }
 
     /**
-     * 兼容旧的六段式 ProductContract 构造方式。
+     * PRD 六段式正文在进入 machine block 前，需要被确定性投影成显式 coverage refs。
      *
-     * <p>旧调用方只提供 prose 列表时，这里会在数据模型层补齐稳定 requirement refs，
-     * 避免结构化 PRODUCT_CONTRACT 持久化后仍然丢失覆盖锚点。
+     * <p>这里保留一个显式命名的工厂，而不是在构造函数里偷偷回填：
+     * 下游只有带 refs 的 PRODUCT_CONTRACT 才是可消费契约；正文到 refs 的投影只允许发生在 PRD 规范化阶段。
      */
-    public ProductContract(
+    public static ProductContract projectedFromPrdSections(
             List<String> objectives,
             List<String> userScenarios,
             List<String> requiredCapabilities,
@@ -39,7 +42,15 @@ public record ProductContract(
             List<String> acceptanceCriteria,
             List<String> nonGoals
     ) {
-        this(objectives, userScenarios, requiredCapabilities, nonFunctionalRequirements, acceptanceCriteria, nonGoals, List.of());
+        return new ProductContract(
+                objectives,
+                userScenarios,
+                requiredCapabilities,
+                nonFunctionalRequirements,
+                acceptanceCriteria,
+                nonGoals,
+                deriveRequirementReferences(requiredCapabilities, acceptanceCriteria)
+        );
     }
 
     public String toMarkdown() {
@@ -128,7 +139,7 @@ public record ProductContract(
                 .anyMatch(reference -> reference.id().equalsIgnoreCase(id.trim()));
     }
 
-    private void appendReferences(
+    private static void appendReferences(
             List<RequirementReference> target,
             String prefix,
             String category,
@@ -149,40 +160,48 @@ public record ProductContract(
         }
     }
 
-    /**
-     * requirement refs 是后续 planning / test / review 的稳定锚点。
-     *
-     * <p>如果这里只在读取时临时回填，而对象本身仍然保存空列表，
-     * 那么写回 PRODUCT_CONTRACT 结构化块时仍会把 refs 落成空值，
-     * 下游阶段就只能重新从 prose 猜覆盖范围。这里直接在数据模型层补齐，
-     * 保证持久化后的 contract 本身就是完整的权威载体。
-     */
-    private List<RequirementReference> normalizeRequirementReferences(
-            List<RequirementReference> references,
-            List<String> normalizedRequiredCapabilities,
-            List<String> normalizedAcceptanceCriteria
+    private static List<RequirementReference> deriveRequirementReferences(
+            List<String> requiredCapabilities,
+            List<String> acceptanceCriteria
     ) {
-        List<RequirementReference> explicitReferences = references == null
-                ? List.of()
-                : references.stream()
-                .filter(reference -> reference != null && reference.id() != null && !reference.id().isBlank())
-                .map(reference -> new RequirementReference(
-                        reference.id().trim(),
-                        reference.category() == null ? "" : reference.category().trim(),
-                        reference.text() == null ? "" : reference.text().trim(),
-                        reference.planningRequired()
-                ))
-                .toList();
-        if (!explicitReferences.isEmpty()) {
-            return List.copyOf(explicitReferences);
-        }
-        List<RequirementReference> fallbackReferences = new ArrayList<>();
-        appendReferences(fallbackReferences, "CAP", "required-capability", normalizedRequiredCapabilities, true);
-        appendReferences(fallbackReferences, "ACC", "acceptance-criterion", normalizedAcceptanceCriteria, false);
-        return List.copyOf(fallbackReferences);
+        List<RequirementReference> derived = new ArrayList<>();
+        appendReferences(derived, "CAP", "required-capability", requiredCapabilities, true);
+        appendReferences(derived, "ACC", "acceptance-criterion", acceptanceCriteria, false);
+        return List.copyOf(derived);
     }
 
-    private List<String> freezeTextList(List<String> values) {
+    private static List<RequirementReference> normalizeRequirementReferences(List<RequirementReference> references) {
+        if (references == null || references.isEmpty()) {
+            return List.of();
+        }
+        Map<String, RequirementReference> normalized = new LinkedHashMap<>();
+        for (RequirementReference reference : references) {
+            if (reference == null || reference.id() == null || reference.id().isBlank()) {
+                continue;
+            }
+            String normalizedId = reference.id().trim().toUpperCase(Locale.ROOT);
+            RequirementReference normalizedReference = new RequirementReference(
+                    reference.id().trim(),
+                    reference.category() == null ? "" : reference.category().trim(),
+                    reference.text() == null ? "" : reference.text().trim(),
+                    reference.planningRequired()
+            );
+            RequirementReference existing = normalized.get(normalizedId);
+            if (existing == null) {
+                normalized.put(normalizedId, normalizedReference);
+                continue;
+            }
+            normalized.put(normalizedId, new RequirementReference(
+                    existing.id(),
+                    existing.category().isBlank() ? normalizedReference.category() : existing.category(),
+                    existing.text().isBlank() ? normalizedReference.text() : existing.text(),
+                    existing.planningRequired() || normalizedReference.planningRequired()
+            ));
+        }
+        return List.copyOf(normalized.values());
+    }
+
+    private static List<String> freezeTextList(List<String> values) {
         if (values == null || values.isEmpty()) {
             return List.of();
         }

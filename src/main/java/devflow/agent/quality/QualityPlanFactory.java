@@ -1,13 +1,11 @@
 package devflow.agent.quality;
 
 import devflow.agent.context.ContractView;
-import devflow.agent.context.RequirementReference;
 import devflow.agent.context.ValidationMetadata;
 import devflow.agent.executor.RuntimeSnapshot;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Path;
 import java.util.Collection;
-import java.util.LinkedHashSet;
 
 /**
  * 统一构建当前轮质量计划。
@@ -37,14 +35,10 @@ public final class QualityPlanFactory {
                 fingerprint,
                 runtimeSnapshot
         );
-        Collection<String> effectiveRequiredCapabilitySurfaces = mergeRequiredCapabilitySurfaces(
-                contractView,
-                requiredCapabilitySurfaces
-        );
         return qualityPolicyResolver.resolve(
                 rules,
                 featureProfiler.profile(fingerprint, contractView, validationMetadata, normalizedRuntimeSnapshot),
-                qualityIntentResolver.resolve(rules, contractView, validationMetadata, effectiveRequiredCapabilitySurfaces),
+                qualityIntentResolver.resolve(rules, contractView, validationMetadata, requiredCapabilitySurfaces),
                 contractView,
                 validationMetadata
         );
@@ -58,31 +52,5 @@ public final class QualityPlanFactory {
             Collection<String> requiredCapabilitySurfaces
     ) {
         return build(null, fingerprint, contractView, validationMetadata, runtimeSnapshot, requiredCapabilitySurfaces);
-    }
-
-    /**
-     * product contract 里被标记为 planning-required 的 requirement refs，
-     * 需要直接进入 quality required capability 集合。
-     *
-     * <p>否则 planning 已经要求覆盖的能力，到 test 阶段又会退化成“参考 prose”，
-     * coverage ledger 无法稳定发现缺口。
-     */
-    private Collection<String> mergeRequiredCapabilitySurfaces(
-            ContractView contractView,
-            Collection<String> requiredCapabilitySurfaces
-    ) {
-        LinkedHashSet<String> merged = new LinkedHashSet<>();
-        if (requiredCapabilitySurfaces != null) {
-            merged.addAll(requiredCapabilitySurfaces);
-        }
-        if (contractView != null && contractView.productContract() != null) {
-            for (RequirementReference reference : contractView.productContract().planningCoverageRequirements()) {
-                if (reference == null || reference.id() == null || reference.id().isBlank()) {
-                    continue;
-                }
-                merged.add(reference.id().trim());
-            }
-        }
-        return merged;
     }
 }

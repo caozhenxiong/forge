@@ -157,7 +157,7 @@ class ImplementationPlanCoverageAnalyzerTests {
     void defaultRequirementRefsAlsoParticipateInPlanningCoverage() {
         ImplementationPlanCoverageAnalyzer analyzer = new ImplementationPlanCoverageAnalyzer();
         ContractView contractView = new ContractView(
-                new devflow.agent.context.ProductContract(
+                devflow.agent.context.ProductContract.projectedFromPrdSections(
                         List.of("实现俄罗斯方块"),
                         List.of("浏览器用户"),
                         List.of("支持移动与旋转方块", "建议：提供状态提示"),
@@ -190,7 +190,7 @@ class ImplementationPlanCoverageAnalyzerTests {
     void analyzerDoesNotGuessOptionalityFromCapabilityProse() {
         ImplementationPlanCoverageAnalyzer analyzer = new ImplementationPlanCoverageAnalyzer();
         ContractView contractView = new ContractView(
-                new devflow.agent.context.ProductContract(
+                devflow.agent.context.ProductContract.projectedFromPrdSections(
                         List.of("实现俄罗斯方块"),
                         List.of("浏览器用户"),
                         List.of("支持移动与旋转方块", "提供空格键快速下落（可选）", "提供基本操作提示（optional）"),

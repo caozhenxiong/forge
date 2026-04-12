@@ -1,11 +1,14 @@
 package devflow.agent.review;
 
+import devflow.agent.context.ContractExtractor;
 import devflow.agent.orchestrator.RunRecord;
 import devflow.agent.orchestrator.RunConfig;
 import devflow.agent.orchestrator.RunStatus;
 import devflow.agent.orchestrator.StageExecution;
 import devflow.agent.orchestrator.StageStatus;
 import devflow.agent.orchestrator.StageType;
+import devflow.agent.protocol.ArtifactBlockKind;
+import devflow.agent.protocol.StructuredArtifactBlocks;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.EnumMap;
@@ -18,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DocumentStructureGuardTests {
 
     private final DocumentStructureGuard guard = new DocumentStructureGuard();
+    private final ContractExtractor contractExtractor = new ContractExtractor();
 
     @Test
     void rejectsMissingRequiredSection() {
@@ -43,7 +47,7 @@ class DocumentStructureGuardTests {
         ReviewResult result = guard.enforce(
                 dummyRun(),
                 StageType.PRD,
-                """
+                withProductContractBlock("""
                 # 产品需求文档
 
                 ## 1. 产品目标
@@ -53,13 +57,13 @@ class DocumentStructureGuardTests {
                 场景
 
                 ## 3. 功能范围
-                功能
+                - 提供基础交互
 
                 ## 4. 非功能要求
                 页面响应时间必须小于 100ms。
 
                 ## 5. 验收标准
-                标准
+                - 页面可打开
 
                 ## 6. 不做什么
                 不做联网
@@ -76,7 +80,7 @@ class DocumentStructureGuardTests {
                 ## 8. Source Metadata
                 - hard.userRequirements: 纯网页版、可直接打开运行
                 - hard.upstreamFacts: 需要页面可打开
-                """,
+                """),
                 "PRD",
                 new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "")
         );
@@ -85,7 +89,7 @@ class DocumentStructureGuardTests {
     }
 
     @Test
-    void noLongerGuessesUnsourcedQuantifiedPerformanceThresholdsFromStructuredProductContractText() {
+    void rejectsInconsistentProductContractBlock() {
         ReviewResult result = guard.enforce(
                 dummyRun(),
                 StageType.PRD,
@@ -130,7 +134,21 @@ class DocumentStructureGuardTests {
                   "requiredCapabilities" : [ "支持开始游戏" ],
                   "nonFunctionalRequirements" : [ "页面加载时间不超过 2 秒", "游戏帧率稳定在 30 FPS 以上", "键盘响应延迟不超过 50ms" ],
                   "acceptanceCriteria" : [ "页面加载时间小于 2 秒" ],
-                  "nonGoals" : [ "联网功能" ]
+                  "nonGoals" : [ "联网功能" ],
+                  "requirementReferences" : [
+                    {
+                      "id" : "CAP-1",
+                      "category" : "required-capability",
+                      "text" : "支持开始游戏",
+                      "planningRequired" : true
+                    },
+                    {
+                      "id" : "ACC-1",
+                      "category" : "acceptance-criterion",
+                      "text" : "页面加载时间小于 2 秒",
+                      "planningRequired" : false
+                    }
+                  ]
                 }
                 <!-- DEVFLOW:PRODUCT_CONTRACT:END -->
 
@@ -146,7 +164,8 @@ class DocumentStructureGuardTests {
                 new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "")
         );
 
-        assertEquals(ReviewDecision.APPROVED, result.decision());
+        assertEquals(ReviewDecision.REVISION_REQUIRED, result.decision());
+        assertTrue(result.summary().contains("PRODUCT_CONTRACT"));
     }
 
     private RunRecord dummyRun() {
@@ -163,6 +182,13 @@ class DocumentStructureGuardTests {
                 stageStates,
                 Instant.now(),
                 Instant.now()
+        );
+    }
+
+    private String withProductContractBlock(String prd) {
+        return prd + "\n\n" + StructuredArtifactBlocks.renderJsonBlock(
+                ArtifactBlockKind.PRODUCT_CONTRACT,
+                contractExtractor.projectProductContractFromPrd(prd)
         );
     }
 }

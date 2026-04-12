@@ -1,9 +1,7 @@
 package devflow.agent.executor;
 
+import devflow.agent.context.AuthoritativeCoverageCatalog;
 import devflow.agent.context.ExecutionContract;
-import devflow.agent.context.ProductContract;
-import devflow.agent.quality.QualityCoverageRefCatalog;
-import devflow.agent.quality.QualityPlan;
 import devflow.agent.review.FixMode;
 import devflow.agent.util.ProjectPathSupport;
 import java.util.ArrayList;
@@ -25,9 +23,8 @@ final class ImplementationPlanNormalizationSupport {
             FixMode fixMode,
             boolean preferSkeletonFlow,
             DeliveryPolicyEnvelope deliveryPolicy,
-            ProductContract productContract,
+            AuthoritativeCoverageCatalog authoritativeCoverageCatalog,
             ExecutionContract executionContract,
-            QualityPlan qualityPlan,
             ImplementationContinuationConstraints continuationConstraints
     ) {
         if (plan.subtasks() == null || plan.subtasks().isEmpty()) {
@@ -62,7 +59,7 @@ final class ImplementationPlanNormalizationSupport {
             normalized.add(new Subtask(
                     subtask.title(),
                     subtask.goal(),
-                    sanitizeCoverageRefs(subtask.coverageRefs(), productContract, qualityPlan),
+                    sanitizeCoverageRefs(subtask.coverageRefs(), authoritativeCoverageCatalog),
                     sanitizeCapabilities(subtask.ownedCapabilities(), subtask.acceptanceCriteria()),
                     sanitizeCapabilities(subtask.deferredCapabilities(), List.of()),
                     subtask.acceptanceCriteria(),
@@ -112,28 +109,16 @@ final class ImplementationPlanNormalizationSupport {
         return normalized;
     }
 
-    private List<String> sanitizeCoverageRefs(List<String> values, ProductContract productContract, QualityPlan qualityPlan) {
+    private List<String> sanitizeCoverageRefs(List<String> values, AuthoritativeCoverageCatalog authoritativeCoverageCatalog) {
         if (values == null || values.isEmpty()) {
             return List.of();
         }
         return values.stream()
                 .filter(value -> value != null && !value.isBlank())
                 .map(String::trim)
-                .filter(value -> supportsCoverageRef(value, productContract, qualityPlan))
+                .filter(value -> authoritativeCoverageCatalog != null && authoritativeCoverageCatalog.containsReferenceId(value))
                 .distinct()
                 .toList();
-    }
-
-    private boolean supportsCoverageRef(String value, ProductContract productContract, QualityPlan qualityPlan) {
-        if (productContract != null && productContract.containsBindingRequirementId(value)) {
-            return true;
-        }
-        String qualityCapabilityId = QualityCoverageRefCatalog.fromReferenceId(value);
-        return !qualityCapabilityId.isBlank()
-                && qualityPlan != null
-                && qualityPlan.capabilityMatrix().entries().stream()
-                .map(entry -> entry == null ? "" : entry.capabilityId())
-                .anyMatch(qualityCapabilityId::equals);
     }
 
     private List<String> sanitizeCapabilities(List<String> values, List<String> fallback) {

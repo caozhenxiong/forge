@@ -58,7 +58,7 @@ final class ImplementationPlanningUserPromptBuilder {
                 质量清单：
                 %s
 
-                能力覆盖引用：
+                权威覆盖引用目录：
                 %s
 
                 continuation 约束：

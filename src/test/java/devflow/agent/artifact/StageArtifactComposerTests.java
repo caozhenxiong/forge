@@ -1236,7 +1236,8 @@ class StageArtifactComposerTests {
         );
 
         UUID runId = UUID.randomUUID();
-        Path prdPath = artifactStore.writeArtifact(tempDir, runId, StageType.PRD, """
+        ContractExtractor contractExtractor = new ContractExtractor();
+        String prd = """
                 # 产品需求文档
 
                 ## 1. 产品目标
@@ -1265,7 +1266,16 @@ class StageArtifactComposerTests {
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, game-surface-renders
-                """);
+                """;
+        Path prdPath = artifactStore.writeArtifact(
+                tempDir,
+                runId,
+                StageType.PRD,
+                prd + "\n\n" + StructuredArtifactBlocks.renderJsonBlock(
+                        ArtifactBlockKind.PRODUCT_CONTRACT,
+                        contractExtractor.projectProductContractFromPrd(prd)
+                )
+        );
         Path designPath = artifactStore.writeArtifact(tempDir, runId, StageType.DESIGN, """
                 # 技术方案设计
 

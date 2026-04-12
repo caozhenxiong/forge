@@ -1,5 +1,6 @@
 package devflow.agent.executor;
 
+import devflow.agent.context.AuthoritativeCoverageCatalog;
 import devflow.agent.context.ExecutionContract;
 import devflow.agent.quality.CapabilityMatrix;
 import devflow.agent.quality.CoveragePolicy;
@@ -52,9 +53,8 @@ class ImplementationPlanNormalizationSupportTests {
                 FixMode.NONE,
                 false,
                 DeliveryPolicyEnvelope.defaultPolicy(),
-                null,
+                new AuthoritativeCoverageCatalog(List.of()),
                 new ExecutionContract(true, "html-entry", true, true, List.of("runtime-surface-renders")),
-                qualityPlan(),
                 ImplementationContinuationConstraints.empty()
         );
 
@@ -88,9 +88,8 @@ class ImplementationPlanNormalizationSupportTests {
                 FixMode.PATCH,
                 false,
                 DeliveryPolicyEnvelope.defaultPolicy(),
+                new AuthoritativeCoverageCatalog(List.of()),
                 null,
-                null,
-                qualityPlan(),
                 ImplementationContinuationConstraints.empty()
         );
 
@@ -126,9 +125,8 @@ class ImplementationPlanNormalizationSupportTests {
                 FixMode.NONE,
                 true,
                 DeliveryPolicyEnvelope.defaultPolicy(),
-                null,
+                new AuthoritativeCoverageCatalog(List.of()),
                 new ExecutionContract(true, "html-entry", true, true, List.of("runtime-surface-renders")),
-                qualityPlan(),
                 new ImplementationContinuationConstraints(
                         List.of("index.html"),
                         List.of(new ImplementationContinuationConstraints.ProtectedHtmlEntryConstraint(

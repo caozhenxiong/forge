@@ -113,7 +113,7 @@ final class CoderTurnCoordinator {
                 executionContext.language(),
                 executionContext.fixMode(),
                 executionContext.implementationPatchTarget(),
-                executionContext.productRequirementCatalog(),
+                executionContext.authoritativeCoverageCatalog(),
                 executionContext.continuationConstraints(),
                 eventJournal::append
         )

@@ -1,5 +1,6 @@
 package devflow.agent.executor;
 
+import devflow.agent.context.AuthoritativeCoverageCatalog;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ContractView;
 import devflow.agent.i18n.PlaceholderValues;
@@ -45,6 +46,10 @@ final class TestCasePromptAssembler {
             UiRuntimeContract runtimeContract
     ) {
         ContractView contractView = contractExtractor.extractContractView(goal, constraints, "", prd, design);
+        AuthoritativeCoverageCatalog authoritativeCoverageCatalog = AuthoritativeCoverageCatalog.from(
+                contractView == null ? null : contractView.productContract(),
+                qualityPlan
+        );
         String context = workspace.collectContext(projectPath, 8, 2400, 9000);
         String requiredCoverageInstruction = requiredCoverageInstruction(qualityPlan);
         String systemPrompt = """
@@ -130,7 +135,7 @@ final class TestCasePromptAssembler {
                 结构化契约：
                 %s
 
-                产品需求覆盖引用：
+                权威覆盖引用目录：
                 %s
 
                 质量计划：
@@ -166,8 +171,9 @@ final class TestCasePromptAssembler {
                 shrink(prd),
                 shrink(design),
                 contractView == null ? "" : shrink(contractView.toMarkdown(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints))),
-                contractView == null ? PlaceholderValues.none(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints))
-                        : shrink(contractView.productRequirementCatalogMarkdown(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints))),
+                authoritativeCoverageCatalog == null
+                        ? PlaceholderValues.none(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints))
+                        : shrink(authoritativeCoverageCatalog.toMarkdown(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints))),
                 qualityPlan == null ? "" : shrink(qualityPlan.toMarkdown(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints))),
                 requiredCapabilitySurfaceCatalog(qualityPlan),
                 capabilityCatalog(qualityPlan),

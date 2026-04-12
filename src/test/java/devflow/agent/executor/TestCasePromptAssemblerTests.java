@@ -4,6 +4,9 @@ import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ContractView;
 import devflow.agent.context.ValidationMetadata;
 import devflow.agent.project.FileProjectWorkspace;
+import devflow.agent.protocol.ArtifactBlockKind;
+import devflow.agent.protocol.StructuredArtifactBlocks;
+import devflow.agent.quality.CapabilityIds;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.quality.QualityPlanFactory;
 import devflow.agent.validation.ProjectFingerprint;
@@ -63,7 +66,8 @@ class TestCasePromptAssemblerTests {
                 """;
 
         ContractExtractor extractor = new ContractExtractor();
-        ContractView contractView = extractor.extractContractView("做一个网页应用", "中文输出", "", prd, design);
+        String prdWithBlock = withProductContractBlock(extractor, prd);
+        ContractView contractView = extractor.extractContractView("做一个网页应用", "中文输出", "", prdWithBlock, design);
         ProjectFingerprint fingerprint = new ProjectFingerprint(
                 "static-web",
                 "none",
@@ -95,7 +99,7 @@ class TestCasePromptAssemblerTests {
                 fingerprint,
                 "做一个网页应用",
                 "中文输出",
-                prd,
+                prdWithBlock,
                 design,
                 "implementation report",
                 null,
@@ -103,10 +107,17 @@ class TestCasePromptAssemblerTests {
                 UiRuntimeContract.empty()
         );
 
-        assertTrue(prompt.userPrompt().contains("产品需求覆盖引用"));
+        assertTrue(prompt.userPrompt().contains("权威覆盖引用目录"));
         assertTrue(prompt.userPrompt().contains("CAP-1"));
         assertTrue(prompt.userPrompt().contains("显示下一项预览"));
-        assertTrue(prompt.userPrompt().contains("cap-1"));
-        assertTrue(prompt.userPrompt().contains("cap-2"));
+        assertTrue(prompt.userPrompt().contains(CapabilityIds.PAGE_LOAD));
+        assertTrue(prompt.userPrompt().contains(CapabilityIds.RUNTIME_STABILITY));
+    }
+
+    private String withProductContractBlock(ContractExtractor extractor, String prd) {
+        return prd + "\n\n" + StructuredArtifactBlocks.renderJsonBlock(
+                ArtifactBlockKind.PRODUCT_CONTRACT,
+                extractor.projectProductContractFromPrd(prd)
+        );
     }
 }

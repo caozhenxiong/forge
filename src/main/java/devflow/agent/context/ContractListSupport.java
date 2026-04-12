@@ -1,6 +1,7 @@
 package devflow.agent.context;
 
 import devflow.agent.i18n.PlaceholderValues;
+import devflow.agent.markdown.MarkdownSectionScanner;
 import devflow.agent.text.TextCanonicalizer;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -26,7 +27,11 @@ final class ContractListSupport {
             return List.of();
         }
         Set<String> items = new LinkedHashSet<>();
-        collectBulletItems(sectionBody, maxItems <= 0 ? Integer.MAX_VALUE : maxItems, items);
+        int effectiveMaxItems = maxItems <= 0 ? Integer.MAX_VALUE : maxItems;
+        collectBulletItems(sectionBody, effectiveMaxItems, items);
+        if (items.isEmpty()) {
+            collectParagraphItems(sectionBody, effectiveMaxItems, items);
+        }
         return List.copyOf(items);
     }
 
@@ -105,6 +110,51 @@ final class ContractListSupport {
             }
             items.add(cleanLine(item));
         }
+    }
+
+    /**
+     * 有些测试夹具和历史文档仍然用段落式正文，而不是 bullet list。
+     *
+     * <p>这里的兜底只基于固定章节切片做“段落聚合”，不猜语义、不拆关键词：
+     * 如果章节没有任何列表项，就把连续正文行折叠成稳定条目，供 PRODUCT_CONTRACT 投影使用。
+     */
+    private void collectParagraphItems(String sectionBody, int maxItems, Set<String> items) {
+        StringBuilder paragraph = new StringBuilder();
+        for (String rawLine : TextCanonicalizer.splitLines(sectionBody)) {
+            if (items.size() >= maxItems) {
+                flushParagraph(paragraph, items);
+                return;
+            }
+            String trimmed = rawLine == null ? "" : rawLine.trim();
+            if (trimmed.isBlank()) {
+                flushParagraph(paragraph, items);
+                continue;
+            }
+            if (MarkdownSectionScanner.isHeadingLine(trimmed)) {
+                flushParagraph(paragraph, items);
+                continue;
+            }
+            if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                flushParagraph(paragraph, items);
+                continue;
+            }
+            if (!paragraph.isEmpty()) {
+                paragraph.append(' ');
+            }
+            paragraph.append(trimmed);
+        }
+        flushParagraph(paragraph, items);
+    }
+
+    private void flushParagraph(StringBuilder paragraph, Set<String> items) {
+        if (paragraph == null || paragraph.isEmpty()) {
+            return;
+        }
+        String normalized = cleanLine(paragraph.toString());
+        if (!normalized.isBlank() && !isEmptyMarker(normalized)) {
+            items.add(normalized);
+        }
+        paragraph.setLength(0);
     }
 
     private String extractListItem(String rawLine) {

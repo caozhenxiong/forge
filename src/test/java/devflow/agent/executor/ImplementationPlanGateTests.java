@@ -184,7 +184,7 @@ class ImplementationPlanGateTests {
 
     private ContractView contractView() {
         return new ContractView(
-                new ProductContract(
+                ProductContract.projectedFromPrdSections(
                         List.of("实现俄罗斯方块"),
                         List.of("浏览器用户"),
                         List.of("支持移动与旋转方块"),

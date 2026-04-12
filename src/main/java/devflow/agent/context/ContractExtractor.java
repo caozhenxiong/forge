@@ -14,15 +14,21 @@ public class ContractExtractor {
     private final ContractMetadataReader metadataReader = new ContractMetadataReader(sectionResolver, listSupport);
 
     public ProductContract extractProductContract(String prd) {
-        ProductContract blockValue = StructuredArtifactBlocks.readFirstJsonBlock(
+        return StructuredArtifactBlocks.readFirstJsonBlock(
                 prd,
                 ArtifactBlockKind.PRODUCT_CONTRACT,
                 ProductContract.class
         );
-        if (blockValue != null) {
-            return blockValue;
-        }
-        return new ProductContract(
+    }
+
+    /**
+     * PRD 阶段把固定章节投影成 PRODUCT_CONTRACT machine block。
+     *
+     * <p>这里只允许依赖稳定章节号和列表结构，不允许猜正文语义；
+     * 下游阶段必须只读取 block，不再回退到正文。
+     */
+    public ProductContract projectProductContractFromPrd(String prd) {
+        return ProductContract.projectedFromPrdSections(
                 listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 1)),
                 listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 2)),
                 listSupport.collectReferenceItems(sectionResolver.productCapabilitiesSection(prd)),
@@ -59,15 +65,9 @@ public class ContractExtractor {
                 metadataReader.extractSourceMetadata(design)
         );
         ExecutionContract executionContract = extractExecutionContract(goal, constraints, prd, design);
-        String authorityCorpus = ConstraintAuthoritySupport.buildAuthorityCorpus(
-                goal,
-                constraints,
-                sourceMetadata,
-                executionContract
-        );
         return new ContractView(
-                extractProductContract(prd, authorityCorpus),
-                extractDesignContract(design, authorityCorpus),
+                extractProductContract(prd),
+                extractDesignContract(design),
                 executionContract,
                 sourceMetadata
         );
@@ -141,28 +141,5 @@ public class ContractExtractor {
 
     private ConstraintSourceMetadata mergeSourceMetadata(ConstraintSourceMetadata... values) {
         return metadataReader.mergeSourceMetadata(values);
-    }
-
-    private ProductContract extractProductContract(String prd, String authorityCorpus) {
-        return new ProductContract(
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 1)),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 2)),
-                listSupport.collectReferenceItems(sectionResolver.productCapabilitiesSection(prd)),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 4)),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 5)),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(prd, 6))
-        );
-    }
-
-    private DesignContract extractDesignContract(String design, String authorityCorpus) {
-        return new DesignContract(
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 1)),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 2)),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 3)),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 4)),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 5)),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 6)),
-                listSupport.collectReferenceItems(sectionResolver.sectionByNumber(design, 7))
-        );
     }
 }

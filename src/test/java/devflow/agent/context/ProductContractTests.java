@@ -11,8 +11,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ProductContractTests {
 
     @Test
-    void defaultRequirementReferencesPromoteRequiredCapabilitiesIntoPlanningCoverage() {
-        ProductContract contract = new ProductContract(
+    void projectedPrdSectionsPromoteRequiredCapabilitiesIntoPlanningCoverage() {
+        ProductContract contract = ProductContract.projectedFromPrdSections(
                 List.of("实现俄罗斯方块"),
                 List.of("浏览器用户"),
                 List.of("支持移动与旋转方块", "显示当前得分"),
@@ -31,7 +31,7 @@ class ProductContractTests {
     }
 
     @Test
-    void explicitRequirementReferencesOverrideFallbackReferences() {
+    void explicitRequirementReferencesRemainAuthoritative() {
         ProductContract contract = new ProductContract(
                 List.of("实现俄罗斯方块"),
                 List.of("浏览器用户"),

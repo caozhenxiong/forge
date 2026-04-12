@@ -231,23 +231,26 @@
   - 真正阻断只来自 contract、一致性检查和可运行性验证
 - `PRD/DESIGN` 的 `Contract Metadata` 章节现在会同时持久化 `runtime.*` 与 `validation.*`，validation authority 不再在 post-process 阶段丢失
 - `PRD` 的 `4.1 性能 / 5.2 质量验收` 已接入本地 authority canonicalization：无来源数值阈值会被删除；有 `hard.* / validation.*` 支撑的条目会被规范化保留
-- `ProductContract` 现在会直接持久化稳定 `requirementReferences`：
-  - 未显式提供 refs 时，`requiredCapabilities -> CAP-* (planning-required)`、`acceptanceCriteria -> ACC-* (final-acceptance)` 会在结构化 contract 层自动补齐
-  - `PRODUCT_CONTRACT` 不再出现“正文有能力，结构化块里 refs 为空”的缩水状态
-- contract 抽取主链已改成无损：
+- `PRD` 主链现在会把固定章节确定性投影成 `PRODUCT_CONTRACT`：
+  - `1-6` 号章节会被本地投影成显式 `requirementReferences`
+  - 投影规则是“列表优先，段落兜底”，不再要求所有合法 PRD 都写成 bullet list
+  - 下游主链只再消费 `PRODUCT_CONTRACT` block，不再从 PRD 正文回退抽取产品覆盖引用
+- contract 抽取主链已改成无损且 block-first：
   - 关键 contract 列表不再按固定条数截断
   - `3.1 / 3.2` 之类分段能力不会再因为前几条已满被挤掉
+- `PRD` review 现在会显式校验 `PRODUCT_CONTRACT`：
+  - 缺块、空 `requirementReferences`、以及 block 与固定章节投影不一致，都会在文档阶段直接打回
 - projected context / task memory 已改成 authority 与 trace 分层：
   - `upstreamContractSummary` 仍保留为可压缩 trace 信息
-  - 下游真正消费的 durable contract 信息已切成 `authoritative requirement catalog`
-  - 权威 requirement catalog 不再走 `contractView.toMarkdown() -> summarizeMarkdown(...)` 这条缩水链
-- `QualityPlan` 现在会把 product contract 中 `planning-required` 的 requirement refs 直接提升成 required capability：
-  - implementation planning、coverage analyzer、testcase planning、coverage ledger 已开始消费同一批 `CAP-* / cap-*`
-  - test prompt 也会显式注入产品需求覆盖引用，不再只给 prose 摘要或只给技术 capability id
-- implementation requirement catalog 已去掉重复锚点：
-  - `CAP-*` 由产品 requirement catalog 承载
+  - 下游真正消费的 durable contract 信息已切成 `authoritative coverage catalog`
+  - 权威 coverage catalog 不再走 `contractView.toMarkdown() -> summarizeMarkdown(...)` 这条缩水链
+- implementation / testcase planning / coverage gate 现在共享同一份 `AuthoritativeCoverageCatalog`：
+  - 产品覆盖引用继续走 `CAP-* / ACC-*`
   - 纯质量能力继续走 `QCAP-*`
-  - 不再向 planner 暴露 `CAP-1` 与 `QCAP-CAP_1` 两套重复引用
+  - 若质量能力与产品 `CAP-*` 指向同一能力，只保留产品引用，不再向 planner 暴露 `CAP-1` 与 `QCAP-CAP_1` 两套重复锚点
+- `QualityPlan` 不再吸收 product requirement refs：
+  - product coverage 与 quality capability 各自保持独立来源
+  - planner / gate / testcase 的统一覆盖约束改由 `AuthoritativeCoverageCatalog` 汇总
 
 ### 当前 agent / model 关系
 

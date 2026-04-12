@@ -1,5 +1,7 @@
 package devflow.agent.review;
 
+import devflow.agent.artifact.ArtifactSectionKind;
+import devflow.agent.artifact.ArtifactSectionSupport;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.LanguagePolicy;
 import devflow.agent.executor.ArchitectIntegrationCheck;
@@ -119,10 +121,11 @@ public class StageReviewer {
      * 避免 reviewer 只靠自然语言判断而产生阶段越界。
      */
     private ReviewResult reviewDocument(RunRecord runRecord, StageType stageType, String candidateContent, String artifactLabel) {
-        String sanitizedCandidate = stripProcessNoteSection(candidateContent);
+        String guardedCandidate = stripProcessNoteSection(candidateContent);
+        String reviewerCandidate = stripMachineBlocks(guardedCandidate);
         String reviewerContext = reviewArtifactLoader.readReviewerContext(runRecord);
         DocumentLanguage language = languagePolicy.resolve(
-                sanitizedCandidate,
+                reviewerCandidate,
                 runRecord.goal(),
                 runRecord.constraints()
         );
@@ -130,11 +133,11 @@ public class StageReviewer {
         ReviewResult normalized = documentReviewTurnExecutor.run(
                 runRecord,
                 stageType,
-                sanitizedCandidate,
+                reviewerCandidate,
                 reviewerContext,
                 systemPrompt
         );
-        return documentStructureGuard.enforce(runRecord, stageType, sanitizedCandidate, artifactLabel, normalized);
+        return documentStructureGuard.enforce(runRecord, stageType, guardedCandidate, artifactLabel, normalized);
     }
 
     private ReviewResult reviewImplementation(Path projectPath, RunRecord runRecord, String artifactContent) {
@@ -234,6 +237,22 @@ public class StageReviewer {
     }
 
     private String stripProcessNoteSection(String content) {
+        String rawBlocks = StructuredArtifactBlocks.collectAllKnownBlocks(content);
+        String prose = StructuredArtifactBlocks.stripAllKnownBlocks(content);
+        String sanitizedProse = ArtifactSectionSupport.removeSections(
+                prose,
+                java.util.EnumSet.of(ArtifactSectionKind.CURRENT_NOTES)
+        ).trim();
+        if (rawBlocks.isBlank()) {
+            return sanitizedProse;
+        }
+        if (sanitizedProse.isBlank()) {
+            return rawBlocks;
+        }
+        return sanitizedProse + "\n\n" + rawBlocks;
+    }
+
+    private String stripMachineBlocks(String content) {
         return StructuredArtifactBlocks.stripAllKnownBlocks(content).trim();
     }
 

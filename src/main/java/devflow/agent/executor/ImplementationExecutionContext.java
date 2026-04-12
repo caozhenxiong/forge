@@ -29,7 +29,7 @@ record ImplementationExecutionContext(
         QualityPlan qualityPlan,
         boolean preferSkeletonFlow,
         SharedContextBundle sharedContextBundle,
-        String productRequirementCatalog,
+        String authoritativeCoverageCatalog,
         ImplementationContinuationConstraints continuationConstraints
 ) {
 }

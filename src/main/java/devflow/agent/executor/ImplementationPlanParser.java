@@ -1,9 +1,8 @@
 package devflow.agent.executor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import devflow.agent.context.AuthoritativeCoverageCatalog;
 import devflow.agent.context.ExecutionContract;
-import devflow.agent.context.ProductContract;
-import devflow.agent.quality.QualityPlan;
 import devflow.agent.review.FixMode;
 
 /**
@@ -33,9 +32,8 @@ final class ImplementationPlanParser {
             FixMode fixMode,
             boolean preferSkeletonFlow,
             DeliveryPolicyEnvelope deliveryPolicy,
-            ProductContract productContract,
+            AuthoritativeCoverageCatalog authoritativeCoverageCatalog,
             ExecutionContract executionContract,
-            QualityPlan qualityPlan,
             ImplementationContinuationConstraints continuationConstraints
     ) {
         String candidate = response;
@@ -47,9 +45,8 @@ final class ImplementationPlanParser {
                         fixMode,
                         preferSkeletonFlow,
                         deliveryPolicy,
-                        productContract,
+                        authoritativeCoverageCatalog,
                         executionContract,
-                        qualityPlan,
                         continuationConstraints
                 );
             } catch (Exception exception) {
@@ -76,9 +73,8 @@ final class ImplementationPlanParser {
             FixMode fixMode,
             boolean preferSkeletonFlow,
             DeliveryPolicyEnvelope deliveryPolicy,
-            ProductContract productContract,
+            AuthoritativeCoverageCatalog authoritativeCoverageCatalog,
             ExecutionContract executionContract,
-            QualityPlan qualityPlan,
             ImplementationContinuationConstraints continuationConstraints
     ) throws Exception {
         ImplementationPlan plan = structuredPayloadReader.readJsonObject(response, ImplementationPlan.class);
@@ -87,9 +83,8 @@ final class ImplementationPlanParser {
                 fixMode,
                 preferSkeletonFlow,
                 deliveryPolicy,
-                productContract,
+                authoritativeCoverageCatalog,
                 executionContract,
-                qualityPlan,
                 continuationConstraints
         );
     }

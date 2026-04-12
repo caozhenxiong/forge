@@ -116,7 +116,7 @@ class QualityPlanFactoryTests {
     }
 
     @Test
-    void planningRequiredProductReferencesAlsoFlowIntoRequiredCapabilityMatrix() {
+    void productRequirementReferencesNoLongerLeakIntoQualityRequiredCapabilityMatrix() {
         ContractView contractView = new ContractView(
                 new ProductContract(
                         List.of("实现网页应用"),
@@ -144,10 +144,10 @@ class QualityPlanFactoryTests {
                 List.of()
         );
 
-        assertTrue(plan.qualityIntent().requiredCapabilityIds().contains("cap-1"));
-        assertTrue(plan.qualityIntent().requiredCapabilityIds().contains("cap-2"));
-        assertTrue(plan.capabilityMatrix().requires("cap-1"));
-        assertTrue(plan.capabilityMatrix().requires("cap-2"));
+        assertFalse(plan.qualityIntent().requiredCapabilityIds().contains("cap-1"));
+        assertFalse(plan.qualityIntent().requiredCapabilityIds().contains("cap-2"));
+        assertFalse(plan.capabilityMatrix().requires("cap-1"));
+        assertFalse(plan.capabilityMatrix().requires("cap-2"));
     }
 
     @Test

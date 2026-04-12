@@ -1,5 +1,7 @@
 package devflow.agent.context;
 
+import devflow.agent.protocol.ArtifactBlockKind;
+import devflow.agent.protocol.StructuredArtifactBlocks;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -76,7 +78,7 @@ class ContractExtractorTests {
                 - runtime.acceptanceSignals: page-opens, mode-switch-works, puzzle-renders
                 """;
 
-        ContractView contractView = extractor.extractContractView(prd, design);
+        ContractView contractView = extractor.extractContractView(withProductContractBlock(prd), design);
         String markdown = contractView.toMarkdown();
 
         assertTrue(markdown.contains("## Product Contract"));
@@ -278,6 +280,45 @@ class ContractExtractorTests {
                 """;
 
         ProductContract contract = extractor.extractProductContract(prd);
+        assertTrue(contract == null);
+    }
+
+    @Test
+    void projectsProductContractFromPrdSectionsForCanonicalBlockGeneration() {
+        String prd = """
+                # 产品需求文档
+
+                ## 1. 产品目标
+                - 实现一个可玩的网页版俄罗斯方块
+
+                ## 2. 目标用户与使用场景
+                - 用户打开页面即可开始游玩
+
+                ## 3. 功能范围
+
+                ### 3.1 核心功能
+                - 支持开始、暂停、重新开始
+                - 支持方块左右移动、旋转和加速下落
+
+                ### 3.2 辅助功能
+                - 显示当前得分
+                - 显示下一个方块预览
+
+                ### 3.3 异常与边界场景
+                - 网络问题：网络不稳定可能导致游戏断开或延迟
+                - 浏览器窗口缩放时界面需要保持可见
+
+                ## 4. 非功能要求
+                - 可直接打开运行
+
+                ## 5. 验收标准
+                - 页面可打开并能完成一轮游戏
+
+                ## 6. 不做什么
+                - 不做联网对战
+                """;
+
+        ProductContract contract = extractor.projectProductContractFromPrd(prd);
 
         assertTrue(contract.requiredCapabilities().contains("支持开始、暂停、重新开始"));
         assertTrue(contract.requiredCapabilities().contains("支持方块左右移动、旋转和加速下落"));
@@ -323,7 +364,7 @@ class ContractExtractorTests {
                 - 不做后端
                 """;
 
-        ProductContract contract = extractor.extractProductContract(prd);
+        ProductContract contract = extractor.projectProductContractFromPrd(prd);
 
         assertEquals(10, contract.requiredCapabilities().size());
         assertTrue(contract.requiredCapabilities().contains("能力 9"));
@@ -401,7 +442,7 @@ class ContractExtractorTests {
                 - runtime.acceptanceSignals: page-opens, controls-work
                 """;
 
-        ContractView contractView = extractor.extractContractView(prd, design);
+        ContractView contractView = extractor.extractContractView(withProductContractBlock(prd), design);
         String markdown = contractView.toMarkdown();
 
         assertTrue(markdown.contains("支持开始、暂停、重开"));
@@ -482,7 +523,7 @@ class ContractExtractorTests {
                 "实现一个可玩的网页版俄罗斯方块",
                 "需要纯网页版、可直接打开运行、像素风、支持开始/暂停/重开、方向键控制、显示得分和下一个方块预览",
                 "",
-                prd,
+                withProductContractBlock(prd),
                 design
         );
         String markdown = contractView.toMarkdown();
@@ -537,5 +578,12 @@ class ContractExtractorTests {
         assertEquals(1, authoritative.hardUserRequirements().size());
         assertEquals("build a browser game", authoritative.hardUserRequirements().getFirst());
         assertTrue(authoritative.hardUpstreamFacts().isEmpty());
+    }
+
+    private String withProductContractBlock(String prd) {
+        return prd + "\n\n" + StructuredArtifactBlocks.renderJsonBlock(
+                ArtifactBlockKind.PRODUCT_CONTRACT,
+                extractor.projectProductContractFromPrd(prd)
+        );
     }
 }

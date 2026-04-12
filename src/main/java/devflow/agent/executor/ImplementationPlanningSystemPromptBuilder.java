@@ -88,7 +88,7 @@ final class ImplementationPlanningSystemPromptBuilder {
                 6. 不要在此步骤输出文件内容
                 7. 保持项目可编译、可测试
                 8. deliveryMode 必须明确选择
-                9. coverageRefs 必须只引用“产品能力覆盖引用”或“质量能力覆盖引用”中出现的 ID，用来说明当前子任务直接承担了哪些产品能力或必需质量能力；final-acceptance 类型的引用可选，不要求每个子任务显式覆盖
+                9. coverageRefs 必须只引用“权威覆盖引用目录”中出现的 ID，用来说明当前子任务直接承担了哪些产品能力或必需质量能力；final-acceptance 类型的引用可选，不要求每个子任务显式覆盖
                 10. ownedCapabilities 必须只列当前子任务自己负责交付的能力
                 11. deferredCapabilities 必须列明确留给后续子任务处理的能力，不能把它们混进当前子任务验收
                 12. 若任务较大，优先拆成“最小可运行入口/表面 -> 核心功能填充 -> 接线与验证 -> polish”

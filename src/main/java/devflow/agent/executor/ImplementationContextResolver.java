@@ -1,6 +1,7 @@
 package devflow.agent.executor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import devflow.agent.context.AuthoritativeCoverageCatalog;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ContractView;
 import devflow.agent.context.ContextAccessProfile;
@@ -93,6 +94,10 @@ class ImplementationContextResolver {
                 null,
                 directives.requiredCapabilitySurfaces()
         );
+        AuthoritativeCoverageCatalog authoritativeCoverageCatalog = AuthoritativeCoverageCatalog.from(
+                contractView == null ? null : contractView.productContract(),
+                qualityPlan
+        );
         ImplementationContinuationConstraints continuationConstraints =
                 continuationConstraintResolver.resolve(previousStateJson, fingerprint);
         boolean preferSkeletonFlow = fixMode != FixMode.PATCH && (deliveryPolicy.mode() == DeliveryMode.SKELETON
@@ -133,11 +138,7 @@ class ImplementationContextResolver {
                 qualityPlan,
                 preferSkeletonFlow,
                 sharedContextBundle,
-                sharedContextFactory.renderProductRequirementCatalog(
-                        contractView == null ? null : contractView.productContract(),
-                        qualityPlan,
-                        language
-                ),
+                sharedContextFactory.renderAuthoritativeCoverageCatalog(authoritativeCoverageCatalog, language),
                 continuationConstraints
         );
     }

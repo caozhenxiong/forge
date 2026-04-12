@@ -67,7 +67,7 @@
 - [x] 新增宿主产物结构校验，补到 `repair-before-regenerate` 的 validate 链
 - [x] 将 `TEST` 阶段缺失能力覆盖信号前移到 `IMPLEMENTATION` 主链，确保 `timed-state-progression / primary-interaction / primary-visual-surface` 这类 required surface 在回流后会直接进入 implementation 计划与修复说明
 - [x] 将 `QualityPlan` 的 required capability surface 显式接入 implementation 计划约束，确保 planner 需要为 required surface 分配子任务责任，而不是只在 TEST 阶段补救
-- [x] 将 product requirement refs 收成权威主链：contract 无损抽取、durable context 保留权威 requirement catalog、planning-required requirement 直接提升为 quality/test required coverage
+- [x] 将 coverage contract 收成权威主链：PRD 固定章节本地投影 `PRODUCT_CONTRACT`、下游 block-only 抽取、planning/test/gate 统一消费 `AuthoritativeCoverageCatalog`
 - [x] 删除 implementation / repair / html patch 主链调用点中的固定 `num_predict` cap，统一改为动态 output ratio 驱动
 - [x] 修正 `Implementation` 产物落盘与执行链中的 `editScope` 一致性，确保质量计划外提脚本后不再把后续子任务渲染成 `INLINE_SCRIPT_PATCH`
 - [x] 修正外提脚本后的宿主 HTML 正规化，确保 `index.html` 在 companion 脚本接管后不再保留旧的主逻辑 inline script

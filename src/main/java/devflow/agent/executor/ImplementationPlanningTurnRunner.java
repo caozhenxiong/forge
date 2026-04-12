@@ -1,5 +1,6 @@
 package devflow.agent.executor;
 
+import devflow.agent.context.AuthoritativeCoverageCatalog;
 import devflow.agent.context.ContractView;
 import devflow.agent.loop.AgentTurnLoop;
 import devflow.agent.loop.AgentTurnSnapshot;
@@ -74,14 +75,17 @@ final class ImplementationPlanningTurnRunner {
                         return AgentTurnStepResult.advance(current.next(AgentTurnState.OBSERVE_RESULT, unitLabel, "implementation-plan-generated"));
                     }
                     if (state == AgentTurnState.OBSERVE_RESULT) {
+                        AuthoritativeCoverageCatalog authoritativeCoverageCatalog = AuthoritativeCoverageCatalog.from(
+                                contractView == null ? null : contractView.productContract(),
+                                qualityPlan
+                        );
                         planRef.set(planParser.parsePlanWithRepair(
                                 responseRef.get(),
                                 fixMode,
                                 preferSkeletonFlow,
                                 deliveryPolicy,
-                                contractView == null ? null : contractView.productContract(),
+                                authoritativeCoverageCatalog,
                                 contractView == null ? null : contractView.executionContract(),
-                                qualityPlan,
                                 continuationConstraints
                         ));
                         return AgentTurnStepResult.advance(current.next(AgentTurnState.EVALUATE_RESULT, unitLabel, "validate-implementation-plan"));

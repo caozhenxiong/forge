@@ -1,6 +1,8 @@
 package devflow.agent.review;
 
+import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ExecutionContract;
+import devflow.agent.context.ProductContract;
 import devflow.agent.markdown.MarkdownSectionScanner;
 import devflow.agent.orchestrator.RunRecord;
 import devflow.agent.orchestrator.StageType;
@@ -29,6 +31,7 @@ class DocumentStructureGuard {
     private final RequiredDocumentSectionPolicy sectionPolicy = new RequiredDocumentSectionPolicy();
     private final DocumentIntegrityGuardSupport documentIntegrityGuardSupport = new DocumentIntegrityGuardSupport();
     private final ContractMetadataConsistencyGuard contractMetadataConsistencyGuard = new ContractMetadataConsistencyGuard();
+    private final ContractExtractor contractExtractor = new ContractExtractor();
 
     ReviewResult enforce(
             RunRecord runRecord,
@@ -70,6 +73,18 @@ class DocumentStructureGuard {
                     artifactLabel + " 的 Contract Metadata 不自洽：" + trimFinding(inconsistentExecutionContractMetadata, 80),
                     "请修复 Contract Metadata，使 entryKind、entryPackagingMode、runtimeOwnershipMode、entryRequired、launchRequired、surfaceRequired 和 acceptanceSignals 的语义保持一致：" + trimFinding(inconsistentExecutionContractMetadata, 120)
             );
+        }
+
+        if (stageType == StageType.PRD) {
+            String productContractIssue = detectProductContractIssue(candidateContent);
+            if (productContractIssue != null) {
+                return new ReviewResult(
+                        ReviewDecision.REVISION_REQUIRED,
+                        FixMode.PATCH,
+                        artifactLabel + " 的 PRODUCT_CONTRACT 不可用：" + trimFinding(productContractIssue, 80),
+                        "请修复 PRODUCT_CONTRACT machine block，使其可解析、包含 requirementReferences，并与 PRD 主体保持一致：" + trimFinding(productContractIssue, 120)
+                );
+            }
         }
 
         return baseResult;
@@ -122,5 +137,38 @@ class DocumentStructureGuard {
     private String trimFinding(String finding, int limit) {
         String normalized = TextCanonicalizer.collapseWhitespace(finding);
         return normalized.length() > limit ? normalized.substring(0, limit) : normalized;
+    }
+
+    private String detectProductContractIssue(String candidateContent) {
+        ProductContract blockContract;
+        try {
+            blockContract = contractExtractor.extractProductContract(candidateContent);
+        } catch (IllegalStateException exception) {
+            return "PRODUCT_CONTRACT machine block 解析失败";
+        }
+        if (blockContract == null) {
+            return "缺少 PRODUCT_CONTRACT machine block";
+        }
+        if (blockContract.bindingRequirements().isEmpty()) {
+            return "PRODUCT_CONTRACT.requirementReferences 不能为空";
+        }
+        ProductContract projectedContract = contractExtractor.projectProductContractFromPrd(candidateContent);
+        if (!sameProductContract(blockContract, projectedContract)) {
+            return "PRODUCT_CONTRACT 与 PRD 固定章节投影结果不一致";
+        }
+        return null;
+    }
+
+    private boolean sameProductContract(ProductContract left, ProductContract right) {
+        if (left == null || right == null) {
+            return left == right;
+        }
+        return left.objectives().equals(right.objectives())
+                && left.userScenarios().equals(right.userScenarios())
+                && left.requiredCapabilities().equals(right.requiredCapabilities())
+                && left.nonFunctionalRequirements().equals(right.nonFunctionalRequirements())
+                && left.acceptanceCriteria().equals(right.acceptanceCriteria())
+                && left.nonGoals().equals(right.nonGoals())
+                && left.bindingRequirements().equals(right.bindingRequirements());
     }
 }
