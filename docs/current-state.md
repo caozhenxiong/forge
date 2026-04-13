@@ -79,9 +79,9 @@
 
 当前主线已经切换为：
 
-1. `架构整改`
+1. `黄金路径集成验证`
 
-当前目标不是继续推进黄金路径集成，而是先把 review 暴露出的结构问题收口，避免后续每次修 bug 都继续牵动多处代码。
+架构整改 5 个 phase 已完成，当前目标重新回到黄金路径集成验证，不再继续扩散架构级拆分。
 
 当前架构整改的 5 条主线是：
 
@@ -95,13 +95,14 @@
 
 - `Phase 0` 已完成：`ImplementationExecutor` 已从构造器工厂收回到 wiring 层，`SubtaskExecutionContext` 已补齐，tool loop 已显式注入执行器，continuation prompt 已回收到 prompt builder，`WorkflowEngine` 已升级为真 facade，`SupervisorAgent` 异常已可观测
 - `Phase 1` 已完成：`StageType / RunRecord / RunStatus / RunConfig / GatePolicy / StageExecution / StageStatus` 已迁入 `devflow.agent.domain`，旧 `orchestrator` 模型文件已删除，`context -> orchestrator` 依赖已清空
-- `Phase 2` 已进入后段：`executor.llm / executor.context / executor.generation / executor.shell / executor.tools / executor.subtask / executor.implementation / executor.runtime / executor.gate / executor.testing` 已落位
+- `Phase 2` 已完成：`executor.llm / executor.context / executor.generation / executor.shell / executor.tools / executor.subtask / executor.implementation / executor.runtime / executor.gate / executor.testing / executor.editing / executor.patch` 已全部落位
 - `executor.subtask` 已收口：subtask execution / verification / recovery / review prompt / retry feedback / self-check review resolver 已整体下沉
 - `executor.implementation.toolloop` 已收口：tool loop executor、prompt、session state、mutation contract、diagnostics、read-file ledger、result replacement state 已整体下沉
 - `executor.runtime` 已收口：`RuntimeOwnershipMode / RuntimeScriptGraphInspector / HtmlRuntimeOwnershipContract / HtmlEntryRuntimeOwnershipInspector / WebRuntimeWiringCheck / UiRuntimeContractResolver` 已归位到运行时支撑包
 - `executor.gate` 已收口：`ArchitectIntegrationCheck / ImplementationCompleteness* / ImplementationStageGate / ImplementationGateEngine / TestEvidenceGate / GateReport` 已归位到统一 gate 包
-- 当前下一步仍是 `Phase 2`：继续拆 `editing / patch` 这些仍留在 executor 根包的共享支撑职责
-- 黄金路径集成验证暂时后移，等架构整改 5 个 phase 完成后再重新进入
+- `Phase 3` 已完成：generate 主链统一切到 `LlmGenerateRequest`，`ContextCompactor` 与 `ContextBudgetPlanner` 已改为结构化四层上下文预算
+- `Phase 4` 已完成：`StageProgressCoordinator` 已收回纯 orchestration，`ImplementationExecutor` 保持单构造器注入，subtask 执行主链改为 `SubtaskExecutionContext`
+- 下一步不再是补架构骨架，而是恢复黄金路径集成验证
 
 ## 当前关键约束
 
@@ -142,10 +143,10 @@
 
 - implementation 编码内核的基础骨架已经完成代码层收口
 - `domain` 共享模型层已经落地，`context ↔ orchestrator` 的旧模型耦合已切开
-- 当前主问题不再是“缺少骨架”，而是 `executor` 根包仍保留 `editing / patch` 这两块共享支撑职责，Phase 2 还没有彻底拆完
-- `Phase 0` 与 `Phase 1` 的 `self-test + code review` 已完成
-- `Phase 2` 的第四段 checkpoint 已完成：`llm/context/generation/shell/tools/subtask/implementation/runtime/gate/testing` 已拆出并通过 `mvn -q test`
-- 下一步继续完成 `Phase 2` 的 `editing/patch` 拆分，而不是直接回到黄金路径集成测试
+- 当前主问题已经不再是架构收口，而是黄金路径真实集成稳定性
+- `Phase 0` 到 `Phase 4` 的 `self-test + code review` 已完成
+- 仓库级单测 `mvn -q clean test` 已通过
+- 下一步直接回到黄金路径集成测试，而不是继续做骨架整改
 
 ## 文档入口
 

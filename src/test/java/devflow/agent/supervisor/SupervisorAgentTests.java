@@ -100,7 +100,7 @@ class SupervisorAgentTests {
         FileRunRepository runRepository = new FileRunRepository();
         runRepository.initialize(tempDir);
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return """
@@ -150,7 +150,7 @@ class SupervisorAgentTests {
         FileRunRepository runRepository = new FileRunRepository();
         runRepository.initialize(tempDir);
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return """
@@ -200,7 +200,7 @@ class SupervisorAgentTests {
         FileRunRepository runRepository = new FileRunRepository();
         runRepository.initialize(tempDir);
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return """
@@ -296,7 +296,7 @@ class SupervisorAgentTests {
         FileRunRepository runRepository = new FileRunRepository();
         runRepository.initialize(tempDir);
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return """
@@ -357,7 +357,7 @@ class SupervisorAgentTests {
         FileRunRepository runRepository = new FileRunRepository();
         runRepository.initialize(tempDir);
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return """

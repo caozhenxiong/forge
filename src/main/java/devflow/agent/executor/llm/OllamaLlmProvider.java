@@ -47,13 +47,8 @@ public class OllamaLlmProvider implements LlmProvider, ChatCapableLlmProvider {
     }
 
     @Override
-    public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
-        return generate(systemPrompt, userPrompt, options, null);
-    }
-
-    @Override
-    public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
-        return generationExecutor.generate(systemPrompt, userPrompt, options, role);
+    public String generate(LlmGenerateRequest request) {
+        return generationExecutor.generate(request);
     }
 
     @Override

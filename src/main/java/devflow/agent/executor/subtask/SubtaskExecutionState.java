@@ -16,7 +16,7 @@ import java.util.Map;
 import devflow.agent.executor.implementation.toolloop.ImplementationToolSessionState;
 import devflow.agent.executor.DeliveryMode;
 import devflow.agent.executor.FileChange;
-import devflow.agent.executor.FileEditAttemptState;
+import devflow.agent.executor.editing.FileEditAttemptState;
 /**
  * 表示单个子任务在运行中的执行策略状态。
  *

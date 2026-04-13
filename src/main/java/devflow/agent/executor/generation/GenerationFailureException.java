@@ -3,7 +3,7 @@ package devflow.agent.executor.generation;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
-import devflow.agent.executor.FileEditAttemptState;
+import devflow.agent.executor.editing.FileEditAttemptState;
 
 public class GenerationFailureException extends RuntimeException {
 

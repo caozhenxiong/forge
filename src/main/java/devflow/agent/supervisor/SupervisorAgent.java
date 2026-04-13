@@ -2,6 +2,7 @@ package devflow.agent.supervisor;
 
 import devflow.agent.executor.generation.GenerationBudgetProfile;
 import devflow.agent.executor.generation.GenerationFailureReport;
+import devflow.agent.executor.llm.LlmGenerateRequest;
 import devflow.agent.executor.llm.LlmOptions;
 import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.llm.ModelRole;
@@ -92,7 +93,7 @@ public class SupervisorAgent {
         }
 
         try {
-            String response = llmProvider.generate(
+            String response = llmProvider.generate(LlmGenerateRequest.workingPrompt(
                     promptAssembler.decisionSystemPrompt(),
                     promptAssembler.decisionUserPrompt(
                             runRecord,
@@ -107,7 +108,7 @@ public class SupervisorAgent {
                     ),
                     LlmOptions.outputBudgetRatio(GenerationBudgetProfile.supervisorDecisionOutputRatio()),
                     ModelRole.SUPERVISOR
-            );
+            ));
             DecisionPayload payload = structuredPayloadReader.readJsonObject(response, DecisionPayload.class);
             return decisionSanitizer.sanitizeDecision(
                     payload,
@@ -153,7 +154,7 @@ public class SupervisorAgent {
         }
 
         try {
-            String response = llmProvider.generate(
+            String response = llmProvider.generate(LlmGenerateRequest.workingPrompt(
                     promptAssembler.generationRecoverySystemPrompt(),
                     promptAssembler.generationRecoveryUserPrompt(
                             runRecord,
@@ -168,7 +169,7 @@ public class SupervisorAgent {
                     ),
                     LlmOptions.outputBudgetRatio(GenerationBudgetProfile.generationRecoveryOutputRatio()),
                     ModelRole.SUPERVISOR
-            );
+            ));
             GenerationRecoveryPayload payload = structuredPayloadReader.readJsonObject(response, GenerationRecoveryPayload.class);
             return decisionSanitizer.sanitizeGenerationRecoveryDecision(payload, fallback, failureReport);
         } catch (Exception ignored) {

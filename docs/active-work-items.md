@@ -14,7 +14,7 @@
 - 只保留当前还在执行的主线，不再把历史大清单长期堆在这里
 - 每完成一条，直接打勾
 - 如果主线改变，先更新这份文档，再改代码
-- 在当前四段全部完成前，不进入黄金路径集成测试
+- 当前架构整改已经完成，黄金路径集成验证恢复为主线
 
 ## 当前主线
 
@@ -90,8 +90,8 @@
 
 ## 当前状态
 
-- 当前阶段：`黄金路径集成验证暂停，等待架构整改主线完成`
+- 当前阶段：`黄金路径集成验证待执行`
 - 当前约束：`不允许场景特判、不允许文件名硬编码、不允许把 runtime metadata 塞回 planning detail`
-- 当前阻塞：`当前优先级已切到架构整改；黄金路径验证后移到 architecture refactor 完成之后`
-- 当前补充：`空 scope PATCH continuation 这一类历史 fatal 已在主链封死，待集成验证确认真实 case 不再复现`
+- 当前阻塞：`无新的架构 blocker；待恢复并跑通至少一条真实黄金路径 case`
+- 当前补充：`空 scope PATCH continuation、旧字符串 generate 主路径、tool loop common pool、StageProgressCoordinator 内联装配 已在主链封死`
 - 当前判定标准：`不允许兼容层 / fallback / 双轨并存 / “后续再清理”`

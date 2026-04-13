@@ -1,6 +1,7 @@
 package devflow.agent.repair;
 
 import devflow.agent.executor.generation.GenerationBudgetProfile;
+import devflow.agent.executor.llm.LlmGenerateRequest;
 import devflow.agent.executor.llm.LlmOptions;
 import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.llm.ModelRole;
@@ -88,12 +89,12 @@ public class DiagnosisAgent {
                 artifactEvidence
         );
         try {
-            String response = llmProvider.generate(
+            String response = llmProvider.generate(LlmGenerateRequest.workingPrompt(
                     prompt.system(),
                     prompt.user(),
                     devflow.agent.executor.llm.LlmOptions.outputBudgetRatio(GenerationBudgetProfile.diagnosisOutputRatio()),
                     ModelRole.DIAGNOSIS
-            );
+            ));
             DiagnosisPayload payload = structuredPayloadReader.readJsonObject(response, DiagnosisPayload.class);
             return new RepairBrief(
                     payload.failureCluster(),

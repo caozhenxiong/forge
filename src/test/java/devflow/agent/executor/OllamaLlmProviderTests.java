@@ -1,4 +1,6 @@
 package devflow.agent.executor;
+import devflow.agent.executor.editing.*;
+import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
@@ -10,6 +12,7 @@ import devflow.agent.executor.context.PromptTokenEstimator;
 import devflow.agent.executor.generation.GenerationBudgetProperties;
 import devflow.agent.executor.generation.GenerationTelemetry;
 import devflow.agent.executor.llm.LlmFailureReason;
+import devflow.agent.executor.llm.LlmGenerateRequest;
 import devflow.agent.executor.llm.LlmInvocationException;
 import devflow.agent.executor.llm.LlmOptions;
 import devflow.agent.executor.llm.ModelBudgetRegistry;
@@ -76,7 +79,7 @@ class OllamaLlmProviderTests {
 
         LlmInvocationException exception = assertThrows(
                 LlmInvocationException.class,
-                () -> provider.generate("system", "user", LlmOptions.numPredict(16))
+                () -> provider.generate(LlmGenerateRequest.workingPrompt("system", "user", LlmOptions.numPredict(16), null))
         );
         assertEquals(LlmFailureReason.TIMEOUT, exception.reason());
         assertTrue(exception.getMessage().contains("timed out after 1 seconds"));
@@ -108,7 +111,7 @@ class OllamaLlmProviderTests {
 
         LlmInvocationException exception = assertThrows(
                 LlmInvocationException.class,
-                () -> provider.generate("system", "user", LlmOptions.numPredict(16))
+                () -> provider.generate(LlmGenerateRequest.workingPrompt("system", "user", LlmOptions.numPredict(16), null))
         );
         assertEquals(LlmFailureReason.OUTPUT_TRUNCATED, exception.reason());
         assertTrue(exception.getMessage().contains("done_reason=length"));
@@ -243,7 +246,7 @@ class OllamaLlmProviderTests {
                 )
         );
 
-        provider.generate("system", "x".repeat(5_000), LlmOptions.numPredict(1_800));
+        provider.generate(LlmGenerateRequest.workingPrompt("system", "x".repeat(5_000), LlmOptions.numPredict(1_800), null));
         GenerationTelemetry telemetry = provider.consumeLastTelemetry();
 
         assertEquals(540, handler.capturedNumPredict());
@@ -282,7 +285,7 @@ class OllamaLlmProviderTests {
 
         String system = "S".repeat(4_000);
         String user = "U".repeat(8_000);
-        provider.generate(system, user, LlmOptions.numPredict(600));
+        provider.generate(LlmGenerateRequest.workingPrompt(system, user, LlmOptions.numPredict(600), null));
 
         assertTrue(handler.capturedSystemPrompt().length() < system.length());
         assertTrue(handler.capturedUserPrompt().length() < user.length());

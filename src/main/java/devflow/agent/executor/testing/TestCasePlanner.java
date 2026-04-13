@@ -3,6 +3,7 @@ package devflow.agent.executor.testing;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
+import devflow.agent.executor.llm.LlmGenerateRequest;
 import devflow.agent.executor.llm.LlmOptions;
 import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.llm.ModelRole;
@@ -135,12 +136,12 @@ public class TestCasePlanner {
                     qualityPlan,
                     initialRuntimeContract
             );
-            String response = llmProvider.generate(
+            String response = llmProvider.generate(LlmGenerateRequest.workingPrompt(
                     prompt.systemPrompt(),
                     prompt.userPrompt(),
                     LlmOptions.outputBudgetRatio(TestPlanningPolicy.casePlanOutputRatio()),
                     ModelRole.TEST_CASE_DESIGN
-            );
+            ));
             PlannedTestCasesPayload payload = structuredPayloadReader.readJsonObject(response, PlannedTestCasesPayload.class);
             List<TestCaseSpec> planned = planSanitizer.sanitize(
                     payload.cases(),

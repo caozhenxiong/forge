@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 import devflow.agent.executor.subtask.Subtask;
 import devflow.agent.executor.subtask.TaskPackage;
 import devflow.agent.executor.FileChange;
-import devflow.agent.executor.FileEditScope;
+import devflow.agent.executor.editing.FileEditScope;
 /**
  * tool-driven coder prompt 组装器。
  *

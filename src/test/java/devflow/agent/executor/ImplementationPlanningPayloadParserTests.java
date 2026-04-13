@@ -1,4 +1,6 @@
 package devflow.agent.executor;
+import devflow.agent.executor.editing.*;
+import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
@@ -162,7 +164,7 @@ class ImplementationPlanningPayloadParserTests {
         assertEquals(1, llmProvider.generateCalls());
     }
 
-    private static final class RecordingLlmProvider implements LlmProvider {
+    private static final class RecordingLlmProvider extends devflow.agent.testsupport.RequestBackedLlmProvider {
         private final java.util.Queue<String> responses;
         private int generateCalls;
 

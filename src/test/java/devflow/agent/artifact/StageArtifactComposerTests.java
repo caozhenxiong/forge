@@ -2569,7 +2569,7 @@ class StageArtifactComposerTests {
         );
     }
 
-    private abstract static class StructuredTestLlmProvider implements LlmProvider, ChatCapableLlmProvider {
+    private abstract static class StructuredTestLlmProvider extends devflow.agent.testsupport.RequestBackedLlmProvider implements ChatCapableLlmProvider {
 
         @Override
         public LlmChatResponse chat(LlmChatRequest request) {

@@ -1,6 +1,7 @@
 package devflow.agent.executor.runtime;
 
 import devflow.agent.executor.*;
+import devflow.agent.executor.editing.FileEditScope;
 
 import devflow.agent.review.ImplementationPatchTarget;
 import java.nio.file.Path;

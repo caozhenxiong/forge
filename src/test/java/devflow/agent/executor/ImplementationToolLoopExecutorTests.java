@@ -1,4 +1,6 @@
 package devflow.agent.executor;
+import devflow.agent.executor.editing.*;
+import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
@@ -558,7 +560,7 @@ class ImplementationToolLoopExecutorTests {
         );
     }
 
-    private static final class ScriptedChatProvider implements LlmProvider, ChatCapableLlmProvider {
+    private static final class ScriptedChatProvider extends devflow.agent.testsupport.RequestBackedLlmProvider implements ChatCapableLlmProvider {
 
         private final List<LlmChatResponse> responses;
         private int index;

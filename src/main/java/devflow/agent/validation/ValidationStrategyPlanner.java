@@ -1,6 +1,7 @@
 package devflow.agent.validation;
 
 import devflow.agent.executor.generation.GenerationBudgetProfile;
+import devflow.agent.executor.llm.LlmGenerateRequest;
 import devflow.agent.executor.llm.LlmOptions;
 import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.llm.ModelRole;
@@ -33,12 +34,12 @@ public class ValidationStrategyPlanner {
         }
 
         try {
-            String response = llmProvider.generate(
+            String response = llmProvider.generate(LlmGenerateRequest.workingPrompt(
                     promptBuilder.systemPrompt(),
                     promptBuilder.userPrompt(fingerprint, candidates),
                     devflow.agent.executor.llm.LlmOptions.outputBudgetRatio(GenerationBudgetProfile.validationStrategyOutputRatio()),
                     ModelRole.VALIDATION_STRATEGY
-            );
+            ));
             ValidationPlanningPayload payload = structuredPayloadReader.readJsonObject(response, ValidationPlanningPayload.class);
             ValidationPlan planned = planSanitizer.sanitize(payload, candidates);
             if (planned != null) {

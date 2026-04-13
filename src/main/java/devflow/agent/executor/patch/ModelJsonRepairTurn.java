@@ -1,0 +1,76 @@
+package devflow.agent.executor.patch;
+import devflow.agent.executor.*;
+import devflow.agent.executor.editing.*;
+
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.llm.LlmGenerateRequest;
+import devflow.agent.executor.llm.LlmOptions;
+import devflow.agent.executor.llm.LlmProvider;
+import devflow.agent.executor.llm.ModelRole;
+
+import java.nio.file.Path;
+
+/**
+ * 只修 JSON 载荷，不重新生成业务 patch。
+ */
+public final class ModelJsonRepairTurn {
+
+    private static final String SYSTEM_PROMPT = """
+            你是 JSON 载荷修复器。
+            任务：
+            1. 只修复给定内容，使其成为合法 JSON。
+            2. 保持原有 patch 语义，不要扩展编辑范围。
+            3. 不要添加解释、Markdown 或代码块。
+            4. 直接返回修复后的 JSON 对象。
+            5. 对 exact replace edit，必须保留 targetPath、baseContentHash、oldText、newText、replaceAll，不要把原文改写成摘要。
+            """;
+
+    private final LlmProvider llmProvider;
+    private final PatchRepairSettings settings;
+
+    public ModelJsonRepairTurn(LlmProvider llmProvider, PatchRepairSettings settings) {
+        this.llmProvider = llmProvider;
+        this.settings = settings;
+    }
+
+    public String repair(Path relativePath, EditUnit unit, String payload, String evidence) {
+        return repair(
+                relativePath,
+                unit == null ? "patch" : unit.label(),
+                unit == null || unit.allowedSymbols().isEmpty() ? "无（append-only）" : String.join(", ", unit.allowedSymbols()),
+                payload,
+                evidence
+        );
+    }
+
+    public String repair(Path relativePath, String operationLabel, String payload, String evidence) {
+        return repair(relativePath, operationLabel, "无（append-only）", payload, evidence);
+    }
+
+    private String repair(Path relativePath, String operationLabel, String allowedSymbols, String payload, String evidence) {
+        String userPrompt = """
+                文件：%s
+                编辑单元：%s
+                允许符号：%s
+                错误证据：%s
+
+                请只修复下面这段 JSON 载荷，不要重做需求，不要新增解释：
+
+                %s
+                """.formatted(
+                relativePath,
+                operationLabel,
+                allowedSymbols,
+                evidence == null || evidence.isBlank() ? "未知" : evidence,
+                payload == null ? "" : payload
+        );
+        return llmProvider.generate(LlmGenerateRequest.workingPrompt(
+                SYSTEM_PROMPT,
+                userPrompt,
+                LlmOptions.outputBudgetRatio(settings.jsonRepairOutputRatio()),
+                ModelRole.REPAIR
+        ));
+    }
+}

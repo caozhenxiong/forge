@@ -3,7 +3,7 @@ package devflow.agent.executor.generation;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
-import devflow.agent.executor.PatchFailure;
+import devflow.agent.executor.patch.PatchFailure;
 
 public record GenerationAttemptResult<T>(
         boolean success,

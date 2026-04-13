@@ -1,4 +1,6 @@
 package devflow.agent.executor;
+import devflow.agent.executor.editing.*;
+import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
@@ -7,6 +9,7 @@ import devflow.agent.executor.context.ContextBudgetPlan;
 import devflow.agent.executor.context.ContextBudgetPlanner;
 import devflow.agent.executor.context.PromptTokenEstimator;
 import devflow.agent.executor.generation.GenerationBudgetProperties;
+import devflow.agent.executor.llm.LlmPromptContext;
 import devflow.agent.executor.llm.ModelBudgetRegistry;
 
 import java.util.Map;
@@ -28,7 +31,7 @@ class ContextBudgetPlannerTests {
                 new PromptTokenEstimator()
         );
 
-        ContextBudgetPlan plan = planner.plan("any-model", "system", "user");
+        ContextBudgetPlan plan = planner.plan("any-model", "system", LlmPromptContext.workingOnly("user"));
 
         assertFalse(plan.compactRequired());
     }
@@ -44,7 +47,11 @@ class ContextBudgetPlannerTests {
                 new PromptTokenEstimator()
         );
 
-        ContextBudgetPlan plan = planner.plan("any-model", "S".repeat(4_000), "U".repeat(8_000));
+        ContextBudgetPlan plan = planner.plan(
+                "any-model",
+                "S".repeat(1_000),
+                LlmPromptContext.workingOnly("U".repeat(8_000))
+        );
 
         assertTrue(plan.compactRequired());
         assertTrue(plan.fixedTokens() > 0);
@@ -52,6 +59,6 @@ class ContextBudgetPlannerTests {
         assertTrue(plan.outputReserveTokens() > 0);
         assertTrue(plan.materialBudgetTokens() > 0);
         assertTrue(plan.systemCharBudget() > 0);
-        assertTrue(plan.userCharBudget() > 0);
+        assertTrue(plan.workingCharBudget() > 0);
     }
 }

@@ -2,6 +2,7 @@ package devflow.agent.executor.context;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
+import devflow.agent.executor.llm.LlmPromptContext;
 
 /**
  * 统一承载 compact 后真正发给模型的 prompt。
@@ -13,7 +14,10 @@ import devflow.agent.executor.runtime.*;
  */
 public record CompactedPrompt(
         String systemPrompt,
-        String userPrompt,
+        LlmPromptContext promptContext,
         ContextBudgetPlan budgetPlan
 ) {
+    public String userPrompt() {
+        return promptContext == null ? "" : promptContext.render();
+    }
 }

@@ -11,14 +11,10 @@ import java.util.Map;
 
 public interface LlmProvider {
 
-    String generate(String systemPrompt, String userPrompt, Map<String, Object> options);
+    String generate(LlmGenerateRequest request);
 
     default ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
         return reviewStructured(systemPrompt, candidateContent, options).result();
-    }
-
-    default String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
-        return generate(systemPrompt, userPrompt, options);
     }
 
     default ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options, ModelRole role) {

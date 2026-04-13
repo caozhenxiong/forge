@@ -20,6 +20,9 @@ public record ContextBudgetPlan(
         int outputReserveTokens,
         int materialBudgetTokens,
         int systemCharBudget,
-        int userCharBudget
+        int durableCharBudget,
+        int workingCharBudget,
+        int evidenceCharBudget,
+        int traceCharBudget
 ) {
 }

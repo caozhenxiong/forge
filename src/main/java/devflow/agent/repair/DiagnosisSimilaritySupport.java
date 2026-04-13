@@ -1,6 +1,7 @@
 package devflow.agent.repair;
 
 import devflow.agent.executor.generation.GenerationBudgetProfile;
+import devflow.agent.executor.llm.LlmGenerateRequest;
 import devflow.agent.executor.llm.LlmOptions;
 import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.llm.ModelRole;
@@ -50,12 +51,12 @@ final class DiagnosisSimilaritySupport {
                 changeRequest
         );
         try {
-            String response = llmProvider.generate(
+            String response = llmProvider.generate(LlmGenerateRequest.workingPrompt(
                     prompt.system(),
                     prompt.user(),
                     LlmOptions.outputBudgetRatio(GenerationBudgetProfile.diagnosisSimilarityOutputRatio()),
                     ModelRole.DIAGNOSIS
-            );
+            ));
             SimilarityPayload payload = structuredPayloadReader.readJsonObject(response, SimilarityPayload.class);
             return payload.sameIssue();
         } catch (Exception exception) {

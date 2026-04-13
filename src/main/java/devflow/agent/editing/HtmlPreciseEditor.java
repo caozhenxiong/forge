@@ -3,7 +3,7 @@ package devflow.agent.editing;
 import devflow.agent.parsing.ByteRange;
 import devflow.agent.parsing.HtmlEditableStructure;
 import devflow.agent.parsing.TreeSitterSupport;
-import devflow.agent.executor.HtmlEditRegion;
+import devflow.agent.executor.editing.HtmlEditRegion;
 import devflow.agent.text.TextCanonicalizer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;

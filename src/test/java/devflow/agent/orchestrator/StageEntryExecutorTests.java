@@ -123,7 +123,7 @@ class StageEntryExecutorTests {
     }
 
     private LlmProvider noopProvider() {
-        return new LlmProvider() {
+        return new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "{}";

@@ -1,4 +1,6 @@
 package devflow.agent.executor;
+import devflow.agent.executor.editing.*;
+import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
@@ -524,7 +526,7 @@ class ImplementationExecutorTests {
      * 只有 planner 的 outline/detail 生成允许走 `generate`，
      * 真正的实现阶段必须走 chat/tool loop。
      */
-    private static final class ScriptedImplementationProvider implements LlmProvider, ChatCapableLlmProvider {
+    private static final class ScriptedImplementationProvider extends devflow.agent.testsupport.RequestBackedLlmProvider implements ChatCapableLlmProvider {
 
         private final Queue<String> planningResponses;
         private final Queue<ChatStep> chatSteps;

@@ -1,6 +1,7 @@
 package devflow.agent.artifact;
 
 import devflow.agent.executor.generation.GenerationBudgetProfile;
+import devflow.agent.executor.llm.LlmGenerateRequest;
 import devflow.agent.executor.llm.LlmOptions;
 import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.llm.ModelRole;
@@ -54,12 +55,12 @@ final class CodeReviewStageComposer {
         DocumentLanguage language = inputResolver.documentLanguage(runRecord, note);
         String contractView = contractExtractor.extractContractView(runRecord.goal(), runRecord.constraints(), prd, design).toMarkdown(language);
         CodeReviewPrompt prompt = promptAssembler.build(note, implementationSummary, contractView, changes);
-        String content = llmProvider.generate(
+        String content = llmProvider.generate(LlmGenerateRequest.workingPrompt(
                 prompt.system(),
                 prompt.user(),
                 devflow.agent.executor.llm.LlmOptions.outputBudgetRatio(GenerationBudgetProfile.codeReviewOutputRatio()),
                 ModelRole.CODE_REVIEW
-        );
+        ));
         ReviewArtifactPayload payload = ReviewArtifactPayloadSupport.readFirstPayload(content);
         if (payload == null || payload.decision() == null || payload.decision().isBlank()) {
             throw new IllegalStateException("CODE_REVIEW artifact must contain a REVIEW_RESULT block");

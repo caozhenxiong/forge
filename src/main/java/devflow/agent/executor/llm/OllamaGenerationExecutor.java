@@ -44,15 +44,19 @@ final class OllamaGenerationExecutor {
         this.transportClient = transportClient;
     }
 
-    String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
+    String generate(LlmGenerateRequest request) {
         lastTelemetry.set(null);
+        LlmGenerateRequest effectiveRequest = request == null
+                ? new LlmGenerateRequest("", LlmPromptContext.empty(), Map.of(), null)
+                : request;
+        ModelRole role = effectiveRequest.role();
         String model = properties.resolveModel(role);
-        CompactedPrompt compactedPrompt = contextCompactor.compact(model, systemPrompt, userPrompt);
+        CompactedPrompt compactedPrompt = contextCompactor.compact(model, effectiveRequest);
         OutputBudgetDecision budgetDecision = outputBudgetCalculator.calculateOutputBudget(
                 model,
                 compactedPrompt.systemPrompt(),
                 compactedPrompt.userPrompt(),
-                options
+                effectiveRequest.options()
         );
         lastTelemetry.set(GenerationTelemetry.fromBudget(model, role, budgetDecision));
         Map<String, Object> effectiveOptions = budgetDecision.effectiveOptions();

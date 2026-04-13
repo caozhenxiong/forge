@@ -64,7 +64,7 @@ class TestExecutorTests {
                         """
         );
 
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 if (systemPrompt.contains("验证策略规划器")) {
@@ -134,7 +134,7 @@ class TestExecutorTests {
                         """
         );
 
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 if (systemPrompt.contains("验证策略规划器")) {
@@ -214,7 +214,7 @@ class TestExecutorTests {
     void unsupportedTestcaseExecutorNoLongerMarksRequiredCasesAsPassed() throws Exception {
         Files.writeString(tempDir.resolve("README.md"), "# no runnable stack");
 
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 if (systemPrompt.contains("验证策略规划器")) {
@@ -326,7 +326,7 @@ class TestExecutorTests {
     void missingHtmlEntryIsReportedAsExecutionContractFailure() throws Exception {
         Files.writeString(tempDir.resolve("game.js"), "export const boot = () => 'ok';");
 
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 if (systemPrompt.contains("验证策略规划器")) {
@@ -481,7 +481,7 @@ class TestExecutorTests {
                         """
         );
 
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 if (systemPrompt.contains("验证策略规划器")) {
@@ -652,7 +652,7 @@ class TestExecutorTests {
     }
 
     private LlmProvider noopProvider() {
-        return new LlmProvider() {
+        return new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";

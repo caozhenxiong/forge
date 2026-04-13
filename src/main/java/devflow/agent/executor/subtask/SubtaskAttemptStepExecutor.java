@@ -17,7 +17,7 @@ import devflow.agent.executor.FileChange;
 import devflow.agent.executor.gate.ImplementationCompletenessGate;
 import devflow.agent.executor.gate.ImplementationCompletenessGateInput;
 import devflow.agent.executor.gate.ImplementationCompletenessGateOutcome;
-import devflow.agent.executor.TargetedFileContextRenderer;
+import devflow.agent.executor.editing.TargetedFileContextRenderer;
 import devflow.agent.executor.testing.TestExecutor;
 /**
  * 负责一次子任务尝试里的 turn step 状态迁移。

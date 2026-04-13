@@ -1,10 +1,13 @@
 package devflow.agent.executor;
+import devflow.agent.executor.editing.*;
+import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
 import devflow.agent.executor.generation.GenerationBudgetProfile;
 import devflow.agent.executor.generation.GenerationTelemetry;
+import devflow.agent.executor.llm.LlmGenerateRequest;
 import devflow.agent.executor.llm.LlmOptions;
 import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.llm.ModelRole;
@@ -56,12 +59,12 @@ final class ImplementationPlanningTurnRunner {
                         return AgentTurnStepResult.advance(current.next(AgentTurnState.EXECUTE_STEP, unitLabel, "invoke-implementation-planning-unit"));
                     }
                     if (state == AgentTurnState.EXECUTE_STEP) {
-                        responseRef.set(llmProvider.generate(
+                        responseRef.set(llmProvider.generate(LlmGenerateRequest.workingPrompt(
                                 systemPrompt,
                                 userPrompt,
                                 LlmOptions.outputBudgetRatio(GenerationBudgetProfile.implementationPlanOutputRatio()),
                                 ModelRole.IMPLEMENTATION
-                        ));
+                        )));
                         telemetryRef.set(llmProvider.consumeLastTelemetry());
                         return AgentTurnStepResult.stop(current.next(
                                 AgentTurnState.COMPLETE,

@@ -36,7 +36,7 @@ class ValidationStrategyPlannerTests {
 
     @Test
     void modelPlanCannotDropRequiredSmokeOrRuntimeChecks() {
-        ValidationStrategyPlanner planner = new ValidationStrategyPlanner(new LlmProvider() {
+        ValidationStrategyPlanner planner = new ValidationStrategyPlanner(new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, java.util.Map<String, Object> options) {
                 return """

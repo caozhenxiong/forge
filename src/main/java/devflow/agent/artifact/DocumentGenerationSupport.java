@@ -1,6 +1,7 @@
 package devflow.agent.artifact;
 
 import devflow.agent.executor.generation.GenerationBudgetProfile;
+import devflow.agent.executor.llm.LlmGenerateRequest;
 import devflow.agent.executor.llm.LlmOptions;
 import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.llm.ModelRole;
@@ -21,7 +22,7 @@ final class DocumentGenerationSupport {
     }
 
     String generate(DocumentGenerationPrompt prompt, DocumentDraftMode mode, ModelRole role) {
-        return llmProvider.generate(
+        return llmProvider.generate(LlmGenerateRequest.workingPrompt(
                 prompt.system(),
                 prompt.user(),
                 LlmOptions.outputBudgetRatio(
@@ -30,6 +31,6 @@ final class DocumentGenerationSupport {
                                 : GenerationBudgetProfile.documentPatchOutputRatio()
                 ),
                 role
-        );
+        ));
     }
 }

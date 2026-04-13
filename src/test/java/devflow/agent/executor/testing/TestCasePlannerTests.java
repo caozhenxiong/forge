@@ -168,7 +168,7 @@ class TestCasePlannerTests {
 
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ProjectFingerprint fingerprint = new ProjectInspector(workspace).inspect(tempDir);
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, java.util.Map<String, Object> options) {
                 return """
@@ -258,7 +258,7 @@ class TestCasePlannerTests {
 
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ProjectFingerprint fingerprint = new ProjectInspector(workspace).inspect(tempDir);
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, java.util.Map<String, Object> options) {
                 return """
@@ -412,7 +412,7 @@ class TestCasePlannerTests {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ProjectFingerprint fingerprint = new ProjectInspector(workspace).inspect(tempDir);
         AtomicReference<String> capturedPrompt = new AtomicReference<>("");
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, java.util.Map<String, Object> options) {
                 capturedPrompt.set(userPrompt);
@@ -486,7 +486,7 @@ class TestCasePlannerTests {
 
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ProjectFingerprint fingerprint = new ProjectInspector(workspace).inspect(tempDir);
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, java.util.Map<String, Object> options) {
                 return """
@@ -561,7 +561,7 @@ class TestCasePlannerTests {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ProjectFingerprint fingerprint = new ProjectInspector(workspace).inspect(tempDir);
         AtomicReference<java.util.Map<String, Object>> capturedOptions = new AtomicReference<>(java.util.Map.of());
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, java.util.Map<String, Object> options) {
                 capturedOptions.set(options == null ? java.util.Map.of() : java.util.Map.copyOf(options));
@@ -615,7 +615,7 @@ class TestCasePlannerTests {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ProjectFingerprint fingerprint = new ProjectInspector(workspace).inspect(tempDir);
         AtomicReference<String> capturedSystemPrompt = new AtomicReference<>("");
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, java.util.Map<String, Object> options) {
                 capturedSystemPrompt.set(systemPrompt);

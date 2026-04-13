@@ -8,7 +8,7 @@ import devflow.agent.executor.generation.GenerationTelemetry;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import devflow.agent.executor.ChangeAction;
 import devflow.agent.executor.FileChange;
-import devflow.agent.executor.FileEditScope;
+import devflow.agent.executor.editing.FileEditScope;
 import devflow.agent.executor.runtime.RuntimeOwnershipMode;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ImplementationPatchTarget;
@@ -118,7 +118,9 @@ final class OllamaStructuredReviewExecutor {
                 %s
                 """.formatted(candidateContent);
         Map<String, Object> effectiveOptions = options == null ? Map.of() : new LinkedHashMap<>(options);
-        String content = generationExecutor.generate(systemPrompt, prompt, effectiveOptions, role);
+        String content = generationExecutor.generate(
+                LlmGenerateRequest.workingPrompt(systemPrompt, prompt, effectiveOptions, role)
+        );
         try {
             ReviewPayload payload = structuredPayloadReader.readJsonObject(content, ReviewPayload.class);
             ReviewDecision decision = ReviewDecision.valueOf(payload.decision());

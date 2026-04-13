@@ -1,9 +1,12 @@
 package devflow.agent.executor;
+import devflow.agent.executor.editing.*;
+import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
 import devflow.agent.executor.generation.GenerationBudgetProfile;
+import devflow.agent.executor.llm.LlmGenerateRequest;
 import devflow.agent.executor.llm.LlmOptions;
 import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.llm.ModelRole;
@@ -86,11 +89,11 @@ final class ImplementationPlanningRepairSupport {
                 待修复内容：
                 %s
                 """.formatted(exception == null ? "未知" : exception.getMessage(), brokenResponse);
-        return llmProvider.generate(
+        return llmProvider.generate(LlmGenerateRequest.workingPrompt(
                 system,
                 user,
                 LlmOptions.outputBudgetRatio(GenerationBudgetProfile.implementationPlanRepairOutputRatio()),
                 ModelRole.REPAIR
-        );
+        ));
     }
 }

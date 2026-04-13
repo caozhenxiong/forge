@@ -1309,7 +1309,7 @@ class DefaultWorkflowEngineTests {
         );
     }
 
-    private abstract static class StructuredTestLlmProvider implements LlmProvider {
+    private abstract static class StructuredTestLlmProvider extends devflow.agent.testsupport.RequestBackedLlmProvider {
 
         @Override
         public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {

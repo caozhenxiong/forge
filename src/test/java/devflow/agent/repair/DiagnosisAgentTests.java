@@ -96,7 +96,7 @@ class DiagnosisAgentTests {
         runRepository.initialize(tempDir);
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
         AtomicReference<String> capturedPrompt = new AtomicReference<>("");
-        DiagnosisAgent diagnosisAgent = new DiagnosisAgent(new LlmProvider() {
+        DiagnosisAgent diagnosisAgent = new DiagnosisAgent(new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, ModelRole.DIAGNOSIS);
@@ -199,7 +199,7 @@ class DiagnosisAgentTests {
     }
 
     private LlmProvider similarityProvider() {
-        return new LlmProvider() {
+        return new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return generate(systemPrompt, userPrompt, options, ModelRole.DIAGNOSIS);

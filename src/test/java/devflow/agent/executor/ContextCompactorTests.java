@@ -1,4 +1,6 @@
 package devflow.agent.executor;
+import devflow.agent.executor.editing.*;
+import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
@@ -8,6 +10,7 @@ import devflow.agent.executor.context.ContextBudgetPlanner;
 import devflow.agent.executor.context.ContextCompactor;
 import devflow.agent.executor.context.PromptTokenEstimator;
 import devflow.agent.executor.generation.GenerationBudgetProperties;
+import devflow.agent.executor.llm.LlmGenerateRequest;
 import devflow.agent.executor.llm.ModelBudgetRegistry;
 
 import java.util.Map;
@@ -31,7 +34,10 @@ class ContextCompactorTests {
                 )
         );
 
-        CompactedPrompt prompt = compactor.compact("any-model", "system", "user");
+        CompactedPrompt prompt = compactor.compact(
+                "any-model",
+                LlmGenerateRequest.workingPrompt("system", "user", Map.of(), null)
+        );
 
         assertEquals("system", prompt.systemPrompt());
         assertEquals("user", prompt.userPrompt());
@@ -51,14 +57,16 @@ class ContextCompactorTests {
                 )
         );
 
-        String system = "S".repeat(4_000);
+        String system = "S".repeat(1_000);
         String user = "U".repeat(8_000);
-        CompactedPrompt prompt = compactor.compact("any-model", system, user);
+        CompactedPrompt prompt = compactor.compact(
+                "any-model",
+                LlmGenerateRequest.workingPrompt(system, user, Map.of(), null)
+        );
 
         assertTrue(prompt.budgetPlan().compactRequired());
-        assertTrue(prompt.systemPrompt().length() < system.length());
+        assertEquals(system, prompt.systemPrompt());
         assertTrue(prompt.userPrompt().length() < user.length());
-        assertTrue(prompt.systemPrompt().contains("...<truncated"));
         assertTrue(prompt.userPrompt().contains("...<truncated"));
     }
 }

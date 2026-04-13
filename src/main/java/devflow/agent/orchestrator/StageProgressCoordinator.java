@@ -257,7 +257,7 @@ public class StageProgressCoordinator {
                 payload.path(),
                 devflow.agent.util.EnumParsers.parseIgnoreCase(devflow.agent.executor.ChangeAction.class, payload.action(), devflow.agent.executor.ChangeAction.WRITE),
                 payload.reason() == null ? "" : payload.reason(),
-                devflow.agent.util.EnumParsers.parseIgnoreCase(devflow.agent.executor.FileEditScope.class, payload.editScope(), devflow.agent.executor.FileEditScope.AUTO),
+                devflow.agent.util.EnumParsers.parseIgnoreCase(devflow.agent.executor.editing.FileEditScope.class, payload.editScope(), devflow.agent.executor.editing.FileEditScope.AUTO),
                 devflow.agent.util.EnumParsers.parseIgnoreCase(devflow.agent.executor.runtime.RuntimeOwnershipMode.class, payload.runtimeOwnership(), null),
                 Boolean.TRUE.equals(payload.hostHtmlPatchRequired())
         );

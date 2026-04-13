@@ -81,8 +81,8 @@
 - [x] 建立 `executor.tools`
 - [x] 建立 `executor.runtime`
 - [x] 建立 `executor.gate`
-- [ ] 建立 `executor.editing`
-- [ ] 建立 `executor.patch`
+- [x] 建立 `executor.editing`
+- [x] 建立 `executor.patch`
 - [x] 建立 `executor.testing`
 - [x] 建立 `executor.subtask`
 - [x] 建立 `executor.implementation`
@@ -93,24 +93,24 @@
 
 ### Phase 3. `ContextCompactor` 结构化接线
 
-- [ ] 新增结构化 generate request
-- [ ] `LlmProvider.generate(...)` 主路径切到 request object
-- [ ] `OllamaLlmProvider` 接入新主路径
-- [ ] `OllamaGenerationExecutor` 接入结构化上下文
-- [ ] `ContextCompactor` 改为四层裁剪
-- [ ] 删除旧字符串 compact 主路径
-- [ ] Phase 3 `self-test`
-- [ ] Phase 3 `code review`
-- [ ] 同步更新方案文档与本文档
+- [x] 新增结构化 generate request
+- [x] `LlmProvider.generate(...)` 主路径切到 request object
+- [x] `OllamaLlmProvider` 接入新主路径
+- [x] `OllamaGenerationExecutor` 接入结构化上下文
+- [x] `ContextCompactor` 改为四层裁剪
+- [x] 删除旧字符串 compact 主路径
+- [x] Phase 3 `self-test`
+- [x] Phase 3 `code review`
+- [x] 同步更新方案文档与本文档
 
 ### Phase 4. `StageProgressCoordinator` 瘦身
 
-- [ ] 提取 payload converter / assembler
-- [ ] 提取 file change / patch target 装配逻辑
-- [ ] `StageProgressCoordinator` 收回纯 orchestration
-- [ ] Phase 4 `self-test`
-- [ ] Phase 4 `code review`
-- [ ] 同步更新方案文档与本文档
+- [x] 提取 payload converter / assembler
+- [x] 提取 file change / patch target 装配逻辑
+- [x] `StageProgressCoordinator` 收回纯 orchestration
+- [x] Phase 4 `self-test`
+- [x] Phase 4 `code review`
+- [x] 同步更新方案文档与本文档
 
 ---
 
@@ -128,9 +128,9 @@
 
 ## Current Status
 
-- 当前阶段：`Phase 2 / 进行中`
-- 当前 blocker：`Phase 2 剩余 root flat 职责已进一步收缩到 editing/patch；runtime/gate/testing 核心模型与执行链已经下沉，根包只剩消费这些结果的 renderer / orchestration 边界`
-- 最近完成证据：`Phase 2 已完成 llm/context/generation/shell/tools/subtask/implementation/runtime/gate/testing 十个职责簇拆分；runtime ownership / wiring graph / completeness gate / stage gate / test evidence gate / testcase execution chain 已整体落位，主代码 compile 与全量测试已通过`
+- 当前阶段：`架构整改 5 个 phase 已完成`
+- 当前 blocker：`无架构级 blocker；下一步切回黄金路径集成验证`
+- 最近完成证据：`Phase 2 editing/patch 已落位；Phase 3 结构化 generate 主链与四层 context compact 已切换；Phase 4 的 StageProgressCoordinator 已收回纯 orchestration；mvn -q clean test 已通过`
 
 ---
 
@@ -154,22 +154,22 @@
 
 - commit：`待填写`
 - self-test：`已完成当前 checkpoint：mvn -q -DskipTests compile；mvn -q -Dtest=ArchitectIntegrationCheckTests,ImplementationGateEngineTests,ImplementationStageGateTests,WebRuntimeWiringCheckTests,UiRuntimeContractResolverTests,ImplementationCompletenessCheckTests,ImplementationCompletenessGateTests,TestEvidenceGateTests,PlaywrightCaseExecutorTests,PlaywrightExecutionPolicyTests,TestCasePlannerTests,TestCasePlanSanitizerTests,TestCasePromptAssemblerTests,TestEvidenceCollectorTests,TestExecutorTests,TestPlanningPolicyTests,TestRunnerTests,TestToolSelectorTests,ImplementationExecutorTests test；mvn -q test`
-- code review：`已完成当前 checkpoint：确认 executor 根包不再残留 runtime/gate/testing 核心类；testing 相关单测已迁到同包边界，根包只剩 editing/patch 与消费层 orchestration/renderer`
-- docs：`docs/current-state.md、本文档已同步到 runtime + gate + testing checkpoint`
+- code review：`已完成本 phase 收口：确认 executor 根包中的 editing/patch 已整体迁入子包；根包只保留 orchestration / facade / renderer 消费层职责，无旧 flat 入口残留`
+- docs：`docs/current-state.md、docs/active-work-items.md、本文档已同步到 executor 分层完成态`
 
 ### Phase 3
 
 - commit：`待填写`
-- self-test：`待填写`
-- code review：`待填写`
-- docs：`待填写`
+- self-test：`mvn -q clean test-compile；mvn -q -Dtest=ContextBudgetPlannerTests,ContextCompactorTests,OllamaLlmProviderTests,ImplementationExecutorTests,ImplementationPlannerTests,ImplementationPlanningPayloadParserTests,ImplementationToolLoopExecutorTests,StageProgressCoordinatorTests,StageArtifactComposerTests,StageReviewerTests,DiagnosisAgentTests,SupervisorAgentTests,ValidationStrategyPlannerTests,EmbeddedPatchUnitExecutorTests,PatchPayloadRepairSupportTests,SyntaxRepairSupportTests,TestCasePlannerTests,TestExecutorTests,DefaultWorkflowEngineTests,StageEntryExecutorTests,StageOperationExecutorTests,StageTransitionSupportTests test；mvn -q clean test`
+- code review：`已完成；确认 generate 主路径只保留 LlmGenerateRequest，ContextCompactor 只接结构化上下文，旧字符串 compact 主路径已删除，tool loop 与 planner/repair/patch 主链调用已全部切到 request object`
+- docs：`docs/current-state.md、docs/active-work-items.md、本文档已同步到结构化 generate 主链完成态`
 
 ### Phase 4
 
 - commit：`待填写`
-- self-test：`待填写`
-- code review：`待填写`
-- docs：`待填写`
+- self-test：`mvn -q -Dtest=StageProgressCoordinatorTests,DefaultWorkflowEngineTests,StageEntryExecutorTests,StageOperationExecutorTests,StageTransitionSupportTests,ImplementationExecutorTests,ImplementationToolLoopExecutorTests test；mvn -q clean test`
+- code review：`已完成；确认 StageProgressCoordinator 只保留 stage progress orchestration，payload / change 装配逻辑已下沉，ImplementationExecutor 保持单构造器注入，SubtaskExecutor 只接收 SubtaskExecutionContext`
+- docs：`docs/current-state.md、docs/active-work-items.md、本文档已同步到 orchestration 收口完成态`
 
 ---
 
@@ -184,3 +184,9 @@
 - generate 主链已切到结构化上下文输入
 - `StageProgressCoordinator` 已收回纯 orchestration
 - 5 个 phase 的证据全部补齐
+
+当前结果：
+
+- 以上条件已经满足
+- 架构整改主线收口完成
+- 下一条主线切回 `docs/active-work-items.md` 里的黄金路径集成验证

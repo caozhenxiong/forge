@@ -100,7 +100,7 @@ class StageOperationExecutorTests {
     }
 
     private StageReviewer reviewerThatReturns(AtomicBoolean reviewerCalled, ReviewResult reviewResult) {
-        LlmProvider provider = new LlmProvider() {
+        LlmProvider provider = new devflow.agent.testsupport.RequestBackedLlmProvider() {
             @Override
             public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
                 return "";

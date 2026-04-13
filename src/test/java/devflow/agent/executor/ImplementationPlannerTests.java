@@ -1,4 +1,6 @@
 package devflow.agent.executor;
+import devflow.agent.executor.editing.*;
+import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
@@ -287,7 +289,7 @@ class ImplementationPlannerTests {
         );
     }
 
-    private static final class SequenceLlmProvider implements LlmProvider {
+    private static final class SequenceLlmProvider extends devflow.agent.testsupport.RequestBackedLlmProvider {
         private final Queue<Response> responses;
         private final List<String> userPrompts = new ArrayList<>();
         private GenerationTelemetry lastTelemetry;
