@@ -1,6 +1,6 @@
 package devflow.agent.context;
 
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.StageType;
 
 /**
  * 四层上下文中的 trace 层。

@@ -1,7 +1,7 @@
 package devflow.agent.prompt;
 
 import devflow.agent.i18n.DocumentLanguage;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.StageType;
 import org.springframework.stereotype.Component;
 
 /**

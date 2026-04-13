@@ -1,5 +1,9 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageExecution;
+import devflow.agent.domain.StageType;
+
 import devflow.agent.artifact.AuxiliaryArtifactNames;
 import devflow.agent.artifact.EventLogStore;
 import devflow.agent.artifact.FileArtifactStore;

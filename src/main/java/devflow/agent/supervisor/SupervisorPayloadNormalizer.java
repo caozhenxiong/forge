@@ -1,7 +1,7 @@
 package devflow.agent.supervisor;
 
 import devflow.agent.i18n.PlaceholderValues;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.StageType;
 import devflow.agent.review.FixMode;
 import devflow.agent.util.EnumParsers;
 import java.util.ArrayList;

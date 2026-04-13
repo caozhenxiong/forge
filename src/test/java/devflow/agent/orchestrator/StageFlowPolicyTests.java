@@ -1,5 +1,7 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.domain.StageType;
+
 import devflow.agent.review.FixMode;
 import org.junit.jupiter.api.Test;
 

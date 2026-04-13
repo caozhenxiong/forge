@@ -1,5 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 /**
  * 表示单个子任务对某个文件的最小变更声明。
  * 它只负责描述文件路径、动作、变更原因和编辑作用域，不直接参与生成或校验。

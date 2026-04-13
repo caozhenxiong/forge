@@ -1,8 +1,16 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.generation.GenerationFailureException;
+import devflow.agent.executor.generation.GenerationFailureType;
+import devflow.agent.executor.generation.GenerationObserver;
+
 import devflow.agent.i18n.PlaceholderValues;
 import java.nio.file.Path;
 
+import devflow.agent.executor.implementation.ImplementationEventJournal;
 /**
  * patch 执行链共享的运行时支撑。
  *

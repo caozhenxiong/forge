@@ -1,10 +1,11 @@
 package devflow.agent.artifact;
 
+import devflow.agent.executor.llm.LlmProvider;
+
 import devflow.agent.context.ConstraintSourceMetadata;
 import devflow.agent.context.ContractExtractor;
-import devflow.agent.executor.LlmProvider;
 import devflow.agent.i18n.LanguagePolicy;
-import devflow.agent.orchestrator.RunRecord;
+import devflow.agent.domain.RunRecord;
 import devflow.agent.prompt.PromptTemplateCatalog;
 import java.nio.file.Path;
 import org.springframework.beans.factory.annotation.Autowired;

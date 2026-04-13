@@ -1,7 +1,8 @@
 package devflow.agent.validation;
 
+import devflow.agent.executor.tools.ToolResult;
+
 import devflow.agent.executor.SelfCheckResult;
-import devflow.agent.executor.ToolResult;
 import devflow.agent.i18n.PlaceholderValues;
 import devflow.agent.project.FileProjectWorkspace;
 import java.nio.file.Path;

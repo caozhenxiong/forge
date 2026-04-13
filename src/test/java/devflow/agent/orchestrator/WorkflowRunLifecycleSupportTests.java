@@ -1,5 +1,10 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.RunStatus;
+import devflow.agent.domain.StageStatus;
+import devflow.agent.domain.StageType;
+
 import devflow.agent.artifact.EventLogStore;
 import devflow.agent.project.WorkspaceSnapshotStore;
 import java.nio.file.Path;

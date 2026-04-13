@@ -1,9 +1,15 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import devflow.agent.context.SharedContextBundle;
 import devflow.agent.i18n.DocumentLanguage;
 import java.util.List;
 
+import devflow.agent.executor.implementation.ImplementationEventEntry;
+import devflow.agent.executor.subtask.SubtaskExecutionReport;
+import devflow.agent.executor.subtask.TaskPackage;
 /**
  * implementation 阶段的单一状态源。
  * 所有中间 markdown/json 产物都应从这份快照派生，避免 implementation.md、

@@ -1,12 +1,12 @@
 package devflow.agent.review;
 
 import devflow.agent.context.ContractExtractor;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.RunConfig;
-import devflow.agent.orchestrator.RunStatus;
-import devflow.agent.orchestrator.StageExecution;
-import devflow.agent.orchestrator.StageStatus;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.RunConfig;
+import devflow.agent.domain.RunStatus;
+import devflow.agent.domain.StageExecution;
+import devflow.agent.domain.StageStatus;
+import devflow.agent.domain.StageType;
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.StructuredArtifactBlocks;
 import java.nio.file.Path;

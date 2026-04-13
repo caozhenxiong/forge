@@ -1,6 +1,7 @@
 package devflow.agent.validation;
 
-import devflow.agent.executor.ToolResult;
+import devflow.agent.executor.tools.ToolResult;
+
 
 /**
  * 单个 validation step 的确定性执行结果。

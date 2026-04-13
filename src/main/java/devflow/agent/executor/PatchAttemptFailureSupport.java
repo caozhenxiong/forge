@@ -1,5 +1,12 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.generation.GenerationAttemptResult;
+import devflow.agent.executor.generation.GenerationFailureClassifier;
+import devflow.agent.executor.generation.GenerationFailureType;
+
 /**
  * 统一处理 patch 单元执行期的结构化失败。
  *

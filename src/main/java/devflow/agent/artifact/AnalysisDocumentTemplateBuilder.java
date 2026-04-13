@@ -1,7 +1,7 @@
 package devflow.agent.artifact;
 
 import devflow.agent.i18n.DocumentLanguage;
-import devflow.agent.orchestrator.RunRecord;
+import devflow.agent.domain.RunRecord;
 
 /**
  * 分析文档模板 builder。

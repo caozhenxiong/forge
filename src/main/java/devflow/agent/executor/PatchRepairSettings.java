@@ -1,5 +1,10 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.generation.GenerationBudgetProfile;
+
 /**
  * repair-before-regenerate 的运行时配置。
  *

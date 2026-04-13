@@ -1,5 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 /**
  * 宿主内嵌 patch 完成后的宿主 HTML 回填与校验器。
  *

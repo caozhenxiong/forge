@@ -1,10 +1,15 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import devflow.agent.context.ContractView;
 import devflow.agent.i18n.PlaceholderValues;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Path;
 
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.TaskPackage;
 /**
  * 负责为 patch 请求生成共享上下文文本。
  *

@@ -1,10 +1,14 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.executor.generation.GenerationEngine;
+
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageType;
+
 import devflow.agent.artifact.EventLogStore;
 import devflow.agent.artifact.FileArtifactStore;
 import devflow.agent.artifact.StageArtifactComposer;
 import devflow.agent.context.ContextProjector;
-import devflow.agent.executor.GenerationEngine;
 import devflow.agent.loop.AgentLoop;
 import devflow.agent.project.WorkspaceSnapshotStore;
 import devflow.agent.repair.DiagnosisAgent;
@@ -92,50 +96,37 @@ public class DefaultWorkflowEngine implements WorkflowEngine {
         );
     }
 
+    @Override
     public void initialize(Path projectPath) {
         runLifecycleSupport.initialize(projectPath);
     }
 
+    @Override
     public RunRecord createRun(Path projectPath, String goal, String constraints) {
         return runLifecycleSupport.createRun(projectPath, goal, constraints);
     }
 
+    @Override
     public RunRecord find(Path projectPath, UUID runId) {
         return runLifecycleSupport.find(projectPath, runId);
     }
 
     @Override
-    public RunRecord startRun(UUID runId) {
-        throw new UnsupportedOperationException("Use startRun(projectPath, runId)");
-    }
-
     public RunRecord startRun(Path projectPath, UUID runId) {
         return runLifecycleSupport.startRun(projectPath, runId);
     }
 
     @Override
-    public RunRecord resumeRun(UUID runId) {
-        throw new UnsupportedOperationException("Use resumeRun(projectPath, runId)");
-    }
-
     public RunRecord resumeRun(Path projectPath, UUID runId) {
         return runLifecycleSupport.resumeRun(projectPath, runId);
     }
 
     @Override
-    public RunRecord approveStage(UUID runId, StageType stageType, String reviewer) {
-        throw new UnsupportedOperationException("Use approveStage(projectPath, runId, stageType, reviewer)");
-    }
-
     public RunRecord approveStage(Path projectPath, UUID runId, StageType stageType, String reviewer) {
         return runLifecycleSupport.approveStage(projectPath, runId, stageType, reviewer);
     }
 
     @Override
-    public RunRecord rejectStage(UUID runId, StageType stageType, String reviewer, String reason) {
-        throw new UnsupportedOperationException("Use rejectStage(projectPath, runId, stageType, reviewer, reason)");
-    }
-
     public RunRecord rejectStage(Path projectPath, UUID runId, StageType stageType, String reviewer, String reason) {
         return runLifecycleSupport.rejectStage(projectPath, runId, stageType, reviewer, reason);
     }

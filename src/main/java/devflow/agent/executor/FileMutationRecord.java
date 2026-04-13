@@ -1,8 +1,14 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.tools.StructuredPatchHunk;
+
 import java.nio.file.Path;
 import java.util.List;
 
+import devflow.agent.executor.implementation.toolloop.ToolLoopMutationOperation;
 /**
  * tool loop 内统一记录文件变异的结构化副作用。
  *
@@ -13,7 +19,7 @@ import java.util.List;
  * <p>diagnostics 已独立收敛到 session 级 ledger，
  * 不再继续塞在 mutation 里形成第二份真相源。
  */
-record FileMutationRecord(
+public record FileMutationRecord(
         ToolLoopMutationOperation operation,
         Path relativePath,
         boolean beforeExists,
@@ -24,7 +30,7 @@ record FileMutationRecord(
         long timestamp
 ) {
 
-    FileMutationRecord {
+    public FileMutationRecord {
         structuredPatch = structuredPatch == null ? List.of() : List.copyOf(structuredPatch);
     }
 }

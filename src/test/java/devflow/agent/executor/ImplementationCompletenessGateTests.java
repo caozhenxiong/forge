@@ -1,5 +1,9 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+import devflow.agent.executor.testing.RuntimeSnapshot;
+
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.parsing.TreeSitterSupport;
 import devflow.agent.project.FileProjectWorkspace;
@@ -20,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import devflow.agent.executor.subtask.Subtask;
 class ImplementationCompletenessGateTests {
 
     @TempDir

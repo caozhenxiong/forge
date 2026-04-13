@@ -1,5 +1,11 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.context.OutputBudgetCalculator;
+import devflow.agent.executor.llm.ModelBudgetRegistry;
+
 /**
  * 统一维护 patch 单元级输出预算。
  *

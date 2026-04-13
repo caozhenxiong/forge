@@ -1,7 +1,7 @@
 package devflow.agent.review;
 
-import devflow.agent.executor.ExperienceFailureDisposition;
-import devflow.agent.orchestrator.RunRecord;
+import devflow.agent.executor.testing.ExperienceFailureDisposition;
+import devflow.agent.domain.RunRecord;
 import java.util.ArrayList;
 import java.util.List;
 

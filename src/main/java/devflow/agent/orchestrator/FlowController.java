@@ -1,5 +1,11 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.RunStatus;
+import devflow.agent.domain.StageExecution;
+import devflow.agent.domain.StageStatus;
+import devflow.agent.domain.StageType;
+
 import devflow.agent.loop.TransitionDecision;
 import devflow.agent.loop.TransitionReason;
 import devflow.agent.review.ReviewResult;

@@ -4,10 +4,10 @@ import devflow.agent.context.ContextAccessProfile;
 import devflow.agent.context.ProjectedContext;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;
-import devflow.agent.orchestrator.GatePolicy;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.StageExecution;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.GatePolicy;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageExecution;
+import devflow.agent.domain.StageType;
 import devflow.agent.review.ReviewResult;
 
 /**

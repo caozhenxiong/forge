@@ -1,11 +1,16 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import devflow.agent.context.ContractView;
 import devflow.agent.context.SharedContextBundle;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Path;
 import java.util.List;
 
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.TaskPackage;
 /**
  * 统一渲染紧凑版任务包 markdown。
  *

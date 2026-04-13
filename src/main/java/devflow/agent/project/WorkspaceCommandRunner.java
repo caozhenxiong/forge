@@ -1,5 +1,7 @@
 package devflow.agent.project;
 
+import devflow.agent.executor.shell.CommandResult;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;

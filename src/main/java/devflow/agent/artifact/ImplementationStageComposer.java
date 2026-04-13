@@ -6,8 +6,8 @@ import devflow.agent.context.ContractView;
 import devflow.agent.executor.ImplementationExecutionBundle;
 import devflow.agent.executor.ImplementationExecutor;
 import devflow.agent.executor.ImplementationProgressSink;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageType;
 import java.nio.file.Path;
 
 /**

@@ -1,22 +1,26 @@
 package devflow.agent.review;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.generation.GenerationTelemetry;
+import devflow.agent.executor.llm.LlmProvider;
+
 import devflow.agent.artifact.ArtifactSectionKind;
 import devflow.agent.artifact.ArtifactSectionSupport;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.LanguagePolicy;
-import devflow.agent.executor.ArchitectIntegrationCheck;
-import devflow.agent.executor.ArchitectIntegrationCheckResult;
-import devflow.agent.executor.ArchitectIntegrationFailureReason;
-import devflow.agent.executor.ExperienceFailureDisposition;
-import devflow.agent.executor.GenerationBudgetProfile;
-import devflow.agent.executor.LlmProvider;
+import devflow.agent.executor.gate.ArchitectIntegrationCheck;
+import devflow.agent.executor.gate.ArchitectIntegrationCheckResult;
+import devflow.agent.executor.gate.ArchitectIntegrationFailureReason;
+import devflow.agent.executor.testing.ExperienceFailureDisposition;
 import devflow.agent.executor.SelfCheckResult;
-import devflow.agent.executor.TestExecutor;
+import devflow.agent.executor.testing.TestExecutor;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ExecutionContract;
 import devflow.agent.loop.AgentTurnLoop;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageType;
 import devflow.agent.prompt.PromptTemplateCatalog;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.protocol.ArtifactBlockKind;
@@ -112,7 +116,7 @@ public class StageReviewer {
         return enforceStructuredTestCoverageGate(artifactContent, parsed);
     }
 
-    public devflow.agent.executor.GenerationTelemetry consumeLastTelemetry() {
+    public devflow.agent.executor.generation.GenerationTelemetry consumeLastTelemetry() {
         return llmProvider.consumeLastTelemetry();
     }
 
@@ -219,9 +223,9 @@ public class StageReviewer {
         if (architectCheckResult.passed()) {
             return null;
         }
-        ReviewReasonCode reasonCode = devflow.agent.executor.ImplementationContractGateMessages.reasonCode(architectCheckResult);
-        String summary = devflow.agent.executor.ImplementationContractGateMessages.summary(architectCheckResult);
-        String changeRequest = devflow.agent.executor.ImplementationContractGateMessages.changeRequest(architectCheckResult);
+        ReviewReasonCode reasonCode = devflow.agent.executor.gate.ImplementationContractGateMessages.reasonCode(architectCheckResult);
+        String summary = devflow.agent.executor.gate.ImplementationContractGateMessages.summary(architectCheckResult);
+        String changeRequest = devflow.agent.executor.gate.ImplementationContractGateMessages.changeRequest(architectCheckResult);
         return new ReviewResult(
                 ReviewDecision.REVISION_REQUIRED,
                 FixMode.PATCH,

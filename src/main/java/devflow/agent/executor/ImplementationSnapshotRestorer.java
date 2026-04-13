@@ -1,5 +1,16 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.tools.ToolFailureCode;
+import devflow.agent.executor.tools.ToolName;
+import devflow.agent.executor.tools.ToolResult;
+import devflow.agent.executor.tools.ToolStatus;
+
+import devflow.agent.executor.generation.GenerationFailureReport;
+import devflow.agent.executor.generation.GenerationFailureType;
+
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
@@ -13,6 +24,18 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import devflow.agent.executor.implementation.toolloop.ImplementationDiagnosticLedger;
+import devflow.agent.executor.implementation.toolloop.ImplementationDiagnosticRecord;
+import devflow.agent.executor.implementation.toolloop.ImplementationDiagnosticSource;
+import devflow.agent.executor.implementation.toolloop.ImplementationToolSessionState;
+import devflow.agent.executor.implementation.toolloop.ToolLoopDiagnosticStatus;
+import devflow.agent.executor.implementation.toolloop.ToolLoopMutationOperation;
+import devflow.agent.executor.implementation.toolloop.ToolLoopReadFileStateLedger;
+import devflow.agent.executor.implementation.toolloop.ToolLoopResultReplacementState;
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.SubtaskAttemptReport;
+import devflow.agent.executor.subtask.SubtaskExecutionReport;
+import devflow.agent.executor.subtask.SubtaskExecutionState;
 /**
  * implementation 快照恢复器。
  *

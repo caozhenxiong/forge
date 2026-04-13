@@ -1,5 +1,10 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.llm.LlmChatMessage;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -9,6 +14,9 @@ import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import devflow.agent.executor.implementation.toolloop.ImplementationToolResultBudgetManager;
+import devflow.agent.executor.implementation.toolloop.ImplementationToolResultMessage;
+import devflow.agent.executor.implementation.toolloop.ToolLoopResultReplacementState;
 class ImplementationToolResultBudgetManagerTests {
 
     @TempDir

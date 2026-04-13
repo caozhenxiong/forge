@@ -1,13 +1,15 @@
 package devflow.agent.artifact;
 
+import devflow.agent.executor.generation.GenerationBudgetProfile;
+import devflow.agent.executor.llm.LlmOptions;
+import devflow.agent.executor.llm.LlmProvider;
+import devflow.agent.executor.llm.ModelRole;
+
 import devflow.agent.context.ContractExtractor;
-import devflow.agent.executor.GenerationBudgetProfile;
 import devflow.agent.executor.ImplementationStateArtifactSupport;
-import devflow.agent.executor.LlmProvider;
-import devflow.agent.executor.ModelRole;
 import devflow.agent.i18n.DocumentLanguage;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageType;
 import devflow.agent.protocol.ReviewArtifactPayload;
 import devflow.agent.protocol.ReviewArtifactPayloadSupport;
 import devflow.agent.project.WorkspaceSnapshotStore;
@@ -55,7 +57,7 @@ final class CodeReviewStageComposer {
         String content = llmProvider.generate(
                 prompt.system(),
                 prompt.user(),
-                devflow.agent.executor.LlmOptions.outputBudgetRatio(GenerationBudgetProfile.codeReviewOutputRatio()),
+                devflow.agent.executor.llm.LlmOptions.outputBudgetRatio(GenerationBudgetProfile.codeReviewOutputRatio()),
                 ModelRole.CODE_REVIEW
         );
         ReviewArtifactPayload payload = ReviewArtifactPayloadSupport.readFirstPayload(content);

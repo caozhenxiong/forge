@@ -1,5 +1,7 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.domain.StageType;
+
 import devflow.agent.i18n.ArtifactLabels;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;

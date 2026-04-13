@@ -1,9 +1,9 @@
 package devflow.agent.artifact;
 
-import devflow.agent.executor.TestExecutionBundle;
-import devflow.agent.executor.TestExecutor;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.executor.testing.TestExecutionBundle;
+import devflow.agent.executor.testing.TestExecutor;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageType;
 import java.nio.file.Path;
 
 /**

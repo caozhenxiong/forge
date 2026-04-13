@@ -1,7 +1,15 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.tools.ToolFailureCode;
+import devflow.agent.executor.tools.ToolResult;
+
 import java.nio.file.Path;
 
+import devflow.agent.executor.implementation.ImplementationEventJournal;
+import devflow.agent.executor.implementation.ImplementationEventMessages;
 /**
  * 本地校验失败后的 syntax repair 链。
  */

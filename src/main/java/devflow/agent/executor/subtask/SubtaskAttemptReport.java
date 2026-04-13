@@ -1,0 +1,69 @@
+package devflow.agent.executor.subtask;
+
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.tools.ToolResult;
+
+import devflow.agent.executor.generation.GenerationFailureReport;
+
+import devflow.agent.i18n.DocumentLanguage;
+import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
+import devflow.agent.review.ReviewDecision;
+import devflow.agent.review.ReviewResult;
+import devflow.agent.supervisor.GenerationRecoveryDecision;
+import java.util.List;
+
+import devflow.agent.executor.SelfCheckResult;
+/**
+ * 记录某个子任务的一次执行尝试。
+ * 该对象统一承载自检、验证、生成失败和恢复决策，避免这些信息散落在执行器分支里。
+ */
+public record SubtaskAttemptReport(
+        int attempt,
+        SelfCheckResult selfCheck,
+        List<ToolResult> selfCheckToolResults,
+        ReviewResult review,
+        GenerationFailureReport generationFailure,
+        GenerationRecoveryDecision recoveryDecision
+) {
+    public static SubtaskAttemptReport fromVerification(
+            int attempt,
+            SelfCheckResult selfCheck,
+            List<ToolResult> selfCheckToolResults,
+            ReviewResult review
+    ) {
+        return new SubtaskAttemptReport(attempt, selfCheck, selfCheckToolResults, review, null, null);
+    }
+
+    public static SubtaskAttemptReport fromGenerationFailure(
+            int attempt,
+            GenerationFailureReport generationFailure,
+            GenerationRecoveryDecision recoveryDecision,
+            DocumentLanguage language
+    ) {
+        return new SubtaskAttemptReport(
+                attempt,
+                new SelfCheckResult(
+                        false,
+                        language.choose("代码生成未通过本地校验", "Generated code did not pass local validation"),
+                        generationFailure == null ? "" : generationFailure.toMarkdown(language)
+                ),
+                List.of(),
+                generationFailure == null
+                        ? new ReviewResult(
+                                ReviewDecision.REVISION_REQUIRED,
+                                FixMode.PATCH,
+                                language.choose("代码生成失败", "Code generation failed"),
+                                language.choose("请缩小改动范围后重试", "Reduce the change scope and retry"),
+                                "",
+                                "",
+                                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
+                        )
+                        : generationFailure.toReviewResult(),
+                generationFailure,
+                recoveryDecision
+        );
+    }
+}

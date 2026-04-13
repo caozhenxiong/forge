@@ -1,7 +1,7 @@
 package devflow.agent.context;
 
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageType;
 import java.util.List;
 import org.springframework.stereotype.Component;
 

@@ -1,12 +1,13 @@
 package devflow.agent.supervisor;
 
+import devflow.agent.executor.generation.GenerationFailureReport;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import devflow.agent.context.ProjectedContext;
-import devflow.agent.executor.GenerationFailureReport;
-import devflow.agent.orchestrator.GatePolicy;
-import devflow.agent.orchestrator.RunRecord;
+import devflow.agent.domain.GatePolicy;
+import devflow.agent.domain.RunRecord;
 import devflow.agent.orchestrator.StageFlowPolicy;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.StageType;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;

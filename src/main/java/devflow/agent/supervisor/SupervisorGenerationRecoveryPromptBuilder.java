@@ -1,10 +1,11 @@
 package devflow.agent.supervisor;
 
+import devflow.agent.executor.generation.GenerationFailureReport;
+
 import devflow.agent.context.ContextAccessProfile;
 import devflow.agent.context.ProjectedContext;
-import devflow.agent.executor.GenerationFailureReport;
 import devflow.agent.i18n.DocumentLanguage;
-import devflow.agent.orchestrator.RunRecord;
+import devflow.agent.domain.RunRecord;
 
 /**
  * 负责 supervisor 的生成失败恢复 prompt。

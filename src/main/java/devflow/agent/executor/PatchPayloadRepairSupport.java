@@ -1,7 +1,12 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import java.nio.file.Path;
 
+import devflow.agent.executor.implementation.ImplementationEventJournal;
+import devflow.agent.executor.implementation.ImplementationEventMessages;
 /**
  * patch JSON 载荷的 repair-before-regenerate 支撑。
  */

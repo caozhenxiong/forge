@@ -1,5 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import devflow.agent.context.ContractView;
 import devflow.agent.context.SharedContextBundle;
 import devflow.agent.project.FileProjectWorkspace;
@@ -7,6 +10,8 @@ import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Path;
 import java.util.List;
 
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.TaskPackage;
 /**
  * 统一处理文件级上下文投影、反馈裁剪和任务包收缩。
  *

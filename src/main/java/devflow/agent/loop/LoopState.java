@@ -1,6 +1,6 @@
 package devflow.agent.loop;
 
-import devflow.agent.orchestrator.RunRecord;
+import devflow.agent.domain.RunRecord;
 
 public record LoopState(
         RunRecord runRecord,

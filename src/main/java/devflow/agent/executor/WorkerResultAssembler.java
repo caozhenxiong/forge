@@ -1,8 +1,13 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import java.util.ArrayList;
 import java.util.List;
 
+import devflow.agent.executor.subtask.SubtaskAttemptReport;
+import devflow.agent.executor.subtask.SubtaskExecutionReport;
 /**
  * 负责从 subtask execution report 派生 worker result。
  *

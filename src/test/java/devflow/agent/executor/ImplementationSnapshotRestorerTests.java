@@ -1,5 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import devflow.agent.review.ImplementationPatchTarget;
 import java.nio.file.Path;
 import java.util.List;
@@ -10,6 +13,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import devflow.agent.executor.implementation.toolloop.ImplementationDiagnosticSource;
+import devflow.agent.executor.implementation.toolloop.ImplementationToolSessionState;
+import devflow.agent.executor.implementation.toolloop.ToolLoopDiagnosticStatus;
+import devflow.agent.executor.implementation.toolloop.ToolLoopMutationOperation;
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.SubtaskExecutionReport;
 class ImplementationSnapshotRestorerTests {
 
     private final ImplementationSnapshotRestorer restorer = new ImplementationSnapshotRestorer();

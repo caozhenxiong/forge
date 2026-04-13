@@ -7,7 +7,7 @@ import devflow.agent.context.ProductContract;
 import devflow.agent.context.ValidationMetadata;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.markdown.MarkdownSectionScanner;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.StageType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

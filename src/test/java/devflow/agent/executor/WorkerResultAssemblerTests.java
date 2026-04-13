@@ -1,5 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
@@ -9,6 +12,10 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.SubtaskAttemptReport;
+import devflow.agent.executor.subtask.SubtaskExecutionReport;
+import devflow.agent.executor.subtask.SubtaskExecutionState;
 class WorkerResultAssemblerTests {
 
     @Test

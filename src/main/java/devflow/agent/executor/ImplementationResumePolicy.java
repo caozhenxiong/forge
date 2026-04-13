@@ -1,5 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.review.FixMode;
@@ -9,6 +12,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.SubtaskExecutionReport;
+import devflow.agent.executor.subtask.SubtaskExecutionState;
+import devflow.agent.executor.subtask.SubtaskRevisionDirective;
 /**
  * 统一维护 implementation 阶段的状态复用与 PATCH continuation 规则。
  *

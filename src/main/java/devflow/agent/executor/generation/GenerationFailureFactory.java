@@ -1,0 +1,10 @@
+package devflow.agent.executor.generation;
+
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+@FunctionalInterface
+public interface GenerationFailureFactory {
+
+    GenerationFailureException create(GenerationFailureType failureType, String evidence);
+}

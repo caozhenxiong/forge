@@ -1,10 +1,10 @@
 package devflow.agent.review;
 
 import devflow.agent.artifact.AuxiliaryArtifactNames;
-import devflow.agent.executor.ExperienceFailureDisposition;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.StageExecution;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.executor.testing.ExperienceFailureDisposition;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageExecution;
+import devflow.agent.domain.StageType;
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.StructuredArtifactBlocks;
 import devflow.agent.util.DevflowPathSupport;

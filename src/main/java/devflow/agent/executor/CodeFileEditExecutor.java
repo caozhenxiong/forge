@@ -1,5 +1,10 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.generation.GenerationFailureType;
+
 /**
  * 代码文件 patch 执行门面。
  *

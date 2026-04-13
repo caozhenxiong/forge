@@ -1,0 +1,28 @@
+package devflow.agent.executor.gate;
+
+import devflow.agent.executor.*;
+import devflow.agent.executor.runtime.*;
+
+/**
+ * 单条 gate 失败项。
+ *
+ * <p>code 用于稳定分类，message 面向日志与反馈，disposition 则交给流程层决定下一步走向。
+ */
+public record GateIssue(
+        String code,
+        String message,
+        GateFailureDisposition disposition,
+        GateIssueContext context
+) {
+
+    public GateIssue(String code, String message, GateFailureDisposition disposition) {
+        this(code, message, disposition, GateIssueContext.empty());
+    }
+
+    public GateIssue {
+        code = code == null ? "" : code.trim();
+        message = message == null ? "" : message.trim();
+        disposition = disposition == null ? GateFailureDisposition.ESCALATE : disposition;
+        context = context == null ? GateIssueContext.empty() : context;
+    }
+}

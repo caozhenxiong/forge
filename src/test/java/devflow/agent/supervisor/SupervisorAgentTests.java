@@ -1,22 +1,23 @@
 package devflow.agent.supervisor;
 
+import devflow.agent.executor.generation.GenerationFailureReport;
+import devflow.agent.executor.generation.GenerationFailureType;
+import devflow.agent.executor.llm.LlmProvider;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.artifact.FileArtifactStore;
 import devflow.agent.context.ArtifactSummaryBuilder;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ContextProjector;
-import devflow.agent.executor.GenerationFailureReport;
-import devflow.agent.executor.GenerationFailureType;
-import devflow.agent.executor.LlmProvider;
 import devflow.agent.orchestrator.FileRunRepository;
-import devflow.agent.orchestrator.GatePolicy;
-import devflow.agent.orchestrator.RunConfig;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.RunStatus;
-import devflow.agent.orchestrator.StageExecution;
-import devflow.agent.orchestrator.StageStatus;
+import devflow.agent.domain.GatePolicy;
+import devflow.agent.domain.RunConfig;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.RunStatus;
+import devflow.agent.domain.StageExecution;
+import devflow.agent.domain.StageStatus;
 import devflow.agent.orchestrator.StageFlowPolicy;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.StageType;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;

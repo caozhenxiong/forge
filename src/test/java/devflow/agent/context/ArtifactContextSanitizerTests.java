@@ -1,6 +1,6 @@
 package devflow.agent.context;
 
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.StageType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;

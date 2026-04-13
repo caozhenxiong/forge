@@ -1,5 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;
 import devflow.agent.protocol.ArtifactBlockKind;
@@ -8,6 +11,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+import devflow.agent.executor.implementation.toolloop.ImplementationDiagnosticRecord;
+import devflow.agent.executor.subtask.SubtaskExecutionReport;
 /**
  * implementation diagnostics 的统一渲染入口。
  *

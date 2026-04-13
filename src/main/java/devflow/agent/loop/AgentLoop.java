@@ -1,7 +1,7 @@
 package devflow.agent.loop;
 
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.RunStatus;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.RunStatus;
 import java.util.function.Function;
 import org.springframework.stereotype.Component;
 

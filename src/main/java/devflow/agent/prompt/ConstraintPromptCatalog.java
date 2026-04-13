@@ -4,7 +4,7 @@ import devflow.agent.context.ContractMetadataKeys;
 import devflow.agent.context.SourceMetadataKeys;
 import devflow.agent.i18n.ArtifactLabels;
 import devflow.agent.i18n.DocumentLanguage;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.StageType;
 
 /**
  * 约束与 metadata prompt 目录。

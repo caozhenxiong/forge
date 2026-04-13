@@ -1,15 +1,16 @@
 package devflow.agent.repair;
 
+import devflow.agent.executor.llm.LlmProvider;
+import devflow.agent.executor.llm.ModelRole;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.artifact.AuxiliaryArtifactNames;
 import devflow.agent.artifact.FileArtifactStore;
-import devflow.agent.executor.LlmProvider;
-import devflow.agent.executor.ModelRole;
 import devflow.agent.orchestrator.FileRunRepository;
-import devflow.agent.orchestrator.RunConfig;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.RunStatus;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunConfig;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.RunStatus;
+import devflow.agent.domain.StageType;
 import devflow.agent.protocol.ReviewHistoryEntryPayload;
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.StructuredArtifactBlocks;

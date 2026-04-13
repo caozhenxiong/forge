@@ -1,13 +1,14 @@
 package devflow.agent.review;
 
-import devflow.agent.executor.LlmProvider;
-import devflow.agent.executor.ModelRole;
+import devflow.agent.executor.llm.LlmProvider;
+import devflow.agent.executor.llm.ModelRole;
+
 import devflow.agent.loop.AgentTurnLoop;
 import devflow.agent.loop.AgentTurnSnapshot;
 import devflow.agent.loop.AgentTurnState;
 import devflow.agent.loop.AgentTurnStepResult;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageType;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**

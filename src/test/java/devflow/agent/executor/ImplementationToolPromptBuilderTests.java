@@ -1,5 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import devflow.agent.context.ContractView;
 import devflow.agent.context.ConstraintSourceMetadata;
 import devflow.agent.quality.QualityPlan;
@@ -9,6 +12,9 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import devflow.agent.executor.implementation.toolloop.ImplementationToolPromptBuilder;
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.TaskPackage;
 class ImplementationToolPromptBuilderTests {
 
     private final ImplementationToolPromptBuilder builder = new ImplementationToolPromptBuilder();
@@ -110,5 +116,14 @@ class ImplementationToolPromptBuilderTests {
         assertTrue(markdown.contains("- index.html"));
         assertTrue(!markdown.contains("- src/app.js"));
         assertTrue(markdown.contains("- 交付模式: PATCH"));
+    }
+
+    @Test
+    void rendersContinuationPromptFromBuilder() {
+        String prompt = builder.continuationPrompt("只修复当前反馈，不要重开子任务。");
+
+        assertTrue(prompt.contains("继续当前子任务，不要重新开始整个实现。"));
+        assertTrue(prompt.contains("最新反馈："));
+        assertTrue(prompt.contains("只修复当前反馈，不要重开子任务。"));
     }
 }

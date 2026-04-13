@@ -1,5 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import devflow.agent.i18n.PlaceholderValues;
 import devflow.agent.protocol.FileChangePayload;
 import devflow.agent.protocol.ImplementationContinuationMode;
@@ -9,6 +12,7 @@ import devflow.agent.review.ReviewReasonCode;
 import java.util.ArrayList;
 import java.util.List;
 
+import devflow.agent.executor.subtask.Subtask;
 /**
  * implementation_state.json 的单一读取入口。
  *

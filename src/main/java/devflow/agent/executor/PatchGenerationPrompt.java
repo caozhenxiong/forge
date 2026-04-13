@@ -1,5 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 /**
  * patch 生成阶段真正发给模型的 prompt 对。
  *

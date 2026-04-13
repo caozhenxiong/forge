@@ -3,7 +3,7 @@ package devflow.agent.review;
 import devflow.agent.executor.ChangeAction;
 import devflow.agent.executor.FileChange;
 import devflow.agent.executor.FileEditScope;
-import devflow.agent.executor.RuntimeOwnershipMode;
+import devflow.agent.executor.runtime.RuntimeOwnershipMode;
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.FileChangePayload;
 import devflow.agent.protocol.ReviewArtifactPayload;

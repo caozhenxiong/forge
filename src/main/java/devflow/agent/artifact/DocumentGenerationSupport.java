@@ -1,9 +1,10 @@
 package devflow.agent.artifact;
 
-import devflow.agent.executor.GenerationBudgetProfile;
-import devflow.agent.executor.LlmOptions;
-import devflow.agent.executor.LlmProvider;
-import devflow.agent.executor.ModelRole;
+import devflow.agent.executor.generation.GenerationBudgetProfile;
+import devflow.agent.executor.llm.LlmOptions;
+import devflow.agent.executor.llm.LlmProvider;
+import devflow.agent.executor.llm.ModelRole;
+
 
 /**
  * 统一维护文档阶段的模型生成调用。

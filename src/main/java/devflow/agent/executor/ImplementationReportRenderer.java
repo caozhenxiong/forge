@@ -1,11 +1,15 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;
 import devflow.agent.protocol.ExecutionDirectivePayload;
 import devflow.agent.protocol.ExecutionDirectiveProtocol;
 import java.util.List;
 
+import devflow.agent.executor.subtask.SubtaskExecutionReport;
 /**
  * 负责 implementation 主报告与 repair alignment 的 markdown 渲染。
  * 这个类只面向单一状态源快照，不读取工作区，也不做阶段判断。

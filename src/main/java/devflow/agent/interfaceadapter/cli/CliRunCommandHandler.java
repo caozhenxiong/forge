@@ -2,12 +2,12 @@ package devflow.agent.interfaceadapter.cli;
 
 import devflow.agent.artifact.EventLogStore;
 import devflow.agent.artifact.FileArtifactStore;
-import devflow.agent.orchestrator.DefaultWorkflowEngine;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.RunStatus;
-import devflow.agent.orchestrator.StageExecution;
-import devflow.agent.orchestrator.StageStatus;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.RunStatus;
+import devflow.agent.domain.StageExecution;
+import devflow.agent.domain.StageStatus;
+import devflow.agent.domain.StageType;
+import devflow.agent.orchestrator.WorkflowEngine;
 import java.nio.file.Path;
 import java.util.UUID;
 
@@ -19,14 +19,14 @@ import java.util.UUID;
  */
 final class CliRunCommandHandler {
 
-    private final DefaultWorkflowEngine workflowEngine;
+    private final WorkflowEngine workflowEngine;
     private final FileArtifactStore artifactStore;
     private final EventLogStore eventLogStore;
     private final CliArgumentSupport argumentSupport;
     private final CliOutputRenderer outputRenderer;
 
     CliRunCommandHandler(
-            DefaultWorkflowEngine workflowEngine,
+            WorkflowEngine workflowEngine,
             FileArtifactStore artifactStore,
             EventLogStore eventLogStore,
             CliArgumentSupport argumentSupport,

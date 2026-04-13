@@ -1,5 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import devflow.agent.context.ContractView;
 import devflow.agent.context.CoverageObligation;
 import devflow.agent.context.ExecutionContract;
@@ -14,6 +17,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import devflow.agent.executor.subtask.Subtask;
 class ImplementationPlanCoverageAnalyzerTests {
 
     @Test

@@ -1,5 +1,14 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.generation.GenerationBudgetProfile;
+import devflow.agent.executor.generation.GenerationEngine;
+import devflow.agent.executor.generation.GenerationFailureException;
+import devflow.agent.executor.generation.GenerationFailureType;
+import devflow.agent.executor.llm.LlmProvider;
+
 import devflow.agent.editing.FileStateLedger;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -7,6 +16,7 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 
+import devflow.agent.executor.implementation.ImplementationEventMessages;
 /**
  * 代码文件 `precise-code` 主链执行器。
  *

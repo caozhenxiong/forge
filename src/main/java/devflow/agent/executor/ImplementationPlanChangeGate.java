@@ -1,8 +1,12 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import java.util.ArrayList;
 import java.util.List;
 
+import devflow.agent.executor.subtask.Subtask;
 /**
  * implementation planning 中与具体文件变更声明相关的最小 gate。
  *

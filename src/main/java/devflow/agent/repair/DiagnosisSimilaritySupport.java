@@ -1,12 +1,13 @@
 package devflow.agent.repair;
 
-import devflow.agent.executor.GenerationBudgetProfile;
-import devflow.agent.executor.LlmOptions;
-import devflow.agent.executor.LlmProvider;
-import devflow.agent.executor.ModelRole;
-import devflow.agent.executor.StructuredPayloadReader;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.executor.generation.GenerationBudgetProfile;
+import devflow.agent.executor.llm.LlmOptions;
+import devflow.agent.executor.llm.LlmProvider;
+import devflow.agent.executor.llm.ModelRole;
+import devflow.agent.executor.llm.StructuredPayloadReader;
+
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageType;
 import devflow.agent.review.FixMode;
 import java.util.List;
 

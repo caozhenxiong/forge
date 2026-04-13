@@ -1,6 +1,6 @@
 package devflow.agent.artifact;
 
-import devflow.agent.orchestrator.RunRecord;
+import devflow.agent.domain.RunRecord;
 import devflow.agent.prompt.PromptTemplateCatalog;
 
 /**

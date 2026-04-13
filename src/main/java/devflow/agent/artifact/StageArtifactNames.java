@@ -1,6 +1,6 @@
 package devflow.agent.artifact;
 
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.StageType;
 
 /**
  * 集中维护阶段主产物、review 产物与 review history 的文件名映射。

@@ -1,10 +1,12 @@
 package devflow.agent.validation;
 
+import devflow.agent.executor.generation.GenerationBudgetProfile;
+import devflow.agent.executor.llm.LlmOptions;
+import devflow.agent.executor.llm.LlmProvider;
+import devflow.agent.executor.llm.ModelRole;
+import devflow.agent.executor.llm.StructuredPayloadReader;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
-import devflow.agent.executor.GenerationBudgetProfile;
-import devflow.agent.executor.LlmProvider;
-import devflow.agent.executor.ModelRole;
-import devflow.agent.executor.StructuredPayloadReader;
 import java.util.List;
 
 public class ValidationStrategyPlanner {
@@ -34,7 +36,7 @@ public class ValidationStrategyPlanner {
             String response = llmProvider.generate(
                     promptBuilder.systemPrompt(),
                     promptBuilder.userPrompt(fingerprint, candidates),
-                    devflow.agent.executor.LlmOptions.outputBudgetRatio(GenerationBudgetProfile.validationStrategyOutputRatio()),
+                    devflow.agent.executor.llm.LlmOptions.outputBudgetRatio(GenerationBudgetProfile.validationStrategyOutputRatio()),
                     ModelRole.VALIDATION_STRATEGY
             );
             ValidationPlanningPayload payload = structuredPayloadReader.readJsonObject(response, ValidationPlanningPayload.class);

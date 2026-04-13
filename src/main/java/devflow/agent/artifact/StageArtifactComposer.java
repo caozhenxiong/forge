@@ -1,12 +1,14 @@
 package devflow.agent.artifact;
 
+import devflow.agent.executor.generation.GenerationTelemetry;
+import devflow.agent.executor.llm.LlmProvider;
+
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.executor.ImplementationExecutor;
-import devflow.agent.executor.LlmProvider;
-import devflow.agent.executor.TestExecutor;
+import devflow.agent.executor.testing.TestExecutor;
 import devflow.agent.i18n.LanguagePolicy;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageType;
 import devflow.agent.project.WorkspaceSnapshotStore;
 import java.nio.file.Path;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -78,7 +80,7 @@ public class StageArtifactComposer {
         };
     }
 
-    public devflow.agent.executor.GenerationTelemetry consumeLastTelemetry() {
+    public devflow.agent.executor.generation.GenerationTelemetry consumeLastTelemetry() {
         return llmProvider.consumeLastTelemetry();
     }
 }

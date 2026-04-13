@@ -1,5 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import devflow.agent.protocol.ImplementationContinuationMode;
 import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewReasonCode;
@@ -11,6 +14,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.SubtaskAttemptReport;
+import devflow.agent.executor.subtask.SubtaskExecutionReport;
 class ImplementationStageGateTests {
 
     @Test

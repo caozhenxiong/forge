@@ -1,5 +1,10 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageExecution;
+import devflow.agent.domain.StageStatus;
+import devflow.agent.domain.StageType;
+
 import devflow.agent.artifact.FileArtifactStore;
 import devflow.agent.artifact.AuxiliaryArtifactNames;
 import devflow.agent.context.ContextProjector;
@@ -253,7 +258,7 @@ public class StageProgressCoordinator {
                 devflow.agent.util.EnumParsers.parseIgnoreCase(devflow.agent.executor.ChangeAction.class, payload.action(), devflow.agent.executor.ChangeAction.WRITE),
                 payload.reason() == null ? "" : payload.reason(),
                 devflow.agent.util.EnumParsers.parseIgnoreCase(devflow.agent.executor.FileEditScope.class, payload.editScope(), devflow.agent.executor.FileEditScope.AUTO),
-                devflow.agent.util.EnumParsers.parseIgnoreCase(devflow.agent.executor.RuntimeOwnershipMode.class, payload.runtimeOwnership(), null),
+                devflow.agent.util.EnumParsers.parseIgnoreCase(devflow.agent.executor.runtime.RuntimeOwnershipMode.class, payload.runtimeOwnership(), null),
                 Boolean.TRUE.equals(payload.hostHtmlPatchRequired())
         );
     }

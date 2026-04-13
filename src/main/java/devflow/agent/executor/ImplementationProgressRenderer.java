@@ -1,11 +1,17 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;
 import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewReasonCode;
 import java.util.List;
 
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.SubtaskAttemptReport;
+import devflow.agent.executor.subtask.SubtaskExecutionReport;
 /**
  * 负责 implementation_progress.md 的实时视图渲染。
  *

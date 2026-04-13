@@ -1,10 +1,15 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.llm.LlmProvider;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.context.ContractView;
 import devflow.agent.i18n.DocumentLanguage;
-import devflow.agent.orchestrator.RunRecord;
+import devflow.agent.domain.RunRecord;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ImplementationPatchTarget;
@@ -13,6 +18,8 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import devflow.agent.executor.implementation.ImplementationEventJournal;
+import devflow.agent.executor.implementation.ImplementationEventMessages;
 /**
  * implementation planning 的唯一 owner。
  *

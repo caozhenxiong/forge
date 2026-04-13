@@ -1,5 +1,15 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.executor.generation.GenerationTelemetry;
+import devflow.agent.executor.llm.LlmProvider;
+import devflow.agent.executor.llm.ModelRole;
+
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.RunStatus;
+import devflow.agent.domain.StageExecution;
+import devflow.agent.domain.StageStatus;
+import devflow.agent.domain.StageType;
+
 import devflow.agent.artifact.ArtifactTemplateFactory;
 import devflow.agent.artifact.EventLogStore;
 import devflow.agent.artifact.FileArtifactStore;
@@ -8,11 +18,8 @@ import devflow.agent.context.ArtifactSummaryBuilder;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ContextProjector;
 import devflow.agent.executor.ImplementationExecutor;
-import devflow.agent.executor.GenerationTelemetry;
-import devflow.agent.executor.ModelRole;
-import devflow.agent.executor.LlmProvider;
 import devflow.agent.executor.StructuredDiffTestSupport;
-import devflow.agent.executor.TestExecutor;
+import devflow.agent.executor.testing.TestExecutor;
 import devflow.agent.loop.AgentLoop;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.project.WorkspaceSnapshotStore;
@@ -149,7 +156,7 @@ class DefaultWorkflowEngineTests {
                         new ArtifactTemplateFactory(),
                         artifactStore,
                         provider,
-                        new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                        devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                         testExecutor,
                         snapshotStore,
                         new ContractExtractor()
@@ -194,7 +201,7 @@ class DefaultWorkflowEngineTests {
                         new ArtifactTemplateFactory(),
                         artifactStore,
                         provider,
-                        new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                        devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                         testExecutor,
                         snapshotStore,
                         new ContractExtractor()
@@ -246,7 +253,7 @@ class DefaultWorkflowEngineTests {
                         new ArtifactTemplateFactory(),
                         artifactStore,
                         provider,
-                        new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                        devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                         testExecutor,
                         snapshotStore,
                         new ContractExtractor()
@@ -290,7 +297,7 @@ class DefaultWorkflowEngineTests {
                         new ArtifactTemplateFactory(),
                         artifactStore,
                         provider,
-                        new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                        devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                         testExecutor,
                         snapshotStore,
                         new ContractExtractor()
@@ -333,7 +340,7 @@ class DefaultWorkflowEngineTests {
                         new ArtifactTemplateFactory(),
                         artifactStore,
                         provider,
-                        new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                        devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                         testExecutor,
                         snapshotStore,
                         new ContractExtractor()
@@ -412,7 +419,7 @@ class DefaultWorkflowEngineTests {
                         new ArtifactTemplateFactory(),
                         artifactStore,
                         provider,
-                        new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                        devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                         testExecutor,
                         snapshotStore,
                         new ContractExtractor()
@@ -461,7 +468,7 @@ class DefaultWorkflowEngineTests {
                         new ArtifactTemplateFactory(),
                         artifactStore,
                         provider,
-                        new ImplementationExecutor(provider, new FileProjectWorkspace(), new ObjectMapper(), new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())),
+                        devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, new FileProjectWorkspace(), new ObjectMapper(), new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())),
                         new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()),
                         new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
                         new ContractExtractor()
@@ -520,7 +527,7 @@ class DefaultWorkflowEngineTests {
                         new ArtifactTemplateFactory(),
                         artifactStore,
                         provider,
-                        new ImplementationExecutor(provider, new FileProjectWorkspace(), new ObjectMapper(), new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())),
+                        devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, new FileProjectWorkspace(), new ObjectMapper(), new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())),
                         new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()),
                         new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
                         new ContractExtractor()
@@ -589,7 +596,7 @@ class DefaultWorkflowEngineTests {
                         new ArtifactTemplateFactory(),
                         artifactStore,
                         provider,
-                        new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                        devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                         testExecutor,
                         snapshotStore,
                         new ContractExtractor()
@@ -670,7 +677,7 @@ class DefaultWorkflowEngineTests {
                         new ArtifactTemplateFactory(),
                         artifactStore,
                         provider,
-                        new ImplementationExecutor(provider, new FileProjectWorkspace(), new ObjectMapper(), new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())),
+                        devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, new FileProjectWorkspace(), new ObjectMapper(), new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())),
                         new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()),
                         new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
                         new ContractExtractor()

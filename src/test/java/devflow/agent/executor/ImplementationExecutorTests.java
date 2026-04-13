@@ -1,5 +1,17 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.llm.ChatCapableLlmProvider;
+import devflow.agent.executor.llm.LlmChatRequest;
+import devflow.agent.executor.llm.LlmChatResponse;
+import devflow.agent.executor.llm.LlmChatRole;
+import devflow.agent.executor.llm.LlmProvider;
+import devflow.agent.executor.llm.LlmToolCall;
+import devflow.agent.executor.llm.ModelRole;
+import devflow.agent.executor.testing.TestExecutor;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -7,12 +19,12 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import devflow.agent.context.ContractView;
 import devflow.agent.context.ExecutionContract;
 import devflow.agent.context.ProductContract;
-import devflow.agent.orchestrator.RunConfig;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.RunStatus;
-import devflow.agent.orchestrator.StageExecution;
-import devflow.agent.orchestrator.StageStatus;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunConfig;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.RunStatus;
+import devflow.agent.domain.StageExecution;
+import devflow.agent.domain.StageStatus;
+import devflow.agent.domain.StageType;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.protocol.ExecutionDirectivePayload;
 import devflow.agent.protocol.ExecutionDirectiveProtocol;
@@ -41,6 +53,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.SubtaskAttemptReport;
+import devflow.agent.executor.subtask.SubtaskVerificationOutcome;
 class ImplementationExecutorTests {
 
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -282,7 +297,7 @@ class ImplementationExecutorTests {
     private ImplementationExecutor newExecutor(ScriptedImplementationProvider provider) {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
-        return new ImplementationExecutor(
+        return ImplementationExecutorTestSupport.create(
                 provider,
                 workspace,
                 objectMapper,
@@ -583,7 +598,7 @@ class ImplementationExecutorTests {
         }
 
         @Override
-        ValidationExecutionReport selfCheckDetailed(Path projectPath) {
+        public ValidationExecutionReport selfCheckDetailed(Path projectPath) {
             return new ValidationExecutionReport(
                     new SelfCheckResult(true, "ok", ""),
                     List.of()
@@ -591,7 +606,7 @@ class ImplementationExecutorTests {
         }
 
         @Override
-        SubtaskVerificationOutcome verifyImplementationSubtask(
+        public SubtaskVerificationOutcome verifyImplementationSubtask(
                 Path projectPath,
                 Subtask subtask,
                 devflow.agent.context.ContractView contractView,

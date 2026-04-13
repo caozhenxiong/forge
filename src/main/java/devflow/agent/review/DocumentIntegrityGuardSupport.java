@@ -1,7 +1,7 @@
 package devflow.agent.review;
 
 import devflow.agent.markdown.MarkdownSectionScanner;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.StageType;
 import java.util.List;
 
 /**

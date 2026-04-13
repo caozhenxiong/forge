@@ -1,5 +1,7 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.domain.StageType;
+
 import devflow.agent.artifact.AuxiliaryArtifactNames;
 import devflow.agent.loop.TransitionDecision;
 import devflow.agent.review.FixMode;

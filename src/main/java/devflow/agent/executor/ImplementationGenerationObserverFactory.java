@@ -1,8 +1,18 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.generation.GenerationFailureType;
+import devflow.agent.executor.generation.GenerationObserver;
+import devflow.agent.executor.generation.GenerationTelemetry;
+import devflow.agent.executor.generation.GenerationTelemetryFormatter;
+
 import java.nio.file.Path;
 import java.time.Duration;
 
+import devflow.agent.executor.implementation.ImplementationEventJournal;
+import devflow.agent.executor.implementation.ImplementationEventMessages;
 /**
  * 统一创建 implementation 文件编辑链的 generation observer。
  */

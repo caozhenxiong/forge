@@ -1,6 +1,7 @@
 package devflow.agent.project;
 
-import devflow.agent.executor.GenerationBudgetProfile;
+import devflow.agent.executor.generation.GenerationBudgetProfile;
+
 import devflow.agent.i18n.PlaceholderValues;
 import devflow.agent.orchestrator.FileRunRepository;
 import devflow.agent.util.DevflowPathSupport;

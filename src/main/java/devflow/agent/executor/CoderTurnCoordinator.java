@@ -1,12 +1,20 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import devflow.agent.artifact.EventLogStore;
 import devflow.agent.artifact.FileArtifactStore;
 import devflow.agent.context.ContractView;
-import devflow.agent.orchestrator.RunRecord;
+import devflow.agent.domain.RunRecord;
 import java.nio.file.Path;
 import java.util.List;
 
+import devflow.agent.executor.implementation.ImplementationEventJournal;
+import devflow.agent.executor.implementation.ImplementationEventMessages;
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.SubtaskExecutionReport;
+import devflow.agent.executor.subtask.TaskPackage;
 /**
  * Coder 角色的外层 turn 编排器。
  *

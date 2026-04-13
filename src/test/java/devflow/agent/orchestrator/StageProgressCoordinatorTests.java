@@ -1,5 +1,16 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.executor.generation.GenerationEngine;
+import devflow.agent.executor.llm.LlmProvider;
+import devflow.agent.executor.llm.ModelRole;
+
+import devflow.agent.domain.RunConfig;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.RunStatus;
+import devflow.agent.domain.StageExecution;
+import devflow.agent.domain.StageStatus;
+import devflow.agent.domain.StageType;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.artifact.AuxiliaryArtifactNames;
 import devflow.agent.artifact.EventLogStore;
@@ -10,9 +21,6 @@ import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ProjectedContext;
 import devflow.agent.executor.ChangeAction;
 import devflow.agent.executor.FileChange;
-import devflow.agent.executor.GenerationEngine;
-import devflow.agent.executor.LlmProvider;
-import devflow.agent.executor.ModelRole;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.protocol.ImplementationContinuationMode;
 import devflow.agent.protocol.ImplementationStageStatusPayload;
@@ -500,7 +508,7 @@ class StageProgressCoordinatorTests {
         return new StageReviewer(
                 provider,
                 new devflow.agent.project.WorkspaceSnapshotStore(new FileRunRepository(), new FileProjectWorkspace()),
-                new devflow.agent.executor.TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()),
+                new devflow.agent.executor.testing.TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()),
                 new devflow.agent.prompt.PromptTemplateCatalog(),
                 new devflow.agent.i18n.LanguagePolicy(),
                 new devflow.agent.loop.AgentTurnLoop()

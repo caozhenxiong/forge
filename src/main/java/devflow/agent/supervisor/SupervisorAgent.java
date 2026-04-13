@@ -1,24 +1,27 @@
 package devflow.agent.supervisor;
 
+import devflow.agent.executor.generation.GenerationBudgetProfile;
+import devflow.agent.executor.generation.GenerationFailureReport;
+import devflow.agent.executor.llm.LlmOptions;
+import devflow.agent.executor.llm.LlmProvider;
+import devflow.agent.executor.llm.ModelRole;
+import devflow.agent.executor.llm.StructuredPayloadReader;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.context.ContextProjector;
 import devflow.agent.context.ProjectedContext;
-import devflow.agent.executor.GenerationFailureReport;
-import devflow.agent.executor.GenerationBudgetProfile;
 import devflow.agent.i18n.DocumentLanguage;
-import devflow.agent.executor.LlmProvider;
-import devflow.agent.executor.LlmOptions;
-import devflow.agent.executor.ModelRole;
-import devflow.agent.executor.StructuredPayloadReader;
-import devflow.agent.orchestrator.GatePolicy;
-import devflow.agent.orchestrator.RunRecord;
+import devflow.agent.domain.GatePolicy;
+import devflow.agent.domain.RunRecord;
 import devflow.agent.orchestrator.StageFlowPolicy;
-import devflow.agent.orchestrator.StageExecution;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.StageExecution;
+import devflow.agent.domain.StageType;
 import devflow.agent.review.ReviewResult;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
@@ -34,6 +37,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class SupervisorAgent {
+
+    private static final Logger log = LoggerFactory.getLogger(SupervisorAgent.class);
 
     private final LlmProvider llmProvider;
     private final ObjectMapper objectMapper;
@@ -116,6 +121,7 @@ public class SupervisorAgent {
                     projectedContext
             );
         } catch (Exception ignored) {
+            log.warn("Supervisor decision failed, using fallback. stage={}", currentStage, ignored);
             return fallback;
         }
     }
@@ -166,6 +172,7 @@ public class SupervisorAgent {
             GenerationRecoveryPayload payload = structuredPayloadReader.readJsonObject(response, GenerationRecoveryPayload.class);
             return decisionSanitizer.sanitizeGenerationRecoveryDecision(payload, fallback, failureReport);
         } catch (Exception ignored) {
+            log.warn("Generation recovery decision failed, using fallback. attempt={}", subtaskAttempt, ignored);
             return fallback;
         }
     }

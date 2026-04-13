@@ -2,8 +2,8 @@ package devflow.agent.repair;
 
 import devflow.agent.artifact.AuxiliaryArtifactNames;
 import devflow.agent.artifact.FileArtifactStore;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageType;
 import java.nio.file.Path;
 import java.nio.file.Files;
 

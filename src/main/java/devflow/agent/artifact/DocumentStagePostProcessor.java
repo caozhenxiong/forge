@@ -7,7 +7,7 @@ import devflow.agent.context.ProductContract;
 import devflow.agent.context.ValidationMetadata;
 import devflow.agent.i18n.ArtifactLabels;
 import devflow.agent.i18n.DocumentLanguage;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.StageType;
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.StructuredArtifactBlocks;
 import java.util.EnumSet;

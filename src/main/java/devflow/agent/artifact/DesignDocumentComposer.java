@@ -1,13 +1,14 @@
 package devflow.agent.artifact;
 
+import devflow.agent.executor.llm.ModelRole;
+
 import devflow.agent.context.ConstraintSourceMetadata;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ExecutionContract;
 import devflow.agent.context.ValidationMetadata;
-import devflow.agent.executor.ModelRole;
 import devflow.agent.i18n.DocumentLanguage;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageType;
 import java.nio.file.Path;
 
 /**

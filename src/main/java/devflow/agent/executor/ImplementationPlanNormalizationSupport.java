@@ -1,5 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import devflow.agent.context.AuthoritativeCoverageCatalog;
 import devflow.agent.context.ExecutionContract;
 import devflow.agent.review.FixMode;
@@ -7,6 +10,7 @@ import devflow.agent.util.ProjectPathSupport;
 import java.util.ArrayList;
 import java.util.List;
 
+import devflow.agent.executor.subtask.Subtask;
 /**
  * 负责 implementation plan 的结构校验与标准化。
  *

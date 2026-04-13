@@ -1,10 +1,15 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.context.SharedContextBundle;
 import devflow.agent.i18n.DocumentLanguage;
 import java.util.List;
 
+import devflow.agent.executor.subtask.SubtaskExecutionReport;
+import devflow.agent.executor.subtask.TaskPackage;
 /**
  * 负责 implementation 阶段辅助产物的渲染。
  * 这个类只负责把结构化状态转成 markdown/json，不参与规划、生成、校验或阶段 gate。

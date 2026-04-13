@@ -5,9 +5,9 @@ import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ExecutionContract;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.LanguagePolicy;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.StageExecution;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageExecution;
+import devflow.agent.domain.StageType;
 import java.nio.file.Path;
 
 /**

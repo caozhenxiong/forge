@@ -1,5 +1,14 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.tools.ToolFailureCode;
+import devflow.agent.executor.tools.ToolName;
+import devflow.agent.executor.tools.ToolResult;
+
+import devflow.agent.executor.generation.GenerationFailureType;
+
 /**
  * patch 单元执行失败的结构化快照。
  *
@@ -8,7 +17,7 @@ package devflow.agent.executor;
  * 2. 额外保留工具来源、工具失败码和推荐动作；
  * 3. 让 router 和 coordinator 可以优先依赖结构化工具结果，而不是回退到字符串或异常消息。
  */
-record PatchFailure(
+public record PatchFailure(
         GenerationFailureType failureType,
         ToolName toolName,
         ToolFailureCode toolFailureCode,
@@ -16,16 +25,16 @@ record PatchFailure(
         String recommendedNextAction
 ) {
 
-    PatchFailure {
+    public PatchFailure {
         evidence = evidence == null ? "" : evidence;
         recommendedNextAction = recommendedNextAction == null ? "" : recommendedNextAction;
     }
 
-    static PatchFailure of(GenerationFailureType failureType, String evidence) {
+    public static PatchFailure of(GenerationFailureType failureType, String evidence) {
         return new PatchFailure(failureType, null, null, evidence, "");
     }
 
-    static PatchFailure fromToolResult(ToolResult toolResult, GenerationFailureType fallback) {
+    public static PatchFailure fromToolResult(ToolResult toolResult, GenerationFailureType fallback) {
         if (toolResult == null) {
             return of(fallback, "");
         }
@@ -38,7 +47,7 @@ record PatchFailure(
         );
     }
 
-    String recommendedNextActionOr(String fallback) {
+    public String recommendedNextActionOr(String fallback) {
         return recommendedNextAction.isBlank() ? fallback : recommendedNextAction;
     }
 

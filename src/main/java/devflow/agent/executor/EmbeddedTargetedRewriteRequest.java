@@ -1,7 +1,12 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import java.nio.file.Path;
 
+import devflow.agent.executor.implementation.ImplementationEventJournal;
+import devflow.agent.executor.subtask.Subtask;
 /**
  * 宿主嵌入 patch 执行所需的稳定输入。
  *

@@ -1,5 +1,7 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.domain.StageType;
+
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;

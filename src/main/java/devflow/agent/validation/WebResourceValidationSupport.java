@@ -1,8 +1,9 @@
 package devflow.agent.validation;
 
-import devflow.agent.executor.ToolFailureCode;
-import devflow.agent.executor.ToolName;
-import devflow.agent.executor.ToolResult;
+import devflow.agent.executor.tools.ToolFailureCode;
+import devflow.agent.executor.tools.ToolName;
+import devflow.agent.executor.tools.ToolResult;
+
 import devflow.agent.parsing.HtmlDocumentInspector;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.util.ProjectPathSupport;

@@ -1,6 +1,6 @@
 package devflow.agent.supervisor;
 
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.StageType;
 import devflow.agent.review.FixMode;
 import java.util.List;
 

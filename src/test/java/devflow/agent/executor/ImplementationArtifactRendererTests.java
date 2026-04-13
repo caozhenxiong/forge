@@ -1,5 +1,11 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.generation.GenerationFailureReport;
+import devflow.agent.executor.generation.GenerationFailureType;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.review.FixMode;
@@ -13,6 +19,10 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import devflow.agent.executor.implementation.ImplementationEventEntry;
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.SubtaskAttemptReport;
+import devflow.agent.executor.subtask.SubtaskExecutionReport;
 class ImplementationArtifactRendererTests {
 
     @Test

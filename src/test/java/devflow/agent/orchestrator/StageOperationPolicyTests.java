@@ -1,5 +1,7 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.domain.StageType;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.time.Duration;

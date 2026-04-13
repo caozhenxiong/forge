@@ -1,6 +1,6 @@
 package devflow.agent.context;
 
-import devflow.agent.executor.RuntimeOwnershipMode;
+import devflow.agent.executor.runtime.RuntimeOwnershipMode;
 import java.util.Locale;
 
 /**

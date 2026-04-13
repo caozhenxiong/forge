@@ -1,14 +1,20 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.generation.GenerationTelemetry;
+import devflow.agent.executor.llm.LlmProvider;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.artifact.FileArtifactStore;
 import devflow.agent.orchestrator.FileRunRepository;
-import devflow.agent.orchestrator.RunConfig;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.RunStatus;
-import devflow.agent.orchestrator.StageExecution;
-import devflow.agent.orchestrator.StageStatus;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunConfig;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.RunStatus;
+import devflow.agent.domain.StageExecution;
+import devflow.agent.domain.StageStatus;
+import devflow.agent.domain.StageType;
 import devflow.agent.quality.QualityPlan;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -25,6 +31,7 @@ import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import devflow.agent.executor.implementation.ImplementationEventJournal;
 class ImplementationPlannerTests {
 
     @TempDir

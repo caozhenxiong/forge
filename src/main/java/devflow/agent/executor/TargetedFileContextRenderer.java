@@ -1,5 +1,10 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.generation.GenerationBudgetProfile;
+
 import devflow.agent.context.ContractView;
 import devflow.agent.i18n.PlaceholderValues;
 import devflow.agent.project.FileProjectWorkspace;
@@ -17,12 +22,12 @@ import java.util.StringJoiner;
  * 2. 补充运行时工作集推导出的关联文件；
  * 3. 以固定预览长度渲染成 targeted context。
  */
-final class TargetedFileContextRenderer {
+public final class TargetedFileContextRenderer {
 
     private final FileProjectWorkspace workspace;
     private final RuntimeWorkingSetResolver runtimeWorkingSetResolver;
 
-    TargetedFileContextRenderer(
+    public TargetedFileContextRenderer(
             FileProjectWorkspace workspace,
             RuntimeWorkingSetResolver runtimeWorkingSetResolver
     ) {
@@ -30,7 +35,7 @@ final class TargetedFileContextRenderer {
         this.runtimeWorkingSetResolver = runtimeWorkingSetResolver;
     }
 
-    String render(
+    public String render(
             Path projectPath,
             List<FileChange> changes,
             Path currentPath,

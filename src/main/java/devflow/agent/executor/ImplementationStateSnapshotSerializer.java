@@ -1,8 +1,19 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.tools.ToolResult;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 
+import devflow.agent.executor.implementation.ImplementationEventEntry;
+import devflow.agent.executor.implementation.toolloop.ImplementationToolSessionState;
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.SubtaskAttemptReport;
+import devflow.agent.executor.subtask.SubtaskExecutionReport;
+import devflow.agent.executor.subtask.SubtaskExecutionState;
 /**
  * 负责把 runtime snapshot 投影成 implementation_state.json。
  *

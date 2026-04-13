@@ -1,9 +1,13 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import devflow.agent.executor.subtask.Subtask;
 /**
  * 本地把 accepted outline 与 accepted detail 组装成最终 {@link ImplementationPlan}。
  *

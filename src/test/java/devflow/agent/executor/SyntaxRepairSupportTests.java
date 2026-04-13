@@ -1,11 +1,22 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.tools.ToolFailureCode;
+import devflow.agent.executor.tools.ToolName;
+import devflow.agent.executor.tools.ToolResult;
+
+import devflow.agent.executor.generation.GenerationFailureType;
+import devflow.agent.executor.llm.LlmProvider;
+import devflow.agent.executor.llm.ModelRole;
+
 import devflow.agent.artifact.EventLogStore;
 import devflow.agent.artifact.FileArtifactStore;
 import devflow.agent.orchestrator.FileRunRepository;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.RunStatus;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.RunStatus;
+import devflow.agent.domain.StageType;
 import java.time.Instant;
 import devflow.agent.project.FileProjectWorkspace;
 import java.nio.file.Path;
@@ -20,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import devflow.agent.executor.implementation.ImplementationEventJournal;
 class SyntaxRepairSupportTests {
 
     @TempDir

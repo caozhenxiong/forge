@@ -1,5 +1,10 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.llm.LlmChatMessage;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.i18n.DocumentLanguage;
 import java.nio.file.Path;
@@ -10,6 +15,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import devflow.agent.executor.implementation.toolloop.CoderReadFileState;
+import devflow.agent.executor.implementation.toolloop.ImplementationDiagnosticLedger;
+import devflow.agent.executor.implementation.toolloop.ImplementationDiagnosticRecord;
+import devflow.agent.executor.implementation.toolloop.ImplementationDiagnosticSource;
+import devflow.agent.executor.implementation.toolloop.ImplementationToolSessionState;
+import devflow.agent.executor.implementation.toolloop.ToolLoopDiagnosticStatus;
+import devflow.agent.executor.implementation.toolloop.ToolLoopMutationOperation;
+import devflow.agent.executor.implementation.toolloop.ToolLoopReadFileStateLedger;
+import devflow.agent.executor.implementation.toolloop.ToolLoopResultReplacementState;
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.SubtaskExecutionReport;
+import devflow.agent.executor.subtask.SubtaskExecutionState;
 class ImplementationStateSnapshotSerializerTests {
 
     @Test

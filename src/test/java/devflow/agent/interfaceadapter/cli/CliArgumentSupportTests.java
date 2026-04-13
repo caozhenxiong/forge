@@ -1,6 +1,6 @@
 package devflow.agent.interfaceadapter.cli;
 
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.StageType;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 

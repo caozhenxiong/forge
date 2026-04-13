@@ -2,8 +2,8 @@ package devflow.agent.review;
 
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ValidationMetadata;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageType;
 
 /**
  * 文档评审的确定性归一化器。

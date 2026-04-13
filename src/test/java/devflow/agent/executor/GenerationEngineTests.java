@@ -1,5 +1,17 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.generation.GenerationAttemptResult;
+import devflow.agent.executor.generation.GenerationEngine;
+import devflow.agent.executor.generation.GenerationFailureException;
+import devflow.agent.executor.generation.GenerationFailureReport;
+import devflow.agent.executor.generation.GenerationFailureType;
+import devflow.agent.executor.generation.GenerationObserver;
+import devflow.agent.executor.generation.GenerationSpec;
+import devflow.agent.executor.generation.GenerationTelemetry;
+
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;

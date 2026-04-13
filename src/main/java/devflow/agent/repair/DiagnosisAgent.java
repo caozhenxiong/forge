@@ -1,13 +1,15 @@
 package devflow.agent.repair;
 
+import devflow.agent.executor.generation.GenerationBudgetProfile;
+import devflow.agent.executor.llm.LlmOptions;
+import devflow.agent.executor.llm.LlmProvider;
+import devflow.agent.executor.llm.ModelRole;
+import devflow.agent.executor.llm.StructuredPayloadReader;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.artifact.FileArtifactStore;
-import devflow.agent.executor.LlmProvider;
-import devflow.agent.executor.ModelRole;
-import devflow.agent.executor.GenerationBudgetProfile;
-import devflow.agent.executor.StructuredPayloadReader;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageType;
 import devflow.agent.review.FixMode;
 import java.nio.file.Path;
 import java.util.List;
@@ -89,7 +91,7 @@ public class DiagnosisAgent {
             String response = llmProvider.generate(
                     prompt.system(),
                     prompt.user(),
-                    devflow.agent.executor.LlmOptions.outputBudgetRatio(GenerationBudgetProfile.diagnosisOutputRatio()),
+                    devflow.agent.executor.llm.LlmOptions.outputBudgetRatio(GenerationBudgetProfile.diagnosisOutputRatio()),
                     ModelRole.DIAGNOSIS
             );
             DiagnosisPayload payload = structuredPayloadReader.readJsonObject(response, DiagnosisPayload.class);

@@ -1,7 +1,11 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import java.nio.file.Path;
 
+import devflow.agent.executor.implementation.ImplementationEventJournal;
 /**
  * 宿主 HTML patch 执行所需的稳定输入。
  *

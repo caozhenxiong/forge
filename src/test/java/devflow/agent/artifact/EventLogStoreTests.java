@@ -1,7 +1,7 @@
 package devflow.agent.artifact;
 
 import devflow.agent.orchestrator.FileRunRepository;
-import devflow.agent.orchestrator.RunRecord;
+import devflow.agent.domain.RunRecord;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -18,35 +18,35 @@ class EventLogStoreTests {
     void appendCollapsesMultiLineMessagesIntoSingleEventLine() {
         FileRunRepository repository = new FileRunRepository();
         repository.initialize(tempDir);
-        RunRecord runRecord = repository.save(new devflow.agent.orchestrator.RunRecord(
+        RunRecord runRecord = repository.save(new devflow.agent.domain.RunRecord(
                 java.util.UUID.randomUUID(),
                 tempDir,
                 "goal",
                 "",
-                devflow.agent.orchestrator.RunConfig.defaultConfig(),
-                devflow.agent.orchestrator.StageType.ANALYSIS,
-                devflow.agent.orchestrator.RunStatus.CREATED,
+                devflow.agent.domain.RunConfig.defaultConfig(),
+                devflow.agent.domain.StageType.ANALYSIS,
+                devflow.agent.domain.RunStatus.CREATED,
                 new java.util.EnumMap<>(java.util.Map.of(
-                        devflow.agent.orchestrator.StageType.ANALYSIS,
-                        new devflow.agent.orchestrator.StageExecution(
-                                devflow.agent.orchestrator.StageType.ANALYSIS,
-                                devflow.agent.orchestrator.StageStatus.PENDING,
+                        devflow.agent.domain.StageType.ANALYSIS,
+                        new devflow.agent.domain.StageExecution(
+                                devflow.agent.domain.StageType.ANALYSIS,
+                                devflow.agent.domain.StageStatus.PENDING,
                                 0,
                                 null,
                                 null,
                                 null,
                                 null
                         ),
-                        devflow.agent.orchestrator.StageType.PRD,
-                        new devflow.agent.orchestrator.StageExecution(devflow.agent.orchestrator.StageType.PRD, devflow.agent.orchestrator.StageStatus.PENDING, 0, null, null, null, null),
-                        devflow.agent.orchestrator.StageType.DESIGN,
-                        new devflow.agent.orchestrator.StageExecution(devflow.agent.orchestrator.StageType.DESIGN, devflow.agent.orchestrator.StageStatus.PENDING, 0, null, null, null, null),
-                        devflow.agent.orchestrator.StageType.IMPLEMENTATION,
-                        new devflow.agent.orchestrator.StageExecution(devflow.agent.orchestrator.StageType.IMPLEMENTATION, devflow.agent.orchestrator.StageStatus.PENDING, 0, null, null, null, null),
-                        devflow.agent.orchestrator.StageType.CODE_REVIEW,
-                        new devflow.agent.orchestrator.StageExecution(devflow.agent.orchestrator.StageType.CODE_REVIEW, devflow.agent.orchestrator.StageStatus.PENDING, 0, null, null, null, null),
-                        devflow.agent.orchestrator.StageType.TEST,
-                        new devflow.agent.orchestrator.StageExecution(devflow.agent.orchestrator.StageType.TEST, devflow.agent.orchestrator.StageStatus.PENDING, 0, null, null, null, null)
+                        devflow.agent.domain.StageType.PRD,
+                        new devflow.agent.domain.StageExecution(devflow.agent.domain.StageType.PRD, devflow.agent.domain.StageStatus.PENDING, 0, null, null, null, null),
+                        devflow.agent.domain.StageType.DESIGN,
+                        new devflow.agent.domain.StageExecution(devflow.agent.domain.StageType.DESIGN, devflow.agent.domain.StageStatus.PENDING, 0, null, null, null, null),
+                        devflow.agent.domain.StageType.IMPLEMENTATION,
+                        new devflow.agent.domain.StageExecution(devflow.agent.domain.StageType.IMPLEMENTATION, devflow.agent.domain.StageStatus.PENDING, 0, null, null, null, null),
+                        devflow.agent.domain.StageType.CODE_REVIEW,
+                        new devflow.agent.domain.StageExecution(devflow.agent.domain.StageType.CODE_REVIEW, devflow.agent.domain.StageStatus.PENDING, 0, null, null, null, null),
+                        devflow.agent.domain.StageType.TEST,
+                        new devflow.agent.domain.StageExecution(devflow.agent.domain.StageType.TEST, devflow.agent.domain.StageStatus.PENDING, 0, null, null, null, null)
                 )),
                 java.time.Instant.now(),
                 java.time.Instant.now()

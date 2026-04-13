@@ -1,12 +1,12 @@
 package devflow.agent.interfaceadapter.cli;
 
-import devflow.agent.orchestrator.GatePolicy;
-import devflow.agent.orchestrator.RunConfig;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.RunStatus;
-import devflow.agent.orchestrator.StageExecution;
-import devflow.agent.orchestrator.StageStatus;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.GatePolicy;
+import devflow.agent.domain.RunConfig;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.RunStatus;
+import devflow.agent.domain.StageExecution;
+import devflow.agent.domain.StageStatus;
+import devflow.agent.domain.StageType;
 import devflow.agent.review.ReviewDecision;
 import java.nio.file.Path;
 import java.time.Instant;

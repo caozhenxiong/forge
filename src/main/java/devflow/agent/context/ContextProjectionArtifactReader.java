@@ -2,9 +2,9 @@ package devflow.agent.context;
 
 import devflow.agent.artifact.AuxiliaryArtifactNames;
 import devflow.agent.artifact.FileArtifactStore;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.StageExecution;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageExecution;
+import devflow.agent.domain.StageType;
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.ReviewArtifactPayload;
 import devflow.agent.protocol.ReviewHistoryEntryPayload;

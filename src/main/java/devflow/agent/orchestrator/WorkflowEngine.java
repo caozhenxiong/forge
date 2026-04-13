@@ -1,15 +1,24 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageType;
+
+import java.nio.file.Path;
 import java.util.UUID;
 
 public interface WorkflowEngine {
 
-    RunRecord startRun(UUID runId);
+    void initialize(Path projectPath);
 
-    RunRecord resumeRun(UUID runId);
+    RunRecord createRun(Path projectPath, String goal, String constraints);
 
-    RunRecord approveStage(UUID runId, StageType stageType, String reviewer);
+    RunRecord find(Path projectPath, UUID runId);
 
-    RunRecord rejectStage(UUID runId, StageType stageType, String reviewer, String reason);
+    RunRecord startRun(Path projectPath, UUID runId);
+
+    RunRecord resumeRun(Path projectPath, UUID runId);
+
+    RunRecord approveStage(Path projectPath, UUID runId, StageType stageType, String reviewer);
+
+    RunRecord rejectStage(Path projectPath, UUID runId, StageType stageType, String reviewer, String reason);
 }
-

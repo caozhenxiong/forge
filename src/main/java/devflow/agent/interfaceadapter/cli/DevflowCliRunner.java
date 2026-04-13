@@ -2,7 +2,7 @@ package devflow.agent.interfaceadapter.cli;
 
 import devflow.agent.artifact.EventLogStore;
 import devflow.agent.artifact.FileArtifactStore;
-import devflow.agent.orchestrator.DefaultWorkflowEngine;
+import devflow.agent.orchestrator.WorkflowEngine;
 import devflow.agent.util.DevflowPathSupport;
 import java.nio.file.Path;
 import org.springframework.boot.CommandLineRunner;
@@ -21,12 +21,12 @@ import org.springframework.stereotype.Component;
  */
 public class DevflowCliRunner implements CommandLineRunner {
 
-    private final DefaultWorkflowEngine workflowEngine;
+    private final WorkflowEngine workflowEngine;
     private final CliArgumentSupport argumentSupport;
     private final CliOutputRenderer outputRenderer;
     private final CliRunCommandHandler runCommandHandler;
 
-    public DevflowCliRunner(DefaultWorkflowEngine workflowEngine, FileArtifactStore artifactStore, EventLogStore eventLogStore) {
+    public DevflowCliRunner(WorkflowEngine workflowEngine, FileArtifactStore artifactStore, EventLogStore eventLogStore) {
         this.workflowEngine = workflowEngine;
         this.argumentSupport = new CliArgumentSupport();
         this.outputRenderer = new CliOutputRenderer();

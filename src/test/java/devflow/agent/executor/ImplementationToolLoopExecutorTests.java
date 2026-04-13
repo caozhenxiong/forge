@@ -1,10 +1,22 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.generation.GenerationFailureException;
+import devflow.agent.executor.generation.GenerationFailureType;
+import devflow.agent.executor.llm.ChatCapableLlmProvider;
+import devflow.agent.executor.llm.LlmChatRequest;
+import devflow.agent.executor.llm.LlmChatResponse;
+import devflow.agent.executor.llm.LlmChatRole;
+import devflow.agent.executor.llm.LlmProvider;
+import devflow.agent.executor.llm.LlmToolCall;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
-import devflow.agent.orchestrator.RunConfig;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.RunStatus;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunConfig;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.RunStatus;
+import devflow.agent.domain.StageType;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Files;
@@ -22,10 +34,25 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import devflow.agent.executor.implementation.toolloop.ImplementationToolLoopExecutor;
+import devflow.agent.executor.implementation.toolloop.ImplementationToolLoopResult;
+import devflow.agent.executor.implementation.toolloop.ToolLoopDiagnosticStatus;
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.SubtaskExecutionState;
+import devflow.agent.executor.subtask.TaskPackage;
 class ImplementationToolLoopExecutorTests {
 
     @TempDir
     Path tempDir;
+
+    private ImplementationToolLoopExecutor newToolLoopExecutor(LlmProvider provider, int maxToolTurns) {
+        return new ImplementationToolLoopExecutor(
+                provider,
+                new ObjectMapper(),
+                maxToolTurns,
+                TestExecutorServices.directExecutorService()
+        );
+    }
 
     @Test
     void toolLoopReadsThenEditsExistingFile() throws Exception {
@@ -36,7 +63,7 @@ class ImplementationToolLoopExecutorTests {
                 }
                 """);
 
-        ImplementationToolLoopExecutor executor = new ImplementationToolLoopExecutor(
+        ImplementationToolLoopExecutor executor = newToolLoopExecutor(
                 new ScriptedChatProvider(
                         new LlmChatResponse(
                                 "",
@@ -60,7 +87,6 @@ class ImplementationToolLoopExecutorTests {
                         ),
                         new LlmChatResponse("done", List.of(), null, "stop")
                 ),
-                new ObjectMapper(),
                 6
         );
 
@@ -88,7 +114,7 @@ class ImplementationToolLoopExecutorTests {
         Path file = tempDir.resolve("obsolete.js");
         Files.writeString(file, "console.log('obsolete');");
 
-        ImplementationToolLoopExecutor executor = new ImplementationToolLoopExecutor(
+        ImplementationToolLoopExecutor executor = newToolLoopExecutor(
                 new ScriptedChatProvider(
                         new LlmChatResponse(
                                 "",
@@ -98,7 +124,6 @@ class ImplementationToolLoopExecutorTests {
                         ),
                         new LlmChatResponse("removed", List.of(), null, "stop")
                 ),
-                new ObjectMapper(),
                 4
         );
 
@@ -141,7 +166,7 @@ class ImplementationToolLoopExecutorTests {
                 """);
 
         SubtaskExecutionState executionState = new SubtaskExecutionState(DeliveryMode.PATCH, false);
-        ImplementationToolLoopExecutor firstExecutor = new ImplementationToolLoopExecutor(
+        ImplementationToolLoopExecutor firstExecutor = newToolLoopExecutor(
                 new ScriptedChatProvider(
                         new LlmChatResponse(
                                 "",
@@ -151,7 +176,6 @@ class ImplementationToolLoopExecutorTests {
                         ),
                         new LlmChatResponse("continue", List.of(), null, "stop")
                 ),
-                new ObjectMapper(),
                 4
         );
 
@@ -173,7 +197,7 @@ class ImplementationToolLoopExecutorTests {
         );
         assertEquals(GenerationFailureType.NO_MATERIAL_CHANGE, firstFailure.report().failureType());
 
-        ImplementationToolLoopExecutor secondExecutor = new ImplementationToolLoopExecutor(
+        ImplementationToolLoopExecutor secondExecutor = newToolLoopExecutor(
                 new ScriptedChatProvider(
                         new LlmChatResponse(
                                 "",
@@ -191,7 +215,6 @@ class ImplementationToolLoopExecutorTests {
                         ),
                         new LlmChatResponse("done", List.of(), null, "stop")
                 ),
-                new ObjectMapper(),
                 4
         );
 
@@ -228,7 +251,7 @@ class ImplementationToolLoopExecutorTests {
                 """);
 
         SubtaskExecutionState executionState = new SubtaskExecutionState(DeliveryMode.PATCH, false);
-        ImplementationToolLoopExecutor executor = new ImplementationToolLoopExecutor(
+        ImplementationToolLoopExecutor executor = newToolLoopExecutor(
                 new ScriptedChatProvider(
                         new LlmChatResponse("继续补完当前修改", List.of(), null, "length"),
                         new LlmChatResponse(
@@ -253,7 +276,6 @@ class ImplementationToolLoopExecutorTests {
                         ),
                         new LlmChatResponse("done", List.of(), null, "stop")
                 ),
-                new ObjectMapper(),
                 6
         );
 
@@ -279,11 +301,10 @@ class ImplementationToolLoopExecutorTests {
 
     @Test
     void toolLoopRejectsAssistantOnlyCompletionWhenDeclaredFileWasNeverCreated() {
-        ImplementationToolLoopExecutor executor = new ImplementationToolLoopExecutor(
+        ImplementationToolLoopExecutor executor = newToolLoopExecutor(
                 new ScriptedChatProvider(
                         new LlmChatResponse("index.html 已完成", List.of(), null, "stop")
                 ),
-                new ObjectMapper(),
                 2
         );
 
@@ -315,11 +336,10 @@ class ImplementationToolLoopExecutorTests {
         Path file = tempDir.resolve("app.js");
         Files.writeString(file, "export const ready = false;\n");
 
-        ImplementationToolLoopExecutor executor = new ImplementationToolLoopExecutor(
+        ImplementationToolLoopExecutor executor = newToolLoopExecutor(
                 new ScriptedChatProvider(
                         new LlmChatResponse("app.js 已更新", List.of(), null, "stop")
                 ),
-                new ObjectMapper(),
                 2
         );
 
@@ -351,7 +371,7 @@ class ImplementationToolLoopExecutorTests {
         Path file = tempDir.resolve("app.js");
         Files.writeString(file, "export const ready = false;\n");
 
-        ImplementationToolLoopExecutor executor = new ImplementationToolLoopExecutor(
+        ImplementationToolLoopExecutor executor = newToolLoopExecutor(
                 new ScriptedChatProvider(
                         new LlmChatResponse(
                                 "",
@@ -385,7 +405,6 @@ class ImplementationToolLoopExecutorTests {
                         ),
                         new LlmChatResponse("done", List.of(), null, "stop")
                 ),
-                new ObjectMapper(),
                 6
         );
 
@@ -412,7 +431,7 @@ class ImplementationToolLoopExecutorTests {
         Path file = tempDir.resolve("app.js");
         Files.writeString(file, "export const ready = false;\n");
 
-        ImplementationToolLoopExecutor executor = new ImplementationToolLoopExecutor(
+        ImplementationToolLoopExecutor executor = newToolLoopExecutor(
                 new ScriptedChatProvider(
                         new LlmChatResponse(
                                 "",
@@ -450,7 +469,6 @@ class ImplementationToolLoopExecutorTests {
                         ),
                         new LlmChatResponse("done", List.of(), null, "stop")
                 ),
-                new ObjectMapper(),
                 6
         );
 

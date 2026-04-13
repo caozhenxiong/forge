@@ -1,9 +1,12 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import devflow.agent.context.ContractView;
 import devflow.agent.context.SharedContextBundle;
 import devflow.agent.i18n.DocumentLanguage;
-import devflow.agent.orchestrator.RunRecord;
+import devflow.agent.domain.RunRecord;
 import devflow.agent.protocol.ExecutionDirectivePayload;
 import devflow.agent.protocol.ExecutionDirectiveProtocol;
 import devflow.agent.quality.QualityPlan;
@@ -13,6 +16,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import devflow.agent.executor.implementation.ImplementationEventJournal;
+import devflow.agent.executor.implementation.ImplementationEventMessages;
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.SubtaskExecutionContext;
+import devflow.agent.executor.subtask.SubtaskExecutionReport;
+import devflow.agent.executor.subtask.SubtaskExecutionState;
+import devflow.agent.executor.subtask.SubtaskExecutor;
+import devflow.agent.executor.subtask.TaskPackage;
 /**
  * 负责按顺序执行 implementation plan 中的子任务。
  *
@@ -69,7 +80,7 @@ class ImplementationPlanRunner {
                     )
             );
             publishProgress(progressPublisher, reports, subtask.title());
-            SubtaskExecutionReport report = subtaskExecutor.executeSubtask(
+            SubtaskExecutionReport report = subtaskExecutor.executeSubtask(new SubtaskExecutionContext(
                     projectPath,
                     runRecord,
                     plan.summary(),
@@ -86,7 +97,7 @@ class ImplementationPlanRunner {
                     coderContextMarkdown,
                     eventJournal,
                     initialExecutionState
-            );
+            ));
             initialExecutionState = null;
             reports.add(report);
             publishEvent(

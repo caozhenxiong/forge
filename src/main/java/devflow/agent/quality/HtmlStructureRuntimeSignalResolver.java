@@ -1,8 +1,8 @@
 package devflow.agent.quality;
 
-import devflow.agent.executor.RuntimeSnapshot;
-import devflow.agent.executor.RuntimeSnapshotCaptureStatus;
-import devflow.agent.executor.RuntimeSnapshotFailureCode;
+import devflow.agent.executor.testing.RuntimeSnapshot;
+import devflow.agent.executor.testing.RuntimeSnapshotCaptureStatus;
+import devflow.agent.executor.testing.RuntimeSnapshotFailureCode;
 import devflow.agent.parsing.HtmlStructureSnapshot;
 import devflow.agent.parsing.TreeSitterSupport;
 import devflow.agent.project.FileProjectWorkspace;

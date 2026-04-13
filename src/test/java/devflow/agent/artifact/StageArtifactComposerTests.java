@@ -1,5 +1,12 @@
 package devflow.agent.artifact;
 
+import devflow.agent.executor.llm.ChatCapableLlmProvider;
+import devflow.agent.executor.llm.LlmChatRequest;
+import devflow.agent.executor.llm.LlmChatResponse;
+import devflow.agent.executor.llm.LlmProvider;
+import devflow.agent.executor.llm.LlmToolCall;
+import devflow.agent.executor.llm.ModelRole;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -7,21 +14,15 @@ import devflow.agent.context.ConstraintSourceMetadata;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ProductContract;
 import devflow.agent.context.ValidationMetadata;
-import devflow.agent.executor.ChatCapableLlmProvider;
 import devflow.agent.executor.ImplementationExecutor;
-import devflow.agent.executor.LlmChatRequest;
-import devflow.agent.executor.LlmChatResponse;
-import devflow.agent.executor.LlmProvider;
-import devflow.agent.executor.LlmToolCall;
-import devflow.agent.executor.ModelRole;
-import devflow.agent.executor.TestExecutor;
+import devflow.agent.executor.testing.TestExecutor;
 import devflow.agent.orchestrator.FileRunRepository;
-import devflow.agent.orchestrator.RunConfig;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.RunStatus;
-import devflow.agent.orchestrator.StageExecution;
-import devflow.agent.orchestrator.StageStatus;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunConfig;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.RunStatus;
+import devflow.agent.domain.StageExecution;
+import devflow.agent.domain.StageStatus;
+import devflow.agent.domain.StageType;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.project.WorkspaceSnapshotStore;
 import devflow.agent.protocol.ExecutionDirectivePayload;
@@ -134,7 +135,7 @@ class StageArtifactComposerTests {
                 new ArtifactTemplateFactory(),
                 artifactStore,
                 provider,
-                new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                 testExecutor,
                 new WorkspaceSnapshotStore(runRepository, workspace),
                 new ContractExtractor()
@@ -259,7 +260,7 @@ class StageArtifactComposerTests {
                 new ArtifactTemplateFactory(),
                 artifactStore,
                 provider,
-                new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                 testExecutor,
                 new WorkspaceSnapshotStore(runRepository, workspace),
                 new ContractExtractor()
@@ -377,7 +378,7 @@ class StageArtifactComposerTests {
                 new ArtifactTemplateFactory(),
                 artifactStore,
                 provider,
-                new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                 testExecutor,
                 new WorkspaceSnapshotStore(runRepository, workspace),
                 new ContractExtractor()
@@ -490,7 +491,7 @@ class StageArtifactComposerTests {
                 new ArtifactTemplateFactory(),
                 artifactStore,
                 provider,
-                new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                 testExecutor,
                 new WorkspaceSnapshotStore(runRepository, workspace),
                 new ContractExtractor()
@@ -607,7 +608,7 @@ class StageArtifactComposerTests {
                 new ArtifactTemplateFactory(),
                 artifactStore,
                 provider,
-                new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                 testExecutor,
                 new WorkspaceSnapshotStore(runRepository, workspace),
                 new ContractExtractor()
@@ -702,7 +703,7 @@ class StageArtifactComposerTests {
                 new ArtifactTemplateFactory(),
                 artifactStore,
                 provider,
-                new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                 testExecutor,
                 new WorkspaceSnapshotStore(runRepository, workspace),
                 new ContractExtractor()
@@ -811,7 +812,7 @@ class StageArtifactComposerTests {
                 new ArtifactTemplateFactory(),
                 artifactStore,
                 provider,
-                new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                 testExecutor,
                 new WorkspaceSnapshotStore(runRepository, workspace),
                 new ContractExtractor()
@@ -926,7 +927,7 @@ class StageArtifactComposerTests {
                 new ArtifactTemplateFactory(),
                 artifactStore,
                 provider,
-                new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                 testExecutor,
                 new WorkspaceSnapshotStore(runRepository, workspace),
                 contractExtractor
@@ -1044,7 +1045,7 @@ class StageArtifactComposerTests {
                 new ArtifactTemplateFactory(),
                 artifactStore,
                 provider,
-                new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                 testExecutor,
                 new WorkspaceSnapshotStore(runRepository, workspace),
                 new ContractExtractor()
@@ -1133,7 +1134,7 @@ class StageArtifactComposerTests {
                 new ArtifactTemplateFactory(),
                 artifactStore,
                 provider,
-                new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                 testExecutor,
                 new WorkspaceSnapshotStore(runRepository, workspace),
                 new ContractExtractor()
@@ -1345,7 +1346,7 @@ class StageArtifactComposerTests {
                 new ArtifactTemplateFactory(),
                 artifactStore,
                 provider,
-                new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                 testExecutor,
                 new WorkspaceSnapshotStore(runRepository, workspace),
                 new ContractExtractor()
@@ -1421,7 +1422,7 @@ class StageArtifactComposerTests {
                 new ArtifactTemplateFactory(),
                 artifactStore,
                 provider,
-                new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                 testExecutor,
                 new WorkspaceSnapshotStore(runRepository, workspace),
                 new ContractExtractor()
@@ -1617,7 +1618,7 @@ class StageArtifactComposerTests {
                 new ArtifactTemplateFactory(),
                 artifactStore,
                 provider,
-                new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                 testExecutor,
                 new WorkspaceSnapshotStore(runRepository, workspace),
                 new ContractExtractor()
@@ -1721,7 +1722,7 @@ class StageArtifactComposerTests {
                 new ArtifactTemplateFactory(),
                 artifactStore,
                 provider,
-                new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                 testExecutor,
                 new WorkspaceSnapshotStore(runRepository, workspace),
                 new ContractExtractor()
@@ -1826,7 +1827,7 @@ class StageArtifactComposerTests {
                 new ArtifactTemplateFactory(),
                 artifactStore,
                 provider,
-                new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                 testExecutor,
                 new WorkspaceSnapshotStore(runRepository, workspace),
                 new ContractExtractor()
@@ -1945,7 +1946,7 @@ class StageArtifactComposerTests {
                 new ArtifactTemplateFactory(),
                 artifactStore,
                 provider,
-                new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, new ObjectMapper(), testExecutor),
                 testExecutor,
                 new WorkspaceSnapshotStore(runRepository, workspace),
                 new ContractExtractor()
@@ -2075,7 +2076,7 @@ class StageArtifactComposerTests {
                 new ArtifactTemplateFactory(),
                 artifactStore,
                 provider,
-                new ImplementationExecutor(provider, workspace, objectMapper, testExecutor),
+                devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, objectMapper, testExecutor),
                 testExecutor,
                 new WorkspaceSnapshotStore(runRepository, workspace),
                 new ContractExtractor()
@@ -2246,7 +2247,7 @@ class StageArtifactComposerTests {
                 new ArtifactTemplateFactory(),
                 artifactStore,
                 provider,
-                new ImplementationExecutor(provider, workspace, objectMapper, testExecutor),
+                devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, workspace, objectMapper, testExecutor),
                 testExecutor,
                 new WorkspaceSnapshotStore(runRepository, workspace),
                 new ContractExtractor()

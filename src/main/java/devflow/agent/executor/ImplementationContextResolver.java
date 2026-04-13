@@ -1,5 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.context.AuthoritativeCoverageCatalog;
 import devflow.agent.context.ContractExtractor;
@@ -12,7 +15,7 @@ import devflow.agent.context.ExecutionEntryKind;
 import devflow.agent.context.SharedContextBundle;
 import devflow.agent.context.ValidationMetadata;
 import devflow.agent.i18n.DocumentLanguage;
-import devflow.agent.orchestrator.RunRecord;
+import devflow.agent.domain.RunRecord;
 import devflow.agent.protocol.ExecutionDirectiveNarrativeRenderer;
 import devflow.agent.protocol.ExecutionDirectivePayload;
 import devflow.agent.protocol.ExecutionDirectiveProtocol;
@@ -112,7 +115,7 @@ class ImplementationContextResolver {
         );
         ContextViews contextViews = contextLayerAssembler.assemble(
                 runRecord,
-                devflow.agent.orchestrator.StageType.IMPLEMENTATION,
+                devflow.agent.domain.StageType.IMPLEMENTATION,
                 contractView,
                 "",
                 contractView == null ? "" : contractView.toMarkdown(language),

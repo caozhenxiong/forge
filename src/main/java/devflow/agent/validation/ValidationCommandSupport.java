@@ -1,12 +1,14 @@
 package devflow.agent.validation;
 
+import devflow.agent.executor.tools.ToolFailureCode;
+import devflow.agent.executor.tools.ToolName;
+import devflow.agent.executor.tools.ToolResult;
+
+import devflow.agent.executor.shell.CommandResult;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import devflow.agent.executor.ToolFailureCode;
-import devflow.agent.executor.ToolName;
-import devflow.agent.executor.ToolResult;
 import devflow.agent.i18n.PlaceholderValues;
-import devflow.agent.project.CommandResult;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.util.ProjectPathSupport;
 import java.io.IOException;

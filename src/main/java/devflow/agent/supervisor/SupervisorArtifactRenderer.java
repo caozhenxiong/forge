@@ -12,7 +12,7 @@ import devflow.agent.review.ReviewResult;
 public class SupervisorArtifactRenderer {
 
     public String renderDecisionArtifact(
-            devflow.agent.orchestrator.StageType currentStage,
+            devflow.agent.domain.StageType currentStage,
             ReviewResult reviewResult,
             boolean repeatedIssue,
             SupervisorDecision decision,

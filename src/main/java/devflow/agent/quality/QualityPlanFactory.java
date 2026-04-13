@@ -2,7 +2,7 @@ package devflow.agent.quality;
 
 import devflow.agent.context.ContractView;
 import devflow.agent.context.ValidationMetadata;
-import devflow.agent.executor.RuntimeSnapshot;
+import devflow.agent.executor.testing.RuntimeSnapshot;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Path;
 import java.util.Collection;

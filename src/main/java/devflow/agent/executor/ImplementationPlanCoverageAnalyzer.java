@@ -1,5 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import devflow.agent.context.AuthoritativeCoverageCatalog;
 import devflow.agent.context.ContractView;
 import devflow.agent.context.ExecutionContract;
@@ -12,6 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.IntStream;
 
+import devflow.agent.executor.subtask.Subtask;
 public class ImplementationPlanCoverageAnalyzer {
 
     public CoverageResult analyze(

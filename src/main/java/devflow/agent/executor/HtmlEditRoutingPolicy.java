@@ -1,9 +1,16 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.generation.GenerationFailureReport;
+import devflow.agent.executor.generation.GenerationFailureType;
+
 import devflow.agent.util.ProjectPathSupport;
 import java.nio.file.Path;
 import java.util.EnumSet;
 
+import devflow.agent.executor.subtask.SubtaskExecutionState;
 /**
  * 统一维护 HTML 宿主 patch、内联脚本/样式 patch 与 focused region 的路由条件。
  *

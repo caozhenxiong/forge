@@ -1,5 +1,7 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.domain.RunRecord;
+
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.UUID;

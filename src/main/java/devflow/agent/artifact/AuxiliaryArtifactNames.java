@@ -1,6 +1,6 @@
 package devflow.agent.artifact;
 
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.StageType;
 
 /**
  * 集中维护 run 目录下的辅助产物文件名。

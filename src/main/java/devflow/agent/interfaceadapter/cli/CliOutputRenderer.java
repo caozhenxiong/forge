@@ -1,8 +1,8 @@
 package devflow.agent.interfaceadapter.cli;
 
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.StageExecution;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageExecution;
+import devflow.agent.domain.StageType;
 import java.util.Locale;
 import java.util.Map;
 

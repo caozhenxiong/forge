@@ -1,10 +1,17 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import devflow.agent.context.ContractView;
 import devflow.agent.editing.FileStateSnapshot;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Path;
 
+import devflow.agent.executor.implementation.ImplementationEventJournal;
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.SubtaskExecutionState;
+import devflow.agent.executor.subtask.TaskPackage;
 /**
  * 文件级 patch 路由执行的统一输入。
  *

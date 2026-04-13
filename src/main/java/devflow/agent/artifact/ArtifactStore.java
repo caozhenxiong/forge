@@ -1,6 +1,6 @@
 package devflow.agent.artifact;
 
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.StageType;
 import java.nio.file.Path;
 import java.util.UUID;
 

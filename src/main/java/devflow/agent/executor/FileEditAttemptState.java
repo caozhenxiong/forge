@@ -1,5 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import java.nio.file.Path;
 import java.util.List;
 
@@ -11,7 +14,7 @@ import java.util.List;
  * 2. attempt / resume 只续跑当前 target，不回卷已完成 target；
  * 3. continuation 不再依赖 patch 语义。
  */
-record FileEditAttemptState(
+public record FileEditAttemptState(
         Path relativePath,
         String protocolName,
         String strategyName,
@@ -20,7 +23,7 @@ record FileEditAttemptState(
         List<String> completedTargetLabels,
         String currentTargetLabel
 ) {
-    FileEditAttemptState {
+    public FileEditAttemptState {
         relativePath = relativePath == null ? null : relativePath.normalize();
         protocolName = protocolName == null ? "" : protocolName;
         strategyName = strategyName == null ? "" : strategyName;

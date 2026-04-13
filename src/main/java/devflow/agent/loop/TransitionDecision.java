@@ -1,6 +1,6 @@
 package devflow.agent.loop;
 
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.StageType;
 import devflow.agent.supervisor.SupervisorDecision;
 
 public record TransitionDecision(

@@ -3,7 +3,7 @@ package devflow.agent.context;
 import devflow.agent.artifact.ArtifactSectionKind;
 import devflow.agent.artifact.ArtifactSectionSupport;
 import devflow.agent.text.TextCanonicalizer;
-import devflow.agent.orchestrator.StageType;
+import devflow.agent.domain.StageType;
 import java.util.EnumSet;
 
 public final class ArtifactContextSanitizer {

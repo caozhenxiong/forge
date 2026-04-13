@@ -1,5 +1,8 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.StageType;
+
 import devflow.agent.review.ReviewResult;
 import devflow.agent.supervisor.SupervisorDecision;
 import java.nio.file.Path;

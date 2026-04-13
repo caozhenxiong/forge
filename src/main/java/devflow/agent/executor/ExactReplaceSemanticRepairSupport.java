@@ -1,8 +1,13 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import devflow.agent.editing.ExactReplaceEdit;
 import java.nio.file.Path;
 
+import devflow.agent.executor.implementation.ImplementationEventJournal;
+import devflow.agent.executor.implementation.ImplementationEventMessages;
 /**
  * exact-replace 的语义 repair-before-regenerate。
  *

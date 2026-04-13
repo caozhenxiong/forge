@@ -1,5 +1,8 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ContractView;
@@ -7,9 +10,9 @@ import devflow.agent.context.ContextLayerAssembler;
 import devflow.agent.context.DesignContract;
 import devflow.agent.context.ExecutionContract;
 import devflow.agent.context.ProductContract;
-import devflow.agent.orchestrator.RunConfig;
-import devflow.agent.orchestrator.RunRecord;
-import devflow.agent.orchestrator.RunStatus;
+import devflow.agent.domain.RunConfig;
+import devflow.agent.domain.RunRecord;
+import devflow.agent.domain.RunStatus;
 import devflow.agent.protocol.ExecutionDirectivePayload;
 import devflow.agent.protocol.ExecutionDirectiveProtocol;
 import devflow.agent.project.FileProjectWorkspace;
@@ -70,7 +73,7 @@ class ImplementationContextResolverTests {
                 "做一个俄罗斯方块网页游戏",
                 "中文输出",
                 RunConfig.defaultConfig(),
-                devflow.agent.orchestrator.StageType.IMPLEMENTATION,
+                devflow.agent.domain.StageType.IMPLEMENTATION,
                 RunStatus.IN_PROGRESS,
                 Map.of(),
                 Instant.now(),

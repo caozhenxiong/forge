@@ -1,7 +1,8 @@
 package devflow.agent.supervisor;
 
-import devflow.agent.executor.GenerationFailureReport;
-import devflow.agent.executor.GenerationFailureType;
+import devflow.agent.executor.generation.GenerationFailureReport;
+import devflow.agent.executor.generation.GenerationFailureType;
+
 import java.util.ArrayList;
 import java.util.List;
 

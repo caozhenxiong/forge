@@ -9,7 +9,7 @@ import devflow.agent.context.EntryPackagingMode;
 import devflow.agent.context.ExecutionContract;
 import devflow.agent.context.RequirementReference;
 import devflow.agent.context.ValidationMetadata;
-import devflow.agent.executor.RuntimeSnapshot;
+import devflow.agent.executor.testing.RuntimeSnapshot;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Files;
 import java.nio.file.Path;

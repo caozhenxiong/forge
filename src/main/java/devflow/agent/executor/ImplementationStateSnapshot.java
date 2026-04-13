@@ -1,8 +1,13 @@
 package devflow.agent.executor;
 
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.tools.StructuredPatchHunk;
+
 import java.util.List;
 
-record ImplementationStateSnapshot(
+public record ImplementationStateSnapshot(
         String summary,
         List<PlannedSubtaskState> subtasks,
         List<SubtaskExecutionStateSnapshot> reports,
@@ -22,7 +27,7 @@ record ImplementationStateSnapshot(
         List<String> incompleteSubtasks
 ) {
 
-    ImplementationStateSnapshot {
+    public ImplementationStateSnapshot {
         summary = summary == null ? "" : summary;
         subtasks = subtasks == null ? List.of() : List.copyOf(subtasks);
         reports = reports == null ? List.of() : List.copyOf(reports);
@@ -39,7 +44,7 @@ record ImplementationStateSnapshot(
         incompleteSubtasks = incompleteSubtasks == null ? List.of() : List.copyOf(incompleteSubtasks);
     }
 
-    ImplementationStateSnapshot(
+    public ImplementationStateSnapshot(
             String summary,
             List<PlannedSubtaskState> subtasks,
             List<SubtaskExecutionStateSnapshot> reports,
@@ -70,7 +75,7 @@ record ImplementationStateSnapshot(
         );
     }
 
-    record PlannedSubtaskState(
+    public record PlannedSubtaskState(
             String title,
             String goal,
             List<String> coverageRefs,
@@ -83,7 +88,7 @@ record ImplementationStateSnapshot(
     ) {
     }
 
-    record FileChangeState(
+    public record FileChangeState(
             String path,
             String action,
             String reason,
@@ -91,27 +96,27 @@ record ImplementationStateSnapshot(
             String runtimeOwnership,
             boolean hostHtmlPatchRequired
     ) {
-        FileChangeState(String path, String action, String reason) {
+        public FileChangeState(String path, String action, String reason) {
             this(path, action, reason, FileEditScope.AUTO.name(), null, false);
         }
 
-        FileChangeState(String path, String action, String reason, String editScope) {
+        public FileChangeState(String path, String action, String reason, String editScope) {
             this(path, action, reason, editScope, null, false);
         }
 
-        FileChangeState(String path, String action, String reason, String editScope, String runtimeOwnership) {
+        public FileChangeState(String path, String action, String reason, String editScope, String runtimeOwnership) {
             this(path, action, reason, editScope, runtimeOwnership, false);
         }
     }
 
-    record RuntimeContractState(
+    public record RuntimeContractState(
             String htmlEntryPath,
             String runtimeOwnership,
             List<String> runtimePaths
     ) {
     }
 
-    record ContractGateState(
+    public record ContractGateState(
             String scope,
             boolean passed,
             String failureReason,
@@ -121,7 +126,7 @@ record ImplementationStateSnapshot(
     ) {
     }
 
-    record SubtaskExecutionStateSnapshot(
+    public record SubtaskExecutionStateSnapshot(
             String title,
             boolean completed,
             List<SubtaskAttemptState> attempts,
@@ -131,7 +136,7 @@ record ImplementationStateSnapshot(
             List<FileChangeState> effectiveChanges,
             ToolSessionStateSnapshot toolSessionState
     ) {
-        SubtaskExecutionStateSnapshot(
+        public SubtaskExecutionStateSnapshot(
                 String title,
                 boolean completed,
                 List<SubtaskAttemptState> attempts
@@ -139,7 +144,7 @@ record ImplementationStateSnapshot(
             this(title, completed, attempts, null, false, List.of(), List.of(), null);
         }
 
-        SubtaskExecutionStateSnapshot(
+        public SubtaskExecutionStateSnapshot(
                 String title,
                 boolean completed,
                 List<SubtaskAttemptState> attempts,
@@ -150,7 +155,7 @@ record ImplementationStateSnapshot(
             this(title, completed, attempts, deliveryMode, preferPreciseEditing, fileEditAttemptStates, List.of(), null);
         }
 
-        SubtaskExecutionStateSnapshot(
+        public SubtaskExecutionStateSnapshot(
                 String title,
                 boolean completed,
                 List<SubtaskAttemptState> attempts,
@@ -163,7 +168,7 @@ record ImplementationStateSnapshot(
         }
     }
 
-    record ToolSessionStateSnapshot(
+    public record ToolSessionStateSnapshot(
             long readFileStateMaxEntries,
             long readFileStateMaxSizeBytes,
             List<ReadFileStateEntry> readFileStates,
@@ -174,7 +179,7 @@ record ImplementationStateSnapshot(
     ) {
     }
 
-    record ReadFileStateEntry(
+    public record ReadFileStateEntry(
             String absolutePath,
             String content,
             long timestamp,
@@ -184,13 +189,13 @@ record ImplementationStateSnapshot(
     ) {
     }
 
-    record ToolResultReplacementEntry(
+    public record ToolResultReplacementEntry(
             String toolUseId,
             String replacement
     ) {
     }
 
-    record FileMutationState(
+    public record FileMutationState(
             String operation,
             String relativePath,
             boolean beforeExists,
@@ -202,7 +207,7 @@ record ImplementationStateSnapshot(
     ) {
     }
 
-    record DiagnosticState(
+    public record DiagnosticState(
             String diagnosticId,
             String relativePath,
             String status,
@@ -212,7 +217,7 @@ record ImplementationStateSnapshot(
     ) {
     }
 
-    record FileEditAttemptStateSnapshot(
+    public record FileEditAttemptStateSnapshot(
             String relativePath,
             String protocolName,
             String strategyName,
@@ -223,7 +228,7 @@ record ImplementationStateSnapshot(
     ) {
     }
 
-    record SubtaskAttemptState(
+    public record SubtaskAttemptState(
             int attempt,
             boolean selfCheckPassed,
             String selfCheckSummary,
@@ -239,7 +244,7 @@ record ImplementationStateSnapshot(
             GenerationFailureState generationFailure,
             RecoveryDecisionState recoveryDecision
     ) {
-        SubtaskAttemptState(
+        public SubtaskAttemptState(
                 int attempt,
                 boolean selfCheckPassed,
                 String selfCheckSummary,
@@ -273,7 +278,7 @@ record ImplementationStateSnapshot(
         }
     }
 
-    record ToolResultState(
+    public record ToolResultState(
             String toolName,
             String status,
             String failureCode,
@@ -282,7 +287,7 @@ record ImplementationStateSnapshot(
     ) {
     }
 
-    record GenerationFailureState(
+    public record GenerationFailureState(
             String failureType,
             String summary,
             String evidence,
@@ -290,7 +295,7 @@ record ImplementationStateSnapshot(
     ) {
     }
 
-    record RecoveryDecisionState(
+    public record RecoveryDecisionState(
             String action,
             String mode,
             Integer maxFiles,
@@ -302,7 +307,7 @@ record ImplementationStateSnapshot(
     ) {
     }
 
-    record EventState(
+    public record EventState(
             String timestamp,
             String message
     ) {
