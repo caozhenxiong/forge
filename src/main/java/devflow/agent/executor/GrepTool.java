@@ -8,40 +8,30 @@ import java.util.Map;
 
 final class GrepTool implements ImplementationTool {
 
+    private static final ImplementationToolSpecification SPECIFICATION = new ImplementationToolSpecification(
+            "Grep",
+            "Search file contents in the project using ripgrep.",
+            Map.of(
+                    "type", "object",
+                    "required", List.of("pattern"),
+                    "properties", Map.of(
+                            "pattern", Map.of("type", "string"),
+                            "path", Map.of("type", "string"),
+                            "glob", Map.of("type", "string"),
+                            "head_limit", Map.of("type", "integer")
+                    )
+            ),
+            true,
+            true,
+            20_000,
+            ImplementationToolPermissionScope.SEARCH_WORKSPACE
+    );
+
     private final RipgrepCommandSupport ripgrep = new RipgrepCommandSupport();
 
     @Override
-    public String name() {
-        return "Grep";
-    }
-
-    @Override
-    public String description() {
-        return "Search file contents in the project using ripgrep.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return Map.of(
-                "type", "object",
-                "required", List.of("pattern"),
-                "properties", Map.of(
-                        "pattern", Map.of("type", "string"),
-                        "path", Map.of("type", "string"),
-                        "glob", Map.of("type", "string"),
-                        "head_limit", Map.of("type", "integer")
-                )
-        );
-    }
-
-    @Override
-    public boolean readOnly() {
-        return true;
-    }
-
-    @Override
-    public int maxResultSizeChars() {
-        return 20_000;
+    public ImplementationToolSpecification specification() {
+        return SPECIFICATION;
     }
 
     @Override

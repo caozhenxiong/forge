@@ -31,7 +31,7 @@ class SubtaskExecutionStateTests {
                 "index.html#markup"
         ));
 
-        state.applyRevisionDirective(SubtaskRevisionDirective.retry(List.of(new FileChange(
+        state = state.applyRevisionDirective(SubtaskRevisionDirective.retry(List.of(new FileChange(
                 "index.html",
                 ChangeAction.WRITE,
                 "改成只修宿主 HTML",

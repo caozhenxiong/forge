@@ -10,40 +10,57 @@ import java.util.List;
 public record ImplementationStageStatusPayload(
         boolean stageReady,
         boolean planCompleted,
-        boolean architectCheckPassed,
-        String architectFailureReason,
-        String architectFailureDetails,
-        String implementationPatchTarget,
         List<String> incompleteSubtasks,
+        ContractGatePayload contractGate,
         ImplementationContinuationMode continuationMode,
         String continuationSummary,
         String continuationChangeRequest,
         String continuationEvidence,
         String continuationActionItems,
+        List<FileChangePayload> continuationOverrideChanges,
         ImplementationPatchTarget continuationPatchTarget,
         ReviewReasonCode continuationReasonCode
 ) {
+    public ImplementationStageStatusPayload {
+        incompleteSubtasks = incompleteSubtasks == null ? List.of() : List.copyOf(incompleteSubtasks);
+        continuationOverrideChanges = continuationOverrideChanges == null ? List.of() : List.copyOf(continuationOverrideChanges);
+    }
+
     public ImplementationStageStatusPayload(
             boolean stageReady,
             boolean planCompleted,
-            boolean architectCheckPassed,
             List<String> incompleteSubtasks
     ) {
         this(
                 stageReady,
                 planCompleted,
-                architectCheckPassed,
-                "",
-                "",
-                "",
                 incompleteSubtasks,
+                null,
                 ImplementationContinuationMode.CONTINUE_SUBTASKS,
                 "",
                 "",
                 "",
                 "",
+                List.of(),
                 ImplementationPatchTarget.NONE,
                 ReviewReasonCode.NONE
         );
+    }
+
+    public record ContractGatePayload(
+            String scope,
+            boolean passed,
+            String failureReason,
+            String details,
+            String patchTarget,
+            RuntimeContractPayload runtimeContract
+    ) {
+    }
+
+    public record RuntimeContractPayload(
+            String htmlEntryPath,
+            String runtimeOwnership,
+            List<String> runtimePaths
+    ) {
     }
 }

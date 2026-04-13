@@ -8,40 +8,30 @@ import java.util.Map;
 
 final class FileEditTool implements ImplementationTool {
 
+    private static final ImplementationToolSpecification SPECIFICATION = new ImplementationToolSpecification(
+            "Edit",
+            "Edit an existing file in place. Read the file first and use a unique old_string.",
+            Map.of(
+                    "type", "object",
+                    "required", List.of("file_path", "old_string", "new_string"),
+                    "properties", Map.of(
+                            "file_path", Map.of("type", "string"),
+                            "old_string", Map.of("type", "string"),
+                            "new_string", Map.of("type", "string"),
+                            "replace_all", Map.of("type", "boolean")
+                    )
+            ),
+            false,
+            false,
+            100_000,
+            ImplementationToolPermissionScope.WRITE_OWNED_PATHS
+    );
+
     private final StructuredPatchSupport structuredPatchSupport = new StructuredPatchSupport();
 
     @Override
-    public String name() {
-        return "Edit";
-    }
-
-    @Override
-    public String description() {
-        return "Edit an existing file in place. Read the file first and use a unique old_string.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return Map.of(
-                "type", "object",
-                "required", List.of("file_path", "old_string", "new_string"),
-                "properties", Map.of(
-                        "file_path", Map.of("type", "string"),
-                        "old_string", Map.of("type", "string"),
-                        "new_string", Map.of("type", "string"),
-                        "replace_all", Map.of("type", "boolean")
-                )
-        );
-    }
-
-    @Override
-    public boolean readOnly() {
-        return false;
-    }
-
-    @Override
-    public int maxResultSizeChars() {
-        return 100_000;
+    public ImplementationToolSpecification specification() {
+        return SPECIFICATION;
     }
 
     @Override
@@ -56,13 +46,16 @@ final class FileEditTool implements ImplementationTool {
                     return error("File does not exist. Use Write for new files or Read to verify the path.");
                 }
                 String newContent = input.newString() == null ? "" : input.newString();
+                context.assertMutationContract(absolutePath, newContent);
                 context.writeFile(absolutePath, newContent);
                 context.readFileStateLedger().put(absolutePath, new CoderReadFileState(newContent, context.modificationTime(absolutePath), null, null, false));
                 List<StructuredPatchHunk> structuredPatch = structuredPatchSupport.build("", newContent);
                 context.recordMutation(
                         ToolLoopMutationOperation.CREATE,
                         absolutePath,
+                        false,
                         "",
+                        true,
                         newContent,
                         structuredPatch
                 );
@@ -90,13 +83,16 @@ final class FileEditTool implements ImplementationTool {
                 return error("old_string and new_string must differ.");
             }
             String revised = applyExactReplace(currentContent, oldString, newString, Boolean.TRUE.equals(input.replaceAll()));
+            context.assertMutationContract(absolutePath, revised);
             context.writeFile(absolutePath, revised);
             context.readFileStateLedger().put(absolutePath, new CoderReadFileState(revised, context.modificationTime(absolutePath), null, null, false));
             List<StructuredPatchHunk> structuredPatch = structuredPatchSupport.build(currentContent, revised);
             context.recordMutation(
                     ToolLoopMutationOperation.UPDATE,
                     absolutePath,
+                    true,
                     currentContent,
+                    true,
                     revised,
                     structuredPatch
             );

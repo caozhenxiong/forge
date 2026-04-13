@@ -7,21 +7,24 @@ import java.util.List;
 
 /**
  * 表示 implementation 阶段的整体完成状态。
- * 它只回答“计划是否完成、阶段是否可继续推进”，不负责生成 markdown。
+ *
+ * <p>这里的 contract gate 结果是 implementation 阶段唯一允许对外传播的契约判定源。
+ * progress、report、state snapshot、resume 都只能消费这一份结果，不能再各自重算或拼字面量。
  */
 record ImplementationStageStatus(
         int plannedSubtasks,
         int executedSubtasks,
         int completedSubtasks,
         boolean planCompleted,
-        boolean architectCheckPassed,
         boolean stageReady,
         List<String> incompleteSubtasks,
+        ArchitectIntegrationCheckResult contractGateResult,
         ImplementationContinuationMode continuationMode,
         String continuationSummary,
         String continuationChangeRequest,
         String continuationEvidence,
         String continuationActionItems,
+        List<FileChange> continuationOverrideChanges,
         ImplementationPatchTarget continuationPatchTarget,
         ReviewReasonCode continuationReasonCode
 ) {
@@ -34,6 +37,7 @@ record ImplementationStageStatus(
         continuationChangeRequest = continuationChangeRequest == null ? "" : continuationChangeRequest;
         continuationEvidence = continuationEvidence == null ? "" : continuationEvidence;
         continuationActionItems = continuationActionItems == null ? "" : continuationActionItems;
+        continuationOverrideChanges = continuationOverrideChanges == null ? List.of() : List.copyOf(continuationOverrideChanges);
         continuationPatchTarget = continuationPatchTarget == null
                 ? ImplementationPatchTarget.NONE
                 : continuationPatchTarget;
@@ -47,7 +51,6 @@ record ImplementationStageStatus(
             int executedSubtasks,
             int completedSubtasks,
             boolean planCompleted,
-            boolean architectCheckPassed,
             boolean stageReady,
             List<String> incompleteSubtasks
     ) {
@@ -56,17 +59,22 @@ record ImplementationStageStatus(
                 executedSubtasks,
                 completedSubtasks,
                 planCompleted,
-                architectCheckPassed,
                 stageReady,
                 incompleteSubtasks,
+                null,
                 ImplementationContinuationMode.CONTINUE_SUBTASKS,
                 "",
                 "",
                 "",
                 "",
+                List.of(),
                 ImplementationPatchTarget.NONE,
                 ReviewReasonCode.NONE
         );
+    }
+
+    boolean contractGatePassed() {
+        return contractGateResult == null || contractGateResult.passed();
     }
 
     boolean blockedForHuman() {
@@ -80,6 +88,7 @@ record ImplementationStageStatus(
                 || !continuationSummary.isBlank()
                 || !continuationChangeRequest().isBlank()
                 || !continuationEvidence().isBlank()
-                || !continuationActionItems().isBlank();
+                || !continuationActionItems().isBlank()
+                || !continuationOverrideChanges.isEmpty();
     }
 }

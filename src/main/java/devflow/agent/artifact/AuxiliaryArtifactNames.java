@@ -23,8 +23,10 @@ public final class AuxiliaryArtifactNames {
     public static final String IMPLEMENTATION_BACKLOG = "implementation_backlog.md";
     public static final String IMPLEMENTATION_PROGRESS = "implementation_progress.md";
     public static final String IMPLEMENTATION_EVENTS = "implementation_events.md";
+    public static final String IMPLEMENTATION_DIAGNOSTICS = "implementation_diagnostics.md";
     public static final String IMPLEMENTATION_SHARED_CONTEXT = "implementation_shared_context.md";
     public static final String IMPLEMENTATION_STATE = "implementation_state.json";
+    public static final String IMPLEMENTATION_STAGE_STATUS = "implementation_stage_status.md";
     public static final String SYNTAX_REPAIR_FAILURES = "syntax_repair_failures.md";
     public static final String REPAIR_ALIGNMENT = "repair_alignment.md";
     public static final String TASK_PACKAGES = "task_packages.md";

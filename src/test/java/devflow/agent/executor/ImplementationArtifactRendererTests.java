@@ -75,7 +75,7 @@ class ImplementationArtifactRendererTests {
                 DocumentLanguage.ZH,
                 new DeliveryPolicyEnvelope(DeliveryMode.INCREMENTAL, 2, 4, true, false, true, List.of()),
                 null,
-                new ImplementationStageStatus(1, 1, 0, false, false, false, List.of("补逻辑")),
+                new ImplementationStageStatus(1, 1, 0, false, false, List.of("补逻辑")),
                 "补逻辑"
         );
 
@@ -106,14 +106,25 @@ class ImplementationArtifactRendererTests {
                 1,
                 0,
                 false,
-                true,
                 false,
                 List.of("修接线"),
+                null,
                 devflow.agent.protocol.ImplementationContinuationMode.CONTINUE_SUBTASKS,
                 "继续修当前入口接线",
                 "只修宿主 HTML 与 companion runtime 的接线。",
                 "continuationSubtask=修接线\nindex.app.js exists but index.html does not reference it",
                 "1. 引入 companion runtime。 2. 保持当前实现结构。",
+                List.of(
+                        new FileChange(
+                                "index.html",
+                                ChangeAction.WRITE,
+                                "修入口接线",
+                                FileEditScope.HOST_HTML_PATCH,
+                                RuntimeOwnershipMode.EXTERNAL_COMPANION,
+                                true
+                        ),
+                        new FileChange("index.app.js", ChangeAction.WRITE, "对齐 companion runtime")
+                ),
                 ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
                 ReviewReasonCode.NONE
         );
@@ -133,7 +144,9 @@ class ImplementationArtifactRendererTests {
 
         assertTrue(renderer.renderReport(snapshot).contains("continuationPatchTarget: PATCH_RUNTIME_WIRING"));
         assertTrue(renderer.renderReport(snapshot).contains("continuationChangeRequest: 只修宿主 HTML 与 companion runtime 的接线。"));
+        assertTrue(renderer.renderReport(snapshot).contains("continuationOverrideChanges:"));
         assertTrue(renderer.renderProgress(snapshot).contains("continuationPatchTarget: PATCH_RUNTIME_WIRING"));
         assertTrue(renderer.renderProgress(snapshot).contains("continuationSummary: 继续修当前入口接线"));
+        assertTrue(renderer.renderProgress(snapshot).contains("continuationOverrideChanges:"));
     }
 }

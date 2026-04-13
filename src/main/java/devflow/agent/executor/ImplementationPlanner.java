@@ -51,7 +51,7 @@ class ImplementationPlanner {
         this.objectMapper = objectMapper;
         this.implementationPlanGate = new ImplementationPlanGate(coverageAnalyzer);
         this.outlineGate = new ImplementationOutlineGate(coverageAnalyzer);
-        this.detailGate = new ImplementationSubtaskDetailGate(new ImplementationPlanChangeGate());
+        this.detailGate = new ImplementationSubtaskDetailGate();
         this.planAssembler = new ImplementationPlanAssembler();
         this.feedbackRouter = new ImplementationPlanningFeedbackRouter();
         this.gateInputBuilder = new ImplementationPlanGateInputBuilder();
@@ -244,6 +244,7 @@ class ImplementationPlanner {
                         contractView,
                         qualityPlan,
                         deliveryPolicy,
+                        continuationConstraints,
                         parseResult.payload()
                 );
                 if (gateReport.passed()) {
@@ -358,10 +359,7 @@ class ImplementationPlanner {
                     ));
                 }
                 GateReport gateReport = detailGate.evaluate(
-                        fingerprint,
-                        contractView,
                         deliveryPolicy,
-                        continuationConstraints,
                         subtask,
                         parseResult.payload()
                 );

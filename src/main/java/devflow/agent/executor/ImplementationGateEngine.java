@@ -8,8 +8,8 @@ import java.util.List;
 /**
  * 统一处理 implementation 阶段的整体 gate。
  *
- * <p>它负责把“计划执行情况”和“architect 级整体检查”收敛成一份稳定结果，
- * 避免 ImplementationExecutor 一边执行子任务，一边再手工拼阶段收尾逻辑。
+ * <p>它负责把“计划执行情况”和“contract gate 检查”收敛成一份稳定结果，
+ * 避免 progress、report、snapshot、resume 分别再跑第二套契约判定。
  */
 class ImplementationGateEngine {
 
@@ -26,9 +26,6 @@ class ImplementationGateEngine {
 
     /**
      * 汇总 implementation 阶段的最终状态。
-     *
-     * <p>如果计划尚未完成，只返回当前执行状态；
-     * 如果计划已完成，则进一步执行 architect 级整体检查，并在失败时追加统一的阶段级失败报告。
      */
     ImplementationGateOutcome evaluate(
             Path projectPath,
@@ -37,29 +34,60 @@ class ImplementationGateEngine {
             ExecutionContract executionContract,
             DocumentLanguage language
     ) {
-        ImplementationStageStatus stageStatus = implementationStageGate.summarizeStageStatus(plan, reports, true);
+        ArchitectIntegrationCheckResult currentGate = currentContractGate(projectPath, plan, reports, executionContract);
+        ImplementationStageStatus stageStatus = implementationStageGate.summarizeStageStatus(plan, reports, currentGate);
         if (stageStatus.blockedForHuman()) {
-            return new ImplementationGateOutcome(reports, stageStatus, null);
+            return new ImplementationGateOutcome(reports, stageStatus, currentGate);
         }
         if (!stageStatus.planCompleted()) {
-            return new ImplementationGateOutcome(reports, stageStatus, null);
+            return new ImplementationGateOutcome(reports, stageStatus, currentGate);
         }
 
-        ArchitectIntegrationCheckResult architectCheckResult = architectIntegrationCheck.verify(projectPath, executionContract);
-        if (architectCheckResult.passed()) {
-            return new ImplementationGateOutcome(
-                    reports,
-                    implementationStageGate.summarizeStageStatus(plan, reports, true),
-                    architectCheckResult
-            );
-        }
-
-        List<SubtaskExecutionReport> extendedReports =
-                implementationStageGate.appendArchitectCheckFailure(reports, architectCheckResult, language);
+        ArchitectIntegrationCheckResult stageGate = architectIntegrationCheck.verify(projectPath, executionContract);
         return new ImplementationGateOutcome(
-                extendedReports,
-                implementationStageGate.summarizeStageStatus(plan, extendedReports, false),
-                architectCheckResult
+                reports,
+                implementationStageGate.summarizeStageStatus(plan, reports, stageGate),
+                stageGate
         );
+    }
+
+    /**
+     * progress/provisional snapshot 只在两种情况下记录 contract gate：
+     * 1. runnable milestone 子任务刚被打回；
+     * 2. 整体计划已经完成，需要 stage completion gate。
+     */
+    ArchitectIntegrationCheckResult currentContractGate(
+            Path projectPath,
+            ImplementationPlan plan,
+            List<SubtaskExecutionReport> reports,
+            ExecutionContract executionContract
+    ) {
+        if (executionContract == null) {
+            return null;
+        }
+        int plannedSubtasks = plan == null || plan.subtasks() == null ? 0 : plan.subtasks().size();
+        int executedSubtasks = Math.min(plannedSubtasks, reports == null ? 0 : reports.size());
+        boolean planCompleted = plannedSubtasks > 0
+                && executedSubtasks == plannedSubtasks
+                && reports != null
+                && reports.stream().limit(executedSubtasks).allMatch(report -> report != null && report.completed());
+        if (planCompleted) {
+            return architectIntegrationCheck.verify(projectPath, executionContract);
+        }
+        if (reports == null || reports.isEmpty() || plan == null || plan.subtasks() == null) {
+            return null;
+        }
+        for (int index = reports.size() - 1; index >= 0; index--) {
+            if (index >= plan.subtasks().size()) {
+                continue;
+            }
+            SubtaskExecutionReport report = reports.get(index);
+            Subtask subtask = plan.subtasks().get(index);
+            if (report == null || subtask == null || report.completed() || !subtask.runnableMilestone()) {
+                continue;
+            }
+            return architectIntegrationCheck.verifyRunnableMilestone(projectPath, executionContract);
+        }
+        return null;
     }
 }

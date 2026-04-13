@@ -3,7 +3,9 @@ package devflow.agent.artifact;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import devflow.agent.context.ConstraintSourceMetadata;
 import devflow.agent.context.ContractExtractor;
+import devflow.agent.context.ProductContract;
 import devflow.agent.context.ValidationMetadata;
 import devflow.agent.executor.ChatCapableLlmProvider;
 import devflow.agent.executor.ImplementationExecutor;
@@ -826,6 +828,162 @@ class StageArtifactComposerTests {
     }
 
     @Test
+    void prdComposeRoutesLowAuthorityBodyItemsIntoSourceMetadataAndKeepsOptionalSectionSettledOnly() {
+        FileRunRepository runRepository = new FileRunRepository();
+        runRepository.initialize(tempDir);
+        FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
+        FileProjectWorkspace workspace = new FileProjectWorkspace();
+        ContractExtractor contractExtractor = new ContractExtractor();
+        LlmProvider provider = new StructuredTestLlmProvider() {
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
+                return """
+                        # 产品需求文档
+
+                        ## 1. 产品目标
+                        - 实现一个可在网页端运行的俄罗斯方块
+
+                        ## 2. 目标用户与使用场景
+                        - 用户打开页面后即可开始游玩
+
+                        ## 3. 功能范围
+
+                        ### 3.1 核心功能
+                        - 支持开始、暂停、重新开始
+
+                        ### 3.2 可选增强
+                        - 推断：支持移动端触摸操作
+                        - 建议：添加简单的音效反馈
+                        - 支持不同难度等级设置
+
+                        ### 3.3 异常与边界场景
+                        - 游戏结束时应给出明确反馈
+
+                        ## 4. 非功能要求
+
+                        ### 4.1 性能
+                        - 游戏运行流畅，无明显卡顿
+
+                        ### 4.2 可用性与交互
+                        - 设计选择：默认自动开始
+
+                        ### 4.3 兼容性与部署约束
+                        - 可直接通过浏览器打开运行
+
+                        ## 5. 验收标准
+
+                        ### 5.1 功能验收
+                        - [ ] 页面可打开并能开始游戏
+
+                        ### 5.2 质量验收
+                        - [ ] 交互自然
+
+                        ## 6. 不做什么
+
+                        ### 6.1 本轮不包含
+                        - 不做联网对战
+
+                        ### 6.2 后续可扩展方向
+                        - 待确认问题：是否需要首版支持触屏手势控制？
+
+                        ## 7. Contract Metadata
+                        - runtime.entryRequired: true
+                        - runtime.entryKind: html-entry
+                        - runtime.entryPackagingMode: entry-with-local-dependencies
+                        - runtime.runtimeOwnershipMode: not-applicable
+                        - runtime.launchRequired: true
+                        - runtime.surfaceRequired: true
+                        - runtime.acceptanceSignals: page-opens, input-works
+
+                        ## 8. Source Metadata
+                        - hard.userRequirements: 实现一个俄罗斯方块网页游戏, 做成精致的网页版
+                        - hard.upstreamFacts: 实现一个俄罗斯方块网页游戏, 做成精致的网页版
+                        - soft.inferences: (none)
+                        - soft.designDecisions: (none)
+                        - soft.recommendations: (none)
+                        - open.questions: (none)
+                        """;
+            }
+
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options, ModelRole role) {
+                return generate(systemPrompt, userPrompt, options);
+            }
+
+            @Override
+            public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
+                return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
+            }
+
+            @Override
+            public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options, ModelRole role) {
+                return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
+            }
+        };
+
+        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        StageArtifactComposer composer = newStageArtifactComposer(
+                new ArtifactTemplateFactory(),
+                artifactStore,
+                provider,
+                new ImplementationExecutor(provider, workspace, new ObjectMapper(), testExecutor),
+                testExecutor,
+                new WorkspaceSnapshotStore(runRepository, workspace),
+                contractExtractor
+        );
+
+        UUID runId = UUID.randomUUID();
+        Path analysisPath = artifactStore.writeArtifact(tempDir, runId, StageType.ANALYSIS, """
+                # 需求分析与调研
+
+                ## 1. 背景与问题定义
+                内容
+
+                ## 2. 目标与成功标准
+                内容
+
+                ## 3. 关键约束
+                - 纯网页版、可直接打开运行
+
+                ## 4. 初步调研与假设
+                内容
+
+                ## 5. 边界与非目标
+                内容
+
+                ## 6. 风险与待确认问题
+                内容
+
+                ## 7. Source Metadata
+                - hard.userRequirements: 实现一个俄罗斯方块网页游戏, 做成精致的网页版
+                - hard.upstreamFacts: (none)
+                - soft.inferences: (none)
+                - soft.designDecisions: (none)
+                - soft.recommendations: (none)
+                - open.questions: (none)
+                """);
+
+        String result = composer.compose(tempDir, prdRunRecord(runId, analysisPath), StageType.PRD, "");
+        ProductContract contract = contractExtractor.extractProductContract(result);
+        ConstraintSourceMetadata metadata = contractExtractor.extractConstraintSourceMetadata(result);
+
+        assertFalse(result.contains("推断：支持移动端触摸操作"), result);
+        assertFalse(result.contains("建议：添加简单的音效反馈"), result);
+        assertFalse(result.contains("设计选择：默认自动开始"), result);
+        assertFalse(result.contains("待确认问题：是否需要首版支持触屏手势控制？"), result);
+        assertTrue(result.contains("- soft.inferences: 支持移动端触摸操作"), result);
+        assertTrue(result.contains("- soft.designDecisions: 默认自动开始"), result);
+        assertTrue(result.contains("- soft.recommendations: 添加简单的音效反馈"), result);
+        assertTrue(result.contains("- open.questions: 是否需要首版支持触屏手势控制"), result);
+        assertTrue(contract.optionalCapabilities().contains("支持不同难度等级设置"));
+        assertEquals(java.util.List.of("支持不同难度等级设置"), contract.optionalCapabilities());
+        assertTrue(metadata.softInferences().contains("支持移动端触摸操作"));
+        assertTrue(metadata.softRecommendations().contains("添加简单的音效反馈"));
+        assertTrue(metadata.softDesignDecisions().contains("默认自动开始"));
+        assertTrue(metadata.openQuestions().contains("是否需要首版支持触屏手势控制"));
+    }
+
+    @Test
     void analysisFullDraftKeepsTopLevelSectionsSeparatedAfterSanitization() {
         FileRunRepository runRepository = new FileRunRepository();
         runRepository.initialize(tempDir);
@@ -1218,7 +1376,7 @@ class StageArtifactComposerTests {
         assertTrue(designPrompt.get().contains("用户明确要求 / 上游事实 / 推断 / 设计选择 / 建议 / 待确认问题"));
         assertTrue(designPrompt.get().contains("上游文档中的技术实现倾向、文件组织暗示和资源组织偏好仅作为低权重参考"));
         assertTrue(analysisPrompt.get().contains("使用明确标签"));
-        assertTrue(prdPrompt.get().contains("使用明确标签"));
+        assertTrue(prdPrompt.get().contains("只写入 Source Metadata"));
         assertTrue(designPrompt.get().contains("使用明确标签"));
         assertTrue(analysisPrompt.get().contains("都必须能在 hard.userRequirements 或 hard.upstreamFacts 中找到来源支撑"));
         assertTrue(prdPrompt.get().contains("必须有 hard.* 来源支撑"));
@@ -1348,6 +1506,12 @@ class StageArtifactComposerTests {
 
                 已实现基础页面与游戏逻辑。
                 """);
+        artifactStore.writeAuxiliaryArtifact(
+                tempDir,
+                runId,
+                AuxiliaryArtifactNames.IMPLEMENTATION_STATE,
+                renderImplementationState("已实现基础页面与游戏逻辑。", true, true)
+        );
 
         RunRecord runRecord = codeReviewRunRecord(runId, prdPath, designPath, implementationPath);
         composer.compose(tempDir, runRecord, StageType.CODE_REVIEW, "请审阅这轮实现");
@@ -1359,6 +1523,31 @@ class StageArtifactComposerTests {
         assertTrue(capturedUserPrompt.get().contains("entryKind: html-entry"));
         assertTrue(capturedUserPrompt.get().contains("可玩的网页版俄罗斯方块"));
         assertTrue(capturedUserPrompt.get().contains("页面必须存在启动控件和游戏区域"));
+    }
+
+    private String renderImplementationState(String summary, boolean planCompleted, boolean stageReady) {
+        try {
+            java.util.LinkedHashMap<String, Object> payload = new java.util.LinkedHashMap<>();
+            payload.put("summary", summary);
+            payload.put("subtasks", List.of());
+            payload.put("reports", List.of());
+            payload.put("events", List.of());
+            payload.put("currentSubtaskTitle", "");
+            payload.put("planCompleted", planCompleted);
+            payload.put("stageReady", stageReady);
+            payload.put("continuationMode", "CONTINUE_SUBTASKS");
+            payload.put("continuationSummary", "");
+            payload.put("continuationChangeRequest", "");
+            payload.put("continuationEvidence", "");
+            payload.put("continuationActionItems", "");
+            payload.put("continuationOverrideChanges", List.of());
+            payload.put("continuationPatchTarget", "NONE");
+            payload.put("continuationReasonCode", "NONE");
+            payload.put("incompleteSubtasks", List.of());
+            return new ObjectMapper().writeValueAsString(payload);
+        } catch (Exception exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 
     @Test

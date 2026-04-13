@@ -138,6 +138,7 @@ class SubtaskExecutor {
                     return new SubtaskExecutionReport(subtask, false, attempts, executionState.copy());
                 }
                 executionState = executionState.withRecoveryPolicy(recoveryDecision.deliveryPolicy());
+                executionState.resetToolLoopTranscript();
                 feedback = subtaskRecoverySupport.mergeFeedback(
                         persistentRepairFeedback,
                         subtaskRecoverySupport.buildGenerationRetryFeedback(failureReport, recoveryDecision)
@@ -165,7 +166,8 @@ class SubtaskExecutor {
             if (verification.revisionRoute() == ReviewRevisionRoute.REQUEST_HUMAN) {
                 return new SubtaskExecutionReport(subtask, false, attempts, executionState.copy());
             }
-            executionState.applyRevisionDirective(revisionDirective);
+            executionState = executionState.applyRevisionDirective(revisionDirective);
+            executionState.resetToolLoopTranscript();
             feedback = subtaskRecoverySupport.mergeFeedback(
                     persistentRepairFeedback,
                     subtaskVerificationSupport.buildRetryFeedback(selfCheck, verification, completenessResult)

@@ -52,6 +52,7 @@ final class AnalysisDocumentComposer {
         String generated = generationSupport.generate(prompt, context.mode(), ModelRole.ANALYSIS);
         generated = postProcessor.stabilizeSourceMetadata(generated, context.authoritativeSourceMetadata(), 7, language);
         String merged = draftAssembler.mergeDocumentDraft(StageType.ANALYSIS, context.previousDraft(), generated, context.targetSections());
+        merged = postProcessor.stripMachineBlocks(merged);
         String sanitized = postProcessor.sanitizeDocumentConstraintEscalation(
                 StageType.ANALYSIS,
                 merged,
@@ -59,6 +60,12 @@ final class AnalysisDocumentComposer {
                 null,
                 language
         );
-        return postProcessor.upsertDocumentBlocks(sanitized, context.authoritativeSourceMetadata(), null, null, null);
+        return postProcessor.upsertDocumentBlocks(
+                sanitized,
+                contractExtractor.extractConstraintSourceMetadata(sanitized),
+                null,
+                null,
+                null
+        );
     }
 }

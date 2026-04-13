@@ -12,13 +12,13 @@ import org.springframework.lang.Nullable;
  */
 final class CodeReviewPromptAssembler {
 
-    CodeReviewPrompt build(@Nullable String note, String implementation, String contractView, String changes) {
-        return new CodeReviewPrompt(buildSystemPrompt(), buildUserPrompt(note, implementation, contractView, changes));
+    CodeReviewPrompt build(@Nullable String note, String implementationSummary, String contractView, String changes) {
+        return new CodeReviewPrompt(buildSystemPrompt(), buildUserPrompt(note, implementationSummary, contractView, changes));
     }
 
     private String buildSystemPrompt() {
         return """
-                你是严格的资深代码审阅者。请结合实现报告和实际代码变更做 code review。
+                你是严格的资深代码审阅者。请基于当前工作区事实做 code review。
                 输出 Markdown，不要输出额外解释。
                 第一部分必须输出一个 REVIEW_RESULT 机器 block，格式如下：
                 %s
@@ -40,8 +40,9 @@ final class CodeReviewPromptAssembler {
                 - REWORK 表示结构存在明显问题，允许较大范围重构
 
                 审阅约束：
-                - Findings 只能写你能从“实际代码变更”或“实现报告”中直接证实的问题
-                - 不要猜测“可能缺少某功能”，除非代码里确实没有对应实现证据
+                - Findings 只能写你能从“实际代码变更 fact pack”或“实现阶段结构化摘要”中直接证实的问题
+                - 实现阶段结构化摘要只是低权重上下文；如果它和实际代码变更冲突，以实际代码变更为准
+                - 不要猜测“可能缺少某功能”，除非当前代码或确定性 gate 里确实没有对应实现证据
                 - 只有 Execution Contract，以及 Source Metadata 中的 %s / %s 属于绑定约束；%s / %s / %s / %s 只能作为参考背景
                 - 如果 decision=APPROVED，则 blockingFindings 必须为 false，findingCount 必须为 0
                 - 如果 decision!=APPROVED，则 blockingFindings 必须为 true，findingCount 必须大于 0
@@ -63,7 +64,7 @@ final class CodeReviewPromptAssembler {
 
     private String buildUserPrompt(
             @Nullable String note,
-            String implementation,
+            String implementationSummary,
             String contractView,
             String changes
     ) {
@@ -71,13 +72,13 @@ final class CodeReviewPromptAssembler {
                 当前备注：
                 %s
 
-                实现报告：
+                实现阶段结构化摘要（低权重，只作为上下文）：
                 %s
 
                 产品与设计约束（结构化 contract）：
                 %s
 
-                实际代码变更：
+                实际代码变更 fact pack（包含完整 changed-file manifest 与自适应 excerpts）：
                 %s
 
                 输出要求：
@@ -88,6 +89,8 @@ final class CodeReviewPromptAssembler {
                    - [严重度] 文件或模块：具体问题。证据：xxx。建议：xxx。
                 5. 如果 decision 不是 APPROVED，summary / changeRequest / evidence / actionItems 都必须概括最关键的 1-2 个具体问题
                 6. 必须同时判断代码是否满足 PRD 与 DESIGN 中已经明确的目标、约束、运行形态和验收要求，而不只是看代码语法是否成立
-                """.formatted(note, implementation, contractView, changes);
+                7. 如果结构化摘要和实际代码变更冲突，必须以实际代码变更为准，并在 evidence 中点明冲突来源
+                8. changed-file manifest 会列出全部变更文件；如果 excerpts 被截断，只能在已给出的 excerpt 证据范围内下结论
+                """.formatted(note, implementationSummary, contractView, changes);
     }
 }

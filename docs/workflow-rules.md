@@ -364,6 +364,12 @@ review 负责语义判断，不负责替代：
 
 这些实现产物必须从统一运行时快照派生，不允许各写各的真相。
 
+补充约束：
+
+- `implementation_state.json` 是 implementation live control flow 的唯一来源
+- `stage progress`、`implementation review intake`、`code review intake` 只能读取 `implementation_state.json` 恢复 live 状态
+- `implementation_stage_status.md`、`worker_results.md`、`implementation_diagnostics.md` 只允许作为派生展示物，不允许再参与推进判定
+
 ## 文档同步规则
 
 只要代码行为发生变化，必须同步更新：

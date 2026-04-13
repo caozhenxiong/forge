@@ -36,4 +36,12 @@ class PrdContractProjectionPolicyTests {
         assertTrue(policy.shouldRouteToHumanReview("Whether touch controls are required"));
         assertFalse(policy.shouldRouteToHumanReview("支持移动端触控操作"));
     }
+
+    @Test
+    void routesExplicitLowAuthorityLabelsOutOfContract() {
+        assertTrue(policy.shouldRouteToHumanReview("推断：支持移动端触摸操作"));
+        assertTrue(policy.shouldRouteToHumanReview("建议：添加简单的音效反馈"));
+        assertTrue(policy.shouldRouteToHumanReview("Design Choice: use a single HTML file"));
+        assertFalse(policy.shouldRouteToHumanReview("支持不同难度等级设置"));
+    }
 }

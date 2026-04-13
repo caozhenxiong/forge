@@ -13,7 +13,8 @@ import java.util.Map;
  *
  * <p>除了 delivery policy，这里还持有：
  * 1. 文件级 edit attempt state，让当前子任务能从失败 target 继续；
- * 2. 文件级 change override，让结构化 verification 可以直接改写下一轮执行约束。
+ * 2. 文件级 change override，让结构化 verification 可以直接改写下一轮执行约束；
+ * 3. 单一 tool session state，让 retry / continuation 续跑同一份编码现场。
  */
 final class SubtaskExecutionState {
 
@@ -21,10 +22,10 @@ final class SubtaskExecutionState {
     private final boolean preferPreciseEditing;
     private final LinkedHashMap<Path, FileEditAttemptState> fileProgressByPath;
     private final ArrayList<FileChange> effectiveChanges;
-    private final ToolLoopRuntimeState toolLoopRuntimeState;
+    private final ImplementationToolSessionState toolSessionState;
 
     SubtaskExecutionState(DeliveryMode deliveryMode, boolean preferPreciseEditing) {
-        this(deliveryMode, preferPreciseEditing, new LinkedHashMap<>(), List.of(), new ToolLoopRuntimeState());
+        this(deliveryMode, preferPreciseEditing, new LinkedHashMap<>(), List.of(), new ImplementationToolSessionState());
     }
 
     private SubtaskExecutionState(
@@ -32,13 +33,13 @@ final class SubtaskExecutionState {
             boolean preferPreciseEditing,
             LinkedHashMap<Path, FileEditAttemptState> fileProgressByPath,
             List<FileChange> effectiveChanges,
-            ToolLoopRuntimeState toolLoopRuntimeState
+            ImplementationToolSessionState toolSessionState
     ) {
         this.deliveryMode = deliveryMode;
         this.preferPreciseEditing = preferPreciseEditing;
         this.fileProgressByPath = fileProgressByPath == null ? new LinkedHashMap<>() : fileProgressByPath;
         this.effectiveChanges = new ArrayList<>(normalizeChanges(effectiveChanges));
-        this.toolLoopRuntimeState = toolLoopRuntimeState == null ? new ToolLoopRuntimeState() : toolLoopRuntimeState;
+        this.toolSessionState = toolSessionState == null ? new ImplementationToolSessionState() : toolSessionState;
     }
 
     DeliveryMode deliveryMode() {
@@ -51,11 +52,23 @@ final class SubtaskExecutionState {
 
     SubtaskExecutionState withRecoveryPolicy(DeliveryPolicy policy) {
         DeliveryMode nextMode = parseMode(policy.mode(), deliveryMode);
-        return new SubtaskExecutionState(nextMode, policy.preferPreciseEditing(), copyProgressMap(), copyEffectiveChanges(), copyToolLoopRuntimeState());
+        return new SubtaskExecutionState(
+                nextMode,
+                policy.preferPreciseEditing(),
+                copyProgressMap(),
+                copyEffectiveChanges(),
+                copyToolSessionState()
+        );
     }
 
     SubtaskExecutionState copy() {
-        return new SubtaskExecutionState(deliveryMode, preferPreciseEditing, copyProgressMap(), copyEffectiveChanges(), copyToolLoopRuntimeState());
+        return new SubtaskExecutionState(
+                deliveryMode,
+                preferPreciseEditing,
+                copyProgressMap(),
+                copyEffectiveChanges(),
+                copyToolSessionState()
+        );
     }
 
     String effectiveExistingContent(Path relativePath, String fallbackContent) {
@@ -120,11 +133,20 @@ final class SubtaskExecutionState {
         pruneEditAttemptStatesToActivePaths();
     }
 
-    void applyRevisionDirective(SubtaskRevisionDirective directive) {
+    SubtaskExecutionState applyRevisionDirective(SubtaskRevisionDirective directive) {
         if (directive == null || !directive.active()) {
-            return;
+            return this;
         }
-        setEffectiveChanges(directive.retryChanges());
+        DeliveryMode nextMode = directive.nextDeliveryMode() == null ? deliveryMode : directive.nextDeliveryMode();
+        SubtaskExecutionState nextState = new SubtaskExecutionState(
+                nextMode,
+                preferPreciseEditing,
+                copyProgressMap(),
+                copyEffectiveChanges(),
+                copyToolSessionState()
+        );
+        nextState.setEffectiveChanges(directive.retryChanges());
+        return nextState;
     }
 
     /**
@@ -153,8 +175,12 @@ final class SubtaskExecutionState {
         return List.copyOf(effectiveChanges);
     }
 
-    ToolLoopRuntimeState toolLoopRuntimeState() {
-        return toolLoopRuntimeState;
+    ImplementationToolSessionState toolSessionState() {
+        return toolSessionState;
+    }
+
+    void resetToolLoopTranscript() {
+        toolSessionState.clearTranscript();
     }
 
     static SubtaskExecutionState restore(
@@ -162,7 +188,7 @@ final class SubtaskExecutionState {
             boolean preferPreciseEditing,
             List<FileEditAttemptState> fileEditAttemptStates,
             List<FileChange> effectiveChanges,
-            ToolLoopRuntimeState toolLoopRuntimeState
+            ImplementationToolSessionState toolSessionState
     ) {
         DeliveryMode resolvedMode = DeliveryMode.valueOf(deliveryMode);
         LinkedHashMap<Path, FileEditAttemptState> progressByPath = new LinkedHashMap<>();
@@ -174,7 +200,7 @@ final class SubtaskExecutionState {
                 progressByPath.put(progressState.relativePath(), progressState);
             }
         }
-        return new SubtaskExecutionState(resolvedMode, preferPreciseEditing, progressByPath, effectiveChanges, toolLoopRuntimeState);
+        return new SubtaskExecutionState(resolvedMode, preferPreciseEditing, progressByPath, effectiveChanges, toolSessionState);
     }
 
     private LinkedHashMap<Path, FileEditAttemptState> copyProgressMap() {
@@ -189,8 +215,8 @@ final class SubtaskExecutionState {
         return List.copyOf(effectiveChanges);
     }
 
-    private ToolLoopRuntimeState copyToolLoopRuntimeState() {
-        return toolLoopRuntimeState == null ? new ToolLoopRuntimeState() : toolLoopRuntimeState.copy();
+    private ImplementationToolSessionState copyToolSessionState() {
+        return toolSessionState == null ? new ImplementationToolSessionState() : toolSessionState.copy();
     }
 
     private DeliveryMode parseMode(DeliveryPolicyMode value, DeliveryMode fallback) {

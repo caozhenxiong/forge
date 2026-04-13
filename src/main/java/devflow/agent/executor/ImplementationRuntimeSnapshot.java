@@ -20,35 +20,6 @@ record ImplementationRuntimeSnapshot(
         DeliveryPolicyEnvelope deliveryPolicy,
         SharedContextBundle sharedContextBundle,
         ImplementationStageStatus stageStatus,
-        ArchitectIntegrationCheckResult architectCheckResult,
         String currentSubtaskTitle
 ) {
-    ImplementationRuntimeSnapshot(
-            ImplementationPlan plan,
-            List<TaskPackage> taskPackages,
-            List<SubtaskExecutionReport> reports,
-            List<WorkerResult> workerResults,
-            List<ImplementationEventEntry> events,
-            String note,
-            DocumentLanguage language,
-            DeliveryPolicyEnvelope deliveryPolicy,
-            SharedContextBundle sharedContextBundle,
-            ImplementationStageStatus stageStatus,
-            String currentSubtaskTitle
-    ) {
-        this(
-                plan,
-                taskPackages,
-                reports,
-                workerResults,
-                events,
-                note,
-                language,
-                deliveryPolicy,
-                sharedContextBundle,
-                stageStatus,
-                null,
-                currentSubtaskTitle
-        );
-    }
 }

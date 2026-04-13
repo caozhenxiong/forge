@@ -62,6 +62,7 @@ final class PrdDocumentComposer {
         String generated = generationSupport.generate(prompt, context.mode(), ModelRole.PRD);
         generated = postProcessor.stabilizeSourceMetadata(generated, context.authoritativeSourceMetadata(), 8, language);
         String merged = draftAssembler.mergeDocumentDraft(StageType.PRD, context.previousDraft(), generated, context.targetSections());
+        merged = postProcessor.stripMachineBlocks(merged);
         ValidationMetadata validationMetadata = contractExtractor.extractValidationMetadata(merged);
         ExecutionContract executionContract = contractExtractor.extractExecutionContract(
                 runRecord.goal(),
@@ -79,7 +80,7 @@ final class PrdDocumentComposer {
         );
         return postProcessor.upsertDocumentBlocks(
                 sanitized,
-                context.authoritativeSourceMetadata(),
+                contractExtractor.extractConstraintSourceMetadata(sanitized),
                 contractExtractor.projectProductContractFromPrd(sanitized),
                 executionContract,
                 contractExtractor.extractValidationMetadata(sanitized)

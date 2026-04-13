@@ -2,185 +2,91 @@
 
 ## 用途
 
-这份文档只记录**当前正在做**、并且必须按顺序完成的事项。
+这份文档只记录**当前主线**。
 
 规则：
 
-- 每次开始一轮新重构前，先更新这份文档
-- 每做完一条，就直接在这里打勾
-- 如果某条被放弃、拆分或改方向，也先更新这里，再改代码
-- 没有出现在这里的事项，不视为当前执行中的主线
+- 只保留当前还在执行的主线，不再把历史大清单长期堆在这里
+- 每完成一条，直接打勾
+- 如果主线改变，先更新这份文档，再改代码
+- 在当前四段全部完成前，不进入黄金路径集成测试
 
 ## 当前主线
 
 当前只做一条：
 
-1. `AGENTS 合规收口与黄金路径稳定化`
+1. `黄金路径集成验证`
 
----
+这条主线的目标不是继续补基础骨架，而是验证当前编码内核在真实 case 上是否已经收口：
 
-## A. 设计与实施准备
+- accepted change-set 是否真正成为 implementation coder 的唯一新增依赖边界
+- planning detail 是否已经压成最小协议，不再在 plan 阶段猜 runtime metadata
+- runtime ownership / wiring 是否只由实现与 verifier 基于产物事实裁决
+- runtime wiring 续跑 scope 与 coder prompt 是否共享同一份文件契约
+- patch continuation / review / test 是否继续沿用同一份结构化状态
+- PRD 低权重条目是否只留在 `Source Metadata`，不再污染 `PRODUCT_CONTRACT`
 
-目标：先把质量规则架构写成正式设计和可追踪清单，再进入代码落地。
+## Final State
 
-- [x] 新增正式设计文档 [quality-rules-architecture.md](/home/linus/workspace/forge/docs/quality-rules-architecture.md)
-- [x] 在设计文档中定义 `QualityRules`
-  - `StructureRules`
-  - `VerificationRules`
-  - `ExperienceRules`
-- [x] 在设计文档中定义 `FeatureProfile`
-- [x] 在设计文档中定义 `CapabilitySurface`
-- [x] 在设计文档中定义 `StructureRiskReport`
-- [x] 在设计文档中定义 `QualityPlan`
-- [x] 在设计文档中定义 `CapabilityMatrix`
-- [x] 在设计文档中设计 `QualityPolicyResolver`
-- [x] 在设计文档中设计 `CapabilityMatrixBuilder`
-- [x] 在设计文档中设计 `StructureGate / CoverageGate / ExperienceGate`
-- [x] 在设计文档中设计 `CoverageLedger / QualityLedger`
-- [x] 在设计文档中明确 `Plan / Coder / Reviewer / Tester / Gate` 的接入点
-- [x] 在设计文档中明确与当前 `patch-first / tool-result-first / budget-first / repair-before-regenerate` 的关系
-- [x] 将方案同步到 [redesign-roadmap.md](/home/linus/workspace/forge/docs/redesign-roadmap.md)
-- [x] 将方案同步到 [current-state.md](/home/linus/workspace/forge/docs/current-state.md)
+完成态必须同时满足：
 
-## B. 当前问题
+- implementation plan / detail 不再要求模型输出 `editScope / runtimeOwnership / hostHtmlPatchRequired`
+- coder 新引入的本地依赖路径只能落到 accepted change-set 或项目既有资产
+- runtime ownership / wiring 只由实现与 verifier 链消费，不再由 planning detail 预判
+- runtime wiring patch continuation 必须显式携带宿主 HTML 与 companion runtime 根脚本，coder prompt 中的当前 task package 必须和 effective change-set 对齐
+- `PATCH_EXISTING_IMPLEMENTATION` 续跑必须显式携带结构化 `overrideChanges`；没有安全 scope 时只能阻断到人工，不能静默 auto-patch
+- implementation verification 中，非实现类 TEST blocker 必须直接阻断到人工，不能静默放过或继续冒充 implementation retry
+- PRD 的 `1-6` 正文承诺区不再保留显式 `推断 / 建议 / 设计选择 / 待确认问题`；这类条目只存在于 `Source Metadata`
+- 黄金路径集成测试至少跑通一条真实 case
 
-目标：先明确这轮为什么还没对齐，再进入代码收口。
+## Removal Plan
 
-- [x] 确认 `FeatureProfiler` 仍包含领域语义硬编码
-- [x] 确认 `CapabilitySurfaceBuilder` 仍直接从硬编码 feature 推导能力面
-- [x] 确认 `StructureGate` 只接在 `StageReviewer`，没有前移到 implementation 主链
-- [x] 确认 `repair-before-regenerate` 的 validate 仍缺宿主产物结构校验
-- [x] 确认最近黄金路径 `v103` 已复现这些问题
+本轮必须同步删除：
 
-## C. 代码收口
+- implementation planning detail 中旧的 runtime metadata 协议
+- coder 通过私发新本地资产名绕开 accepted change-set 的旧路径
+- coder 越界失败后回填单文件 HTML 继续推进的旧路径
+- retry/continuation 中“实际 writable files 已缩窄，但当前子任务描述仍停留在旧 scope”的旧提示路径
+- stage / subtask review 中“`PATCH_EXISTING_IMPLEMENTATION` 但 `overrideChanges=[]`”的旧续跑路径
+- implementation verification 中“`patchTarget=NONE && overrideChanges=[]` 就直接放过”的旧分支
 
-目标：把质量规则主线从“review/test 附加层”收成真正前置约束，并删掉通用层里的剩余硬编码与保守 testcase 预算。
+## Joint-Change Scope
 
-- [x] 将 `FeatureProfiler` 收缩为纯通用事实提取器，删除 `pause/resume/reset/score/preview` 等领域关键词
-- [x] 重写 `CapabilitySurfaceBuilder`，改为由 `QualityIntent + FeatureFacts + Contract` 推导能力面
-- [x] 引入 `QualityIntent / InteractionIntent / StructureIntent / CoverageIntent`
-- [x] 将 `QualityPlan` 接入 `ImplementationPlanner`
-- [x] 将 `StructureGate` 前移到 `SubtaskVerificationSupport`
-- [x] 扩展 `ImplementationCompletenessGate`，支持结构质量阻断
-- [x] 将质量清单显式前移到 implementation planning / subtask verification 提示链，避免只在最终 test/review 才看到结构、覆盖和体验约束
-- [x] 将 required capability surface 显式升级为 implementation plan gate，避免缺失质量覆盖只在 `TEST` 阶段补救
-- [x] 新增宿主产物结构校验，补到 `repair-before-regenerate` 的 validate 链
-- [x] 将 `TEST` 阶段缺失能力覆盖信号前移到 `IMPLEMENTATION` 主链，确保 `timed-state-progression / primary-interaction / primary-visual-surface` 这类 required surface 在回流后会直接进入 implementation 计划与修复说明
-- [x] 将 `QualityPlan` 的 required capability surface 显式接入 implementation 计划约束，确保 planner 需要为 required surface 分配子任务责任，而不是只在 TEST 阶段补救
-- [x] 将 coverage contract 收成权威主链：PRD 固定章节本地投影 `PRODUCT_CONTRACT`、下游 block-only 抽取、planning/test/gate 统一消费 `AuthoritativeCoverageCatalog`
-- [x] 删除 implementation / repair / html patch 主链调用点中的固定 `num_predict` cap，统一改为动态 output ratio 驱动
-- [x] 修正 `Implementation` 产物落盘与执行链中的 `editScope` 一致性，确保质量计划外提脚本后不再把后续子任务渲染成 `INLINE_SCRIPT_PATCH`
-- [x] 修正外提脚本后的宿主 HTML 正规化，确保 `index.html` 在 companion 脚本接管后不再保留旧的主逻辑 inline script
-- [x] 将质量计划中的宿主 HTML 接线要求前移到 implementation plan 归一化，确保后续运行时脚本子任务会显式补入 `HOST_HTML_PATCH`
-- [x] 补强 `ArchitectIntegrationCheck` 的 runtime wiring 检查，确保 HTML 入口未接入同目录/子目录运行脚本时不能再通过 implementation stage gate
-- [x] 收紧严格单 symbol `precise-code` 单元的协议与修复链，避免 `index.app.js` 再出现同名函数/类包装重复嵌套
-- [x] 将严格单 symbol `precise-code` 的机械错误修复前移到 validator 之前，先尝试 body-only repair，再决定是否 regenerate
-- [x] 收紧 `style.css` 的 `precise-code` 单元切分，避免多 selector 单元反复触发 `EDIT_UNIT_SCOPE_VIOLATION`
-- [x] 将 `repair-before-regenerate` 的成功判定升级为“语法 + scope + 宿主/代码文件结构”三层全部通过
-- [x] 删除 `TestCaseBehaviorRepairSupport / TestCaseCapabilityInferencer` 中基于 selector token 的 `start/pause/score` 语义硬编码，改成结构化 step semantic / case capability 驱动
-- [x] 将 testcase prompt / payload / sanitizer 扩展为显式 `step semantic`，避免测试修复与能力推断继续读 selector 文本猜语义
-- [x] 将 `StructureGateEvaluator` 改成只消费 `StructureRiskReport / StructurePolicy`，去掉 capability 推断式阻断
-- [x] 将 `QualityRulesLoader` 改成“资源默认规则 + 项目级 repo rule 覆盖”的严格加载，不再把默认质量规则长期写死在 Java 常量里，也不再接受运行时临时覆写
-- [x] 将 `QualityPlanFactory` 改成按项目路径加载 repo quality rules，并同步更新 planner / reviewer / tester 调用链
-- [x] 将 `TestCasePromptAssembler` 改成 capability matrix / feature profile 驱动，去掉“网页/小游戏至少...”这类产品特判式 wording
-- [x] 将 `TestCasePlanner` 的输出预算改成动态 output ratio 驱动，去掉 testcase 规划固定 `1200` 上限
-- [x] 将 testcase required case 约束改成“覆盖 required capability surfaces”，不再在 prompt 里固定写 `2~5` 条
-- [x] 将 inline script repair validate 升级为“tree-sitter + JavaScript 结构 + scope”三层校验，并补宿主/脚本结构回归
-- [x] 收紧 `inline-script-workset` 的资格与续跑兼容性，删除单入口 `append/orchestrator` 骨架；失配旧 progress 直接丢弃并改走 `focused script region`
-- [ ] 收紧 `inline-style-workset` 的单元选择与收窄路径，避免宿主样式 patch 反复触发 `EDIT_UNIT_SCOPE_VIOLATION`
-- [x] 收紧 `precise-code` 深层单元的预算/拆分与收窄路径，避免 `index.app.js` 深层单元持续 `OUTPUT_TRUNCATED`
-- [x] 补单测与定向回归
-- [x] 删除主链兼容层与旧入口转发，测试改为直连真实 owner
-- [x] 将 review artifact 协议收口为 `REVIEW_RESULT` block-only，删除 key-value retrofit 与回写
-- [x] 将 runtime wiring retry 改为 `SubtaskRevisionDirective` 结构化 override，不再靠 prose change request 续跑
-- [x] 将 html-entry 计划 contract 显式化，要求 `editScope / runtimeOwnership / hostHtmlPatchRequired` 成组声明
-- [x] 将 `PATCH_EXISTING_IMPLEMENTATION` continuation / review / repair note 统一成结构化 `overrideChanges` 协议，不再允许空 scope 下的静默 replanning
-- [x] 将 runtime ownership / wiring 检查改成只认宿主显式接线与 inline module import，删除 `index.app.js` 默认根、basename 猜测与 orphan root ownership 推断
-- [x] 将静态 HTML 结构信号并入 `QualityPlan` runtime source，避免 implementation review 在缺少浏览器快照时漏判高风险内联交互页
-- [x] 删除 `StageReviewer` 兼容构造器，测试与装配改为直连真实依赖
-- [x] 删除 TSX heuristic symbol fallback，invalid parse 不再产出不稳定符号
-- [x] 将 validation / testcase planning 收成 deterministic primary path，不再保留 fallback 语义主路径
-- [x] 将 quality rules 加载改成严格资源默认 + 项目规则覆盖，配置错误直接失败
-- [x] 将 implementation review 改成 contract-first gate，不再因为 `single html / 外提脚本 / embedded dominance` 直接回退 `DESIGN`
-- [x] 将阶段 directive 从 canonical artifact 中移出，单独持久化到 `*_directive.md`
-- [x] 将结构风险 gate 降为 advisory，不再把“是否外提主逻辑”作为 implementation/completeness 的阻断条件
-- [x] 将 implementation 子任务执行主链切到 `tool loop`，删除旧逐文件生成主入口在 implementation 主路径中的执行职责
-- [x] 将 task package / snapshot / verification 的 targeted context 渲染改为独立 `TargetedFileContextRenderer`
-- [x] 为 `tool loop` 主链接入 `Read/Edit/Write/Delete/Glob/Grep/Bash` 工具运行时，并优先复用 `Caffeine / commons-exec / ripgrep / java-diff-utils`
-- [x] 为 `tool loop` 主链补充定向单测
-- [x] 将 `ImplementationExecutorTests` 中仍绑定旧文件级生成 prompt 的断言迁移到 `tool loop` 协议断言
-- [ ] 重跑黄金路径集成测试
-- [x] 将 `IMPLEMENTATION` 未完成的 continuation 改成原生阶段流转，不再伪造 `ReviewResult / SupervisorDecision`
-- [ ] 根据集成结果更新 [current-state.md](/home/linus/workspace/forge/docs/current-state.md)
+以下内容必须一起改：
 
----
+- 文档：`docs/current-state.md`、本文档
+- 计划链：detail 最小协议、final gate 去掉 runtime metadata 预判
+- coder tool loop：本地依赖闭包、HTML runtime ownership 变更时校验
+- 测试：单测、代码 review、黄金路径集成验证
+
+## 执行清单
+
+### Phase 1. 计划与实现边界收口
+
+- [x] detail 收敛成最小协议，不再输出 runtime metadata
+- [x] implementation final gate 不再在 planning 阶段裁决 runtime ownership / wiring
+- [x] 实现阶段新增本地依赖只能落到 accepted change-set 或项目既有资产
+- [x] HTML runtime ownership 在 tool mutation 时校验，不再允许单文件回填绕开
+- [x] runtime wiring 续跑 scope 显式带上宿主 HTML 与 companion runtime roots
+- [x] coder prompt 的当前 task package 与 `effectiveChanges()` 对齐，并显式展示当前文件契约
+- [x] `PATCH_EXISTING_IMPLEMENTATION` continuation / report / parser / resume 共用结构化 `overrideChanges`，不再允许空 scope 自动续跑
+- [x] 子任务级空 scope patch review 会归一到当前 effective change-set；仍无安全 scope 时直接阻断人工
+- [x] implementation verification 中，TEST blocker 不再静默放过；会显式转成人工阻断或当前阶段结构化失败
+- [x] implementation stage roll-up 保留 `ROUTE_TO_REPAIR_TARGET`，不再把精确 repair scope 降级成泛化未完成态
+- [x] PRD 低权重条目从正文承诺区收束到 `Source Metadata`，并从 `PRODUCT_CONTRACT` 投影中移除
+- [x] implementation execute 成功态已收紧到“声明的文件交付契约已被工具真实落盘满足”；纯 assistant prose 不再冒充成功并泄漏到 observe/self-check
+
+### Phase 2. 验证与集成
+
+- [x] 跑本轮 `self-test`
+- [x] 做一次 `code review`
+- [ ] 跑黄金路径集成测试
+- [ ] 根据集成结果更新 `docs/current-state.md`
 
 ## 当前状态
 
-- `AGENTS 合规收口与黄金路径稳定化`：`tool-loop landed, executor tests aligned, awaiting integration`
-
-## 当前说明
-
-- `repair-before-regenerate`
-- `token budget` 分层预算重构
-- `v102` 黄金路径集成验收
-
-这三条已经完成，但最近黄金路径继续暴露出以下执行一致性问题：
-
-- `QualityPlan` 已能把高复杂度宿主 HTML 子任务前移成“外提 companion runtime script”，`v124` 已验证后续子任务会显式补入 `HOST_HTML_PATCH + index.app.js`
-- 宿主 HTML 在外提脚本后，当前执行链已经会做 companion script 接线与旧 inline script 正规化，但还要继续补 host/script 结构回归
-- `strict single-symbol precise-code` 现在会在执行前把受限多符号父单元直接拆成 leaf unit，不再先执行 parent unit 再靠 scope failure 补救
-- implementation / repair / html patch / review / diagnosis / supervisor / testcase planning 主链中的固定 `num_predict` 调用点 cap 已删除，当前由 `outputBudgetRatio + OutputBudgetCalculator` 统一决定请求输出
-- `TEST` 已明确给出 `timed-state-progression / primary-interaction` 缺失通过证据；testcase 规划链现已切到动态 output ratio + required capability surface 驱动，不再受固定 `1200` 上限和固定 `2~5` 条约束影响
-- 当前 quality rules 已切成“资源默认规则 + 项目级 repo rule 覆盖”的严格加载，配置缺失或损坏会直接失败
-- `TestCasePromptAssembler` 已切到 capability matrix / feature profile 驱动，当前剩余主线不再是产品特判 wording，而是严格单 symbol `precise-code` 与 `inline-style-workset` 的执行一致性
-- `precise-html` 宿主宽协议现在只打一枪；若 JSON repair 后仍失败，会直接收窄到 `focused-html-region`，不再同构重试宽 `precise-html`
-- 测试主链已经切到 `step semantic / capability` 驱动，但还需要继续减少质量 gate 与规则层里的 capability 推断式阻断、Java 默认规则写死和 testcase 规划固定条数约束
-- 最近黄金路径已证明：HTML 入口未接入 `js/*.js` 运行脚本的问题已被 `runtime wiring gate` 拦住，但 repair validate 仍需继续收紧到“语法 + scope + 结构”全部通过
-- continuation/replanning 已切到原生 state 约束；当前最新代码尚未重跑黄金路径，下一步只剩集成验证
-- implementation state snapshot 已补齐 `architectImplementationPatchTarget / reviewImplementationPatchTarget`，恢复链不再从 `architectFailureReason` 反推 PATCH 语义
-- `IMPLEMENTATION` 未完成状态现在会直接走原生 continuation，不再伪造 review/supervisor 语义回流；对应单元测试已通过，集成尚未重跑
-- `PATCH_EXISTING_IMPLEMENTATION` 现在必须携带结构化 `overrideChanges`；review / revision note / repair note / continuation 已统一消费同一份文件级 patch scope
-- runtime ownership / wiring 现在只认宿主显式 `<script src>` 接线和 inline module import，不再从 orphan runtime 文件、basename 或默认 companion 路径反推 ownership
-- implementation review 已改成 contract-first：运行时所有权/入口接线不一致时修当前阶段，不再把实现形态问题粗暴上卷到 `DESIGN`
-- canonical stage artifact 不再承载修订 prose；当前 directive 已单独落到 `*_directive.md`
-- structure risk 已降为提示信息，不再作为 implementation/completeness 的独立阻断 gate
-
-因此当前主线调整为：
-
-- Claude 编码层对齐收口
-
-## D. Claude 编码层对齐清单
-
-目标：把“编码层是否已经对齐 Claude Code”从口头判断改成显式清单。后续只按这份表收口；做完一项，就直接在这里打勾。
-
-范围约束：
-
-- 这里只看 `IMPLEMENTATION` 编码内核
-- 不包含 `PLAN / REVIEW / TEST` 的一般稳定性问题
-- 判定标准不是“能跑”，而是“对应 contract 已对齐、旧语义已删除、同类问题已收口”
-
-### 对齐总表
-
-| 编号 | 对齐面 | Claude 参考 | Forge 参考 | 当前状态 |
-| --- | --- | --- | --- | --- |
-| C1 | `assistant -> tool_use -> tool_result -> assistant` 主环协议 | `claude-code/QueryEngine.ts` | `ImplementationToolLoopExecutor` | 已对齐 |
-| C2 | `Read/Edit/Write` 读后改写、partial-view 阻断、stale-write 阻断 | `claude-code/tools/FileEditTool/*` `claude-code/tools/FileWriteTool/*` | `FileReadTool` `FileEditTool` `FileWriteTool` | 已对齐 |
-| C3 | `readFileState` 生命周期是线程级/续跑级，而不是单次 loop 级 | `claude-code/QueryEngine.ts` `claude-code/cli/print.ts` | `ToolLoopRuntimeState` `ImplementationToolLoopExecutor` | 已对齐 |
-| C4 | `readFileState` cache 同时受 `maxEntries + maxSize` 约束 | `claude-code/utils/fileStateCache.ts` | `ToolLoopReadFileStateLedger` | 已对齐 |
-| C5 | 编码主链只认 `chat/tool` 单协议，不保留 `generate -> chat` 默认桥接 | `claude-code/QueryEngine.ts` | `ChatCapableLlmProvider` `ImplementationToolLoopExecutor` | 已对齐 |
-| C6 | tool result budget 是线程级 replacement state，不是局部落盘截断器 | `claude-code/query.ts` `claude-code/Tool.ts` | `ImplementationToolResultBudgetManager` | 已对齐 |
-| C7 | continuation / resume 会显式带回 `readFileState`，不会丢掉已读文件事实 | `claude-code/cli/print.ts` | `ImplementationStateSnapshot` `ImplementationSnapshotRestorer` | 已对齐 |
-| C8 | edit/write 后的外围基础设施一致：history / diff / diagnostics 等副作用契约清晰 | `claude-code/tools/FileEditTool/*` | `FileMutationRecord` `FileEditTool` `FileWriteTool` | 已对齐 |
-
-### 执行清单
-
-- [x] `tool loop` 主环已经切到 `assistant -> tool_use -> tool_result -> assistant`
-- [x] `Read/Edit/Write` 已要求先读后改，且阻断 partial-view / stale-write
-- [x] 把 `readFileState` 从 `ImplementationToolContext` 的单次新建状态，提升为 `subtask/continuation` 级持有状态
-- [x] 将 `readFileState` 接入 snapshot / restore / continuation，确保失败续跑不会丢失“已读文件”事实
-- [x] 修正 `CoderReadFileStateCache`，同时启用 `maxEntries` 和 `maxSizeBytes`
-- [x] 删除 `LlmProvider` 中编码主链的 `generate -> chat` 默认桥接；未实现 `chat/tool` 的 provider 直接失败
-- [x] 将 `ImplementationToolResultStorage` 从固定阈值落盘器升级为线程级 tool-result replacement state
-- [x] 明确 edit/write 后的外围副作用 contract：保留什么、删除什么、哪些必须进入统一基础设施
-- [x] 完成一轮 `self-test + code review`，并按这份清单逐项复核，不允许再用“主链已经像了”代替“已经对齐”
+- 当前阶段：`implementation 内核收口完成，继续黄金路径集成验证`
+- 当前约束：`不允许场景特判、不允许文件名硬编码、不允许把 runtime metadata 塞回 planning detail`
+- 当前阻塞：`最新黄金路径曾在 PRD reviewer 因“推断/建议”措辞被连续打回；代码已修，待下一轮集成确认`
+- 当前补充：`空 scope PATCH continuation 这一类历史 fatal 已在主链封死，待集成验证确认真实 case 不再复现`
+- 当前判定标准：`不允许兼容层 / fallback / 双轨并存 / “后续再清理”`

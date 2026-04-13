@@ -55,6 +55,7 @@ public class StageArtifactComposer {
         );
         this.codeReviewStageComposer = new CodeReviewStageComposer(
                 llmProvider,
+                artifactStore,
                 snapshotStore,
                 contractExtractor,
                 inputResolver

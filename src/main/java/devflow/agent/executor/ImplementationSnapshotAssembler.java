@@ -54,7 +54,6 @@ class ImplementationSnapshotAssembler {
             DeliveryPolicyEnvelope deliveryPolicy,
             SharedContextBundle sharedContextBundle,
             ImplementationStageStatus stageStatus,
-            ArchitectIntegrationCheckResult architectCheckResult,
             String currentSubtaskTitle
     ) {
         // 中间态和最终态必须走同一套渲染链，避免不同 artifact 出现不同真相。
@@ -71,7 +70,6 @@ class ImplementationSnapshotAssembler {
                 sharedContextBundle,
                 taskPackages,
                 stageStatus,
-                architectCheckResult,
                 currentSubtaskTitle
         )));
     }
@@ -86,7 +84,6 @@ class ImplementationSnapshotAssembler {
             SharedContextBundle sharedContextBundle,
             List<TaskPackage> taskPackages,
             ImplementationStageStatus stageStatus,
-            ArchitectIntegrationCheckResult architectCheckResult,
             String currentSubtaskTitle
     ) {
         // worker result 始终从 report 派生，避免 execution 阶段再维护一份平行状态。
@@ -101,34 +98,6 @@ class ImplementationSnapshotAssembler {
                 deliveryPolicy,
                 sharedContextBundle,
                 stageStatus,
-                architectCheckResult,
-                currentSubtaskTitle
-        );
-    }
-
-    ImplementationRuntimeSnapshot buildSnapshot(
-            ImplementationPlan plan,
-            List<SubtaskExecutionReport> reports,
-            List<ImplementationEventEntry> events,
-            String note,
-            DocumentLanguage language,
-            DeliveryPolicyEnvelope deliveryPolicy,
-            SharedContextBundle sharedContextBundle,
-            List<TaskPackage> taskPackages,
-            ImplementationStageStatus stageStatus,
-            String currentSubtaskTitle
-    ) {
-        return buildSnapshot(
-                plan,
-                reports,
-                events,
-                note,
-                language,
-                deliveryPolicy,
-                sharedContextBundle,
-                taskPackages,
-                stageStatus,
-                null,
                 currentSubtaskTitle
         );
     }
@@ -152,7 +121,9 @@ class ImplementationSnapshotAssembler {
                 implementationArtifactRenderer.renderTaskPackages(snapshot.taskPackages(), snapshot.language()),
                 implementationArtifactRenderer.renderWorkerResults(snapshot),
                 implementationArtifactRenderer.renderEvents(snapshot),
+                implementationArtifactRenderer.renderDiagnostics(snapshot),
                 implementationArtifactRenderer.renderProgress(snapshot),
+                implementationArtifactRenderer.renderStageStatus(snapshot),
                 implementationArtifactRenderer.renderStateJson(snapshot),
                 snapshot
         );

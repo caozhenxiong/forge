@@ -9,6 +9,6 @@ import java.util.List;
  */
 record ImplementationSubtaskDetail(
         String subtaskId,
-        List<FileChange> changes
+        List<ImplementationSubtaskDetailChange> changes
 ) {
 }

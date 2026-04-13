@@ -11,12 +11,10 @@ import java.util.List;
  */
 final class ImplementationStateSnapshotSerializer {
 
-    private final ObjectMapper objectMapper;
-    private final ImplementationRuntimeContractResolver runtimeContractResolver;
+    private final ImplementationStateCodec stateCodec;
 
     ImplementationStateSnapshotSerializer(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-        this.runtimeContractResolver = new ImplementationRuntimeContractResolver();
+        this.stateCodec = new ImplementationStateCodec(objectMapper);
     }
 
     String renderStateJson(ImplementationRuntimeSnapshot runtimeSnapshot) {
@@ -25,70 +23,59 @@ final class ImplementationStateSnapshotSerializer {
                     serializeSubtasks(runtimeSnapshot.plan() == null ? List.of() : runtimeSnapshot.plan().subtasks());
             List<ImplementationStateSnapshot.SubtaskExecutionStateSnapshot> reports = serializeReports(runtimeSnapshot.reports());
             List<ImplementationStateSnapshot.EventState> events = serializeEvents(runtimeSnapshot.events());
-            ImplementationStateSnapshot snapshotWithoutResolvedContract = new ImplementationStateSnapshot(
+            ImplementationStageStatus stageStatus = runtimeSnapshot.stageStatus();
+            ImplementationStateSnapshot snapshot = new ImplementationStateSnapshot(
                     runtimeSnapshot.plan() == null ? "" : ImplementationArtifactRenderSupport.blankIfNull(runtimeSnapshot.plan().summary()),
                     subtasks,
                     reports,
                     events,
                     ImplementationArtifactRenderSupport.blankIfNull(runtimeSnapshot.currentSubtaskTitle()),
-                    runtimeSnapshot.stageStatus() != null && runtimeSnapshot.stageStatus().planCompleted(),
-                    runtimeSnapshot.architectCheckResult() != null
-                            ? runtimeSnapshot.architectCheckResult().passed()
-                            : runtimeSnapshot.stageStatus() != null && runtimeSnapshot.stageStatus().architectCheckPassed(),
-                    runtimeSnapshot.architectCheckResult() == null || runtimeSnapshot.architectCheckResult().failureReason() == null
-                            ? ""
-                            : runtimeSnapshot.architectCheckResult().failureReason().name(),
-                    runtimeSnapshot.architectCheckResult() == null
-                            ? ""
-                            : ImplementationArtifactRenderSupport.blankIfNull(runtimeSnapshot.architectCheckResult().details()),
-                    runtimeSnapshot.architectCheckResult() == null
-                            || runtimeSnapshot.architectCheckResult().implementationPatchTarget() == null
-                            ? ""
-                            : runtimeSnapshot.architectCheckResult().implementationPatchTarget().name(),
-                    runtimeSnapshot.stageStatus() == null ? "" : runtimeSnapshot.stageStatus().continuationMode().name(),
-                    runtimeSnapshot.stageStatus() == null ? "" : runtimeSnapshot.stageStatus().continuationSummary(),
-                    runtimeSnapshot.stageStatus() == null ? "" : runtimeSnapshot.stageStatus().continuationChangeRequest(),
-                    runtimeSnapshot.stageStatus() == null ? "" : runtimeSnapshot.stageStatus().continuationEvidence(),
-                    runtimeSnapshot.stageStatus() == null ? "" : runtimeSnapshot.stageStatus().continuationActionItems(),
-                    runtimeSnapshot.stageStatus() == null ? "" : runtimeSnapshot.stageStatus().continuationPatchTarget().name(),
-                    runtimeSnapshot.stageStatus() == null ? "" : runtimeSnapshot.stageStatus().continuationReasonCode().name(),
-                    explicitRuntimeContractState(runtimeSnapshot.architectCheckResult()),
-                    runtimeSnapshot.stageStatus() == null ? List.of() : runtimeSnapshot.stageStatus().incompleteSubtasks()
+                    stageStatus != null && stageStatus.planCompleted(),
+                    stageStatus != null && stageStatus.stageReady(),
+                    serializeContractGate(stageStatus == null ? null : stageStatus.contractGateResult()),
+                    stageStatus == null ? "" : stageStatus.continuationMode().name(),
+                    stageStatus == null ? "" : stageStatus.continuationSummary(),
+                    stageStatus == null ? "" : stageStatus.continuationChangeRequest(),
+                    stageStatus == null ? "" : stageStatus.continuationEvidence(),
+                    stageStatus == null ? "" : stageStatus.continuationActionItems(),
+                    stageStatus == null
+                            ? List.of()
+                            : stageStatus.continuationOverrideChanges().stream()
+                                    .map(change -> new ImplementationStateSnapshot.FileChangeState(
+                                            change.path(),
+                                            change.action().name(),
+                                            change.reason(),
+                                            change.effectiveEditScope().name(),
+                                            change.runtimeOwnership() == null ? null : change.runtimeOwnership().name(),
+                                            change.hostHtmlPatchRequired()
+                                    ))
+                                    .toList(),
+                    stageStatus == null ? "" : stageStatus.continuationPatchTarget().name(),
+                    stageStatus == null ? "" : stageStatus.continuationReasonCode().name(),
+                    stageStatus == null ? List.of() : stageStatus.incompleteSubtasks()
             );
-            ImplementationStateSnapshot snapshot = new ImplementationStateSnapshot(
-                    snapshotWithoutResolvedContract.summary(),
-                    snapshotWithoutResolvedContract.subtasks(),
-                    snapshotWithoutResolvedContract.reports(),
-                    snapshotWithoutResolvedContract.events(),
-                    snapshotWithoutResolvedContract.currentSubtaskTitle(),
-                    snapshotWithoutResolvedContract.planCompleted(),
-                    snapshotWithoutResolvedContract.architectCheckPassed(),
-                    snapshotWithoutResolvedContract.architectFailureReason(),
-                    snapshotWithoutResolvedContract.architectFailureDetails(),
-                    snapshotWithoutResolvedContract.architectImplementationPatchTarget(),
-                    snapshotWithoutResolvedContract.continuationMode(),
-                    snapshotWithoutResolvedContract.continuationSummary(),
-                    snapshotWithoutResolvedContract.continuationChangeRequest(),
-                    snapshotWithoutResolvedContract.continuationEvidence(),
-                    snapshotWithoutResolvedContract.continuationActionItems(),
-                    snapshotWithoutResolvedContract.continuationPatchTarget(),
-                    snapshotWithoutResolvedContract.continuationReasonCode(),
-                    serializeRuntimeContract(runtimeContractResolver.resolve(snapshotWithoutResolvedContract)),
-                    snapshotWithoutResolvedContract.incompleteSubtasks()
-            );
-            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(snapshot);
+            return stateCodec.write(snapshot);
         } catch (Exception exception) {
             throw new IllegalStateException("Failed to render implementation state: " + exception.getMessage(), exception);
         }
     }
 
-    private ImplementationStateSnapshot.RuntimeContractState explicitRuntimeContractState(
-            ArchitectIntegrationCheckResult architectCheckResult
+    private ImplementationStateSnapshot.ContractGateState serializeContractGate(
+            ArchitectIntegrationCheckResult contractGateResult
     ) {
-        if (architectCheckResult == null) {
+        if (contractGateResult == null) {
             return null;
         }
-        return serializeRuntimeContract(architectCheckResult.runtimeContract());
+        return new ImplementationStateSnapshot.ContractGateState(
+                contractGateResult.scope() == null ? null : contractGateResult.scope().name(),
+                contractGateResult.passed(),
+                contractGateResult.failureReason() == null ? null : contractGateResult.failureReason().name(),
+                ImplementationArtifactRenderSupport.blankIfNull(contractGateResult.details()),
+                contractGateResult.implementationPatchTarget() == null
+                        ? null
+                        : contractGateResult.implementationPatchTarget().name(),
+                serializeRuntimeContract(contractGateResult.runtimeContract())
+        );
     }
 
     private ImplementationStateSnapshot.RuntimeContractState serializeRuntimeContract(
@@ -160,7 +147,7 @@ final class ImplementationStateSnapshotSerializer {
                         report.executionState() != null && report.executionState().preferPreciseEditing(),
                         serializeFileEditAttemptStates(report.executionState()),
                         serializeEffectiveChanges(report.executionState()),
-                        serializeToolLoopRuntimeState(report.executionState())
+                        serializeToolSessionState(report.executionState())
                 ))
                 .toList();
     }
@@ -202,44 +189,39 @@ final class ImplementationStateSnapshotSerializer {
                 .toList();
     }
 
-    private ImplementationStateSnapshot.ToolLoopRuntimeStateSnapshot serializeToolLoopRuntimeState(
+    private ImplementationStateSnapshot.ToolSessionStateSnapshot serializeToolSessionState(
             SubtaskExecutionState executionState
     ) {
-        if (executionState == null || executionState.toolLoopRuntimeState() == null) {
+        if (executionState == null || executionState.toolSessionState() == null) {
             return null;
         }
-        ToolLoopRuntimeState runtimeState = executionState.toolLoopRuntimeState();
-        return new ImplementationStateSnapshot.ToolLoopRuntimeStateSnapshot(
-                runtimeState.transcript().stream()
-                        .map(message -> new ImplementationStateSnapshot.ChatMessageState(
-                                message.role().name(),
-                                message.content(),
-                                message.toolName(),
-                                message.toolCallId(),
-                                message.toolCalls().stream()
-                                        .map(toolCall -> new ImplementationStateSnapshot.ToolCallState(
-                                                toolCall.id(),
-                                                toolCall.name(),
-                                                toolCall.arguments()
-                                        ))
-                                        .toList()
-                        ))
-                        .toList(),
-                runtimeState.readFileStateLedger().maxEntries(),
-                runtimeState.readFileStateLedger().maxSizeBytes(),
-                runtimeState.readFileStateLedger().snapshotEntries(),
-                runtimeState.resultReplacementState().snapshotSeenIds(),
-                runtimeState.resultReplacementState().snapshotReplacements(),
-                runtimeState.mutationRecords().stream()
+        ImplementationToolSessionState toolSessionState = executionState.toolSessionState();
+        return new ImplementationStateSnapshot.ToolSessionStateSnapshot(
+                toolSessionState.readFileStateLedger().maxEntries(),
+                toolSessionState.readFileStateLedger().maxSizeBytes(),
+                toolSessionState.readFileStateLedger().snapshotEntries(),
+                toolSessionState.resultReplacementState().snapshotSeenIds(),
+                toolSessionState.resultReplacementState().snapshotReplacements(),
+                toolSessionState.mutationRecords().stream()
                         .map(mutation -> new ImplementationStateSnapshot.FileMutationState(
                                 mutation.operation().name(),
                                 mutation.relativePath() == null ? "" : mutation.relativePath().toString(),
+                                mutation.beforeExists(),
                                 mutation.beforeHash(),
+                                mutation.afterExists(),
                                 mutation.afterHash(),
                                 mutation.structuredPatch(),
-                                mutation.timestamp(),
-                                mutation.diagnosticStatus().name(),
-                                mutation.diagnosticEvidence()
+                                mutation.timestamp()
+                        ))
+                        .toList(),
+                toolSessionState.diagnostics().stream()
+                        .map(diagnostic -> new ImplementationStateSnapshot.DiagnosticState(
+                                diagnostic.diagnosticId(),
+                                diagnostic.relativePath() == null ? "" : diagnostic.relativePath().toString(),
+                                diagnostic.status().name(),
+                                diagnostic.source().name(),
+                                diagnostic.evidence(),
+                                diagnostic.timestamp()
                         ))
                         .toList()
         );

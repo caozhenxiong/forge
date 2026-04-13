@@ -8,39 +8,29 @@ import java.util.Map;
 
 final class GlobTool implements ImplementationTool {
 
+    private static final ImplementationToolSpecification SPECIFICATION = new ImplementationToolSpecification(
+            "Glob",
+            "Find files in the project using ripgrep glob patterns.",
+            Map.of(
+                    "type", "object",
+                    "required", List.of("pattern"),
+                    "properties", Map.of(
+                            "pattern", Map.of("type", "string"),
+                            "path", Map.of("type", "string"),
+                            "head_limit", Map.of("type", "integer")
+                    )
+            ),
+            true,
+            true,
+            20_000,
+            ImplementationToolPermissionScope.SEARCH_WORKSPACE
+    );
+
     private final RipgrepCommandSupport ripgrep = new RipgrepCommandSupport();
 
     @Override
-    public String name() {
-        return "Glob";
-    }
-
-    @Override
-    public String description() {
-        return "Find files in the project using ripgrep glob patterns.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return Map.of(
-                "type", "object",
-                "required", List.of("pattern"),
-                "properties", Map.of(
-                        "pattern", Map.of("type", "string"),
-                        "path", Map.of("type", "string"),
-                        "head_limit", Map.of("type", "integer")
-                )
-        );
-    }
-
-    @Override
-    public boolean readOnly() {
-        return true;
-    }
-
-    @Override
-    public int maxResultSizeChars() {
-        return 20_000;
+    public ImplementationToolSpecification specification() {
+        return SPECIFICATION;
     }
 
     @Override

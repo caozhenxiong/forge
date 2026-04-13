@@ -9,52 +9,34 @@ record ImplementationStateSnapshot(
         List<EventState> events,
         String currentSubtaskTitle,
         boolean planCompleted,
-        boolean architectCheckPassed,
-        String architectFailureReason,
-        String architectFailureDetails,
-        String architectImplementationPatchTarget,
+        boolean stageReady,
+        ContractGateState contractGate,
         String continuationMode,
         String continuationSummary,
         String continuationChangeRequest,
         String continuationEvidence,
         String continuationActionItems,
+        List<FileChangeState> continuationOverrideChanges,
         String continuationPatchTarget,
         String continuationReasonCode,
-        RuntimeContractState architectRuntimeContract,
         List<String> incompleteSubtasks
 ) {
 
-    ImplementationStateSnapshot(
-            String summary,
-            List<PlannedSubtaskState> subtasks,
-            List<SubtaskExecutionStateSnapshot> reports,
-            List<EventState> events,
-            String currentSubtaskTitle,
-            boolean planCompleted,
-            boolean architectCheckPassed,
-            List<String> incompleteSubtasks
-    ) {
-        this(
-                summary,
-                subtasks,
-                reports,
-                events,
-                currentSubtaskTitle,
-                planCompleted,
-                architectCheckPassed,
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                null,
-                incompleteSubtasks
-        );
+    ImplementationStateSnapshot {
+        summary = summary == null ? "" : summary;
+        subtasks = subtasks == null ? List.of() : List.copyOf(subtasks);
+        reports = reports == null ? List.of() : List.copyOf(reports);
+        events = events == null ? List.of() : List.copyOf(events);
+        currentSubtaskTitle = currentSubtaskTitle == null ? "" : currentSubtaskTitle;
+        continuationMode = continuationMode == null ? "" : continuationMode;
+        continuationSummary = continuationSummary == null ? "" : continuationSummary;
+        continuationChangeRequest = continuationChangeRequest == null ? "" : continuationChangeRequest;
+        continuationEvidence = continuationEvidence == null ? "" : continuationEvidence;
+        continuationActionItems = continuationActionItems == null ? "" : continuationActionItems;
+        continuationOverrideChanges = continuationOverrideChanges == null ? List.of() : List.copyOf(continuationOverrideChanges);
+        continuationPatchTarget = continuationPatchTarget == null ? "" : continuationPatchTarget;
+        continuationReasonCode = continuationReasonCode == null ? "" : continuationReasonCode;
+        incompleteSubtasks = incompleteSubtasks == null ? List.of() : List.copyOf(incompleteSubtasks);
     }
 
     ImplementationStateSnapshot(
@@ -64,11 +46,7 @@ record ImplementationStateSnapshot(
             List<EventState> events,
             String currentSubtaskTitle,
             boolean planCompleted,
-            boolean architectCheckPassed,
-            String architectFailureReason,
-            String architectFailureDetails,
-            String architectImplementationPatchTarget,
-            RuntimeContractState architectRuntimeContract,
+            boolean stageReady,
             List<String> incompleteSubtasks
     ) {
         this(
@@ -78,54 +56,16 @@ record ImplementationStateSnapshot(
                 events,
                 currentSubtaskTitle,
                 planCompleted,
-                architectCheckPassed,
-                architectFailureReason,
-                architectFailureDetails,
-                architectImplementationPatchTarget,
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                architectRuntimeContract,
-                incompleteSubtasks
-        );
-    }
-
-    ImplementationStateSnapshot(
-            String summary,
-            List<PlannedSubtaskState> subtasks,
-            List<SubtaskExecutionStateSnapshot> reports,
-            List<EventState> events,
-            String currentSubtaskTitle,
-            boolean planCompleted,
-            boolean architectCheckPassed,
-            String architectFailureReason,
-            String architectFailureDetails,
-            String architectImplementationPatchTarget,
-            List<String> incompleteSubtasks
-    ) {
-        this(
-                summary,
-                subtasks,
-                reports,
-                events,
-                currentSubtaskTitle,
-                planCompleted,
-                architectCheckPassed,
-                architectFailureReason,
-                architectFailureDetails,
-                architectImplementationPatchTarget,
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
+                stageReady,
                 null,
+                "",
+                "",
+                "",
+                "",
+                "",
+                List.of(),
+                "",
+                "",
                 incompleteSubtasks
         );
     }
@@ -171,6 +111,16 @@ record ImplementationStateSnapshot(
     ) {
     }
 
+    record ContractGateState(
+            String scope,
+            boolean passed,
+            String failureReason,
+            String details,
+            String implementationPatchTarget,
+            RuntimeContractState runtimeContract
+    ) {
+    }
+
     record SubtaskExecutionStateSnapshot(
             String title,
             boolean completed,
@@ -179,7 +129,7 @@ record ImplementationStateSnapshot(
             boolean preferPreciseEditing,
             List<FileEditAttemptStateSnapshot> fileEditAttemptStates,
             List<FileChangeState> effectiveChanges,
-            ToolLoopRuntimeStateSnapshot toolLoopRuntimeState
+            ToolSessionStateSnapshot toolSessionState
     ) {
         SubtaskExecutionStateSnapshot(
                 String title,
@@ -213,30 +163,14 @@ record ImplementationStateSnapshot(
         }
     }
 
-    record ToolLoopRuntimeStateSnapshot(
-            List<ChatMessageState> transcript,
+    record ToolSessionStateSnapshot(
             long readFileStateMaxEntries,
             long readFileStateMaxSizeBytes,
             List<ReadFileStateEntry> readFileStates,
             List<String> seenToolResultIds,
             List<ToolResultReplacementEntry> toolResultReplacements,
-            List<FileMutationState> fileMutations
-    ) {
-    }
-
-    record ChatMessageState(
-            String role,
-            String content,
-            String toolName,
-            String toolCallId,
-            List<ToolCallState> toolCalls
-    ) {
-    }
-
-    record ToolCallState(
-            String id,
-            String name,
-            java.util.Map<String, Object> arguments
+            List<FileMutationState> fileMutations,
+            List<DiagnosticState> diagnostics
     ) {
     }
 
@@ -259,12 +193,22 @@ record ImplementationStateSnapshot(
     record FileMutationState(
             String operation,
             String relativePath,
+            boolean beforeExists,
             String beforeHash,
+            boolean afterExists,
             String afterHash,
             List<StructuredPatchHunk> structuredPatch,
-            long timestamp,
-            String diagnosticStatus,
-            String diagnosticEvidence
+            long timestamp
+    ) {
+    }
+
+    record DiagnosticState(
+            String diagnosticId,
+            String relativePath,
+            String status,
+            String source,
+            String evidence,
+            long timestamp
     ) {
     }
 

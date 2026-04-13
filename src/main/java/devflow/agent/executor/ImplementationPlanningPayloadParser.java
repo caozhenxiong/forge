@@ -140,6 +140,20 @@ final class ImplementationPlanningPayloadParser {
         if (detail.changes() == null || detail.changes().isEmpty()) {
             throw new IllegalStateException("Implementation subtask detail must contain changes");
         }
+        for (ImplementationSubtaskDetailChange change : detail.changes()) {
+            if (change == null) {
+                throw new IllegalStateException("Implementation subtask detail cannot contain null change");
+            }
+            if (blankIfNull(change.path()).isBlank()) {
+                throw new IllegalStateException("Implementation subtask detail change must contain path");
+            }
+            if (change.action() == null) {
+                throw new IllegalStateException("Implementation subtask detail change must contain action");
+            }
+            if (blankIfNull(change.reason()).isBlank()) {
+                throw new IllegalStateException("Implementation subtask detail change must contain reason");
+            }
+        }
     }
 
     private String locallyRepairJson(String response) {

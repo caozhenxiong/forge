@@ -63,7 +63,7 @@ class ImplementationSnapshotAssemblerTests {
                 new DeliveryPolicyEnvelope(DeliveryMode.INCREMENTAL, 2, 4, true, false, true, List.of()),
                 null,
                 List.of(),
-                new ImplementationStageStatus(2, 1, 1, false, true, true, List.of("补逻辑")),
+                new ImplementationStageStatus(2, 1, 1, false, false, List.of("补逻辑")),
                 "补逻辑"
         );
 

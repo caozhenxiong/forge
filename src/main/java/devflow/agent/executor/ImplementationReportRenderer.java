@@ -2,12 +2,8 @@ package devflow.agent.executor;
 
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;
-import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.ExecutionDirectivePayload;
 import devflow.agent.protocol.ExecutionDirectiveProtocol;
-import devflow.agent.protocol.ImplementationStageStatusPayload;
-import devflow.agent.protocol.StructuredArtifactBlocks;
-import devflow.agent.review.ImplementationPatchTarget;
 import java.util.List;
 
 /**
@@ -16,9 +12,11 @@ import java.util.List;
  */
 final class ImplementationReportRenderer {
 
+    private final ImplementationStageStatusArtifactRenderer stageStatusArtifactRenderer = new ImplementationStageStatusArtifactRenderer();
     private final ImplementationStageStatusSectionRenderer stageStatusSectionRenderer = new ImplementationStageStatusSectionRenderer();
     private final ImplementationSubtaskBreakdownRenderer subtaskBreakdownRenderer = new ImplementationSubtaskBreakdownRenderer();
     private final ImplementationSubtaskReportRenderer subtaskReportRenderer = new ImplementationSubtaskReportRenderer();
+    private final ImplementationDiagnosticRenderer diagnosticRenderer = new ImplementationDiagnosticRenderer();
 
     String renderReport(ImplementationRuntimeSnapshot snapshot) {
         ImplementationPlan plan = snapshot.plan();
@@ -27,30 +25,11 @@ final class ImplementationReportRenderer {
         DocumentLanguage language = snapshot.language();
         ImplementationStageStatus stageStatus = snapshot.stageStatus();
         String currentSubtaskTitle = snapshot.currentSubtaskTitle();
-        String stageStatusBlock = StructuredArtifactBlocks.renderJsonBlock(
-                ArtifactBlockKind.IMPLEMENTATION_STAGE_STATUS,
-                new ImplementationStageStatusPayload(
-                        stageStatus.stageReady(),
-                        stageStatus.planCompleted(),
-                        stageStatus.architectCheckPassed(),
-                        snapshot.architectCheckResult() == null || snapshot.architectCheckResult().failureReason() == null
-                                ? ""
-                                : snapshot.architectCheckResult().failureReason().name(),
-                        snapshot.architectCheckResult() == null ? "" : snapshot.architectCheckResult().details(),
-                        snapshot.architectCheckResult() == null
-                                ? ImplementationPatchTarget.NONE.name()
-                                : snapshot.architectCheckResult().implementationPatchTarget().name(),
-                        stageStatus.incompleteSubtasks(),
-                        stageStatus.continuationMode(),
-                        stageStatus.continuationSummary(),
-                        stageStatus.continuationChangeRequest(),
-                        stageStatus.continuationEvidence(),
-                        stageStatus.continuationActionItems(),
-                        stageStatus.continuationPatchTarget(),
-                        stageStatus.continuationReasonCode()
-                )
-        );
+        String stageStatusBlock = stageStatusArtifactRenderer.renderBlock(stageStatus);
+        String diagnosticsSection = diagnosticRenderer.renderReportSection(snapshot);
         StringBuilder builder = new StringBuilder("""
+                %s
+
                 %s
 
                 # %s
@@ -63,14 +42,14 @@ final class ImplementationReportRenderer {
 
         """.formatted(
                 stageStatusBlock,
+                diagnosticsSection,
                 language.choose("代码实现", "Implementation"),
                 language.choose("实现摘要", "Implementation Summary"),
                 plan.summary(),
                 ""
         ));
-        builder.append(stageStatusSectionRenderer.render(stageStatus, snapshot.architectCheckResult(), language));
+        builder.append(stageStatusSectionRenderer.render(stageStatus, language));
         builder.append(subtaskBreakdownRenderer.render(plan, language));
-
         String repairAlignmentSection = ImplementationArtifactRenderSupport.renderRepairAlignmentSection(note, language);
         if (!repairAlignmentSection.isBlank()) {
             builder.append(repairAlignmentSection).append("\n\n");

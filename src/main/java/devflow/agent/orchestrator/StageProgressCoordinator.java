@@ -1,18 +1,23 @@
 package devflow.agent.orchestrator;
 
 import devflow.agent.artifact.FileArtifactStore;
+import devflow.agent.artifact.AuxiliaryArtifactNames;
 import devflow.agent.context.ContextProjector;
 import devflow.agent.context.ProjectedContext;
+import devflow.agent.executor.FileChange;
+import devflow.agent.executor.ImplementationStateArtifactSupport;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.loop.LoopStepResult;
 import devflow.agent.loop.TransitionDecision;
 import devflow.agent.loop.TransitionReason;
+import devflow.agent.protocol.FileChangePayload;
 import devflow.agent.protocol.ImplementationContinuationMode;
-import devflow.agent.review.ImplementationStageReadiness;
-import devflow.agent.review.ImplementationStageReadinessParser;
+import devflow.agent.protocol.ImplementationStageStatusPayload;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.FixMode;
 import devflow.agent.repair.DiagnosisAgent;
 import devflow.agent.review.ReviewDecision;
+import devflow.agent.review.ReviewReasonCode;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.review.ReviewRevisionRoute;
 import devflow.agent.supervisor.SupervisorAgent;
@@ -41,7 +46,7 @@ public class StageProgressCoordinator {
     private final StageProgressArtifactSupport artifactSupport;
     private final StageToolResultLoader toolResultLoader;
     private final StageToolResultGuard toolResultGuard;
-    private final ImplementationStageReadinessParser implementationStageReadinessParser;
+    private final ImplementationStateArtifactSupport implementationStateSupport;
 
     public StageProgressCoordinator(
             FileArtifactStore artifactStore,
@@ -65,7 +70,7 @@ public class StageProgressCoordinator {
         this.artifactSupport = artifactSupport;
         this.toolResultLoader = toolResultLoader;
         this.toolResultGuard = toolResultGuard;
-        this.implementationStageReadinessParser = new ImplementationStageReadinessParser();
+        this.implementationStateSupport = new ImplementationStateArtifactSupport();
     }
 
     public LoopStepResult progress(Path projectPath, RunRecord current) {
@@ -76,15 +81,19 @@ public class StageProgressCoordinator {
         }
 
         DocumentLanguage language = DocumentLanguage.detect(current.goal(), current.constraints());
-        String artifactContent = artifactStore.readArtifact(projectPath, current.runId(), stageType);
+        String artifactContent;
         if (stageType == StageType.IMPLEMENTATION) {
-            ImplementationStageReadiness readiness = implementationStageReadinessParser.parse(artifactContent);
-            if (!readiness.stageReady()) {
-                if (readiness.continuationMode() == ImplementationContinuationMode.BLOCK_STAGE) {
-                    return blockImplementationForHuman(projectPath, current, stageType, readiness, language);
+            String implementationStateJson = readImplementationStateArtifact(projectPath, current);
+            ImplementationStageStatusPayload stageStatus = implementationStateSupport.readStageStatus(implementationStateJson);
+            if (!stageStatus.stageReady()) {
+                if (stageStatus.continuationMode() == ImplementationContinuationMode.BLOCK_STAGE) {
+                    return blockImplementationForHuman(projectPath, current, stageType, stageStatus, language);
                 }
-                return continueIncompleteImplementation(projectPath, current, stageType, readiness, language);
+                return continueIncompleteImplementation(projectPath, current, stageType, stageStatus, language);
             }
+            artifactContent = implementationStateSupport.renderImplementationReviewSummary(implementationStateJson);
+        } else {
+            artifactContent = artifactStore.readArtifact(projectPath, current.runId(), stageType);
         }
         ReviewResult reviewed = stageOperationExecutor.reviewStage(projectPath, current, stageType, stageExecution, artifactContent, language);
         StageToolResultSummary toolSummary = toolResultLoader.load(projectPath, current, stageType);
@@ -137,15 +146,16 @@ public class StageProgressCoordinator {
             Path projectPath,
             RunRecord current,
             StageType stageType,
-            ImplementationStageReadiness readiness,
+            ImplementationStageStatusPayload stageStatus,
             DocumentLanguage language
     ) {
+        String summary = requiredContinuationField(stageStatus, "continuationSummary", stageStatus.continuationSummary());
         TransitionDecision transitionDecision = new TransitionDecision(
                 TransitionReason.STAGE_CONTINUE,
                 stageType,
                 stageType,
                 false,
-                readiness.summary(),
+                summary,
                 null
         );
         artifactSupport.writeContinuationArtifacts(
@@ -158,11 +168,12 @@ public class StageProgressCoordinator {
                 projectPath,
                 current,
                 stageType,
-                readiness.summary(),
-                readiness.changeRequest(),
-                readiness.evidence(),
-                readiness.actionItems(),
-                readiness.implementationPatchTarget()
+                summary,
+                requiredContinuationField(stageStatus, "continuationChangeRequest", stageStatus.continuationChangeRequest()),
+                requiredContinuationField(stageStatus, "continuationEvidence", stageStatus.continuationEvidence()),
+                requiredContinuationField(stageStatus, "continuationActionItems", stageStatus.continuationActionItems()),
+                implementationOverrideChanges(stageStatus),
+                implementationPatchTarget(stageStatus)
         );
         return new LoopStepResult(next, transitionDecision, flowController.shouldContinue(next));
     }
@@ -171,32 +182,87 @@ public class StageProgressCoordinator {
             Path projectPath,
             RunRecord current,
             StageType stageType,
-            ImplementationStageReadiness readiness,
+            ImplementationStageStatusPayload stageStatus,
             DocumentLanguage language
     ) {
+        String summary = requiredContinuationField(stageStatus, "continuationSummary", stageStatus.continuationSummary());
         TransitionDecision transitionDecision = new TransitionDecision(
                 TransitionReason.HUMAN_REVIEW_REQUIRED,
                 stageType,
                 stageType,
                 false,
-                readiness.summary(),
+                summary,
                 null
         );
         artifactSupport.writeBlockedStageArtifacts(projectPath, current, transitionDecision, language);
         ReviewResult reviewResult = new ReviewResult(
                 ReviewDecision.REVISION_REQUIRED,
                 FixMode.PATCH,
-                readiness.summary(),
-                readiness.changeRequest(),
-                readiness.evidence(),
-                readiness.actionItems(),
-                readiness.implementationPatchTarget(),
-                java.util.List.of(),
+                summary,
+                requiredContinuationField(stageStatus, "continuationChangeRequest", stageStatus.continuationChangeRequest()),
+                requiredContinuationField(stageStatus, "continuationEvidence", stageStatus.continuationEvidence()),
+                requiredContinuationField(stageStatus, "continuationActionItems", stageStatus.continuationActionItems()),
+                implementationPatchTarget(stageStatus),
+                implementationOverrideChanges(stageStatus),
                 ReviewRevisionRoute.REQUEST_HUMAN,
-                readiness.reasonCode()
+                implementationReasonCode(stageStatus)
         );
         RunRecord next = flowDecisionExecutor.blockForHumanReview(current, stageType, reviewResult);
         return new LoopStepResult(next, transitionDecision, flowController.shouldContinue(next));
+    }
+
+    private String readImplementationStateArtifact(Path projectPath, RunRecord current) {
+        String content = artifactStore.readAuxiliaryArtifact(
+                projectPath,
+                current.runId(),
+                AuxiliaryArtifactNames.IMPLEMENTATION_STATE
+        );
+        if (content == null || content.isBlank()) {
+            throw new IllegalStateException("Missing implementation_state auxiliary artifact.");
+        }
+        return content;
+    }
+
+    private java.util.List<FileChange> implementationOverrideChanges(ImplementationStageStatusPayload payload) {
+        if (payload == null || payload.continuationOverrideChanges() == null || payload.continuationOverrideChanges().isEmpty()) {
+            return java.util.List.of();
+        }
+        return payload.continuationOverrideChanges().stream()
+                .filter(change -> change != null && change.path() != null && !change.path().isBlank())
+                .map(this::toFileChange)
+                .toList();
+    }
+
+    private ImplementationPatchTarget implementationPatchTarget(ImplementationStageStatusPayload payload) {
+        if (payload == null || payload.continuationPatchTarget() == null) {
+            throw new IllegalStateException("Invalid implementation continuation payload: missing continuationPatchTarget.");
+        }
+        return payload.continuationPatchTarget();
+    }
+
+    private ReviewReasonCode implementationReasonCode(ImplementationStageStatusPayload payload) {
+        if (payload == null || payload.continuationReasonCode() == null) {
+            throw new IllegalStateException("Invalid implementation continuation payload: missing continuationReasonCode.");
+        }
+        return payload.continuationReasonCode();
+    }
+
+    private FileChange toFileChange(FileChangePayload payload) {
+        return new FileChange(
+                payload.path(),
+                devflow.agent.util.EnumParsers.parseIgnoreCase(devflow.agent.executor.ChangeAction.class, payload.action(), devflow.agent.executor.ChangeAction.WRITE),
+                payload.reason() == null ? "" : payload.reason(),
+                devflow.agent.util.EnumParsers.parseIgnoreCase(devflow.agent.executor.FileEditScope.class, payload.editScope(), devflow.agent.executor.FileEditScope.AUTO),
+                devflow.agent.util.EnumParsers.parseIgnoreCase(devflow.agent.executor.RuntimeOwnershipMode.class, payload.runtimeOwnership(), null),
+                Boolean.TRUE.equals(payload.hostHtmlPatchRequired())
+        );
+    }
+
+    private String requiredContinuationField(ImplementationStageStatusPayload payload, String fieldName, String value) {
+        if (payload == null || value == null || value.isBlank()) {
+            throw new IllegalStateException("Invalid implementation continuation payload: missing " + fieldName + ".");
+        }
+        return value.trim();
     }
 
     private StageExecution requireStage(Map<StageType, StageExecution> stageStates, StageType stageType) {

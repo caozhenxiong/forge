@@ -11,7 +11,7 @@ public record OllamaProperties(
 ) {
 
     private static final String DEFAULT_HOST = "http://127.0.0.1:11434";
-    private static final String DEFAULT_MODEL = "gemma4:26b";
+    private static final String DEFAULT_MODEL = "qwen3-coder:30b";
     private static final int DEFAULT_TIMEOUT_SECONDS = 300;
 
     public OllamaProperties {

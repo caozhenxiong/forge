@@ -7,35 +7,25 @@ import java.util.Map;
 
 final class FileDeleteTool implements ImplementationTool {
 
-    @Override
-    public String name() {
-        return "Delete";
-    }
+    private static final ImplementationToolSpecification SPECIFICATION = new ImplementationToolSpecification(
+            "Delete",
+            "Delete a file that belongs to the current subtask.",
+            Map.of(
+                    "type", "object",
+                    "required", List.of("file_path"),
+                    "properties", Map.of(
+                            "file_path", Map.of("type", "string")
+                    )
+            ),
+            false,
+            false,
+            8_000,
+            ImplementationToolPermissionScope.DELETE_OWNED_PATHS
+    );
 
     @Override
-    public String description() {
-        return "Delete a file that belongs to the current subtask.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return Map.of(
-                "type", "object",
-                "required", List.of("file_path"),
-                "properties", Map.of(
-                        "file_path", Map.of("type", "string")
-                )
-        );
-    }
-
-    @Override
-    public boolean readOnly() {
-        return false;
-    }
-
-    @Override
-    public int maxResultSizeChars() {
-        return 8_000;
+    public ImplementationToolSpecification specification() {
+        return SPECIFICATION;
     }
 
     @Override
@@ -52,7 +42,9 @@ final class FileDeleteTool implements ImplementationTool {
                 context.recordMutation(
                         ToolLoopMutationOperation.DELETE,
                         absolutePath,
+                        true,
                         previous,
+                        false,
                         "",
                         List.of()
                 );

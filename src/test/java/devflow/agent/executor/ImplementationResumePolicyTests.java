@@ -70,7 +70,7 @@ class ImplementationResumePolicyTests {
                 List.of(),
                 "补齐逻辑",
                 false,
-                true,
+                false,
                 List.of("补齐逻辑")
         ));
 
@@ -96,7 +96,7 @@ class ImplementationResumePolicyTests {
     }
 
     @Test
-    void appendsReasonAwareRuntimeWiringContinuationInsteadOfGenericFileReopen() throws Exception {
+    void reopensOwningCompletedSubtaskForRuntimeWiringPatch() throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         ImplementationResumePolicy policy = new ImplementationResumePolicy(objectMapper);
         String previousStateJson = objectMapper.writeValueAsString(new ImplementationStateSnapshot(
@@ -130,14 +130,26 @@ class ImplementationResumePolicyTests {
                 null,
                 true,
                 false,
-                ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID.name(),
-                "index.app.js 存在，但 index.html 未接线",
-                ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
-                new ImplementationStateSnapshot.RuntimeContractState(
-                        "index.html",
-                        RuntimeOwnershipMode.EXTERNAL_COMPANION.name(),
-                        List.of("index.app.js")
+                new ImplementationStateSnapshot.ContractGateState(
+                        ArchitectIntegrationCheckScope.STAGE_COMPLETION.name(),
+                        false,
+                        ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID.name(),
+                        "index.app.js 存在，但 index.html 未接线",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                        new ImplementationStateSnapshot.RuntimeContractState(
+                                "index.html",
+                                RuntimeOwnershipMode.EXTERNAL_COMPANION.name(),
+                                List.of("index.app.js")
+                        )
                 ),
+                "",
+                "",
+                "",
+                "",
+                "",
+                List.of(),
+                "",
+                "",
                 List.of()
         ));
 
@@ -150,15 +162,22 @@ class ImplementationResumePolicyTests {
         );
 
         assertNotNull(reusableState);
-        Subtask continuation = reusableState.plan().subtasks().getLast();
-        assertEquals(DeliveryMode.PATCH, continuation.deliveryMode());
-        assertEquals(1, continuation.changes().size());
-        assertEquals(RuntimeOwnershipMode.EXTERNAL_COMPANION, continuation.changes().getFirst().runtimeOwnership());
-        assertEquals("index.html", continuation.changes().getFirst().path());
+        assertEquals(1, reusableState.plan().subtasks().size());
+        assertTrue(reusableState.completedReports().isEmpty());
+        assertNotNull(reusableState.resumedExecutionState());
+        assertEquals(DeliveryMode.PATCH, reusableState.resumedExecutionState().deliveryMode());
+        assertEquals(2, reusableState.resumedExecutionState().effectiveChanges().size());
+        assertEquals("index.html", reusableState.resumedExecutionState().effectiveChanges().getFirst().path());
+        assertEquals(
+                RuntimeOwnershipMode.EXTERNAL_COMPANION,
+                reusableState.resumedExecutionState().effectiveChanges().getFirst().runtimeOwnership()
+        );
+        assertEquals("index.app.js", reusableState.resumedExecutionState().effectiveChanges().get(1).path());
+        assertTrue(reusableState.resumedExecutionState().toolSessionState().transcript().isEmpty());
     }
 
     @Test
-    void runtimeWiringContinuationPrefersExplicitRuntimeContractOverOlderInlineOwnership() throws Exception {
+    void runtimeWiringPatchPrefersExplicitContractOverOlderInlineOwnership() throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         ImplementationResumePolicy policy = new ImplementationResumePolicy(objectMapper);
         String previousStateJson = objectMapper.writeValueAsString(new ImplementationStateSnapshot(
@@ -188,15 +207,27 @@ class ImplementationResumePolicyTests {
                 List.of(),
                 null,
                 true,
-                true,
-                "",
-                "",
-                ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
-                new ImplementationStateSnapshot.RuntimeContractState(
-                        "index.html",
-                        RuntimeOwnershipMode.EXTERNAL_COMPANION.name(),
-                        List.of("index.app.js")
+                false,
+                new ImplementationStateSnapshot.ContractGateState(
+                        ArchitectIntegrationCheckScope.STAGE_COMPLETION.name(),
+                        false,
+                        ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID.name(),
+                        "",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                        new ImplementationStateSnapshot.RuntimeContractState(
+                                "index.html",
+                                RuntimeOwnershipMode.EXTERNAL_COMPANION.name(),
+                                List.of("index.app.js")
+                        )
                 ),
+                "",
+                "",
+                "",
+                "",
+                "",
+                List.of(),
+                "",
+                "",
                 List.of()
         ));
 
@@ -209,10 +240,16 @@ class ImplementationResumePolicyTests {
         );
 
         assertNotNull(reusableState);
-        Subtask continuation = reusableState.plan().subtasks().getLast();
-        assertEquals(DeliveryMode.PATCH, continuation.deliveryMode());
-        assertEquals(1, continuation.changes().size());
-        assertEquals("index.html", continuation.changes().getFirst().path());
-        assertEquals(RuntimeOwnershipMode.EXTERNAL_COMPANION, continuation.changes().getFirst().runtimeOwnership());
+        assertEquals(1, reusableState.plan().subtasks().size());
+        assertTrue(reusableState.completedReports().isEmpty());
+        assertNotNull(reusableState.resumedExecutionState());
+        assertEquals(DeliveryMode.PATCH, reusableState.resumedExecutionState().deliveryMode());
+        assertEquals(2, reusableState.resumedExecutionState().effectiveChanges().size());
+        assertEquals("index.html", reusableState.resumedExecutionState().effectiveChanges().getFirst().path());
+        assertEquals(
+                RuntimeOwnershipMode.EXTERNAL_COMPANION,
+                reusableState.resumedExecutionState().effectiveChanges().getFirst().runtimeOwnership()
+        );
+        assertEquals("index.app.js", reusableState.resumedExecutionState().effectiveChanges().get(1).path());
     }
 }

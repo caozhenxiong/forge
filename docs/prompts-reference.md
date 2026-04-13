@@ -125,11 +125,14 @@ user prompt 结构：
   - `4. 非功能要求`
   - `5. 验收标准`
   - `6. 不做什么`
-  - `7. 当前备注`
+  - `7. Contract Metadata`
+  - `8. Source Metadata`
 - 不允许留 `[TODO]`
 - 功能范围要求拆成“核心功能 / 可选增强 / 异常与边界场景”
 - `3.1 核心功能` 会进入 implementation planning required coverage；`3.2 可选增强` 只保留为 optional requirement refs，不得混入待确认问题
-- 带 `待确认` 标记或直接写成问题句式的条目不会进入 `PRODUCT_CONTRACT` machine block，只保留在正文中供后续人审
+- PRD 的 `1-6` 正文只保留产品承诺；显式 `推断 / 设计选择 / 建议 / 待确认问题` 只保留在 `Source Metadata`
+- `3.2 可选增强` 只允许保留已确定的 optional capability；没有则留空，不要用建议项补满
+- 带 `待确认` 标记或直接写成问题句式的条目不会进入 `PRODUCT_CONTRACT` machine block；在 PRD 中默认只保留到 `Source Metadata.open.questions`
 - 验收标准必须可测、可执行
 - 如果当前备注包含修订意见，优先保留上一轮已经合格的章节
 - 当备注中明确指出缺失章节时，系统会要求模型只输出缺失章节，再由程序合并回旧稿

@@ -15,15 +15,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ImplementationPlanGateTests {
 
     @Test
-    void succeedsWhenHtmlEntryDeclaresStableInlineOwnership() {
+    void succeedsWhenPlanUsesMinimalFileChangesWithoutRuntimeMetadata() {
         ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
         GateReport report = gate.evaluate(new ImplementationPlanGateInput(
                 new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html"), List.of()),
                 contractView(),
-                List.of("index.html", "game.js"),
-                List.of("创建网页入口", "补齐逻辑"),
+                List.of("index.html", "src/app.js"),
+                List.of("创建网页入口", "补齐脚本"),
                 List.of("CAP-1", "CAP-2"),
-                List.of("SKELETON", "INCREMENTAL"),
+                List.of("PATCH", "PATCH"),
                 true,
                 true,
                 null,
@@ -31,33 +31,26 @@ class ImplementationPlanGateTests {
                 ImplementationContinuationConstraints.empty(),
                 List.of(
                         new Subtask(
-                                "建立运行入口",
-                                "创建入口文件与最小表面",
+                                "建立入口",
+                                "创建页面入口",
                                 List.of("CAP-1"),
                                 List.of("页面可打开"),
-                                List.of("补齐游戏逻辑"),
+                                List.of("补齐脚本"),
                                 List.of("页面可打开"),
                                 true,
-                                DeliveryMode.SKELETON,
-                                List.of(new FileChange(
-                                        "index.html",
-                                        ChangeAction.WRITE,
-                                        "创建入口",
-                                        FileEditScope.HOST_HTML_PATCH,
-                                        RuntimeOwnershipMode.INLINE_HOST,
-                                        true
-                                ))
+                                DeliveryMode.PATCH,
+                                List.of(new FileChange("index.html", ChangeAction.WRITE, "创建入口"))
                         ),
                         new Subtask(
-                                "补齐游戏逻辑",
-                                "补齐核心行为",
+                                "补齐脚本",
+                                "补齐运行脚本",
                                 List.of("CAP-2"),
                                 List.of("输入可工作"),
                                 List.of(),
                                 List.of("输入可工作"),
                                 false,
-                                DeliveryMode.INCREMENTAL,
-                                List.of(new FileChange("game.js", ChangeAction.WRITE, "补齐逻辑"))
+                                DeliveryMode.PATCH,
+                                List.of(new FileChange("src/app.js", ChangeAction.WRITE, "补齐脚本"))
                         )
                 )
         ));
@@ -66,209 +59,73 @@ class ImplementationPlanGateTests {
     }
 
     @Test
-    void failsWhenHtmlEntryChangeOmitsRuntimeOwnership() {
+    void failsWhenContinuationPlanRegressesExistingFileToSkeleton() {
         ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
         GateReport report = gate.evaluate(new ImplementationPlanGateInput(
                 new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html"), List.of()),
                 contractView(),
-                List.of("index.html"),
-                List.of("创建网页入口"),
+                List.of("src/app.js"),
+                List.of("继续修复脚本"),
                 List.of("CAP-1"),
                 List.of("SKELETON"),
-                true,
-                true,
+                false,
+                false,
                 null,
-                ImplementationPatchTarget.NONE,
-                ImplementationContinuationConstraints.empty(),
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                new ImplementationContinuationConstraints(
+                        List.of("src/app.js"),
+                        List.of()
+                ),
                 List.of(new Subtask(
-                        "建立运行入口",
-                        "创建入口文件与最小表面",
+                        "继续修复脚本",
+                        "错误地把已有文件退回骨架",
                         List.of("CAP-1"),
-                        List.of("页面可打开"),
+                        List.of("脚本可运行"),
                         List.of(),
-                        List.of("页面可打开"),
-                        true,
+                        List.of("脚本可运行"),
+                        false,
                         DeliveryMode.SKELETON,
-                        List.of(new FileChange("index.html", ChangeAction.WRITE, "创建入口"))
+                        List.of(new FileChange("src/app.js", ChangeAction.WRITE, "重做脚本"))
                 ))
         ));
 
         assertFalse(report.passed());
-        assertTrue(report.issues().stream().anyMatch(issue -> issue.code().startsWith("PLAN_RUNTIME_")));
+        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("重新规划为 SKELETON")));
     }
 
     @Test
-    void failsWhenExternalCompanionSubtaskDoesNotOwnCompanionFile() {
+    void failsWhenContinuationPlanUsesReworkForProtectedHtmlEntry() {
         ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
         GateReport report = gate.evaluate(new ImplementationPlanGateInput(
                 new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html"), List.of()),
                 contractView(),
                 List.of("index.html"),
-                List.of("补齐入口接线"),
+                List.of("继续修复入口"),
                 List.of("CAP-1"),
-                List.of("PATCH"),
+                List.of("REWORK"),
                 true,
-                true,
-                null,
-                ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
-                ImplementationContinuationConstraints.empty(),
-                List.of(new Subtask(
-                        "补齐接线",
-                        "把入口切到 companion runtime",
-                        List.of("CAP-1"),
-                        List.of("页面可启动"),
-                        List.of(),
-                        List.of("入口接线完成"),
-                        true,
-                        DeliveryMode.PATCH,
-                        List.of(new FileChange(
-                                "index.html",
-                                ChangeAction.WRITE,
-                                "改为 companion runtime",
-                                FileEditScope.HOST_HTML_PATCH,
-                                RuntimeOwnershipMode.EXTERNAL_COMPANION
-                        ))
-                ))
-        ));
-
-        assertFalse(report.passed());
-        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("external runtime root")));
-    }
-
-    @Test
-    void failsWhenContinuationPlanSwitchesProtectedRuntimeOwnership() {
-        ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
-        GateReport report = gate.evaluate(new ImplementationPlanGateInput(
-                new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html"), List.of()),
-                contractView(),
-                List.of("index.html"),
-                List.of("继续入口"),
-                List.of("CAP-1"),
-                List.of("PATCH"),
-                true,
-                true,
+                false,
                 null,
                 ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
                 new ImplementationContinuationConstraints(
                         List.of("index.html"),
-                        List.of(new ImplementationContinuationConstraints.ProtectedHtmlEntryConstraint(
-                                "index.html",
-                                RuntimeOwnershipMode.INLINE_HOST
-                        ))
+                        List.of(new ImplementationContinuationConstraints.ProtectedHtmlEntryConstraint("index.html"))
                 ),
                 List.of(new Subtask(
-                        "继续入口",
-                        "补齐入口",
+                        "继续修复入口",
+                        "错误地整页重写已有入口",
                         List.of("CAP-1"),
-                        List.of("入口可运行"),
+                        List.of("入口可打开"),
                         List.of(),
-                        List.of("入口可运行"),
+                        List.of("入口可打开"),
                         true,
-                        DeliveryMode.PATCH,
-                        List.of(
-                                new FileChange(
-                                        "index.html",
-                                        ChangeAction.WRITE,
-                                        "改成 companion",
-                                        FileEditScope.HOST_HTML_PATCH,
-                                        RuntimeOwnershipMode.EXTERNAL_COMPANION
-                                ),
-                                new FileChange("index.app.js", ChangeAction.WRITE, "补齐 companion runtime")
-                        )
+                        DeliveryMode.REWORK,
+                        List.of(new FileChange("index.html", ChangeAction.WRITE, "整页重写"))
                 ))
         ));
 
         assertFalse(report.passed());
-        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("runtimeOwnership")));
-    }
-
-    @Test
-    void failsWhenStandaloneScriptDeclaresRuntimeOwnershipOrInlineScope() {
-        ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
-        GateReport report = gate.evaluate(new ImplementationPlanGateInput(
-                new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html"), List.of()),
-                contractView(),
-                List.of("index.html", "src/app.js"),
-                List.of("补齐入口与脚本"),
-                List.of("CAP-1"),
-                List.of("PATCH"),
-                true,
-                true,
-                null,
-                ImplementationPatchTarget.NONE,
-                ImplementationContinuationConstraints.empty(),
-                List.of(new Subtask(
-                        "补齐入口与脚本",
-                        "同时补宿主与脚本",
-                        List.of("CAP-1"),
-                        List.of("页面可运行"),
-                        List.of(),
-                        List.of("页面可运行"),
-                        true,
-                        DeliveryMode.PATCH,
-                        List.of(
-                                new FileChange(
-                                        "index.html",
-                                        ChangeAction.WRITE,
-                                        "补齐宿主入口",
-                                        FileEditScope.HOST_HTML_PATCH,
-                                        RuntimeOwnershipMode.INLINE_HOST
-                                ),
-                                new FileChange(
-                                        "src/app.js",
-                                        ChangeAction.WRITE,
-                                        "误把脚本当成宿主内联片段",
-                                        FileEditScope.INLINE_SCRIPT_PATCH,
-                                        RuntimeOwnershipMode.INLINE_HOST
-                                )
-                        )
-                ))
-        ));
-
-        assertFalse(report.passed());
-        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("非 HTML 文件必须为 null")));
-        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("必须使用 AUTO")));
-    }
-
-    @Test
-    void failsWhenInlineHostSubtaskAlsoDeclaresCompanionRuntimeScript() {
-        ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
-        GateReport report = gate.evaluate(new ImplementationPlanGateInput(
-                new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html"), List.of()),
-                contractView(),
-                List.of("index.html", "index.app.js"),
-                List.of("补齐入口"),
-                List.of("CAP-1"),
-                List.of("PATCH"),
-                true,
-                true,
-                null,
-                ImplementationPatchTarget.NONE,
-                ImplementationContinuationConstraints.empty(),
-                List.of(new Subtask(
-                        "补齐入口",
-                        "错误地同时保留宿主 ownership 和 companion script",
-                        List.of("CAP-1"),
-                        List.of("页面可运行"),
-                        List.of(),
-                        List.of("页面可运行"),
-                        true,
-                        DeliveryMode.PATCH,
-                        List.of(
-                                new FileChange(
-                                        "index.html",
-                                        ChangeAction.WRITE,
-                                        "保留 inline host",
-                                        FileEditScope.HOST_HTML_PATCH,
-                                        RuntimeOwnershipMode.INLINE_HOST
-                                ),
-                                new FileChange("index.app.js", ChangeAction.WRITE, "又声明 companion runtime")
-                        )
-                ))
-        ));
-
-        assertFalse(report.passed());
-        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("宿主与 companion ownership 不能并存")));
+        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("REWORK/整页重写")));
     }
 
     private ContractView contractView() {

@@ -26,12 +26,14 @@ final class DocumentStagePostProcessor {
     private final ContractExtractor contractExtractor;
     private final DocumentDraftAssembler draftAssembler;
     private final ContractMetadataSectionRenderer contractMetadataSectionRenderer;
+    private final PrdLowAuthorityContentCanonicalizer prdLowAuthorityContentCanonicalizer;
     private final PrdQuantitativeConstraintCanonicalizer prdQuantitativeConstraintCanonicalizer;
 
     DocumentStagePostProcessor(ContractExtractor contractExtractor, DocumentDraftAssembler draftAssembler) {
         this.contractExtractor = contractExtractor;
         this.draftAssembler = draftAssembler;
         this.contractMetadataSectionRenderer = new ContractMetadataSectionRenderer();
+        this.prdLowAuthorityContentCanonicalizer = new PrdLowAuthorityContentCanonicalizer(draftAssembler);
         this.prdQuantitativeConstraintCanonicalizer = new PrdQuantitativeConstraintCanonicalizer();
     }
 
@@ -85,14 +87,26 @@ final class DocumentStagePostProcessor {
             return markdown;
         }
         if (stageType == StageType.PRD) {
-            return prdQuantitativeConstraintCanonicalizer.canonicalize(
+            String lowAuthorityCanonicalized = prdLowAuthorityContentCanonicalizer.canonicalize(
                     canonicalMarkdown,
+                    contractExtractor.extractConstraintSourceMetadata(StructuredArtifactBlocks.stripAllKnownBlocks(canonicalMarkdown)),
+                    language
+            );
+            return prdQuantitativeConstraintCanonicalizer.canonicalize(
+                    lowAuthorityCanonicalized,
                     authoritativeSourceMetadata,
                     validationMetadata,
                     language
             );
         }
         return canonicalMarkdown.trim() + "\n";
+    }
+
+    String stripMachineBlocks(String markdown) {
+        if (markdown == null || markdown.isBlank()) {
+            return markdown;
+        }
+        return StructuredArtifactBlocks.stripAllKnownBlocks(markdown).trim() + "\n";
     }
 
     String upsertDocumentBlocks(

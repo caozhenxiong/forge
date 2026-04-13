@@ -138,7 +138,7 @@ class ImplementationContextResolverTests {
                         List.of(),
                         "",
                         true,
-                        false,
+                        true,
                         List.of()
                 ))
         );

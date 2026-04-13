@@ -3,6 +3,7 @@ package devflow.agent.executor;
 import devflow.agent.context.ContractView;
 import devflow.agent.quality.QualityPlan;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -20,13 +21,16 @@ final class ImplementationToolPromptBuilder {
 
                 硬约束：
                 1. 只能修改当前 subtask 明确列出的 writable files。
-                2. 修改已有文件前，必须先用 Read 做完整读取。
-                3. 优先用 Edit 做局部改动；创建新文件或整体重写时用 Write。
-                4. 删除文件时使用 Delete。
-                5. 搜索和找文件优先用 Grep / Glob。
-                6. 如果工具返回错误，先在当前 tool loop 内修正，不要直接放弃子任务。
-                7. 不允许输出骨架、占位、TODO 或半成品冒充完成。
-                8. 完成后再给出一句简洁总结，不要输出大段解释。
+                2. 只能引入两类本地依赖路径：当前 writable files，或项目里已经存在的本地资产。
+                3. 修改已有文件前，必须先用 Read 做完整读取。
+                4. 优先用 Edit 做局部改动；Write 默认只用于新文件。只有显式 REWORK 时，现有文件才允许整文件重写。
+                5. 删除文件时使用 Delete。
+                6. 搜索和找文件优先用 Grep / Glob。
+                7. Bash 只允许两类命令：确定性的只读命令，或单段、确定性的简单文件命令；不要用 Bash 做就地编辑、管道写入或链式多步写入。
+                8. 如果 Bash 被拒绝，收窄命令或改用 Write / Edit / Delete，不要原样重试。
+                9. 如果工具返回错误，先在当前 tool loop 内修正，不要直接放弃子任务。
+                10. 不允许输出骨架、占位、TODO 或半成品冒充完成。
+                11. 完成后再给出一句简洁总结，不要输出大段解释。
                 """.trim();
     }
 
@@ -53,6 +57,9 @@ final class ImplementationToolPromptBuilder {
                 # Writable Files
                 %s
 
+                # Current File Contracts
+                %s
+
                 # Current Subtask
                 %s
 
@@ -72,11 +79,69 @@ final class ImplementationToolPromptBuilder {
                 """.formatted(
                 projectPath,
                 writableFiles.isEmpty() ? "- (none)" : writableFiles.stream().map(value -> "- " + value).collect(Collectors.joining("\n")),
+                renderFileContracts(projectPath, subtask),
                 taskPackage == null ? "" : taskPackage.toMarkdown(),
                 contractView == null ? "" : contractView.toMarkdown(),
                 qualityPlan == null ? "" : qualityPlan.toMarkdown(devflow.agent.i18n.DocumentLanguage.ZH),
                 feedback == null || feedback.isBlank() ? "无" : feedback,
                 coderContextMarkdown == null || coderContextMarkdown.isBlank() ? "无" : coderContextMarkdown
         ).trim();
+    }
+
+    private String renderFileContracts(Path projectPath, Subtask subtask) {
+        if (subtask == null || subtask.changes() == null || subtask.changes().isEmpty()) {
+            return "- (none)";
+        }
+        List<FileChange> changes = subtask.changes().stream()
+                .filter(change -> change != null && change.path() != null && !change.path().isBlank())
+                .toList();
+        if (changes.isEmpty()) {
+            return "- (none)";
+        }
+        return changes.stream()
+                .map(change -> renderFileContract(projectPath, change, changes))
+                .collect(Collectors.joining("\n"));
+    }
+
+    private String renderFileContract(Path projectPath, FileChange change, List<FileChange> changes) {
+        Path relativePath = Path.of(change.path()).normalize();
+        StringBuilder builder = new StringBuilder("- ")
+                .append(projectPath.resolve(relativePath).normalize());
+        builder.append(" | action=").append(change.action());
+        builder.append(" | editScope=").append(change.effectiveEditScope());
+        if (change.runtimeOwnership() != null) {
+            builder.append(" | runtimeOwnership=").append(change.runtimeOwnership());
+        }
+        List<String> declaredRuntimeRoots = declaredRuntimeRoots(relativePath, changes);
+        if (!declaredRuntimeRoots.isEmpty()) {
+            builder.append(" | declaredRuntimeRoots=").append(String.join(", ", declaredRuntimeRoots));
+        }
+        if (change.hostHtmlPatchRequired() || change.effectiveEditScope() == FileEditScope.HOST_HTML_PATCH) {
+            builder.append(" | constraint=仅修宿主 HTML 结构与接线，不要把主运行时代码内联回宿主页面");
+        }
+        return builder.toString();
+    }
+
+    private List<String> declaredRuntimeRoots(Path htmlEntryPath, List<FileChange> changes) {
+        if (htmlEntryPath == null || !devflow.agent.util.ProjectPathSupport.isHtml(htmlEntryPath) || changes == null || changes.isEmpty()) {
+            return List.of();
+        }
+        Path htmlParent = htmlEntryPath.getParent() == null ? Path.of("") : htmlEntryPath.getParent().normalize();
+        ArrayList<String> roots = new ArrayList<>();
+        for (FileChange change : changes) {
+            if (change == null || change.path() == null || change.path().isBlank()) {
+                continue;
+            }
+            Path candidate = Path.of(change.path()).normalize();
+            if (!devflow.agent.util.ProjectPathSupport.isRuntimeScript(candidate)) {
+                continue;
+            }
+            Path candidateParent = candidate.getParent() == null ? Path.of("") : candidate.getParent().normalize();
+            if (!htmlParent.toString().isBlank() && !candidateParent.equals(htmlParent) && !candidateParent.startsWith(htmlParent)) {
+                continue;
+            }
+            roots.add(candidate.toString().replace('\\', '/'));
+        }
+        return List.copyOf(roots);
     }
 }

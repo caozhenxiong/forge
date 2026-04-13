@@ -6,6 +6,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ImplementationPlanningPayloadParserTests {
@@ -79,6 +80,81 @@ class ImplementationPlanningPayloadParserTests {
         assertEquals("summary", result.payload().summary());
         assertEquals(1, llmProvider.generateCalls());
         assertTrue(result.repairedResponse().contains("\"subtasks\""));
+    }
+
+    @Test
+    void parsesMinimalSubtaskDetailSchema() {
+        RecordingLlmProvider llmProvider = new RecordingLlmProvider(List.of());
+        ImplementationPlanningPayloadParser parser = new ImplementationPlanningPayloadParser(
+                llmProvider,
+                new ObjectMapper(),
+                2
+        );
+
+        ImplementationPlanningPayloadParser.ParseResult<ImplementationSubtaskDetail> result = parser.parseSubtaskDetail(
+                "subtask-1",
+                """
+                {
+                  "subtaskId": "subtask-1",
+                  "changes": [
+                    {
+                      "path": "src/app.js",
+                      "action": "WRITE",
+                      "reason": "补齐入口脚本"
+                    }
+                  ]
+                }
+                """,
+                null,
+                1
+        );
+
+        assertEquals("subtask-1", result.payload().subtaskId());
+        assertEquals(1, result.payload().changes().size());
+        assertEquals("src/app.js", result.payload().changes().getFirst().path());
+        assertEquals(0, llmProvider.generateCalls());
+    }
+
+    @Test
+    void rejectsLegacySubtaskDetailFieldsWhenRepairCannotProduceMinimalSchema() {
+        RecordingLlmProvider llmProvider = new RecordingLlmProvider(List.of("""
+                {
+                  "subtaskId": "subtask-1",
+                  "changes": [
+                    {
+                      "path": "src/app.js",
+                      "action": "WRITE",
+                      "reason": "补齐入口脚本",
+                      "editScope": "AUTO"
+                    }
+                  ]
+                }
+                """));
+        ImplementationPlanningPayloadParser parser = new ImplementationPlanningPayloadParser(
+                llmProvider,
+                new ObjectMapper(),
+                2
+        );
+
+        assertThrows(
+                ImplementationPlanningException.class,
+                () -> parser.parseSubtaskDetail("subtask-1", """
+                        {
+                          "subtaskId": "subtask-1",
+                          "changes": [
+                            {
+                              "path": "src/app.js",
+                              "action": "WRITE",
+                              "reason": "补齐入口脚本",
+                              "editScope": "AUTO",
+                              "runtimeOwnership": null,
+                              "hostHtmlPatchRequired": false
+                            }
+                          ]
+                        }
+                        """, null, 1)
+        );
+        assertEquals(1, llmProvider.generateCalls());
     }
 
     private static final class RecordingLlmProvider implements LlmProvider {

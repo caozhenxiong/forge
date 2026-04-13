@@ -17,6 +17,8 @@ import java.util.List;
  */
 final class ImplementationOutlineGate {
 
+    private static final String OUTLINE_UNIT_ID = "outline";
+
     private static final String OUTLINE_RETRY_GUIDANCE = """
             请重新规划 implementation outline，并确保：
             1. 子任务集合覆盖执行契约要求的入口与最小可运行表面
@@ -26,9 +28,11 @@ final class ImplementationOutlineGate {
             """;
 
     private final ImplementationPlanCoverageAnalyzer coverageAnalyzer;
+    private final ImplementationPlanChangeGate changeGate;
 
     ImplementationOutlineGate(ImplementationPlanCoverageAnalyzer coverageAnalyzer) {
         this.coverageAnalyzer = coverageAnalyzer;
+        this.changeGate = new ImplementationPlanChangeGate();
     }
 
     GateReport evaluate(
@@ -36,6 +40,7 @@ final class ImplementationOutlineGate {
             ContractView contractView,
             QualityPlan qualityPlan,
             DeliveryPolicyEnvelope deliveryPolicy,
+            ImplementationContinuationConstraints continuationConstraints,
             ImplementationOutline outline
     ) {
         if (outline == null || outline.subtasks() == null || outline.subtasks().isEmpty()) {
@@ -51,6 +56,7 @@ final class ImplementationOutlineGate {
         List<GateIssue> issues = new ArrayList<>();
         issues.addAll(validateTargetPaths(deliveryPolicy, outline.subtasks()));
         issues.addAll(validateRunnableMilestones(contractView, outline.subtasks()));
+        issues.addAll(changeGate.evaluateOutlineContinuationConstraints(continuationConstraints, outline.subtasks()));
         CoverageResult coverageResult = coverageAnalyzer.analyze(
                 fingerprint,
                 contractView,
@@ -92,7 +98,11 @@ final class ImplementationOutlineGate {
                 issues.add(new GateIssue(
                         "PLAN_OUTLINE_" + issueIndex++,
                         "Outline 子任务必须声明至少一个 targetPaths: " + blankIfNull(subtask.id()),
-                        GateFailureDisposition.REPLAN_CURRENT_STAGE
+                        GateFailureDisposition.REPLAN_CURRENT_STAGE,
+                        GateIssueContext.forPlanningUnit(
+                                ImplementationPlanningUnitKind.OUTLINE,
+                                OUTLINE_UNIT_ID
+                        )
                 ));
                 continue;
             }
@@ -101,7 +111,11 @@ final class ImplementationOutlineGate {
                         "PLAN_OUTLINE_" + issueIndex++,
                         "Outline 子任务 targetPaths 不能超过 %d 个: %s".formatted(deliveryPolicy.maxFiles(), subtask.id()),
                         GateFailureDisposition.REPLAN_CURRENT_STAGE,
-                        GateIssueContext.forPaths(targetPaths)
+                        GateIssueContext.forPlanningUnitPaths(
+                                ImplementationPlanningUnitKind.OUTLINE,
+                                OUTLINE_UNIT_ID,
+                                targetPaths
+                        )
                 ));
             }
         }
@@ -130,7 +144,11 @@ final class ImplementationOutlineGate {
                         "PLAN_RUNNABLE_MILESTONE_" + issueIndex++,
                         "可运行里程碑子任务必须直接覆盖 HTML 入口文件，不能只改内部逻辑模块。",
                         GateFailureDisposition.REPLAN_CURRENT_STAGE,
-                        GateIssueContext.forPaths(subtask.targetPaths())
+                        GateIssueContext.forPlanningUnitPaths(
+                                ImplementationPlanningUnitKind.OUTLINE,
+                                OUTLINE_UNIT_ID,
+                                subtask.targetPaths()
+                        )
                 ));
             }
         }
@@ -192,7 +210,11 @@ final class ImplementationOutlineGate {
             issues.add(new GateIssue(
                     codePrefix + "_" + (index + 1),
                     message,
-                    GateFailureDisposition.REPLAN_CURRENT_STAGE
+                    GateFailureDisposition.REPLAN_CURRENT_STAGE,
+                    GateIssueContext.forPlanningUnit(
+                            ImplementationPlanningUnitKind.OUTLINE,
+                            OUTLINE_UNIT_ID
+                    )
             ));
         }
         return issues;

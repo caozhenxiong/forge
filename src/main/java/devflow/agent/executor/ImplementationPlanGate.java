@@ -14,6 +14,8 @@ import java.util.List;
  */
 class ImplementationPlanGate implements DeterministicGate<ImplementationPlanGateInput> {
 
+    private static final String OUTLINE_UNIT_ID = "outline";
+
     private static final String PLANNING_RETRY_GUIDANCE = """
             请重新规划子任务，并确保：
             1. 子任务集合覆盖执行契约要求的入口与最小可运行表面
@@ -49,8 +51,6 @@ class ImplementationPlanGate implements DeterministicGate<ImplementationPlanGate
         issues.addAll(toIssues("PLAN_EXECUTION_CONTRACT", coverageResult));
         issues.addAll(toIssues("PLAN_RUNNABLE_MILESTONE", runnableMilestoneResult));
         issues.addAll(changeGate.evaluate(
-                input.fingerprint(),
-                input.contractView(),
                 input.continuationConstraints(),
                 input.subtasks()
         ));
@@ -85,7 +85,11 @@ class ImplementationPlanGate implements DeterministicGate<ImplementationPlanGate
             issues.add(new GateIssue(
                     codePrefix + "_" + (index + 1),
                     message,
-                    GateFailureDisposition.REPLAN_CURRENT_STAGE
+                    GateFailureDisposition.REPLAN_CURRENT_STAGE,
+                    GateIssueContext.forPlanningUnit(
+                            ImplementationPlanningUnitKind.OUTLINE,
+                            OUTLINE_UNIT_ID
+                    )
             ));
         }
         return issues;

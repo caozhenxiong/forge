@@ -419,7 +419,7 @@ class ContractExtractorTests {
     }
 
     @Test
-    void keepsReferenceContractContentAsAuthoredInsteadOfGuessingLowAuthorityLabels() {
+    void prdProjectionExcludesExplicitLowAuthorityLabelsWhileDesignKeepsAuthoredReferenceContent() {
         String prd = """
                 # 产品需求文档
 
@@ -492,8 +492,8 @@ class ContractExtractorTests {
         String markdown = contractView.toMarkdown();
 
         assertTrue(markdown.contains("支持开始、暂停、重开"));
-        assertTrue(markdown.contains("Recommendation: 可以做成单个 HTML 文件"));
-        assertTrue(markdown.contains("Recommendation: 输入响应保持在 100ms 内"));
+        assertFalse(markdown.contains("Recommendation: 可以做成单个 HTML 文件"));
+        assertFalse(markdown.contains("Recommendation: 输入响应保持在 100ms 内"));
         assertTrue(markdown.contains("Design Choice: 所有代码封装在单个 HTML 文件中"));
         assertTrue(markdown.contains("Design Choice: 页面、状态、渲染逻辑全部内联"));
     }

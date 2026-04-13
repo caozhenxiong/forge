@@ -50,7 +50,7 @@ class StageOperationExecutorTests {
                 new StageExecution(StageType.IMPLEMENTATION, StageStatus.RUNNING, 1, null, null, null, null),
                 StructuredArtifactBlocks.renderJsonBlock(
                         ArtifactBlockKind.IMPLEMENTATION_STAGE_STATUS,
-                        new ImplementationStageStatusPayload(false, false, true, java.util.List.of("补齐核心逻辑"))
+                        new ImplementationStageStatusPayload(false, false, java.util.List.of("补齐核心逻辑"))
                 ),
                 DocumentLanguage.ZH
         );
@@ -79,7 +79,7 @@ class StageOperationExecutorTests {
                 new StageExecution(StageType.IMPLEMENTATION, StageStatus.RUNNING, 1, null, null, null, null),
                 StructuredArtifactBlocks.renderJsonBlock(
                         ArtifactBlockKind.IMPLEMENTATION_STAGE_STATUS,
-                        new ImplementationStageStatusPayload(false, true, false, java.util.List.of())
+                        new ImplementationStageStatusPayload(false, true, java.util.List.of())
                 ),
                 DocumentLanguage.ZH
         );

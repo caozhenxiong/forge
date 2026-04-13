@@ -71,10 +71,7 @@ class ImplementationPlannerTests {
                             {
                               "path": "src/a.js",
                               "action": "WRITE",
-                              "reason": "update a",
-                              "editScope": "AUTO",
-                              "runtimeOwnership": null,
-                              "hostHtmlPatchRequired": false
+                              "reason": "update a"
                             }
                           ]
                         }
@@ -86,10 +83,7 @@ class ImplementationPlannerTests {
                             {
                               "path": "src/c.js",
                               "action": "WRITE",
-                              "reason": "wrong path",
-                              "editScope": "AUTO",
-                              "runtimeOwnership": null,
-                              "hostHtmlPatchRequired": false
+                              "reason": "wrong path"
                             }
                           ]
                         }
@@ -101,10 +95,7 @@ class ImplementationPlannerTests {
                             {
                               "path": "src/b.js",
                               "action": "WRITE",
-                              "reason": "update b",
-                              "editScope": "AUTO",
-                              "runtimeOwnership": null,
-                              "hostHtmlPatchRequired": false
+                              "reason": "update b"
                             }
                           ]
                         }
@@ -144,6 +135,99 @@ class ImplementationPlannerTests {
                 .anyMatch(entry -> entry.message().contains("实现规划｜单元驳回｜类型=SUBTASK_DETAIL｜单元=subtask-2")));
         assertTrue(eventJournal.snapshot().stream()
                 .anyMatch(entry -> entry.message().contains("实现规划｜单元通过｜类型=OUTLINE｜单元=outline")));
+    }
+
+    @Test
+    void rejectsContinuationReworkAtOutlineBeforeEnteringSubtaskDetail() {
+        SequenceLlmProvider llmProvider = new SequenceLlmProvider(List.of(
+                response("""
+                        {
+                          "summary": "invalid continuation outline",
+                          "subtasks": [
+                            {
+                              "id": "subtask-1",
+                              "title": "repair host html",
+                              "goal": "rewrite host html",
+                              "deliveryMode": "REWORK",
+                              "runnableMilestone": true,
+                              "coverageRefs": [],
+                              "ownedCapabilities": ["cap-1"],
+                              "deferredCapabilities": [],
+                              "acceptanceCriteria": ["acc-1"],
+                              "targetPaths": ["index.html"]
+                            }
+                          ]
+                        }
+                        """),
+                response("""
+                        {
+                          "summary": "valid continuation outline",
+                          "subtasks": [
+                            {
+                              "id": "subtask-1",
+                              "title": "repair host html",
+                              "goal": "patch host html wiring only",
+                              "deliveryMode": "PATCH",
+                              "runnableMilestone": true,
+                              "coverageRefs": [],
+                              "ownedCapabilities": ["cap-1"],
+                              "deferredCapabilities": [],
+                              "acceptanceCriteria": ["acc-1"],
+                              "targetPaths": ["index.html"]
+                            }
+                          ]
+                        }
+                        """),
+                response("""
+                        {
+                          "subtaskId": "subtask-1",
+                          "changes": [
+                            {
+                              "path": "index.html",
+                              "action": "WRITE",
+                              "reason": "repair host html wiring"
+                            }
+                          ]
+                        }
+                        """)
+        ));
+        ImplementationPlanner planner = newPlanner(llmProvider);
+        ImplementationEventJournal eventJournal = newEventJournal();
+
+        ImplementationPlan plan = planner.plan(
+                tempDir,
+                runRecord(),
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                false,
+                new DeliveryPolicyEnvelope(DeliveryMode.PATCH, 2, 4, true, false, true, List.of()),
+                null,
+                QualityPlan.empty(),
+                null,
+                devflow.agent.i18n.DocumentLanguage.ZH,
+                devflow.agent.review.FixMode.PATCH,
+                devflow.agent.review.ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                "",
+                new ImplementationContinuationConstraints(
+                        List.of("index.html"),
+                        List.of(new ImplementationContinuationConstraints.ProtectedHtmlEntryConstraint("index.html"))
+                ),
+                eventJournal
+        );
+
+        assertEquals(1, plan.subtasks().size());
+        assertEquals(2, llmProvider.outlinePromptCount());
+        assertEquals(1, llmProvider.subtaskPromptCount("subtask-1"));
+        assertTrue(eventJournal.snapshot().stream().anyMatch(entry ->
+                entry.message().contains("实现规划｜单元驳回｜类型=OUTLINE｜单元=outline")
+                        && entry.message().contains("REWORK/整页重写: index.html")));
+        assertTrue(eventJournal.snapshot().stream().noneMatch(entry ->
+                entry.message().contains("实现规划｜单元驳回｜类型=SUBTASK_DETAIL｜单元=subtask-1")));
     }
 
     private ImplementationPlanner newPlanner(SequenceLlmProvider llmProvider) {

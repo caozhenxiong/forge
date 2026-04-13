@@ -136,11 +136,14 @@ final class SubtaskAttemptStepExecutor {
         if (effectiveSubtask.changes() == null || effectiveSubtask.changes().isEmpty()) {
             return;
         }
+        TaskPackage effectiveTaskPackage = context.taskPackage() == null
+                ? null
+                : context.taskPackage().alignToSubtask(effectiveSubtask);
         implementationToolLoopExecutor.execute(
                 context.projectPath(),
                 context.runRecord(),
                 effectiveSubtask,
-                context.taskPackage(),
+                effectiveTaskPackage,
                 context.contractView(),
                 context.qualityPlan(),
                 context.fingerprint(),
@@ -172,7 +175,7 @@ final class SubtaskAttemptStepExecutor {
                 context.subtask().deferredCapabilities(),
                 context.subtask().acceptanceCriteria(),
                 context.subtask().runnableMilestone(),
-                context.subtask().deliveryMode(),
+                context.executionState() == null ? context.subtask().deliveryMode() : context.executionState().deliveryMode(),
                 activeChanges
         );
     }

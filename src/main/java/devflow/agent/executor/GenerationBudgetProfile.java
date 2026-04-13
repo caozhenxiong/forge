@@ -15,10 +15,6 @@ public final class GenerationBudgetProfile {
     public static final int FILE_CONTEXT_PREVIEW_CHARS = 12000;
     public static final int INLINE_SCRIPT_PREVIEW_CHARS = 10000;
     public static final int INLINE_STYLE_PREVIEW_CHARS = INLINE_SCRIPT_PREVIEW_CHARS;
-    public static final double STRUCTURED_REVIEW_OUTPUT_RATIO = 0.08d;
-    public static final double DOCUMENT_REVIEW_OUTPUT_RATIO = 0.10d;
-    public static final double IMPLEMENTATION_REVIEW_OUTPUT_RATIO = 0.12d;
-    public static final double SUBTASK_REVIEW_OUTPUT_RATIO = 0.12d;
     public static final double SUPERVISOR_DECISION_OUTPUT_RATIO = 0.08d;
     public static final double GENERATION_RECOVERY_OUTPUT_RATIO = 0.08d;
     public static final double CODE_REVIEW_OUTPUT_RATIO = 0.40d;
@@ -32,10 +28,6 @@ public final class GenerationBudgetProfile {
     private GenerationBudgetProfile() {
     }
 
-    public static double structuredReviewOutputRatio() {
-        return readPositiveDouble(PREFIX + "structured-review-output-ratio", STRUCTURED_REVIEW_OUTPUT_RATIO);
-    }
-
     public static double documentFullDraftOutputRatio() {
         return readPositiveDouble(PREFIX + "document-full-draft-output-ratio", FULL_BUDGET_RATIO);
     }
@@ -44,24 +36,12 @@ public final class GenerationBudgetProfile {
         return readPositiveDouble(PREFIX + "document-patch-output-ratio", PATCH_BUDGET_RATIO);
     }
 
-    public static double documentReviewOutputRatio() {
-        return readPositiveDouble(PREFIX + "document-review-output-ratio", DOCUMENT_REVIEW_OUTPUT_RATIO);
-    }
-
-    public static double implementationReviewOutputRatio() {
-        return readPositiveDouble(PREFIX + "implementation-review-output-ratio", IMPLEMENTATION_REVIEW_OUTPUT_RATIO);
-    }
-
     public static double implementationPlanOutputRatio() {
         return readPositiveDouble(PREFIX + "implementation-plan-output-ratio", FULL_BUDGET_RATIO);
     }
 
     public static double implementationPlanRepairOutputRatio() {
         return readPositiveDouble(PREFIX + "implementation-plan-repair-output-ratio", FULL_BUDGET_RATIO);
-    }
-
-    public static double subtaskReviewOutputRatio() {
-        return readPositiveDouble(PREFIX + "subtask-review-output-ratio", SUBTASK_REVIEW_OUTPUT_RATIO);
     }
 
     public static double supervisorDecisionOutputRatio() {

@@ -76,14 +76,14 @@ final class OllamaChatExecutor {
             lastTelemetry.set(telemetry);
             LlmChatResponse mapped = toChatResponse(response, telemetry);
             if (!mapped.content().isBlank() || !mapped.toolCalls().isEmpty()) {
-                if (DONE_REASON_LENGTH.equalsIgnoreCase(response.doneReason())) {
-                    throw new LlmInvocationException(
-                            LlmFailureReason.OUTPUT_TRUNCATED,
-                            "Ollama chat returned truncated content for model %s on attempt %d (done=%s, done_reason=%s, eval_count=%s)"
-                                    .formatted(model, attempt, response.done(), response.doneReason(), response.evalCount())
-                    );
-                }
                 return mapped;
+            }
+            if (DONE_REASON_LENGTH.equalsIgnoreCase(response.doneReason())) {
+                throw new LlmInvocationException(
+                        LlmFailureReason.OUTPUT_TRUNCATED,
+                        "Ollama chat returned truncated but unusable content for model %s on attempt %d (done=%s, done_reason=%s, eval_count=%s)"
+                                .formatted(model, attempt, response.done(), response.doneReason(), response.evalCount())
+                );
             }
         }
         throw new LlmInvocationException(

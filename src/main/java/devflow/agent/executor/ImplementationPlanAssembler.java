@@ -43,7 +43,13 @@ final class ImplementationPlanAssembler {
                 safeList(outlineSubtask.acceptanceCriteria()),
                 outlineSubtask.runnableMilestone(),
                 outlineSubtask.deliveryMode(),
-                detail.changes()
+                detail.changes().stream()
+                        .map(change -> new FileChange(
+                                change.path(),
+                                change.action(),
+                                change.reason()
+                        ))
+                        .toList()
         );
     }
 

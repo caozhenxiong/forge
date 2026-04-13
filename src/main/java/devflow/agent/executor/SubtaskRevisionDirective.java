@@ -9,18 +9,26 @@ import java.util.List;
  * 不再要求执行器从 retry prose 中反推 edit scope 或 patch 入口。
  */
 record SubtaskRevisionDirective(
-        List<FileChange> retryChanges
+        List<FileChange> retryChanges,
+        DeliveryMode nextDeliveryMode
 ) {
 
     static SubtaskRevisionDirective empty() {
-        return new SubtaskRevisionDirective(List.of());
+        return new SubtaskRevisionDirective(List.of(), null);
     }
 
     static SubtaskRevisionDirective retry(List<FileChange> retryChanges) {
-        return new SubtaskRevisionDirective(retryChanges == null ? List.of() : List.copyOf(retryChanges));
+        return new SubtaskRevisionDirective(retryChanges == null ? List.of() : List.copyOf(retryChanges), null);
+    }
+
+    static SubtaskRevisionDirective patch(List<FileChange> retryChanges) {
+        return new SubtaskRevisionDirective(
+                retryChanges == null ? List.of() : List.copyOf(retryChanges),
+                DeliveryMode.PATCH
+        );
     }
 
     boolean active() {
-        return retryChanges != null && !retryChanges.isEmpty();
+        return (retryChanges != null && !retryChanges.isEmpty()) || nextDeliveryMode != null;
     }
 }

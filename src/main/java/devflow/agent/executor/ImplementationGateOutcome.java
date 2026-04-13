@@ -11,6 +11,6 @@ import java.util.List;
 record ImplementationGateOutcome(
         List<SubtaskExecutionReport> reports,
         ImplementationStageStatus stageStatus,
-        ArchitectIntegrationCheckResult architectCheckResult
+        ArchitectIntegrationCheckResult contractGateResult
 ) {
 }

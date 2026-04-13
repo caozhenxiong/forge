@@ -7,23 +7,35 @@ import java.util.Map;
  */
 interface ImplementationTool {
 
-    String name();
+    ImplementationToolSpecification specification();
 
-    String description();
-
-    Map<String, Object> inputSchema();
-
-    boolean readOnly();
-
-    default boolean concurrencySafe() {
-        return readOnly();
+    default String name() {
+        return specification().name();
     }
 
-    int maxResultSizeChars();
+    default String description() {
+        return specification().description();
+    }
+
+    default Map<String, Object> inputSchema() {
+        return specification().inputSchema();
+    }
+
+    default boolean readOnly() {
+        return specification().readOnly();
+    }
+
+    default boolean concurrencySafe() {
+        return specification().concurrencySafe();
+    }
+
+    default int maxResultSizeChars() {
+        return specification().maxResultSizeChars();
+    }
 
     ToolInvocationResult invoke(LlmToolCall toolCall, ImplementationToolContext context);
 
     default LlmToolDefinition toDefinition() {
-        return new LlmToolDefinition(name(), description(), inputSchema());
+        return specification().toDefinition();
     }
 }

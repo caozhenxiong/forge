@@ -11,11 +11,15 @@ import devflow.agent.i18n.PlaceholderValues;
 final class ImplementationRuntimeArtifactRenderer {
 
     private final ImplementationStateSnapshotSerializer stateSnapshotSerializer;
+    private final ImplementationStageStatusArtifactRenderer stageStatusArtifactRenderer;
     private final ImplementationProgressRenderer progressRenderer;
+    private final ImplementationDiagnosticRenderer diagnosticRenderer;
 
     ImplementationRuntimeArtifactRenderer(ObjectMapper objectMapper) {
         this.stateSnapshotSerializer = new ImplementationStateSnapshotSerializer(objectMapper);
+        this.stageStatusArtifactRenderer = new ImplementationStageStatusArtifactRenderer();
         this.progressRenderer = new ImplementationProgressRenderer();
+        this.diagnosticRenderer = new ImplementationDiagnosticRenderer();
     }
 
     String renderEvents(ImplementationRuntimeSnapshot snapshot) {
@@ -37,6 +41,14 @@ final class ImplementationRuntimeArtifactRenderer {
 
     String renderStateJson(ImplementationRuntimeSnapshot runtimeSnapshot) {
         return stateSnapshotSerializer.renderStateJson(runtimeSnapshot);
+    }
+
+    String renderStageStatus(ImplementationRuntimeSnapshot runtimeSnapshot) {
+        return stageStatusArtifactRenderer.renderBlock(runtimeSnapshot == null ? null : runtimeSnapshot.stageStatus());
+    }
+
+    String renderDiagnostics(ImplementationRuntimeSnapshot runtimeSnapshot) {
+        return diagnosticRenderer.renderArtifact(runtimeSnapshot);
     }
 
     /**

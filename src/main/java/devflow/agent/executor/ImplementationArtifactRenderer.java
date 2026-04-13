@@ -46,6 +46,10 @@ class ImplementationArtifactRenderer {
         return runtimeArtifactRenderer.renderEvents(snapshot);
     }
 
+    String renderDiagnostics(ImplementationRuntimeSnapshot snapshot) {
+        return runtimeArtifactRenderer.renderDiagnostics(snapshot);
+    }
+
     String renderRepairAlignment(
             List<SubtaskExecutionReport> reports,
             String note,
@@ -57,6 +61,10 @@ class ImplementationArtifactRenderer {
 
     String renderStateJson(ImplementationRuntimeSnapshot runtimeSnapshot) {
         return runtimeArtifactRenderer.renderStateJson(runtimeSnapshot);
+    }
+
+    String renderStageStatus(ImplementationRuntimeSnapshot runtimeSnapshot) {
+        return runtimeArtifactRenderer.renderStageStatus(runtimeSnapshot);
     }
 
     /**

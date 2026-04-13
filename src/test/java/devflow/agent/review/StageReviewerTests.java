@@ -2416,7 +2416,7 @@ class StageReviewerTests {
                 StageType.IMPLEMENTATION,
                 StructuredArtifactBlocks.renderJsonBlock(
                         ArtifactBlockKind.IMPLEMENTATION_STAGE_STATUS,
-                        new ImplementationStageStatusPayload(true, true, false, java.util.List.of())
+                        new ImplementationStageStatusPayload(true, true, java.util.List.of())
                 )
         );
 

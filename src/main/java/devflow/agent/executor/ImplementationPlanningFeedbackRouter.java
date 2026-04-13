@@ -5,8 +5,8 @@ import java.util.List;
 /**
  * 把最终 plan gate 的失败项路由回 outline 或具体 subtask detail。
  *
- * <p>路由规则只依赖确定性 gate code 和 targetPaths 命中关系，
- * 不解析自然语言 prose。
+ * <p>路由规则只消费 gate issue 里显式携带的 planning unit 上下文，
+ * 不再通过 code 前缀或自然语言 prose 反推该重试哪一层。
  */
 final class ImplementationPlanningFeedbackRouter {
 
@@ -21,24 +21,9 @@ final class ImplementationPlanningFeedbackRouter {
             if (issue == null) {
                 continue;
             }
-            if (issue.code().startsWith("PLAN_EXECUTION_CONTRACT_")
-                    || issue.code().startsWith("PLAN_RUNNABLE_MILESTONE_")
-                    || issue.code().startsWith("PLAN_OUTLINE_")) {
-                return new RouteDecision(
-                        ImplementationPlanningUnitKind.OUTLINE,
-                        "outline",
-                        issue.message()
-                );
-            }
-            if (issue.code().startsWith("PLAN_RUNTIME_") || issue.code().startsWith("PLAN_CONTINUATION_")) {
-                String subtaskId = resolveSubtaskId(outline, issue.context());
-                if (subtaskId != null) {
-                    return new RouteDecision(
-                            ImplementationPlanningUnitKind.SUBTASK_DETAIL,
-                            subtaskId,
-                            issue.message()
-                    );
-                }
+            RouteDecision decision = routeStructuredIssue(issue, outline);
+            if (decision != null) {
+                return decision;
             }
         }
         return new RouteDecision(
@@ -48,9 +33,38 @@ final class ImplementationPlanningFeedbackRouter {
         );
     }
 
-    private String resolveSubtaskId(ImplementationOutline outline, GateIssueContext context) {
-        if (context == null || context.paths().isEmpty()) {
+    private RouteDecision routeStructuredIssue(
+            GateIssue issue,
+            ImplementationOutline outline
+    ) {
+        GateIssueContext context = issue.context();
+        if (context == null || context.planningUnitKind() == null) {
             return null;
+        }
+        if (context.planningUnitKind() == ImplementationPlanningUnitKind.OUTLINE) {
+            return new RouteDecision(
+                    ImplementationPlanningUnitKind.OUTLINE,
+                    "outline",
+                    issue.message()
+            );
+        }
+        String subtaskId = blankIfNull(context.planningUnitId());
+        if (subtaskId.isBlank()) {
+            subtaskId = resolveSubtaskId(outline, context.paths());
+        }
+        if (subtaskId.isBlank()) {
+            return null;
+        }
+        return new RouteDecision(
+                ImplementationPlanningUnitKind.SUBTASK_DETAIL,
+                subtaskId,
+                issue.message()
+        );
+    }
+
+    private String resolveSubtaskId(ImplementationOutline outline, List<String> paths) {
+        if (paths == null || paths.isEmpty()) {
+            return "";
         }
         String resolvedSubtaskId = null;
         for (ImplementationOutlineSubtask subtask : outline.subtasks()) {
@@ -58,13 +72,17 @@ final class ImplementationPlanningFeedbackRouter {
                 continue;
             }
             for (String path : subtask.targetPaths()) {
-                if (path == null || path.isBlank() || !context.paths().contains(path.trim())) {
+                if (path == null || path.isBlank() || !paths.contains(path.trim())) {
                     continue;
                 }
                 resolvedSubtaskId = subtask.id();
             }
         }
-        return resolvedSubtaskId == null || resolvedSubtaskId.isBlank() ? null : resolvedSubtaskId;
+        return blankIfNull(resolvedSubtaskId);
+    }
+
+    private String blankIfNull(String value) {
+        return value == null ? "" : value.trim();
     }
 
     record RouteDecision(

@@ -111,9 +111,8 @@ final class OllamaStructuredReviewExecutor {
                 待审阅内容：
                 %s
                 """.formatted(candidateContent);
-        Map<String, Object> mergedOptions = new LinkedHashMap<>();
-        mergedOptions.putAll(LlmOptions.mergeOutputBudgetRatio(options, GenerationBudgetProfile.structuredReviewOutputRatio()));
-        String content = generationExecutor.generate(systemPrompt, prompt, mergedOptions, role);
+        Map<String, Object> effectiveOptions = options == null ? Map.of() : new LinkedHashMap<>(options);
+        String content = generationExecutor.generate(systemPrompt, prompt, effectiveOptions, role);
         try {
             ReviewPayload payload = structuredPayloadReader.readJsonObject(content, ReviewPayload.class);
             ReviewDecision decision = ReviewDecision.valueOf(payload.decision());

@@ -111,6 +111,35 @@ final class ImplementationSnapshotRestorer {
         );
     }
 
+    ArchitectIntegrationCheckResult restoreContractGate(ImplementationStateSnapshot.ContractGateState contractGateState) {
+        if (contractGateState == null) {
+            return null;
+        }
+        ArchitectIntegrationCheckScope scope = EnumParsers.parseIgnoreCase(
+                ArchitectIntegrationCheckScope.class,
+                contractGateState.scope(),
+                ArchitectIntegrationCheckScope.STAGE_COMPLETION
+        );
+        if (contractGateState.passed()) {
+            return ArchitectIntegrationCheckResult.success(scope);
+        }
+        return ArchitectIntegrationCheckResult.failure(
+                scope,
+                EnumParsers.parseIgnoreCase(
+                        ArchitectIntegrationFailureReason.class,
+                        contractGateState.failureReason(),
+                        ArchitectIntegrationFailureReason.IMPLEMENTATION_INCOMPLETE
+                ),
+                blankIfNull(contractGateState.details()),
+                EnumParsers.parseIgnoreCase(
+                        ImplementationPatchTarget.class,
+                        contractGateState.implementationPatchTarget(),
+                        ImplementationPatchTarget.NONE
+                ),
+                restoreRuntimeContract(contractGateState.runtimeContract())
+        );
+    }
+
     List<SubtaskExecutionReport> takeCompletedPrefix(List<SubtaskExecutionReport> reports) {
         if (reports == null || reports.isEmpty()) {
             return List.of();
@@ -138,7 +167,7 @@ final class ImplementationSnapshotRestorer {
                 report.preferPreciseEditing(),
                 restoreFileEditAttemptStates(report.fileEditAttemptStates()),
                 restoreEffectiveChanges(report.effectiveChanges()),
-                restoreToolLoopRuntimeState(report.toolLoopRuntimeState())
+                restoreToolSessionState(report.toolSessionState())
         );
     }
 
@@ -294,11 +323,11 @@ final class ImplementationSnapshotRestorer {
         return List.copyOf(restored);
     }
 
-    private ToolLoopRuntimeState restoreToolLoopRuntimeState(
-            ImplementationStateSnapshot.ToolLoopRuntimeStateSnapshot snapshot
+    private ImplementationToolSessionState restoreToolSessionState(
+            ImplementationStateSnapshot.ToolSessionStateSnapshot snapshot
     ) {
         if (snapshot == null) {
-            return new ToolLoopRuntimeState();
+            return new ImplementationToolSessionState();
         }
         ToolLoopReadFileStateLedger ledger = new ToolLoopReadFileStateLedger(
                 snapshot.readFileStateMaxEntries() <= 0 ? 100L : snapshot.readFileStateMaxEntries(),
@@ -309,50 +338,13 @@ final class ImplementationSnapshotRestorer {
                 snapshot.seenToolResultIds(),
                 snapshot.toolResultReplacements()
         );
-        return new ToolLoopRuntimeState(
-                restoreTranscript(snapshot.transcript()),
+        return new ImplementationToolSessionState(
+                List.of(),
                 ledger,
                 replacementState,
-                restoreMutations(snapshot.fileMutations())
+                restoreMutations(snapshot.fileMutations()),
+                restoreDiagnostics(snapshot.diagnostics())
         );
-    }
-
-    private List<LlmChatMessage> restoreTranscript(List<ImplementationStateSnapshot.ChatMessageState> transcript) {
-        if (transcript == null || transcript.isEmpty()) {
-            return List.of();
-        }
-        List<LlmChatMessage> restored = new ArrayList<>();
-        for (ImplementationStateSnapshot.ChatMessageState message : transcript) {
-            if (message == null) {
-                continue;
-            }
-            restored.add(new LlmChatMessage(
-                    EnumParsers.parseIgnoreCase(LlmChatRole.class, message.role(), LlmChatRole.USER),
-                    blankIfNull(message.content()),
-                    blankIfNull(message.toolName()),
-                    blankIfNull(message.toolCallId()),
-                    restoreToolCalls(message.toolCalls())
-            ));
-        }
-        return List.copyOf(restored);
-    }
-
-    private List<LlmToolCall> restoreToolCalls(List<ImplementationStateSnapshot.ToolCallState> toolCalls) {
-        if (toolCalls == null || toolCalls.isEmpty()) {
-            return List.of();
-        }
-        List<LlmToolCall> restored = new ArrayList<>();
-        for (ImplementationStateSnapshot.ToolCallState toolCall : toolCalls) {
-            if (toolCall == null || toolCall.id() == null || toolCall.name() == null) {
-                continue;
-            }
-            restored.add(new LlmToolCall(
-                    toolCall.id(),
-                    toolCall.name(),
-                    toolCall.arguments() == null ? java.util.Map.of() : java.util.Map.copyOf(toolCall.arguments())
-            ));
-        }
-        return List.copyOf(restored);
     }
 
     private List<FileMutationRecord> restoreMutations(List<ImplementationStateSnapshot.FileMutationState> fileMutations) {
@@ -369,26 +361,50 @@ final class ImplementationSnapshotRestorer {
                     mutation.operation(),
                     null
             );
-            ToolLoopDiagnosticStatus diagnosticStatus = EnumParsers.parseIgnoreCase(
-                    ToolLoopDiagnosticStatus.class,
-                    mutation.diagnosticStatus(),
-                    ToolLoopDiagnosticStatus.UNSUPPORTED
-            );
             if (operation == null) {
                 continue;
             }
             restored.add(new FileMutationRecord(
                     operation,
                     Path.of(mutation.relativePath()).normalize(),
+                    mutation.beforeExists(),
                     blankIfNull(mutation.beforeHash()),
+                    mutation.afterExists(),
                     blankIfNull(mutation.afterHash()),
                     mutation.structuredPatch(),
-                    mutation.timestamp(),
-                    diagnosticStatus,
-                    blankIfNull(mutation.diagnosticEvidence())
+                    mutation.timestamp()
             ));
         }
         return List.copyOf(restored);
+    }
+
+    private ImplementationDiagnosticLedger restoreDiagnostics(List<ImplementationStateSnapshot.DiagnosticState> diagnostics) {
+        ImplementationDiagnosticLedger ledger = new ImplementationDiagnosticLedger();
+        if (diagnostics == null || diagnostics.isEmpty()) {
+            return ledger;
+        }
+        for (ImplementationStateSnapshot.DiagnosticState diagnostic : diagnostics) {
+            if (diagnostic == null || diagnostic.relativePath() == null || diagnostic.relativePath().isBlank()) {
+                continue;
+            }
+            ledger.restore(new ImplementationDiagnosticRecord(
+                    blankIfNull(diagnostic.diagnosticId()),
+                    Path.of(diagnostic.relativePath()).normalize(),
+                    EnumParsers.parseIgnoreCase(
+                            ToolLoopDiagnosticStatus.class,
+                            diagnostic.status(),
+                            ToolLoopDiagnosticStatus.UNSUPPORTED
+                    ),
+                    EnumParsers.parseIgnoreCase(
+                            ImplementationDiagnosticSource.class,
+                            diagnostic.source(),
+                            ImplementationDiagnosticSource.UNSUPPORTED_LANGUAGE
+                    ),
+                    blankIfNull(diagnostic.evidence()),
+                    diagnostic.timestamp()
+            ));
+        }
+        return ledger;
     }
 
     private List<String> safeList(List<String> values) {

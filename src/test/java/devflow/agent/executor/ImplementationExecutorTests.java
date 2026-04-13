@@ -4,6 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import devflow.agent.context.ContractView;
+import devflow.agent.context.ExecutionContract;
+import devflow.agent.context.ProductContract;
 import devflow.agent.orchestrator.RunConfig;
 import devflow.agent.orchestrator.RunRecord;
 import devflow.agent.orchestrator.RunStatus;
@@ -11,7 +14,10 @@ import devflow.agent.orchestrator.StageExecution;
 import devflow.agent.orchestrator.StageStatus;
 import devflow.agent.orchestrator.StageType;
 import devflow.agent.project.FileProjectWorkspace;
+import devflow.agent.protocol.ExecutionDirectivePayload;
+import devflow.agent.protocol.ExecutionDirectiveProtocol;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.review.ReviewSemantics;
@@ -215,6 +221,64 @@ class ImplementationExecutorTests {
         assertTrue(failedAttempt.generationFailure().summary().contains("tool loop 调用模型失败"));
     }
 
+    @Test
+    void runtimeWiringContinuationReusesPreviousPlanWithoutReplanning() throws Exception {
+        Path html = tempDir.resolve("index.html");
+        Path companion = tempDir.resolve("index.app.js");
+        Files.writeString(html, """
+                <!DOCTYPE html>
+                <html lang="zh-CN">
+                <head>
+                  <meta charset="UTF-8">
+                  <title>Runtime Wiring</title>
+                </head>
+                <body>
+                  <main id="app"></main>
+                </body>
+                </html>
+                """);
+        Files.writeString(companion, """
+                const root = document.getElementById('app');
+                if (root) {
+                  root.textContent = 'ready';
+                }
+                """);
+
+        ScriptedImplementationProvider provider = new ScriptedImplementationProvider(
+                List.of(),
+                List.of(
+                        ChatStep.response(toolCall("tool-1", "Read", Map.of("file_path", html.toString()))),
+                        ChatStep.response(toolCall(
+                                "tool-2",
+                                "Edit",
+                                Map.of(
+                                        "file_path", html.toString(),
+                                        "old_string", "</body>",
+                                        "new_string", "  <script src=\"index.app.js\"></script>\n</body>"
+                                )
+                        )),
+                        ChatStep.response(finalResponse("runtime wiring fixed"))
+                ),
+                approvedReview()
+        );
+
+        ImplementationExecutionBundle bundle = newExecutor(provider).execute(
+                tempDir,
+                runRecord("修复现有网页 runtime wiring", ""),
+                "",
+                "",
+                "",
+                runtimeWiringPatchNote(),
+                runtimeWiringContractView(),
+                previousRuntimeWiringState(),
+                ImplementationProgressSink.noop()
+        );
+
+        assertTrue(Files.readString(html).contains("<script src=\"index.app.js\"></script>"));
+        assertEquals(1, bundle.snapshot().reports().size());
+        assertTrue(provider.chatRequests().size() >= 1);
+    }
+
     private ImplementationExecutor newExecutor(ScriptedImplementationProvider provider) {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ObjectMapper objectMapper = new ObjectMapper();
@@ -287,9 +351,6 @@ class ImplementationExecutorTests {
         change.put("path", path);
         change.put("action", ChangeAction.WRITE.name());
         change.put("reason", "完成 " + path);
-        change.put("editScope", FileEditScope.AUTO.name());
-        change.putNull("runtimeOwnership");
-        change.put("hostHtmlPatchRequired", false);
         return writeJson(root);
     }
 
@@ -299,6 +360,125 @@ class ImplementationExecutorTests {
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException(exception);
         }
+    }
+
+    private static String runtimeWiringPatchNote() {
+        return ExecutionDirectiveProtocol.renderBlock(new ExecutionDirectivePayload(
+                FixMode.PATCH.name(),
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                List.of(),
+                false,
+                false,
+                DeliveryMode.PATCH.name(),
+                2,
+                4,
+                true,
+                false,
+                true,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null,
+                null
+        ));
+    }
+
+    private String previousRuntimeWiringState() throws Exception {
+        return JSON.writeValueAsString(new ImplementationStateSnapshot(
+                "修复 runtime wiring",
+                List.of(new ImplementationStateSnapshot.PlannedSubtaskState(
+                        "修复宿主接线",
+                        "让宿主 HTML 接入既有 companion runtime",
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of("入口完成接线"),
+                        true,
+                        DeliveryMode.PATCH.name(),
+                        List.of(
+                                new ImplementationStateSnapshot.FileChangeState(
+                                        "index.html",
+                                        ChangeAction.WRITE.name(),
+                                        "修复宿主接线",
+                                        FileEditScope.HOST_HTML_PATCH.name(),
+                                        RuntimeOwnershipMode.EXTERNAL_COMPANION.name()
+                                ),
+                                new ImplementationStateSnapshot.FileChangeState(
+                                        "index.app.js",
+                                        ChangeAction.WRITE.name(),
+                                        "保留既有 companion runtime"
+                                )
+                        )
+                )),
+                List.of(new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot(
+                        "修复宿主接线",
+                        true,
+                        List.of()
+                )),
+                List.of(),
+                null,
+                true,
+                false,
+                new ImplementationStateSnapshot.ContractGateState(
+                        ArchitectIntegrationCheckScope.STAGE_COMPLETION.name(),
+                        false,
+                        ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID.name(),
+                        "index.app.js 存在，但 index.html 未接线",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                        new ImplementationStateSnapshot.RuntimeContractState(
+                                "index.html",
+                                RuntimeOwnershipMode.EXTERNAL_COMPANION.name(),
+                                List.of("index.app.js")
+                        )
+                ),
+                "",
+                "",
+                "",
+                "",
+                "",
+                List.of(),
+                "",
+                "",
+                List.of()
+        ));
+    }
+
+    private static ContractView runtimeWiringContractView() {
+        return new ContractView(
+                ProductContract.projectedFromPrdSections(
+                        List.of("修复网页接线"),
+                        List.of("浏览器用户"),
+                        List.of("宿主 HTML 正确接入 companion runtime"),
+                        List.of(),
+                        List.of(),
+                        List.of("页面可打开"),
+                        List.of()
+                ),
+                null,
+                new ExecutionContract(
+                        true,
+                        "html-entry",
+                        "entry-with-local-dependencies",
+                        "companion-owned",
+                        true,
+                        false,
+                        List.of("page-opens")
+                ),
+                null
+        );
     }
 
     private record PlannedSubtask(

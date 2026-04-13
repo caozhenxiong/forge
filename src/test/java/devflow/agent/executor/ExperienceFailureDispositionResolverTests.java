@@ -54,6 +54,25 @@ class ExperienceFailureDispositionResolverTests {
     }
 
     @Test
+    void missingObservationTargetsWithoutOwnerScopeBlockForHuman() {
+        ExperienceFailureDisposition disposition = resolver.resolve(
+                UiRuntimeContract.empty(),
+                UiRuntimeContractValidation.failure(
+                        UiRuntimeContractValidationKind.MISSING_REQUIRED_OBSERVATION_TARGET,
+                        List.of("missing target")
+                ),
+                List.of(),
+                List.of(),
+                devflow.agent.quality.CoverageLedger.empty()
+        );
+
+        assertEquals(ExperienceFailureKind.OBSERVATION_CONTRACT_INVALID, disposition.kind());
+        assertEquals(ImplementationPatchTarget.NONE, disposition.implementationPatchTarget());
+        assertEquals(ReviewRevisionRoute.REQUEST_HUMAN, disposition.revisionRoute());
+        assertTrue(disposition.overrideChanges().isEmpty());
+    }
+
+    @Test
     void malformedTimedProgressionCaseRoutesToTestPlanDefect() {
         ExperienceFailureDisposition disposition = resolver.resolve(
                 UiRuntimeContract.empty(),

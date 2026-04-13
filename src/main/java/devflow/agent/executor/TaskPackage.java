@@ -4,6 +4,7 @@ import devflow.agent.context.SharedContextBundle;
 import devflow.agent.i18n.ArtifactLabels;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;
+import java.util.ArrayList;
 import java.util.List;
 
 public record TaskPackage(
@@ -36,6 +37,27 @@ public record TaskPackage(
                 mustFixFirst,
                 forbiddenDirections,
                 fileTargetedContext == null || fileTargetedContext.isBlank() ? targetedContext : fileTargetedContext,
+                sharedContextBundle
+        );
+    }
+
+    public TaskPackage alignToSubtask(Subtask subtask) {
+        if (subtask == null) {
+            return this;
+        }
+        return new TaskPackage(
+                blankValue(subtask.title(), title),
+                blankValue(subtask.goal(), goal),
+                subtask.deliveryMode() == null ? deliveryMode : subtask.deliveryMode().name(),
+                subtask.runnableMilestone(),
+                ownedFilesFromChanges(subtask.changes(), ownedFiles),
+                emptyAware(subtask.coverageRefs(), coverageRefs),
+                emptyAware(subtask.ownedCapabilities(), ownedCapabilities),
+                emptyAware(subtask.deferredCapabilities(), deferredCapabilities),
+                emptyAware(subtask.acceptanceCriteria(), acceptanceCriteria),
+                mustFixFirst,
+                forbiddenDirections,
+                targetedContext,
                 sharedContextBundle
         );
     }
@@ -127,5 +149,36 @@ public record TaskPackage(
 
     private String blank(String value, DocumentLanguage language) {
         return PlaceholderValues.orNone(value, language);
+    }
+
+    private String blankValue(String preferred, String fallback) {
+        if (preferred != null && !preferred.isBlank()) {
+            return preferred;
+        }
+        return fallback;
+    }
+
+    private List<String> ownedFilesFromChanges(List<FileChange> changes, List<String> fallback) {
+        if (changes == null || changes.isEmpty()) {
+            return fallback == null ? List.of() : List.copyOf(fallback);
+        }
+        ArrayList<String> paths = new ArrayList<>();
+        for (FileChange change : changes) {
+            if (change == null || change.path() == null || change.path().isBlank()) {
+                continue;
+            }
+            String normalized = java.nio.file.Path.of(change.path()).normalize().toString().replace('\\', '/');
+            if (!paths.contains(normalized)) {
+                paths.add(normalized);
+            }
+        }
+        return paths.isEmpty() ? (fallback == null ? List.of() : List.copyOf(fallback)) : List.copyOf(paths);
+    }
+
+    private List<String> emptyAware(List<String> preferred, List<String> fallback) {
+        if (preferred != null && !preferred.isEmpty()) {
+            return List.copyOf(preferred);
+        }
+        return fallback == null ? List.of() : List.copyOf(fallback);
     }
 }

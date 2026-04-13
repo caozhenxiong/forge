@@ -11,6 +11,7 @@ import devflow.agent.review.FixMode;
 import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
+import devflow.agent.review.ReviewRevisionRoute;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Path;
@@ -79,9 +80,9 @@ final class SubtaskVerificationSupport {
             String targetedContext,
             ImplementationEventJournal eventJournal
     ) {
-        ReviewResult runnableMilestoneReview = runnableMilestoneGuard.check(projectPath, subtask, contractView, language);
+        SubtaskVerificationOutcome runnableMilestoneReview = runnableMilestoneGuard.check(projectPath, subtask, contractView, language);
         if (runnableMilestoneReview != null) {
-            return SubtaskVerificationOutcome.of(runnableMilestoneReview);
+            return runnableMilestoneReview;
         }
         SubtaskVerificationOutcome runtimeWiringReview = runtimeWiringGuard.check(projectPath, subtask, language);
         if (runtimeWiringReview != null) {
@@ -89,7 +90,7 @@ final class SubtaskVerificationSupport {
         }
         StructureGateOutcome structureGateOutcome = structureGateEvaluator.evaluate(fingerprint, qualityPlan);
         if (!structureGateOutcome.passed()) {
-            return SubtaskVerificationOutcome.of(new ReviewResult(
+            ReviewResult structureReview = new ReviewResult(
                     ReviewDecision.REVISION_REQUIRED,
                     FixMode.PATCH,
                     structureGateOutcome.summary(),
@@ -97,9 +98,13 @@ final class SubtaskVerificationSupport {
                     structureGateOutcome.evidence(),
                     "",
                     ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
-                ));
+            );
+            return SubtaskVerificationOutcome.of(normalizeScopedPatchReview(structureReview, subtask));
         }
-        ReviewResult selfCheckReview = selfCheckReviewResolver.resolve(selfCheck, selfCheckToolResults, language);
+        ReviewResult selfCheckReview = normalizeScopedPatchReview(
+                selfCheckReviewResolver.resolve(selfCheck, selfCheckToolResults, language),
+                subtask
+        );
         if (selfCheckReview != null) {
             return SubtaskVerificationOutcome.of(selfCheckReview);
         }
@@ -125,7 +130,10 @@ final class SubtaskVerificationSupport {
                 promptAssembler.renderRepairVerificationContext(feedback)
         );
         ReviewResult review = reviewWithObservation(subtask, candidate, language, eventJournal);
-        ReviewResult enforcedReview = enforceCompleteness(completenessOutcome, review, language);
+        ReviewResult enforcedReview = normalizeScopedPatchReview(
+                enforceCompleteness(completenessOutcome, review, language),
+                subtask
+        );
         return SubtaskVerificationOutcome.of(
                 enforcedReview,
                 SubtaskRevisionDirective.retry(enforcedReview.overrideChanges())
@@ -154,12 +162,12 @@ final class SubtaskVerificationSupport {
                     SubtaskReviewPolicy.attemptTimeout(),
                     reviewObserverFactory.create(subtask.title(), eventJournal),
                     (attempt, retryFeedback) -> GenerationAttemptResult.success(
-                            llmProvider.reviewStructured(
-                                    promptAssembler.systemPrompt(),
-                                    retryFeedback == null || retryFeedback.isBlank()
-                                            ? candidate
-                                            : candidate + "\n\n上一轮结构化验证调用失败，请仅重新输出审阅 JSON：\n" + retryFeedback,
-                                    LlmOptions.outputBudgetRatio(GenerationBudgetProfile.subtaskReviewOutputRatio()),
+                                    llmProvider.reviewStructured(
+                                            promptAssembler.systemPrompt(),
+                                            retryFeedback == null || retryFeedback.isBlank()
+                                                    ? candidate
+                                                    : candidate + "\n\n上一轮结构化验证调用失败，请仅重新输出审阅 JSON：\n" + retryFeedback,
+                                    java.util.Map.of(),
                                     ModelRole.CODE_REVIEW
                             ).result()
                     ),
@@ -207,6 +215,44 @@ final class SubtaskVerificationSupport {
             return review;
         }
         return implementationCompletenessGate.toBlockingReviewResult(completenessOutcome, language);
+    }
+
+    private ReviewResult normalizeScopedPatchReview(ReviewResult review, Subtask subtask) {
+        if (review == null
+                || review.fixMode() != FixMode.PATCH
+                || !review.implementationPatchTarget().concretePatch()
+                || !review.overrideChanges().isEmpty()) {
+            return review;
+        }
+        List<FileChange> effectiveChanges = subtask == null || subtask.changes() == null
+                ? List.of()
+                : List.copyOf(subtask.changes());
+        if (effectiveChanges.isEmpty()) {
+            return new ReviewResult(
+                    review.decision(),
+                    review.fixMode(),
+                    review.summary(),
+                    review.changeRequest(),
+                    review.evidence(),
+                    review.actionItems(),
+                    ImplementationPatchTarget.NONE,
+                    List.of(),
+                    ReviewRevisionRoute.REQUEST_HUMAN,
+                    review.reasonCode()
+            );
+        }
+        return new ReviewResult(
+                review.decision(),
+                review.fixMode(),
+                review.summary(),
+                review.changeRequest(),
+                review.evidence(),
+                review.actionItems(),
+                review.implementationPatchTarget(),
+                effectiveChanges,
+                review.revisionRoute(),
+                review.reasonCode()
+        );
     }
 
 }

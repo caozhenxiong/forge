@@ -19,6 +19,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ImplementationToolLoopExecutorTests {
@@ -131,7 +132,7 @@ class ImplementationToolLoopExecutorTests {
     }
 
     @Test
-    void toolLoopCarriesReadStateAcrossContinuation() throws Exception {
+    void toolLoopCarriesReadStateAcrossRetryAfterFailedAssistantOnlyCompletion() throws Exception {
         Path file = tempDir.resolve("app.js");
         Files.writeString(file, """
                 function tick() {
@@ -154,19 +155,23 @@ class ImplementationToolLoopExecutorTests {
                 4
         );
 
-        firstExecutor.execute(
-                tempDir,
-                runRecord(tempDir),
-                subtask("读取 tick", "app.js"),
-                taskPackage("读取 tick", "app.js"),
-                null,
-                QualityPlan.empty(),
-                fingerprint("app.js"),
-                "",
-                "",
-                null,
-                executionState
+        GenerationFailureException firstFailure = assertThrows(
+                GenerationFailureException.class,
+                () -> firstExecutor.execute(
+                        tempDir,
+                        runRecord(tempDir),
+                        subtask("读取 tick", "app.js"),
+                        taskPackage("读取 tick", "app.js"),
+                        null,
+                        QualityPlan.empty(),
+                        fingerprint("app.js"),
+                        "",
+                        "",
+                        null,
+                        executionState
+                )
         );
+        assertEquals(GenerationFailureType.NO_MATERIAL_CHANGE, firstFailure.report().failureType());
 
         ImplementationToolLoopExecutor secondExecutor = new ImplementationToolLoopExecutor(
                 new ScriptedChatProvider(
@@ -207,6 +212,268 @@ class ImplementationToolLoopExecutorTests {
         assertEquals("done", result.finalResponse());
         assertTrue(Files.readString(file).contains("return 2;"));
         assertEquals(List.of(Path.of("app.js")), result.touchedPaths());
+        assertEquals(1, executionState.toolSessionState().diagnostics().size());
+        assertEquals(ToolLoopDiagnosticStatus.VALID, executionState.toolSessionState().diagnostics().getFirst().status());
+        assertTrue(executionState.toolSessionState().transcript().stream()
+                .anyMatch(message -> message.role() == LlmChatRole.ASSISTANT && message.content().contains("continue")));
+    }
+
+    @Test
+    void toolLoopContinuesCurrentSubtaskAfterTruncatedAssistantResponse() throws Exception {
+        Path file = tempDir.resolve("app.js");
+        Files.writeString(file, """
+                function tick() {
+                  return 0;
+                }
+                """);
+
+        SubtaskExecutionState executionState = new SubtaskExecutionState(DeliveryMode.PATCH, false);
+        ImplementationToolLoopExecutor executor = new ImplementationToolLoopExecutor(
+                new ScriptedChatProvider(
+                        new LlmChatResponse("继续补完当前修改", List.of(), null, "length"),
+                        new LlmChatResponse(
+                                "",
+                                List.of(new LlmToolCall("tool-1", "Read", Map.of("file_path", file.toString()))),
+                                null,
+                                ""
+                        ),
+                        new LlmChatResponse(
+                                "",
+                                List.of(new LlmToolCall(
+                                        "tool-2",
+                                        "Edit",
+                                        Map.of(
+                                                "file_path", file.toString(),
+                                                "old_string", "return 0;",
+                                                "new_string", "return 3;"
+                                        )
+                                )),
+                                null,
+                                ""
+                        ),
+                        new LlmChatResponse("done", List.of(), null, "stop")
+                ),
+                new ObjectMapper(),
+                6
+        );
+
+        ImplementationToolLoopResult result = executor.execute(
+                tempDir,
+                runRecord(tempDir),
+                subtask("继续 tick", "app.js"),
+                taskPackage("继续 tick", "app.js"),
+                null,
+                QualityPlan.empty(),
+                fingerprint("app.js"),
+                "",
+                "",
+                null,
+                executionState
+        );
+
+        assertEquals("done", result.finalResponse());
+        assertTrue(Files.readString(file).contains("return 3;"));
+        assertTrue(executionState.toolSessionState().transcript().stream()
+                .anyMatch(message -> message.role() == LlmChatRole.USER && message.content().contains("长度截断")));
+    }
+
+    @Test
+    void toolLoopRejectsAssistantOnlyCompletionWhenDeclaredFileWasNeverCreated() {
+        ImplementationToolLoopExecutor executor = new ImplementationToolLoopExecutor(
+                new ScriptedChatProvider(
+                        new LlmChatResponse("index.html 已完成", List.of(), null, "stop")
+                ),
+                new ObjectMapper(),
+                2
+        );
+
+        GenerationFailureException exception = assertThrows(
+                GenerationFailureException.class,
+                () -> executor.execute(
+                        tempDir,
+                        runRecord(tempDir),
+                        subtask("创建首页入口", "index.html"),
+                        taskPackage("创建首页入口", "index.html"),
+                        null,
+                        QualityPlan.empty(),
+                        fingerprint("index.html"),
+                        "",
+                        "",
+                        null,
+                        new SubtaskExecutionState(DeliveryMode.PATCH, false)
+                )
+        );
+
+        assertEquals(GenerationFailureType.NO_MATERIAL_CHANGE, exception.report().failureType());
+        assertTrue(exception.report().evidence().contains("terminalMode=assistant-only"));
+        assertTrue(exception.report().evidence().contains("WRITE:index.html"));
+        assertTrue(exception.report().evidence().contains("exists=false"));
+    }
+
+    @Test
+    void toolLoopRejectsAssistantOnlyCompletionWhenDeclaredWriteHasNoMutation() throws Exception {
+        Path file = tempDir.resolve("app.js");
+        Files.writeString(file, "export const ready = false;\n");
+
+        ImplementationToolLoopExecutor executor = new ImplementationToolLoopExecutor(
+                new ScriptedChatProvider(
+                        new LlmChatResponse("app.js 已更新", List.of(), null, "stop")
+                ),
+                new ObjectMapper(),
+                2
+        );
+
+        GenerationFailureException exception = assertThrows(
+                GenerationFailureException.class,
+                () -> executor.execute(
+                        tempDir,
+                        runRecord(tempDir),
+                        subtask("更新 app.js", "app.js"),
+                        taskPackage("更新 app.js", "app.js"),
+                        null,
+                        QualityPlan.empty(),
+                        fingerprint("app.js"),
+                        "",
+                        "",
+                        null,
+                        new SubtaskExecutionState(DeliveryMode.PATCH, false)
+                )
+        );
+
+        assertEquals(GenerationFailureType.NO_MATERIAL_CHANGE, exception.report().failureType());
+        assertTrue(exception.report().evidence().contains("path=app.js"));
+        assertTrue(exception.report().evidence().contains("exists=true"));
+        assertTrue(exception.report().evidence().contains("mutations=[]"));
+    }
+
+    @Test
+    void toolLoopContinuesCurrentSubtaskAfterDeniedBashCommand() throws Exception {
+        Path file = tempDir.resolve("app.js");
+        Files.writeString(file, "export const ready = false;\n");
+
+        ImplementationToolLoopExecutor executor = new ImplementationToolLoopExecutor(
+                new ScriptedChatProvider(
+                        new LlmChatResponse(
+                                "",
+                                List.of(new LlmToolCall(
+                                        "tool-1",
+                                        "Bash",
+                                        Map.of("command", "cat /etc/passwd > app.js")
+                                )),
+                                null,
+                                ""
+                        ),
+                        new LlmChatResponse(
+                                "",
+                                List.of(new LlmToolCall("tool-2", "Read", Map.of("file_path", file.toString()))),
+                                null,
+                                ""
+                        ),
+                        new LlmChatResponse(
+                                "",
+                                List.of(new LlmToolCall(
+                                        "tool-3",
+                                        "Edit",
+                                        Map.of(
+                                                "file_path", file.toString(),
+                                                "old_string", "export const ready = false;\n",
+                                                "new_string", "export const ready = true;\n"
+                                        )
+                                )),
+                                null,
+                                ""
+                        ),
+                        new LlmChatResponse("done", List.of(), null, "stop")
+                ),
+                new ObjectMapper(),
+                6
+        );
+
+        ImplementationToolLoopResult result = executor.execute(
+                tempDir,
+                runRecord(tempDir),
+                subtask("更新 app.js", "app.js"),
+                taskPackage("更新 app.js", "app.js"),
+                null,
+                QualityPlan.empty(),
+                fingerprint("app.js"),
+                "",
+                "",
+                null,
+                new SubtaskExecutionState(DeliveryMode.PATCH, false)
+        );
+
+        assertEquals("done", result.finalResponse());
+        assertTrue(Files.readString(file).contains("ready = true"));
+    }
+
+    @Test
+    void toolLoopRejectsCompletionWhenFileWasChangedAndThenReverted() throws Exception {
+        Path file = tempDir.resolve("app.js");
+        Files.writeString(file, "export const ready = false;\n");
+
+        ImplementationToolLoopExecutor executor = new ImplementationToolLoopExecutor(
+                new ScriptedChatProvider(
+                        new LlmChatResponse(
+                                "",
+                                List.of(new LlmToolCall("tool-1", "Read", Map.of("file_path", file.toString()))),
+                                null,
+                                ""
+                        ),
+                        new LlmChatResponse(
+                                "",
+                                List.of(new LlmToolCall(
+                                        "tool-2",
+                                        "Edit",
+                                        Map.of(
+                                                "file_path", file.toString(),
+                                                "old_string", "ready = false",
+                                                "new_string", "ready = true"
+                                        )
+                                )),
+                                null,
+                                ""
+                        ),
+                        new LlmChatResponse(
+                                "",
+                                List.of(new LlmToolCall(
+                                        "tool-3",
+                                        "Edit",
+                                        Map.of(
+                                                "file_path", file.toString(),
+                                                "old_string", "ready = true",
+                                                "new_string", "ready = false"
+                                        )
+                                )),
+                                null,
+                                ""
+                        ),
+                        new LlmChatResponse("done", List.of(), null, "stop")
+                ),
+                new ObjectMapper(),
+                6
+        );
+
+        GenerationFailureException exception = assertThrows(
+                GenerationFailureException.class,
+                () -> executor.execute(
+                        tempDir,
+                        runRecord(tempDir),
+                        subtask("更新 app.js", "app.js"),
+                        taskPackage("更新 app.js", "app.js"),
+                        null,
+                        QualityPlan.empty(),
+                        fingerprint("app.js"),
+                        "",
+                        "",
+                        null,
+                        new SubtaskExecutionState(DeliveryMode.PATCH, false)
+                )
+        );
+
+        assertEquals(GenerationFailureType.NO_MATERIAL_CHANGE, exception.report().failureType());
+        assertTrue(exception.report().evidence().contains("baselineHash="));
+        assertTrue(exception.report().evidence().contains("currentHash="));
     }
 
     private Subtask subtask(String title, String path) {

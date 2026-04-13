@@ -164,6 +164,40 @@ class OllamaLlmProviderTests {
     }
 
     @Test
+    void reviewStructuredHonorsExplicitNumPredictWithoutHiddenRatioCap() throws Exception {
+        CapturingJsonReviewHandler handler = new CapturingJsonReviewHandler();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/api/generate", handler);
+        server.start();
+
+        int port = server.getAddress().getPort();
+        GenerationBudgetProperties budgetProperties = new GenerationBudgetProperties(
+                new GenerationBudgetProperties.Defaults(4_096, 1.0d, 0.0625d, 256, 256, 160, 4.0d),
+                Map.of("qwen3-coder", new GenerationBudgetProperties.Override(4_096, 1.0d, 0.0625d, 256, 256, 160, 4.0d))
+        );
+        OllamaProperties properties = new OllamaProperties("http://127.0.0.1:" + port, "qwen3-coder:30b", 3, null);
+        OllamaLlmProvider provider = new OllamaLlmProvider(
+                properties,
+                new ObjectMapper(),
+                new OutputBudgetCalculator(
+                        new ModelBudgetRegistry(budgetProperties),
+                        new PromptTokenEstimator()
+                ),
+                new ContextCompactor(
+                        new ContextBudgetPlanner(
+                                new ModelBudgetRegistry(budgetProperties),
+                                new PromptTokenEstimator()
+                        )
+                )
+        );
+
+        provider.reviewStructured("system", "candidate", LlmOptions.numPredict(777));
+
+        assertEquals(777, handler.capturedNumPredict());
+        assertEquals(4_096, handler.capturedNumCtx());
+    }
+
+    @Test
     void generateCapsRequestedNumPredictBeforeSendingToModel() throws Exception {
         CapturingHandler handler = new CapturingHandler();
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -318,6 +352,19 @@ class OllamaLlmProviderTests {
 
         @Override
         public void handle(HttpExchange exchange) throws IOException {
+            capture(exchange);
+
+            byte[] body = """
+                    {"response":"ok","done":true,"done_reason":"stop","eval_count":1,"prompt_eval_count":100}
+                    """.strip().getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream outputStream = exchange.getResponseBody()) {
+                outputStream.write(body);
+            }
+        }
+
+        protected void capture(HttpExchange exchange) throws IOException {
             ObjectMapper objectMapper = new ObjectMapper();
             @SuppressWarnings("unchecked")
             Map<String, Object> request = objectMapper.readValue(exchange.getRequestBody(), LinkedHashMap.class);
@@ -329,15 +376,6 @@ class OllamaLlmProviderTests {
             Number numCtx = (Number) options.get("num_ctx");
             capturedNumPredict = numPredict.intValue();
             capturedNumCtx = numCtx.intValue();
-
-            byte[] body = """
-                    {"response":"ok","done":true,"done_reason":"stop","eval_count":1,"prompt_eval_count":100}
-                    """.strip().getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().add("Content-Type", "application/json");
-            exchange.sendResponseHeaders(200, body.length);
-            try (OutputStream outputStream = exchange.getResponseBody()) {
-                outputStream.write(body);
-            }
         }
 
         int capturedNumPredict() {
@@ -354,6 +392,28 @@ class OllamaLlmProviderTests {
 
         String capturedUserPrompt() {
             return capturedUserPrompt;
+        }
+    }
+
+    private static class CapturingJsonReviewHandler extends CapturingHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            capture(exchange);
+
+            byte[] body = """
+                    {
+                      "response":"{\\"decision\\":\\"APPROVED\\",\\"fixMode\\":\\"NONE\\",\\"implementationPatchTarget\\":\\"NONE\\",\\"overrideChanges\\":[],\\"summary\\":\\"通过\\",\\"changeRequest\\":\\"\\",\\"evidence\\":\\"\\",\\"actionItems\\":\\"\\",\\"semantics\\":{\\"targetsLowAuthorityContent\\":false,\\"targetsTrackedOpenQuestion\\":false,\\"clarificationRequest\\":false,\\"backedByHardAuthority\\":false,\\"requestsQuantitativeHardening\\":false,\\"requestsImplementationHardening\\":false,\\"downstreamDetailOnly\\":false,\\"coreStageGap\\":false,\\"performanceClaim\\":false,\\"measurementEvidencePresent\\":false,\\"unsupportedQuantitativeConstraintPresent\\":false,\\"unsupportedImplementationConstraintPresent\\":false}}",
+                      "done":true,
+                      "done_reason":"stop",
+                      "eval_count":1,
+                      "prompt_eval_count":100
+                    }
+                    """.strip().getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream outputStream = exchange.getResponseBody()) {
+                outputStream.write(body);
+            }
         }
     }
 }

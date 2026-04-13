@@ -1,7 +1,5 @@
 package devflow.agent.executor;
 
-import devflow.agent.context.ContractView;
-import devflow.agent.validation.ProjectFingerprint;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -13,7 +11,7 @@ import java.util.Set;
  * <p>它负责把 detail 限定在当前 outline 子任务的边界内：
  * 1. subtaskId 必须一致；
  * 2. changes 不能为空，且不能越出 targetPaths；
- * 3. 局部 runtime / continuation 声明必须自洽。
+ * 3. 不负责修 deliveryMode / continuation 这类 outline 所有权问题。
  */
 final class ImplementationSubtaskDetailGate {
 
@@ -21,21 +19,12 @@ final class ImplementationSubtaskDetailGate {
             请重新规划当前子任务的 detail，并确保：
             1. changes 只允许覆盖当前子任务自己的 targetPaths
             2. 不要改动当前子任务 targetPaths 之外的文件
-            3. HTML/runtime wiring 字段必须完整自洽
-            4. 只返回当前子任务自己的结构化 detail JSON
+            3. 只返回当前子任务自己的结构化 detail JSON
+            4. 不要试图在 detail 阶段改 deliveryMode、targetPaths 或其他 outline 字段
             """;
 
-    private final ImplementationPlanChangeGate changeGate;
-
-    ImplementationSubtaskDetailGate(ImplementationPlanChangeGate changeGate) {
-        this.changeGate = changeGate;
-    }
-
     GateReport evaluate(
-            ProjectFingerprint fingerprint,
-            ContractView contractView,
             DeliveryPolicyEnvelope deliveryPolicy,
-            ImplementationContinuationConstraints continuationConstraints,
             ImplementationOutlineSubtask outlineSubtask,
             ImplementationSubtaskDetail detail
     ) {
@@ -57,34 +46,51 @@ final class ImplementationSubtaskDetailGate {
             issues.add(new GateIssue(
                     "PLAN_DETAIL_" + issueIndex++,
                     "Implementation detail 的 subtaskId 必须与当前 outline 子任务一致: " + expectedId,
-                    GateFailureDisposition.REPLAN_CURRENT_STAGE
+                    GateFailureDisposition.REPLAN_CURRENT_STAGE,
+                    GateIssueContext.forPlanningUnit(
+                            ImplementationPlanningUnitKind.SUBTASK_DETAIL,
+                            expectedId
+                    )
             ));
         }
-        List<FileChange> changes = detail == null || detail.changes() == null ? List.of() : detail.changes();
+        List<ImplementationSubtaskDetailChange> changes =
+                detail == null || detail.changes() == null ? List.of() : detail.changes();
         if (changes.isEmpty()) {
             issues.add(new GateIssue(
                     "PLAN_DETAIL_" + issueIndex++,
                     "Implementation detail 必须至少声明一个文件变更。",
-                    GateFailureDisposition.REPLAN_CURRENT_STAGE
+                    GateFailureDisposition.REPLAN_CURRENT_STAGE,
+                    GateIssueContext.forPlanningUnit(
+                            ImplementationPlanningUnitKind.SUBTASK_DETAIL,
+                            expectedId
+                    )
             ));
         }
         Set<String> changedPaths = new LinkedHashSet<>();
-        for (FileChange change : changes) {
+        for (ImplementationSubtaskDetailChange change : changes) {
             if (change == null || change.path() == null || change.path().isBlank()) {
                 issues.add(new GateIssue(
                         "PLAN_DETAIL_" + issueIndex++,
                         "Implementation detail 不能包含空路径变更。",
-                        GateFailureDisposition.REPLAN_CURRENT_STAGE
+                        GateFailureDisposition.REPLAN_CURRENT_STAGE,
+                        GateIssueContext.forPlanningUnit(
+                                ImplementationPlanningUnitKind.SUBTASK_DETAIL,
+                                expectedId
+                        )
                 ));
                 continue;
             }
             changedPaths.add(change.path().trim());
             if (!safeList(outlineSubtask.targetPaths()).contains(change.path().trim())) {
                 issues.add(new GateIssue(
-                        "PLAN_DETAIL_" + issueIndex++,
-                        "Implementation detail 不能越界修改非当前子任务 targetPaths 的文件: " + change.path(),
-                        GateFailureDisposition.REPLAN_CURRENT_STAGE,
-                        GateIssueContext.forPath(change.path())
+                    "PLAN_DETAIL_" + issueIndex++,
+                    "Implementation detail 不能越界修改非当前子任务 targetPaths 的文件: " + change.path(),
+                    GateFailureDisposition.REPLAN_CURRENT_STAGE,
+                    GateIssueContext.forPlanningUnitPath(
+                            ImplementationPlanningUnitKind.SUBTASK_DETAIL,
+                            expectedId,
+                            change.path()
+                    )
                 ));
             }
         }
@@ -93,26 +99,13 @@ final class ImplementationSubtaskDetailGate {
                     "PLAN_DETAIL_" + issueIndex++,
                     "当前子任务 detail 不能超过 %d 个文件。".formatted(deliveryPolicy.maxFiles()),
                     GateFailureDisposition.REPLAN_CURRENT_STAGE,
-                    GateIssueContext.forPaths(List.copyOf(changedPaths))
+                    GateIssueContext.forPlanningUnitPaths(
+                            ImplementationPlanningUnitKind.SUBTASK_DETAIL,
+                            expectedId,
+                            List.copyOf(changedPaths)
+                    )
             ));
         }
-        Subtask subtask = new Subtask(
-                outlineSubtask.title(),
-                outlineSubtask.goal(),
-                safeList(outlineSubtask.coverageRefs()),
-                safeList(outlineSubtask.ownedCapabilities()),
-                safeList(outlineSubtask.deferredCapabilities()),
-                safeList(outlineSubtask.acceptanceCriteria()),
-                outlineSubtask.runnableMilestone(),
-                outlineSubtask.deliveryMode(),
-                changes
-        );
-        issues.addAll(changeGate.evaluate(
-                fingerprint,
-                contractView,
-                continuationConstraints,
-                List.of(subtask)
-        ));
         if (issues.isEmpty()) {
             return GateReport.success();
         }

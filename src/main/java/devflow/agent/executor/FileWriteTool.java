@@ -7,38 +7,28 @@ import java.util.Map;
 
 final class FileWriteTool implements ImplementationTool {
 
+    private static final ImplementationToolSpecification SPECIFICATION = new ImplementationToolSpecification(
+            "Write",
+            "Create or overwrite a file. Read an existing file first before overwriting it.",
+            Map.of(
+                    "type", "object",
+                    "required", List.of("file_path", "content"),
+                    "properties", Map.of(
+                            "file_path", Map.of("type", "string"),
+                            "content", Map.of("type", "string")
+                    )
+            ),
+            false,
+            false,
+            100_000,
+            ImplementationToolPermissionScope.WRITE_OWNED_PATHS
+    );
+
     private final StructuredPatchSupport structuredPatchSupport = new StructuredPatchSupport();
 
     @Override
-    public String name() {
-        return "Write";
-    }
-
-    @Override
-    public String description() {
-        return "Create or overwrite a file. Read an existing file first before overwriting it.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return Map.of(
-                "type", "object",
-                "required", List.of("file_path", "content"),
-                "properties", Map.of(
-                        "file_path", Map.of("type", "string"),
-                        "content", Map.of("type", "string")
-                )
-        );
-    }
-
-    @Override
-    public boolean readOnly() {
-        return false;
-    }
-
-    @Override
-    public int maxResultSizeChars() {
-        return 100_000;
+    public ImplementationToolSpecification specification() {
+        return SPECIFICATION;
     }
 
     @Override
@@ -48,30 +38,29 @@ final class FileWriteTool implements ImplementationTool {
             Path absolutePath = context.requireProjectAbsolutePath(input.filePath());
             context.assertWritable(absolutePath);
             boolean exists = context.exists(absolutePath);
-            String previous = exists ? context.readFile(absolutePath) : "";
             if (exists) {
-                CoderReadFileState readState = context.readFileStateLedger().get(absolutePath);
-                if (readState == null || readState.partialView()) {
-                    return ToolInvocationResult.failure(Map.of(
-                            "type", "error",
-                            "message", "File has not been read yet. Read it first before writing to it."
-                    ));
-                }
-                if (context.modificationTime(absolutePath) > readState.timestamp() && !(readState.fullView() && previous.equals(readState.content()))) {
-                    return ToolInvocationResult.failure(Map.of(
-                            "type", "error",
-                            "message", "File has been modified since read. Read it again before writing."
-                    ));
-                }
+                context.assertExistingFileWholeRewriteAllowed(absolutePath, "Write");
+                context.assertFreshReadBeforeOverwrite(absolutePath);
             }
+            String previous = exists ? context.readFile(absolutePath) : "";
             String content = input.content() == null ? "" : input.content();
+            if (exists && previous.equals(content)) {
+                return ToolInvocationResult.failure(Map.of(
+                        "type", "error",
+                        "code", "NO_MATERIAL_CHANGE",
+                        "message", "Write did not change the file."
+                ));
+            }
+            context.assertMutationContract(absolutePath, content);
             context.writeFile(absolutePath, content);
             context.readFileStateLedger().put(absolutePath, new CoderReadFileState(content, context.modificationTime(absolutePath), null, null, false));
             List<StructuredPatchHunk> structuredPatch = structuredPatchSupport.build(previous, content);
             context.recordMutation(
                     exists ? ToolLoopMutationOperation.UPDATE : ToolLoopMutationOperation.CREATE,
                     absolutePath,
+                    exists,
                     previous,
+                    true,
                     content,
                     structuredPatch
             );

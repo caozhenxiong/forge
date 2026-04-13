@@ -32,8 +32,12 @@ final class PrdDocumentPromptBuilder {
         String system = promptTemplateCatalog.documentGenerationSystemPrompt(StageType.PRD, language);
         String performanceGuidance = prdPerformanceGuidance();
         String openQuestionContractGuidance = language.choose(
-                "带“待确认”标记或直接写成问题句式的条目，不得写进 3.1/3.2/5.x 的产品承诺；这类内容要么省略，要么仅以待确认问题形式进入 Source Metadata 的 open.questions。",
-                "Items marked as pending confirmation or written as direct questions must not appear as commitments in 3.1/3.2/5.x; either omit them or keep them only as open questions in Source Metadata.open.questions."
+                "带“待确认”标记或直接写成问题句式的条目，不得写进 PRD 的 1-6 章正文承诺区；这类内容要么省略，要么仅以待确认问题形式进入 Source Metadata 的 open.questions。",
+                "Items marked as pending confirmation or written as direct questions must not appear inside PRD sections 1-6 as commitments; either omit them or keep them only as open questions in Source Metadata.open.questions."
+        );
+        String lowAuthorityBodyGuidance = language.choose(
+                "PRD 的 1-6 章正文只保留产品承诺。显式“推断：/设计选择：/建议：/待确认问题：”条目只写入 Source Metadata，不要写进 3.2、4.x、5.x 等承诺章节；如果 3.2 没有已确定的可选能力，可以留空。",
+                "PRD sections 1-6 must keep only product commitments. Explicit “Inference:/Design Choice:/Recommendation:/Open Question:” items belong only in Source Metadata and must not appear inside commitment-bearing sections such as 3.2, 4.x, or 5.x; if no settled optional capability remains, section 3.2 may stay empty."
         );
         String user = switch (context.mode()) {
             case FULL_DRAFT -> """
@@ -73,6 +77,7 @@ final class PrdDocumentPromptBuilder {
                     19. %s
                     20. 只有“核心功能”进入本轮必须实现的产品 coverage；“可选增强”只能作为 optional requirement ref，不得混写待确认问题
                     21. %s
+                    22. %s
 
                     输出模板：
                     %s
@@ -89,6 +94,7 @@ final class PrdDocumentPromptBuilder {
                     promptTemplateCatalog.sourceMetadataRequirement(language, 8),
                     promptTemplateCatalog.sourceMetadataSemantics(language),
                     openQuestionContractGuidance,
+                    lowAuthorityBodyGuidance,
                     context.template()
             );
             case FILL_MISSING_SECTIONS -> """
@@ -123,6 +129,7 @@ final class PrdDocumentPromptBuilder {
                     11. %s
                     12. %s
                     13. %s
+                    14. %s
                     """.formatted(
                     analysisForPrompt,
                     note,
@@ -136,7 +143,8 @@ final class PrdDocumentPromptBuilder {
                     promptTemplateCatalog.sourceAndConstraintGuidance(language, StageType.PRD),
                     promptTemplateCatalog.sourceMetadataRequirement(language, 8),
                     promptTemplateCatalog.sourceMetadataSemantics(language),
-                    openQuestionContractGuidance
+                    openQuestionContractGuidance,
+                    lowAuthorityBodyGuidance
             );
             case REVISE_WITH_EXISTING_DRAFT -> """
                     基于下面的需求分析和上一轮 PRD 草稿，输出需要替换的顶层章节完整 Markdown 内容。
@@ -167,6 +175,7 @@ final class PrdDocumentPromptBuilder {
                     11. %s
                     12. %s
                     13. %s
+                    14. %s
                     """.formatted(
                     analysisForPrompt,
                     note,
@@ -178,7 +187,8 @@ final class PrdDocumentPromptBuilder {
                     promptTemplateCatalog.sourceAndConstraintGuidance(language, StageType.PRD),
                     promptTemplateCatalog.sourceMetadataRequirement(language, 8),
                     promptTemplateCatalog.sourceMetadataSemantics(language),
-                    openQuestionContractGuidance
+                    openQuestionContractGuidance,
+                    lowAuthorityBodyGuidance
             );
         };
         return new DocumentGenerationPrompt(system, user);

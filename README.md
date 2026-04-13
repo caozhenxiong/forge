@@ -102,7 +102,7 @@ cd /home/linus/workspace/forge
 ./forge.sh run autopilot --project /path/to/repo --goal '你的目标' --constraints '你的约束'
 ```
 
-`forge.sh` 会自动切到仓库根目录再执行 Maven，避免在别的目录里触发 `No plugin found for prefix 'spring-boot'`。
+`forge.sh` 会自动切到仓库根目录再执行 Maven，避免在别的目录里触发 `No plugin found for prefix 'spring-boot'`。默认模型来源以应用内 `devflow.ollama.*` 配置为准，脚本本身不再额外注入一套默认模型。
 
 可选模型配置：
 

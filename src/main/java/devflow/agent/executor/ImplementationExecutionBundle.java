@@ -8,7 +8,9 @@ public record ImplementationExecutionBundle(
         String taskPackagesMarkdown,
         String workerResultsMarkdown,
         String eventsMarkdown,
+        String diagnosticsMarkdown,
         String progressMarkdown,
+        String stageStatusMarkdown,
         String stateJson,
         ImplementationRuntimeSnapshot snapshot
 ) {

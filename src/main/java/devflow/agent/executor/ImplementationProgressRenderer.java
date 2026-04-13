@@ -2,6 +2,7 @@ package devflow.agent.executor;
 
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewReasonCode;
 import java.util.List;
 
@@ -19,9 +20,7 @@ final class ImplementationProgressRenderer {
         String currentSubtaskTitle = runtimeSnapshot.currentSubtaskTitle();
         DocumentLanguage language = runtimeSnapshot.language();
         ImplementationStageStatus stageStatus = runtimeSnapshot.stageStatus();
-        boolean architectCheckPassed = runtimeSnapshot.architectCheckResult() != null
-                ? runtimeSnapshot.architectCheckResult().passed()
-                : stageStatus != null && stageStatus.architectCheckPassed();
+        ArchitectIntegrationCheckResult contractGateResult = stageStatus.contractGateResult();
         StringBuilder builder = new StringBuilder("# ")
                 .append(language.choose("实现进度", "Implementation Progress"))
                 .append("\n\n");
@@ -33,11 +32,18 @@ final class ImplementationProgressRenderer {
                 .append('\n');
         builder.append("- stageReady: ").append(stageStatus.stageReady()).append('\n');
         builder.append("- planCompleted: ").append(stageStatus.planCompleted()).append('\n');
-        builder.append("- architectCheckPassed: ").append(architectCheckPassed).append('\n');
+        builder.append("- contractGatePassed: ").append(stageStatus.contractGatePassed()).append('\n');
         builder.append("- continuationMode: ").append(stageStatus.continuationMode()).append('\n');
-        if (runtimeSnapshot.architectCheckResult() != null && !runtimeSnapshot.architectCheckResult().passed()) {
-            builder.append("- architectFailureReason: ").append(runtimeSnapshot.architectCheckResult().failureReason()).append('\n');
-            builder.append("- architectFailureDetails: ").append(runtimeSnapshot.architectCheckResult().details()).append('\n');
+        if (contractGateResult != null) {
+            builder.append("- contractGateScope: ").append(contractGateResult.scope()).append('\n');
+            if (!contractGateResult.passed()) {
+                builder.append("- contractFailureReason: ").append(contractGateResult.failureReason()).append('\n');
+                builder.append("- contractFailureDetails: ").append(contractGateResult.details()).append('\n');
+                if (contractGateResult.implementationPatchTarget() != null
+                        && contractGateResult.implementationPatchTarget() != ImplementationPatchTarget.NONE) {
+                    builder.append("- contractPatchTarget: ").append(contractGateResult.implementationPatchTarget()).append('\n');
+                }
+            }
         }
         if (stageStatus.hasContinuationDirective()) {
             builder.append("- continuationSummary: ").append(stageStatus.continuationSummary()).append('\n');
@@ -49,6 +55,11 @@ final class ImplementationProgressRenderer {
             }
             if (!stageStatus.continuationEvidence().isBlank()) {
                 builder.append("- continuationEvidence: ").append(stageStatus.continuationEvidence()).append('\n');
+            }
+            if (!stageStatus.continuationOverrideChanges().isEmpty()) {
+                builder.append("- continuationOverrideChanges: ")
+                        .append(ImplementationArtifactRenderSupport.renderChangeList(stageStatus.continuationOverrideChanges()))
+                        .append('\n');
             }
             if (stageStatus.continuationReasonCode() != ReviewReasonCode.NONE) {
                 builder.append("- continuationReasonCode: ").append(stageStatus.continuationReasonCode()).append('\n');

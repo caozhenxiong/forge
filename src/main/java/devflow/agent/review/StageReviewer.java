@@ -159,7 +159,7 @@ public class StageReviewer {
             return targetedVerificationGate;
         }
 
-        String changes = snapshotStore.renderChanges(projectPath, runRecord.runId(), 8, 5000);
+        String changes = snapshotStore.buildReviewChangePack(projectPath, runRecord.runId()).toMarkdown();
         String candidate = artifactContent
                 + "\n\n## 实现自检\n\n"
                 + selfCheck.summary()
@@ -219,9 +219,9 @@ public class StageReviewer {
         if (architectCheckResult.passed()) {
             return null;
         }
-        ReviewReasonCode reasonCode = mapImplementationReasonCode(architectCheckResult);
-        String summary = buildImplementationGateSummary(architectCheckResult);
-        String changeRequest = buildImplementationGateChangeRequest(architectCheckResult);
+        ReviewReasonCode reasonCode = devflow.agent.executor.ImplementationContractGateMessages.reasonCode(architectCheckResult);
+        String summary = devflow.agent.executor.ImplementationContractGateMessages.summary(architectCheckResult);
+        String changeRequest = devflow.agent.executor.ImplementationContractGateMessages.changeRequest(architectCheckResult);
         return new ReviewResult(
                 ReviewDecision.REVISION_REQUIRED,
                 FixMode.PATCH,
@@ -282,49 +282,11 @@ public class StageReviewer {
                 "请补齐缺失的体验能力覆盖并重新执行测试。",
                 evidence,
                 "",
-                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                ImplementationPatchTarget.NONE,
                 java.util.List.of(),
-                ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET,
+                ReviewRevisionRoute.REQUEST_HUMAN,
                 ReviewReasonCode.IMPLEMENTATION_GAP
         );
     }
 
-    private ReviewReasonCode mapImplementationReasonCode(ArchitectIntegrationCheckResult architectCheckResult) {
-        if (architectCheckResult == null || architectCheckResult.failureReason() == null) {
-            return ReviewReasonCode.NONE;
-        }
-        if (architectCheckResult.failureReason() == ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID
-                && architectCheckResult.implementationPatchTarget() == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
-            return ReviewReasonCode.RUNTIME_WIRING_GAP;
-        }
-        return ReviewReasonCode.IMPLEMENTATION_GAP;
-    }
-
-    private String buildImplementationGateSummary(ArchitectIntegrationCheckResult architectCheckResult) {
-        if (architectCheckResult == null || architectCheckResult.failureReason() == null) {
-            return "当前实现未满足 approved contract。";
-        }
-        return switch (architectCheckResult.failureReason()) {
-            case ENTRY_MISSING -> "当前实现缺少 approved contract 要求的可启动入口。";
-            case RUNTIME_WIRING_INVALID -> "当前实现的入口接线或运行时所有权未满足 approved contract。";
-            case SURFACE_MISSING -> "当前实现缺少 approved contract 要求的可见运行表面。";
-            case IMPLEMENTATION_INCOMPLETE -> "当前实现仍未补齐 approved contract 要求的能力。";
-        };
-    }
-
-    private String buildImplementationGateChangeRequest(ArchitectIntegrationCheckResult architectCheckResult) {
-        if (architectCheckResult == null || architectCheckResult.failureReason() == null) {
-            return "请在当前 IMPLEMENTATION 阶段继续补齐实现，并保持 approved contract 不变。";
-        }
-        return switch (architectCheckResult.failureReason()) {
-            case ENTRY_MISSING ->
-                    "请在当前 IMPLEMENTATION 阶段补齐可启动入口，不要回退或重写已批准的设计契约。";
-            case RUNTIME_WIRING_INVALID ->
-                    "请在当前 IMPLEMENTATION 阶段修复入口接线与运行时所有权，使交付结果满足 approved contract。";
-            case SURFACE_MISSING ->
-                    "请在当前 IMPLEMENTATION 阶段补齐可见运行表面，并保持 approved contract 不变。";
-            case IMPLEMENTATION_INCOMPLETE ->
-                    "请在当前 IMPLEMENTATION 阶段补齐缺失实现，不要把当前缺口回退成设计问题。";
-        };
-    }
 }

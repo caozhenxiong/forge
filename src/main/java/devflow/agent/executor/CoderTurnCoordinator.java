@@ -136,6 +136,8 @@ final class CoderTurnCoordinator {
                 executionContext.contractView(),
                 executionContext.fingerprint()
         );
+        devflow.agent.context.ExecutionContract executionContract =
+                executionContext.contractView() == null ? null : executionContext.contractView().executionContract();
         implementationSnapshotAssembler.publishSnapshot(
                 progressSink,
                 plan,
@@ -152,10 +154,8 @@ final class CoderTurnCoordinator {
                         0,
                         false,
                         false,
-                        false,
                         plan.subtasks().stream().map(Subtask::title).toList()
                 ),
-                null,
                 null
         );
         List<SubtaskExecutionReport> reports = implementationPlanRunner.execute(
@@ -183,8 +183,16 @@ final class CoderTurnCoordinator {
                         executionContext.language(),
                         executionContext.deliveryPolicy(),
                         executionContext.sharedContextBundle(),
-                        implementationStageGate.summarizeStageStatus(plan, currentReports, true),
-                        null,
+                        implementationStageGate.summarizeStageStatus(
+                                plan,
+                                currentReports,
+                                implementationGateEngine.currentContractGate(
+                                        projectPath,
+                                        plan,
+                                        currentReports,
+                                        executionContract
+                                )
+                        ),
                         currentSubtaskTitle
                 ),
                 eventJournal
@@ -193,7 +201,7 @@ final class CoderTurnCoordinator {
                 projectPath,
                 plan,
                 reports,
-                executionContext.contractView() == null ? null : executionContext.contractView().executionContract(),
+                executionContract,
                 executionContext.language()
         );
         reports = gateOutcome.reports();
@@ -208,7 +216,6 @@ final class CoderTurnCoordinator {
                 executionContext.sharedContextBundle(),
                 taskPackages,
                 stageStatus,
-                gateOutcome.architectCheckResult(),
                 null
         );
         ImplementationExecutionBundle bundle = implementationSnapshotAssembler.buildBundle(snapshot);

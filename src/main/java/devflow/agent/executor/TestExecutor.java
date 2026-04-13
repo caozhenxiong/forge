@@ -58,7 +58,7 @@ public class TestExecutor {
     private final TestEvidenceGate testEvidenceGate;
     private final CoverageLedgerBuilder coverageLedgerBuilder;
     private final ExperienceFailureDispositionResolver experienceFailureDispositionResolver;
-    private final Map<Path, ValidationPlan> cachedPlans = new ConcurrentHashMap<>();
+    private final Map<ValidationPlanCacheKey, ValidationPlan> cachedPlans = new ConcurrentHashMap<>();
 
     public TestExecutor(FileProjectWorkspace workspace, LlmProvider llmProvider, ObjectMapper objectMapper) {
         TreeSitterSupport treeSitterSupport = new TreeSitterSupport();
@@ -244,10 +244,52 @@ public class TestExecutor {
                 testRunReport.caseResults(),
                 coverageLedger
         );
-        if (disposition.passed()
-                || (disposition.implementationPatchTarget() == devflow.agent.review.ImplementationPatchTarget.NONE
-                && disposition.overrideChanges().isEmpty())) {
+        return toImplementationVerificationOutcome(disposition, language);
+    }
+
+    SubtaskVerificationOutcome toImplementationVerificationOutcome(
+            ExperienceFailureDisposition disposition,
+            DocumentLanguage language
+    ) {
+        if (disposition == null || disposition.passed()) {
             return null;
+        }
+        if (!disposition.requiresImplementationReverification()) {
+            devflow.agent.review.ReviewResult review = new devflow.agent.review.ReviewResult(
+                    devflow.agent.review.ReviewDecision.REVISION_REQUIRED,
+                    devflow.agent.review.FixMode.PATCH,
+                    "当前实现暂不能批准，因为针对性复核没有产出可用于实现放行的有效测试证据。",
+                    "请先修复 TEST 侧验证缺陷或探针问题，再重新验证当前子任务。",
+                    disposition.evidence(),
+                    language.choose(
+                            "1. 先让 TEST 侧重新产出有效的 targeted verification 结果。 2. 只有确认失败 case/capability 有明确通过证据后，才能继续 implementation 自动续跑。",
+                            "1. Restore valid targeted verification evidence from TEST first. 2. Continue implementation automation only after the failing case or capability has explicit passing evidence."
+                    ),
+                    devflow.agent.review.ImplementationPatchTarget.NONE,
+                    List.of(),
+                    devflow.agent.review.ReviewRevisionRoute.REQUEST_HUMAN,
+                    disposition.reasonCode()
+            );
+            return SubtaskVerificationOutcome.of(review, SubtaskRevisionDirective.empty());
+        }
+        if (disposition.implementationPatchTarget() == devflow.agent.review.ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
+                && disposition.overrideChanges().isEmpty()) {
+            devflow.agent.review.ReviewResult review = new devflow.agent.review.ReviewResult(
+                    devflow.agent.review.ReviewDecision.REVISION_REQUIRED,
+                    devflow.agent.review.FixMode.PATCH,
+                    "当前实现需要继续 patch，但测试侧没有给出结构化文件范围。",
+                    "请先明确本轮需要修补的实现文件范围，确认 owner 后再继续自动修复。",
+                    disposition.evidence(),
+                    language.choose(
+                            "1. 先补齐结构化 overrideChanges。 2. 确认这些文件仍归当前 implementation 子任务负责。 3. 没有确定范围前不要继续自动续跑。",
+                            "1. Provide structured overrideChanges first. 2. Confirm the files still belong to the current implementation subtask. 3. Do not continue automatic retry without a deterministic scope."
+                    ),
+                    devflow.agent.review.ImplementationPatchTarget.NONE,
+                    List.of(),
+                    devflow.agent.review.ReviewRevisionRoute.REQUEST_HUMAN,
+                    disposition.reasonCode()
+            );
+            return SubtaskVerificationOutcome.of(review, SubtaskRevisionDirective.empty());
         }
         devflow.agent.review.ReviewResult review = new devflow.agent.review.ReviewResult(
                 devflow.agent.review.ReviewDecision.REVISION_REQUIRED,
@@ -264,7 +306,7 @@ public class TestExecutor {
                 disposition.revisionRoute(),
                 disposition.reasonCode()
         );
-        return SubtaskVerificationOutcome.of(review, SubtaskRevisionDirective.retry(disposition.overrideChanges()));
+        return SubtaskVerificationOutcome.of(review);
     }
 
     private TestExecutionSnapshot buildExecutionSnapshot(
@@ -331,7 +373,9 @@ public class TestExecutor {
     }
 
     private ValidationExecutionReport selfCheckDetailed(Path projectPath, ProjectFingerprint fingerprint) {
-        ValidationPlan plan = cachedPlans.computeIfAbsent(projectPath, ignored -> strategyPlanner.plan(fingerprint));
+        ValidationPlanCacheKey cacheKey = new ValidationPlanCacheKey(projectPath, fingerprint);
+        cachedPlans.keySet().removeIf(existing -> existing.projectPath().equals(projectPath) && !existing.equals(cacheKey));
+        ValidationPlan plan = cachedPlans.computeIfAbsent(cacheKey, ignored -> strategyPlanner.plan(fingerprint));
         return validationExecutor.executeDetailed(projectPath, fingerprint, plan);
     }
 
@@ -475,6 +519,9 @@ public class TestExecutor {
                 .filter(entry -> surfaceWireValue.equals(entry.capabilityId()))
                 .findFirst()
                 .orElse(null);
+    }
+
+    private record ValidationPlanCacheKey(Path projectPath, ProjectFingerprint fingerprint) {
     }
 
     private TestCaseResult findCaseResult(List<TestCaseResult> caseResults, String caseId) {

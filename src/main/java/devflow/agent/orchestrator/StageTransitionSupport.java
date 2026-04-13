@@ -168,6 +168,7 @@ public class StageTransitionSupport {
             String changeRequest,
             String evidence,
             String actionItems,
+            java.util.List<devflow.agent.executor.FileChange> overrideChanges,
             ImplementationPatchTarget implementationPatchTarget,
             StageEntryAction stageEntryAction
     ) {
@@ -189,7 +190,7 @@ public class StageTransitionSupport {
                 draft,
                 stageType,
                 RunStatus.IN_PROGRESS,
-                continuationNote(summary, changeRequest, evidence, actionItems, implementationPatchTarget)
+                continuationNote(summary, changeRequest, evidence, actionItems, overrideChanges, implementationPatchTarget)
         );
     }
 
@@ -206,13 +207,21 @@ public class StageTransitionSupport {
             String changeRequest,
             String evidence,
             String actionItems,
+            java.util.List<devflow.agent.executor.FileChange> overrideChanges,
             ImplementationPatchTarget implementationPatchTarget
     ) {
         return ExecutionDirectiveNarrativeRenderer.renderRevisionNote(
                 new ExecutionDirectivePayload(
                         FixMode.PATCH.name(),
                         implementationPatchTarget == null ? ImplementationPatchTarget.NONE.name() : implementationPatchTarget.name(),
-                        java.util.List.of(),
+                        overrideChanges == null ? java.util.List.of() : overrideChanges.stream().map(change -> new devflow.agent.protocol.FileChangePayload(
+                                change.path(),
+                                change.action() == null ? null : change.action().name(),
+                                change.reason() == null ? "" : change.reason(),
+                                change.effectiveEditScope().name(),
+                                change.runtimeOwnership() == null ? null : change.runtimeOwnership().name(),
+                                change.hostHtmlPatchRequired()
+                        )).toList(),
                         false,
                         false,
                         null,

@@ -19,6 +19,8 @@ public final class ImplementationExecutionPolicy {
     private static final int DEFAULT_TOOL_LOOP_TURNS = 12;
     private static final int DEFAULT_MAX_FILES_PER_SUBTASK = 2;
     private static final int DEFAULT_MAX_DELIVERY_POLICY_FILES = 3;
+    private static final long DEFAULT_SHELL_TIMEOUT_MS = 30_000L;
+    private static final long DEFAULT_MAX_SHELL_TIMEOUT_MS = 120_000L;
     private static final String SUBTASK_ATTEMPTS_KEY = "devflow.implementation.subtask-attempts";
     private static final String PLANNING_PAYLOAD_REPAIR_ATTEMPTS_KEY = "devflow.implementation.planning-payload-repair-attempts";
     private static final String PLANNING_UNIT_ATTEMPTS_KEY = "devflow.implementation.planning-unit-attempts";
@@ -26,6 +28,8 @@ public final class ImplementationExecutionPolicy {
     private static final String TOOL_LOOP_TURNS_KEY = "devflow.implementation.tool-loop-turns";
     private static final String MAX_FILES_PER_SUBTASK_KEY = "devflow.implementation.max-files-per-subtask";
     private static final String MAX_DELIVERY_POLICY_FILES_KEY = "devflow.implementation.max-delivery-policy-files";
+    private static final String DEFAULT_SHELL_TIMEOUT_MS_KEY = "devflow.implementation.default-shell-timeout-ms";
+    private static final String MAX_SHELL_TIMEOUT_MS_KEY = "devflow.implementation.max-shell-timeout-ms";
 
     private ImplementationExecutionPolicy() {
     }
@@ -58,6 +62,14 @@ public final class ImplementationExecutionPolicy {
         return readPositiveInt(MAX_DELIVERY_POLICY_FILES_KEY, DEFAULT_MAX_DELIVERY_POLICY_FILES);
     }
 
+    public static long defaultShellTimeoutMs() {
+        return readPositiveLong(DEFAULT_SHELL_TIMEOUT_MS_KEY, DEFAULT_SHELL_TIMEOUT_MS);
+    }
+
+    public static long maxShellTimeoutMs() {
+        return Math.max(defaultShellTimeoutMs(), readPositiveLong(MAX_SHELL_TIMEOUT_MS_KEY, DEFAULT_MAX_SHELL_TIMEOUT_MS));
+    }
+
     private static int readPositiveInt(String key, int fallback) {
         String raw = System.getProperty(key);
         if (raw == null || raw.isBlank()) {
@@ -65,6 +77,19 @@ public final class ImplementationExecutionPolicy {
         }
         try {
             int value = Integer.parseInt(raw.trim());
+            return value > 0 ? value : fallback;
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
+    }
+
+    private static long readPositiveLong(String key, long fallback) {
+        String raw = System.getProperty(key);
+        if (raw == null || raw.isBlank()) {
+            return fallback;
+        }
+        try {
+            long value = Long.parseLong(raw.trim());
             return value > 0 ? value : fallback;
         } catch (NumberFormatException ignored) {
             return fallback;

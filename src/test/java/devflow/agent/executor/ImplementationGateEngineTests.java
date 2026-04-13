@@ -8,6 +8,7 @@ import devflow.agent.protocol.ImplementationContinuationMode;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
+import devflow.agent.review.ReviewRevisionRoute;
 import devflow.agent.review.ReviewResult;
 import java.nio.file.Path;
 import java.util.List;
@@ -51,7 +52,7 @@ class ImplementationGateEngineTests {
     }
 
     @Test
-    void appendsArchitectFailureWhenCompletedPlanStillIsNotRunnable() {
+    void exposesContractGateFailureWhenCompletedPlanStillIsNotRunnable() {
         ImplementationGateEngine gateEngine = new ImplementationGateEngine(
                 new ImplementationStageGate(),
                 new ArchitectIntegrationCheck(new FileProjectWorkspace(), new TreeSitterSupport())
@@ -69,12 +70,13 @@ class ImplementationGateEngineTests {
                 DocumentLanguage.ZH
         );
 
-        assertNotNull(outcome.architectCheckResult());
-        assertFalse(outcome.architectCheckResult().passed());
-        assertEquals(2, outcome.reports().size());
-        assertFalse(outcome.stageStatus().architectCheckPassed());
+        assertNotNull(outcome.contractGateResult());
+        assertFalse(outcome.contractGateResult().passed());
+        assertEquals(ArchitectIntegrationCheckScope.STAGE_COMPLETION, outcome.contractGateResult().scope());
+        assertEquals(1, outcome.reports().size());
+        assertTrue(outcome.stageStatus().planCompleted());
+        assertFalse(outcome.stageStatus().contractGatePassed());
         assertFalse(outcome.stageStatus().stageReady());
-        assertTrue(outcome.reports().get(1).subtask().title().contains("架构师整体可运行检查"));
     }
 
     @Test
@@ -118,6 +120,76 @@ class ImplementationGateEngineTests {
         assertEquals("运行时接线未完成", outcome.stageStatus().continuationSummary());
         assertTrue(outcome.stageStatus().continuationEvidence().contains("continuationSubtask=修接线"));
         assertTrue(outcome.stageStatus().hasContinuationDirective());
+    }
+
+    @Test
+    void preservesRepairTargetContinuationForStructuredImplementationPatch() {
+        ImplementationGateEngine gateEngine = new ImplementationGateEngine(
+                new ImplementationStageGate(),
+                new ArchitectIntegrationCheck(new FileProjectWorkspace(), new TreeSitterSupport())
+        );
+
+        Subtask subtask = subtask("补齐交互", false, "index.html");
+        ReviewResult review = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.PATCH,
+                "当前实现缺少关键体验能力。",
+                "请补齐主交互反馈。",
+                "missingExperienceCoverage=primary-interaction",
+                "1. 修复交互反馈。 2. 重新验证。",
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                List.of(new FileChange("index.html", ChangeAction.WRITE, "补齐交互反馈")),
+                ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET,
+                devflow.agent.review.ReviewReasonCode.IMPLEMENTATION_GAP
+        );
+
+        ImplementationGateOutcome outcome = gateEngine.evaluate(
+                tempDir,
+                new ImplementationPlan("summary", List.of(subtask)),
+                List.of(failedReport(subtask, review)),
+                new ExecutionContract(true, "html-entry", true, true, List.of()),
+                DocumentLanguage.ZH
+        );
+
+        assertEquals(ImplementationContinuationMode.CONTINUE_SUBTASKS, outcome.stageStatus().continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, outcome.stageStatus().continuationPatchTarget());
+        assertEquals(1, outcome.stageStatus().continuationOverrideChanges().size());
+        assertEquals("index.html", outcome.stageStatus().continuationOverrideChanges().getFirst().path());
+    }
+
+    @Test
+    void blocksWhenPatchExistingReviewHasNoStructuredScope() {
+        ImplementationGateEngine gateEngine = new ImplementationGateEngine(
+                new ImplementationStageGate(),
+                new ArchitectIntegrationCheck(new FileProjectWorkspace(), new TreeSitterSupport())
+        );
+
+        Subtask subtask = subtask("补齐交互", false, "index.html");
+        ReviewResult review = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.PATCH,
+                "当前实现缺少关键体验能力。",
+                "请补齐主交互反馈。",
+                "missingExperienceCoverage=primary-interaction",
+                "1. 修复交互反馈。 2. 重新验证。",
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                List.of(),
+                ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET,
+                devflow.agent.review.ReviewReasonCode.IMPLEMENTATION_GAP
+        );
+
+        ImplementationGateOutcome outcome = gateEngine.evaluate(
+                tempDir,
+                new ImplementationPlan("summary", List.of(subtask)),
+                List.of(failedReport(subtask, review)),
+                new ExecutionContract(true, "html-entry", true, true, List.of()),
+                DocumentLanguage.ZH
+        );
+
+        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, outcome.stageStatus().continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, outcome.stageStatus().continuationPatchTarget());
+        assertTrue(outcome.stageStatus().continuationOverrideChanges().isEmpty());
+        assertTrue(outcome.stageStatus().continuationSummary().contains("结构化文件范围"));
     }
 
     private Subtask subtask(String title, boolean runnableMilestone, String path) {

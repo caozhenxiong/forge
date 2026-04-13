@@ -11,28 +11,28 @@ import devflow.agent.review.ImplementationPatchTarget;
  */
 final class ImplementationStageStatusSectionRenderer {
 
-    String render(
-            ImplementationStageStatus stageStatus,
-            ArchitectIntegrationCheckResult architectCheckResult,
-            DocumentLanguage language
-    ) {
+    String render(ImplementationStageStatus stageStatus, DocumentLanguage language) {
         StringBuilder builder = new StringBuilder();
+        ArchitectIntegrationCheckResult contractGateResult = stageStatus.contractGateResult();
         builder.append("## ").append(language.choose("阶段完成状态", "Stage Completion")).append("\n\n");
         builder.append("- plannedSubtasks: ").append(stageStatus.plannedSubtasks()).append('\n');
         builder.append("- executedSubtasks: ").append(stageStatus.executedSubtasks()).append('\n');
         builder.append("- completedSubtasks: ").append(stageStatus.completedSubtasks()).append('\n');
         builder.append("- stageReady: ").append(stageStatus.stageReady()).append('\n');
         builder.append("- planCompleted: ").append(stageStatus.planCompleted()).append('\n');
-        builder.append("- architectCheckPassed: ").append(stageStatus.architectCheckPassed()).append('\n');
+        builder.append("- contractGatePassed: ").append(stageStatus.contractGatePassed()).append('\n');
         builder.append("- continuationMode: ").append(stageStatus.continuationMode()).append('\n');
-        if (architectCheckResult != null && !architectCheckResult.passed()) {
-            builder.append("- architectFailureReason: ").append(architectCheckResult.failureReason()).append('\n');
-            builder.append("- architectFailureDetails: ").append(architectCheckResult.details()).append('\n');
-            if (architectCheckResult.implementationPatchTarget() != null
-                    && architectCheckResult.implementationPatchTarget() != ImplementationPatchTarget.NONE) {
-                builder.append("- implementationPatchTarget: ")
-                        .append(architectCheckResult.implementationPatchTarget())
-                        .append('\n');
+        if (contractGateResult != null) {
+            builder.append("- contractGateScope: ").append(contractGateResult.scope()).append('\n');
+            if (!contractGateResult.passed()) {
+                builder.append("- contractFailureReason: ").append(contractGateResult.failureReason()).append('\n');
+                builder.append("- contractFailureDetails: ").append(contractGateResult.details()).append('\n');
+                if (contractGateResult.implementationPatchTarget() != null
+                        && contractGateResult.implementationPatchTarget() != ImplementationPatchTarget.NONE) {
+                    builder.append("- contractPatchTarget: ")
+                            .append(contractGateResult.implementationPatchTarget())
+                            .append('\n');
+                }
             }
         }
         builder.append("- incompleteSubtasks: ").append(stageStatus.incompleteSubtasks().isEmpty()
@@ -54,6 +54,11 @@ final class ImplementationStageStatusSectionRenderer {
             }
             if (!stageStatus.continuationActionItems().isBlank()) {
                 builder.append("- continuationActionItems: ").append(stageStatus.continuationActionItems()).append('\n');
+            }
+            if (!stageStatus.continuationOverrideChanges().isEmpty()) {
+                builder.append("- continuationOverrideChanges: ")
+                        .append(ImplementationArtifactRenderSupport.renderChangeList(stageStatus.continuationOverrideChanges()))
+                        .append('\n');
             }
             builder.append('\n');
         }

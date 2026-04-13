@@ -65,8 +65,8 @@ final class SubtaskRuntimeWiringGuard {
                 patchDecision == null ? ImplementationPatchTarget.PATCH_RUNTIME_WIRING : patchDecision.patchTarget()
         );
         SubtaskRevisionDirective revisionDirective = patchDecision == null || patchDecision.htmlEntryOverride() == null
-                ? SubtaskRevisionDirective.empty()
-                : SubtaskRevisionDirective.retry(java.util.List.of(patchDecision.htmlEntryOverride()));
+                ? SubtaskRevisionDirective.patch(java.util.List.of())
+                : SubtaskRevisionDirective.patch(java.util.List.of(patchDecision.htmlEntryOverride()));
         return SubtaskVerificationOutcome.of(review, revisionDirective);
     }
 

@@ -8,37 +8,27 @@ import java.util.Map;
 
 final class FileReadTool implements ImplementationTool {
 
-    @Override
-    public String name() {
-        return "Read";
-    }
+    private static final ImplementationToolSpecification SPECIFICATION = new ImplementationToolSpecification(
+            "Read",
+            "Read a file from the current project. Use before editing or writing an existing file.",
+            Map.of(
+                    "type", "object",
+                    "required", List.of("file_path"),
+                    "properties", Map.of(
+                            "file_path", Map.of("type", "string", "description", "Absolute path to the file to read."),
+                            "offset", Map.of("type", "integer", "description", "Optional starting line number, zero-based."),
+                            "limit", Map.of("type", "integer", "description", "Optional line count to read.")
+                    )
+            ),
+            true,
+            true,
+            100_000,
+            ImplementationToolPermissionScope.READ_WORKSPACE
+    );
 
     @Override
-    public String description() {
-        return "Read a file from the current project. Use before editing or writing an existing file.";
-    }
-
-    @Override
-    public Map<String, Object> inputSchema() {
-        return Map.of(
-                "type", "object",
-                "required", List.of("file_path"),
-                "properties", Map.of(
-                        "file_path", Map.of("type", "string", "description", "Absolute path to the file to read."),
-                        "offset", Map.of("type", "integer", "description", "Optional starting line number, zero-based."),
-                        "limit", Map.of("type", "integer", "description", "Optional line count to read.")
-                )
-        );
-    }
-
-    @Override
-    public boolean readOnly() {
-        return true;
-    }
-
-    @Override
-    public int maxResultSizeChars() {
-        return 100_000;
+    public ImplementationToolSpecification specification() {
+        return SPECIFICATION;
     }
 
     @Override

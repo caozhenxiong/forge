@@ -15,11 +15,11 @@ import java.util.Set;
 final class ImplementationContinuationConstraintResolver {
 
     private final ObjectMapper objectMapper;
-    private final ImplementationRuntimeContractResolver runtimeContractResolver;
+    private final ImplementationSnapshotRestorer snapshotRestorer;
 
     ImplementationContinuationConstraintResolver(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
-        this.runtimeContractResolver = new ImplementationRuntimeContractResolver();
+        this.snapshotRestorer = new ImplementationSnapshotRestorer();
     }
 
     ImplementationContinuationConstraints resolve(String previousStateJson, ProjectFingerprint fingerprint) {
@@ -70,10 +70,10 @@ final class ImplementationContinuationConstraintResolver {
         if (!resolvedHtmlEntryPath.isBlank()) {
             existingPaths.add(resolvedHtmlEntryPath);
         }
-        HtmlRuntimeOwnershipContract protectedRuntimeContract = runtimeContractResolver.resolve(
-                snapshot,
-                resolvedHtmlEntryPath
-        );
+        ArchitectIntegrationCheckResult contractGateResult = snapshotRestorer.restoreContractGate(snapshot.contractGate());
+        HtmlRuntimeOwnershipContract protectedRuntimeContract = contractGateResult == null
+                ? null
+                : contractGateResult.runtimeContract();
         if (existingPaths.isEmpty() && protectedRuntimeContract == null) {
             return ImplementationContinuationConstraints.empty();
         }

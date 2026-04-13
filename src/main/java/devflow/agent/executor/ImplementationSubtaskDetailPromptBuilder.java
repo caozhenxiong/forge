@@ -39,10 +39,7 @@ final class ImplementationSubtaskDetailPromptBuilder {
                     {
                       "path": "相对路径",
                       "action": "WRITE|DELETE",
-                      "reason": "为什么要改这个文件",
-                      "editScope": "AUTO|HOST_HTML_PATCH|INLINE_SCRIPT_PATCH|INLINE_STYLE_PATCH",
-                      "runtimeOwnership": "INLINE_HOST|EXTERNAL_COMPANION|null",
-                      "hostHtmlPatchRequired": false
+                      "reason": "为什么要改这个文件"
                     }
                   ]
                 }
@@ -52,11 +49,9 @@ final class ImplementationSubtaskDetailPromptBuilder {
                 2. changes 只允许覆盖当前子任务自己的 targetPaths
                 3. 不要新增不在 targetPaths 内的文件
                 4. changes 至少 1 个，最多 %d 个
-                5. html-entry 变更必须显式声明 editScope / runtimeOwnership / hostHtmlPatchRequired
-                6. 非 HTML 文件必须使用 editScope=AUTO、runtimeOwnership=null、hostHtmlPatchRequired=false
-                7. EXTERNAL_COMPANION 不能只改宿主 HTML，必须同步声明 external runtime root 文件
-                8. INLINE_HOST 不能和 external runtime script 在同一子任务里并存
-                9. 不要改动当前子任务 targetPaths 之外的路径
+                5. 只返回最小文件变更声明，不要返回 editScope、runtimeOwnership、hostHtmlPatchRequired 等高层结构字段
+                6. 不要改动当前子任务 targetPaths 之外的路径
+                7. 不要试图修改 deliveryMode、targetPaths 或其他 outline 字段
                 """.formatted(maxFilesPerSubtask));
         if (deliveryPolicy != null) {
             builder.append("""
@@ -83,8 +78,9 @@ final class ImplementationSubtaskDetailPromptBuilder {
             builder.append("""
 
                     当前 PATCH 目标是运行时接线：
-                    1. 必须沿用现有 runtime contract
+                    1. 只声明需要修复的入口文件、伴随文件或初始化文件
                     2. 只修复入口、引用路径、初始化或模块连通问题
+                    3. 不要把运行时接线修复扩展成整页重写或重做主逻辑
                     """);
         }
         if (continuationConstraints != null && continuationConstraints.active()) {

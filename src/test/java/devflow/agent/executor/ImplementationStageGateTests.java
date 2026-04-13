@@ -1,0 +1,118 @@
+package devflow.agent.executor;
+
+import devflow.agent.protocol.ImplementationContinuationMode;
+import devflow.agent.review.ImplementationPatchTarget;
+import devflow.agent.review.ReviewReasonCode;
+import java.nio.file.Path;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class ImplementationStageGateTests {
+
+    @Test
+    void generatesGenericContinuationForIncompletePlanWithoutReviewDirective() {
+        ImplementationStageGate gate = new ImplementationStageGate();
+        Subtask first = subtask("搭入口", true, "index.html");
+        Subtask second = subtask("补逻辑", false, "game.js");
+
+        ImplementationStageStatus stageStatus = gate.summarizeStageStatus(
+                new ImplementationPlan("summary", List.of(first, second)),
+                List.of(completedReport(first)),
+                null
+        );
+
+        assertFalse(stageStatus.stageReady());
+        assertEquals(ImplementationContinuationMode.CONTINUE_SUBTASKS, stageStatus.continuationMode());
+        assertEquals("实现计划尚未执行完毕，当前仍处于阶段中间态。", stageStatus.continuationSummary());
+        assertTrue(stageStatus.continuationEvidence().contains("补逻辑"));
+    }
+
+    @Test
+    void generatesRuntimeWiringContinuationFromContractGate() {
+        ImplementationStageGate gate = new ImplementationStageGate();
+        Subtask subtask = subtask("修接线", false, "index.html");
+        HtmlRuntimeOwnershipContract runtimeContract = HtmlRuntimeOwnershipContract.externalCompanion(
+                Path.of("index.html"),
+                List.of(Path.of("index.app.js"))
+        );
+
+        ImplementationStageStatus stageStatus = gate.summarizeStageStatus(
+                new ImplementationPlan("summary", List.of(subtask)),
+                List.of(completedReport(subtask)),
+                ArchitectIntegrationCheckResult.failure(
+                        ArchitectIntegrationCheckScope.STAGE_COMPLETION,
+                        ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID,
+                        "index.app.js exists but index.html does not reference it",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                        runtimeContract
+                )
+        );
+
+        assertEquals(ImplementationContinuationMode.CONTINUE_SUBTASKS, stageStatus.continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
+        assertEquals(ReviewReasonCode.RUNTIME_WIRING_GAP, stageStatus.continuationReasonCode());
+        assertEquals(2, stageStatus.continuationOverrideChanges().size());
+        assertEquals("index.html", stageStatus.continuationOverrideChanges().getFirst().path());
+        assertEquals("index.app.js", stageStatus.continuationOverrideChanges().get(1).path());
+    }
+
+    @Test
+    void blocksWhenContractGateCannotProduceStructuredImplementationScope() {
+        ImplementationStageGate gate = new ImplementationStageGate();
+        Subtask subtask = subtask("补交互", false, "index.html");
+
+        ImplementationStageStatus stageStatus = gate.summarizeStageStatus(
+                new ImplementationPlan("summary", List.of(subtask)),
+                List.of(completedReport(subtask)),
+                ArchitectIntegrationCheckResult.failure(
+                        ArchitectIntegrationCheckScope.STAGE_COMPLETION,
+                        ArchitectIntegrationFailureReason.IMPLEMENTATION_INCOMPLETE,
+                        "missing interaction feedback",
+                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
+                )
+        );
+
+        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, stageStatus.continuationPatchTarget());
+        assertEquals(ReviewReasonCode.IMPLEMENTATION_GAP, stageStatus.continuationReasonCode());
+        assertTrue(stageStatus.continuationSummary().contains("结构化文件范围"));
+        assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
+    }
+
+    private Subtask subtask(String title, boolean runnableMilestone, String path) {
+        return new Subtask(
+                title,
+                title,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("完成当前子任务"),
+                runnableMilestone,
+                DeliveryMode.PATCH,
+                List.of(new FileChange(path, ChangeAction.WRITE, "test"))
+        );
+    }
+
+    private SubtaskExecutionReport completedReport(Subtask subtask) {
+        return new SubtaskExecutionReport(
+                subtask,
+                true,
+                List.of(SubtaskAttemptReport.fromVerification(
+                        1,
+                        new SelfCheckResult(true, "ok", ""),
+                        List.of(),
+                        new devflow.agent.review.ReviewResult(
+                                devflow.agent.review.ReviewDecision.APPROVED,
+                                devflow.agent.review.FixMode.NONE,
+                                "ok",
+                                ""
+                        )
+                )),
+                null
+        );
+    }
+}

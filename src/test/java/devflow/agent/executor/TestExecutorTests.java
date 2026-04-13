@@ -1,17 +1,23 @@
 package devflow.agent.executor;
 
 import devflow.agent.project.FileProjectWorkspace;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ReviewDecision;
+import devflow.agent.review.ReviewReasonCode;
 import devflow.agent.review.ReviewResult;
+import devflow.agent.review.ReviewRevisionRoute;
 import devflow.agent.validation.ProjectInspector;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestExecutorTests {
@@ -249,6 +255,62 @@ class TestExecutorTests {
         assertTrue(bundle.executionMarkdown().contains("未执行"));
         assertTrue(bundle.executionMarkdown().contains("tool=TEST_CASE_EXECUTION"));
         assertTrue(bundle.reportMarkdown().contains("决策：REJECTED"));
+    }
+
+    @Test
+    void implementationVerificationBlocksForHumanWhenTargetedTestEvidenceIsInvalid() {
+        TestExecutor executor = new TestExecutor(new FileProjectWorkspace(), noopProvider(), new com.fasterxml.jackson.databind.ObjectMapper());
+
+        SubtaskVerificationOutcome outcome = executor.toImplementationVerificationOutcome(
+                new ExperienceFailureDisposition(
+                        ExperienceFailureKind.TEST_PLAN_DEFECT,
+                        "必测 testcase 结构与能力契约不一致。",
+                        "请先修复 TEST 侧必测用例骨架。",
+                        "snapshot -> WAIT(policy) -> ASSERT_COMPARE",
+                        ImplementationPatchTarget.NONE,
+                        List.of(),
+                        List.of("TC-001"),
+                        List.of("primary-interaction"),
+                        List.of("primary-interaction"),
+                        ReviewRevisionRoute.PATCH_CURRENT_STAGE,
+                        ReviewReasonCode.TEST_PLAN_DEFECT
+                ),
+                devflow.agent.i18n.DocumentLanguage.ZH
+        );
+
+        assertNotNull(outcome);
+        assertEquals(ReviewRevisionRoute.REQUEST_HUMAN, outcome.review().revisionRoute());
+        assertEquals(ImplementationPatchTarget.NONE, outcome.review().implementationPatchTarget());
+        assertTrue(outcome.review().changeRequest().contains("TEST"));
+        assertFalse(outcome.revisionDirective().active());
+    }
+
+    @Test
+    void implementationVerificationKeepsStructuredRepairScopeForImplementationGap() {
+        TestExecutor executor = new TestExecutor(new FileProjectWorkspace(), noopProvider(), new com.fasterxml.jackson.databind.ObjectMapper());
+
+        SubtaskVerificationOutcome outcome = executor.toImplementationVerificationOutcome(
+                new ExperienceFailureDisposition(
+                        ExperienceFailureKind.IMPLEMENTATION_CAPABILITY_GAP,
+                        "当前实现仍缺少关键体验能力的通过证据。",
+                        "请在实现阶段补齐缺失能力。",
+                        "missingExperienceCoverage=primary-interaction",
+                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                        List.of(new FileChange("index.html", ChangeAction.WRITE, "补齐交互反馈")),
+                        List.of("TC-002"),
+                        List.of("primary-interaction"),
+                        List.of("primary-interaction"),
+                        ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET,
+                        ReviewReasonCode.IMPLEMENTATION_GAP
+                ),
+                devflow.agent.i18n.DocumentLanguage.ZH
+        );
+
+        assertNotNull(outcome);
+        assertEquals(ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET, outcome.review().revisionRoute());
+        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, outcome.review().implementationPatchTarget());
+        assertEquals(1, outcome.review().overrideChanges().size());
+        assertTrue(outcome.revisionDirective().active());
     }
 
     @Test
@@ -548,5 +610,49 @@ class TestExecutorTests {
         assertTrue(bundle.executionMarkdown().contains("implementation-incomplete") || bundle.executionMarkdown().contains("implementation incomplete"));
         assertTrue(bundle.reportMarkdown().contains("架构检查通过：false"), bundle.reportMarkdown());
         assertTrue(bundle.reportMarkdown().contains("决策：REJECTED"), bundle.reportMarkdown());
+    }
+
+    @Test
+    void selfCheckRefreshesValidationPlanWhenProjectFingerprintChanges() throws Exception {
+        Files.writeString(tempDir.resolve("README.md"), "# bootstrap");
+
+        TestExecutor executor = new TestExecutor(
+                new FileProjectWorkspace(),
+                noopProvider(),
+                new com.fasterxml.jackson.databind.ObjectMapper()
+        );
+
+        SelfCheckResult initial = executor.selfCheck(tempDir);
+        assertTrue(initial.passed(), initial.details());
+
+        Files.writeString(
+                tempDir.resolve("index.html"),
+                """
+                        <!DOCTYPE html>
+                        <html lang="zh-CN">
+                        <body>
+                          <script src="./missing.js"></script>
+                        </body>
+                        </html>
+                        """
+        );
+
+        SelfCheckResult changed = executor.selfCheck(tempDir);
+
+        assertFalse(changed.passed(), changed.details());
+    }
+
+    private LlmProvider noopProvider() {
+        return new LlmProvider() {
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
+                return "";
+            }
+
+            @Override
+            public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
+                return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
+            }
+        };
     }
 }

@@ -189,4 +189,75 @@ class DocumentStagePostProcessorTests {
                         .toList()
         );
     }
+
+    @Test
+    void prdSanitizationRoutesExplicitLowAuthorityItemsToSourceMetadataOnly() {
+        String sanitized = postProcessor.sanitizeDocumentConstraintEscalation(
+                StageType.PRD,
+                """
+                # 产品需求文档
+
+                ## 3. 功能范围
+
+                ### 3.1 核心功能
+                - 支持开始、暂停、重新开始
+
+                ### 3.2 可选增强
+                - 推断：支持移动端触摸操作
+                - 建议：添加简单的音效反馈
+                - 支持不同难度等级设置
+
+                ## 4. 非功能要求
+
+                ### 4.2 可用性与交互
+                - 设计选择：默认自动开始
+
+                ## 5. 验收标准
+
+                ### 5.1 功能验收
+                - 待确认问题：是否需要首版支持触屏手势控制？
+
+                ## 7. Contract Metadata
+                - runtime.entryRequired: true
+                - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: not-applicable
+                - runtime.launchRequired: true
+                - runtime.surfaceRequired: true
+                - runtime.acceptanceSignals: page-opens
+
+                ## 8. Source Metadata
+                - hard.userRequirements: 实现一个可玩的网页版俄罗斯方块
+                - hard.upstreamFacts: 做成精致的网页版
+                - soft.inferences: (none)
+                - soft.designDecisions: (none)
+                - soft.recommendations: (none)
+                - open.questions: (none)
+                """,
+                new ConstraintSourceMetadata(
+                        java.util.List.of("实现一个可玩的网页版俄罗斯方块"),
+                        java.util.List.of("做成精致的网页版"),
+                        java.util.List.of(),
+                        java.util.List.of(),
+                        java.util.List.of(),
+                        java.util.List.of()
+                ),
+                ValidationMetadata.empty(),
+                DocumentLanguage.ZH
+        );
+
+        ProductContract productContract = contractExtractor.projectProductContractFromPrd(sanitized);
+        ConstraintSourceMetadata metadata = contractExtractor.extractConstraintSourceMetadata(sanitized);
+
+        assertFalse(sanitized.contains("推断：支持移动端触摸操作"));
+        assertFalse(sanitized.contains("建议：添加简单的音效反馈"));
+        assertFalse(sanitized.contains("设计选择：默认自动开始"));
+        assertFalse(sanitized.contains("待确认问题：是否需要首版支持触屏手势控制？"));
+        assertTrue(productContract.optionalCapabilities().contains("支持不同难度等级设置"));
+        assertFalse(productContract.optionalCapabilities().contains("推断：支持移动端触摸操作"));
+        assertTrue(metadata.softInferences().contains("支持移动端触摸操作"));
+        assertTrue(metadata.softRecommendations().contains("添加简单的音效反馈"));
+        assertTrue(metadata.softDesignDecisions().contains("默认自动开始"));
+        assertTrue(metadata.openQuestions().contains("是否需要首版支持触屏手势控制"));
+    }
 }

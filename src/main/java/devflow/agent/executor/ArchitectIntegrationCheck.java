@@ -32,54 +32,59 @@ public class ArchitectIntegrationCheck {
     }
 
     public ArchitectIntegrationCheckResult verify(Path projectPath, ExecutionContract executionContract) {
-        return verify(projectPath, executionContract, true);
+        return verify(projectPath, executionContract, true, ArchitectIntegrationCheckScope.STAGE_COMPLETION);
     }
 
     public ArchitectIntegrationCheckResult verifyRunnableMilestone(Path projectPath, ExecutionContract executionContract) {
-        return verify(projectPath, executionContract, false);
+        return verify(projectPath, executionContract, false, ArchitectIntegrationCheckScope.RUNNABLE_MILESTONE);
     }
 
     private ArchitectIntegrationCheckResult verify(
             Path projectPath,
             ExecutionContract executionContract,
-            boolean requireImplementationCompleteness
+            boolean requireImplementationCompleteness,
+            ArchitectIntegrationCheckScope scope
     ) {
         if (executionContract == null || !executionContract.entryRequired()) {
-            return ArchitectIntegrationCheckResult.success();
+            return ArchitectIntegrationCheckResult.success(scope);
         }
         ProjectFingerprint fingerprint = projectInspector.inspect(projectPath);
         if (!hasResolvableEntry(fingerprint, executionContract)) {
             return ArchitectIntegrationCheckResult.failure(
+                    scope,
                     ArchitectIntegrationFailureReason.ENTRY_MISSING,
                     "执行契约要求交付可启动入口，但当前工作区没有解析到可启动入口。",
                     ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
             );
         }
         if (executionContract.requiresHtmlEntry()) {
-            return verifyHtmlEntry(projectPath, fingerprint, executionContract, requireImplementationCompleteness);
+            return verifyHtmlEntry(projectPath, fingerprint, executionContract, requireImplementationCompleteness, scope);
         }
         if (requireImplementationCompleteness) {
             ImplementationCompletenessResult completenessResult = implementationCompletenessCheck.inspectProject(projectPath, executionContract);
             if (!completenessResult.passed()) {
                 return ArchitectIntegrationCheckResult.failure(
+                        scope,
                         ArchitectIntegrationFailureReason.IMPLEMENTATION_INCOMPLETE,
                         completenessResult.summary() + " " + completenessResult.evidenceMarkdown(),
                         ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
                 );
             }
         }
-        return ArchitectIntegrationCheckResult.success();
+        return ArchitectIntegrationCheckResult.success(scope);
     }
 
     private ArchitectIntegrationCheckResult verifyHtmlEntry(
             Path projectPath,
             ProjectFingerprint fingerprint,
             ExecutionContract executionContract,
-            boolean requireImplementationCompleteness
+            boolean requireImplementationCompleteness,
+            ArchitectIntegrationCheckScope scope
     ) {
         Path entryPath = projectPath.resolve(fingerprint.resolvedHtmlEntryPath());
         if (!Files.exists(entryPath)) {
             return ArchitectIntegrationCheckResult.failure(
+                    scope,
                     ArchitectIntegrationFailureReason.ENTRY_MISSING,
                     "执行契约要求交付可启动入口，但解析到的 HTML 入口文件不存在。",
                     ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
@@ -107,6 +112,7 @@ public class ArchitectIntegrationCheck {
             if (!wiringResult.passed()) {
                 RuntimeWiringPatchDecision patchDecision = wiringResult.patchDecision();
                 return ArchitectIntegrationCheckResult.failure(
+                        scope,
                         ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID,
                         wiringResult.summary() + " " + wiringResult.evidenceMarkdown(),
                         patchDecision == null ? ImplementationPatchTarget.PATCH_RUNTIME_WIRING : patchDecision.patchTarget(),
@@ -116,7 +122,8 @@ public class ArchitectIntegrationCheck {
             ArchitectIntegrationCheckResult contractConsistencyResult = verifyRuntimeContractConsistency(
                     Path.of(fingerprint.resolvedHtmlEntryPath()),
                     executionContract,
-                    wiringResult
+                    wiringResult,
+                    scope
             );
             if (!contractConsistencyResult.passed()) {
                 return contractConsistencyResult;
@@ -125,15 +132,17 @@ public class ArchitectIntegrationCheck {
                 ImplementationCompletenessResult completenessResult = implementationCompletenessCheck.inspectProject(projectPath, executionContract);
                 if (!completenessResult.passed()) {
                     return ArchitectIntegrationCheckResult.failure(
+                            scope,
                             ArchitectIntegrationFailureReason.IMPLEMENTATION_INCOMPLETE,
                             completenessResult.summary() + " " + completenessResult.evidenceMarkdown(),
                             ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
                     );
                 }
             }
-            return ArchitectIntegrationCheckResult.success();
+            return ArchitectIntegrationCheckResult.success(scope);
         }
         return ArchitectIntegrationCheckResult.failure(
+                scope,
                 ArchitectIntegrationFailureReason.SURFACE_MISSING,
                 String.join(" ", issues),
                 ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
@@ -147,18 +156,19 @@ public class ArchitectIntegrationCheck {
     private ArchitectIntegrationCheckResult verifyRuntimeContractConsistency(
             Path htmlEntryPath,
             ExecutionContract executionContract,
-            WebRuntimeWiringResult wiringResult
+            WebRuntimeWiringResult wiringResult,
+            ArchitectIntegrationCheckScope scope
     ) {
         ContractRuntimeOwnershipMode contractOwnershipMode = executionContract.normalizedRuntimeOwnershipModeEnum();
         RuntimeOwnershipMode expectedOwnership = contractOwnershipMode.toRuntimeOwnershipMode();
         if (expectedOwnership == null) {
-            return ArchitectIntegrationCheckResult.success();
+            return ArchitectIntegrationCheckResult.success(scope);
         }
         HtmlEntryRuntimeOwnershipInspection inspection = wiringResult == null ? null : wiringResult.ownershipInspection();
         HtmlRuntimeOwnershipContract actualContract = inspection == null ? null : inspection.runtimeContract();
         RuntimeOwnershipMode actualOwnership = actualContract == null ? null : actualContract.runtimeOwnership();
         if (actualOwnership == expectedOwnership) {
-            return ArchitectIntegrationCheckResult.success();
+            return ArchitectIntegrationCheckResult.success(scope);
         }
         HtmlRuntimeOwnershipContract expectedRuntimeContract = expectedRuntimeContract(htmlEntryPath, expectedOwnership, inspection);
         String details = """
@@ -170,6 +180,7 @@ public class ArchitectIntegrationCheck {
                 inspection == null ? "" : inspection.evidenceMarkdown()
         ).trim();
         return ArchitectIntegrationCheckResult.failure(
+                scope,
                 ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID,
                 details,
                 ImplementationPatchTarget.PATCH_RUNTIME_WIRING,

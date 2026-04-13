@@ -3,6 +3,7 @@ package devflow.agent.orchestrator;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.supervisor.SupervisorDecision;
 import java.nio.file.Path;
+import java.util.List;
 
 /**
  * 负责把 FlowController 的结构化决策真正落实成阶段动作。
@@ -102,6 +103,7 @@ public class FlowDecisionExecutor {
             String changeRequest,
             String evidence,
             String actionItems,
+            List<devflow.agent.executor.FileChange> overrideChanges,
             devflow.agent.review.ImplementationPatchTarget implementationPatchTarget
     ) {
             return stageTransitionSupport.continueStage(
@@ -112,6 +114,7 @@ public class FlowDecisionExecutor {
                 changeRequest,
                 evidence,
                 actionItems,
+                overrideChanges,
                 implementationPatchTarget,
                 stageEntryExecutor::enterStage
         );

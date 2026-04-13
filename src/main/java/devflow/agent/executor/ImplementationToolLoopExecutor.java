@@ -1,12 +1,14 @@
 package devflow.agent.executor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import devflow.agent.editing.FileStateSnapshot;
 import devflow.agent.context.ContractView;
 import devflow.agent.orchestrator.RunRecord;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -23,11 +25,14 @@ import java.util.concurrent.CompletableFuture;
  */
 final class ImplementationToolLoopExecutor {
 
+    private static final String DONE_REASON_LENGTH = "length";
+    private static final GenerationFailureClassifier GENERATION_FAILURE_CLASSIFIER = new GenerationFailureClassifier();
     private final LlmProvider llmProvider;
     private final ObjectMapper objectMapper;
     private final ImplementationToolPromptBuilder promptBuilder = new ImplementationToolPromptBuilder();
     private final ImplementationToolResultBudgetManager resultBudgetManager = new ImplementationToolResultBudgetManager();
-    private final List<ImplementationTool> tools;
+    private final ImplementationToolRegistry toolRegistry;
+    private final ImplementationToolPermissionPolicy permissionPolicy;
     private final int maxToolTurns;
 
     ImplementationToolLoopExecutor(
@@ -38,15 +43,8 @@ final class ImplementationToolLoopExecutor {
         this.llmProvider = llmProvider;
         this.objectMapper = objectMapper;
         this.maxToolTurns = Math.max(1, maxToolTurns);
-        this.tools = List.of(
-                new FileReadTool(),
-                new FileEditTool(),
-                new FileWriteTool(),
-                new FileDeleteTool(),
-                new GlobTool(),
-                new GrepTool(),
-                new BashTool()
-        );
+        this.toolRegistry = ImplementationToolRegistry.defaultRegistry();
+        this.permissionPolicy = new ImplementationToolPermissionPolicy();
     }
 
     ImplementationToolLoopResult execute(
@@ -64,9 +62,14 @@ final class ImplementationToolLoopExecutor {
     ) {
         Set<Path> ownedPaths = collectOwnedPaths(subtask);
         ChatCapableLlmProvider chatCapableLlmProvider = requireChatProvider();
-        ToolLoopRuntimeState runtimeState = executionState == null
-                ? new ToolLoopRuntimeState()
-                : executionState.toolLoopRuntimeState();
+        ImplementationToolSessionState toolSessionState = executionState == null
+                ? new ImplementationToolSessionState()
+                : executionState.toolSessionState();
+        ImplementationToolPermissionContext permissionContext = permissionPolicy.build(
+                projectPath,
+                ownedPaths,
+                toolRegistry.toolNames()
+        );
         ImplementationToolContext toolContext = new ImplementationToolContext(
                 projectPath,
                 runRecord,
@@ -75,11 +78,23 @@ final class ImplementationToolLoopExecutor {
                 qualityPlan,
                 fingerprint,
                 eventJournal,
-                ownedPaths,
-                runtimeState
+                toolSessionState,
+                permissionContext,
+                permissionPolicy,
+                subtask == null ? DeliveryMode.PATCH : subtask.deliveryMode(),
+                subtask == null ? List.of() : subtask.changes()
         );
-        initializeTranscript(runtimeState, projectPath, subtask, taskPackage, contractView, qualityPlan, feedback, coderContextMarkdown);
-        List<LlmToolDefinition> toolDefinitions = tools.stream().map(ImplementationTool::toDefinition).toList();
+        initializeTranscript(
+                toolSessionState,
+                projectPath,
+                subtask,
+                taskPackage,
+                contractView,
+                qualityPlan,
+                feedback,
+                coderContextMarkdown
+        );
+        List<LlmToolDefinition> toolDefinitions = toolRegistry.toolDefinitions(permissionContext, permissionPolicy);
 
         for (int turn = 1; turn <= maxToolTurns; turn++) {
             toolContext.appendEvent("实现阶段｜tool-loop｜轮次开始｜子任务=%s｜轮次=%d/%d"
@@ -87,28 +102,51 @@ final class ImplementationToolLoopExecutor {
             LlmChatResponse response;
             try {
                 response = chatCapableLlmProvider.chat(new LlmChatRequest(
-                        runtimeState.transcript(),
+                        toolSessionState.transcript(),
                         toolDefinitions,
                         LlmOptions.withOutputBudgetRatio(Map.of(), GenerationBudgetProfile.fullBudgetRatio()),
                         ModelRole.IMPLEMENTATION
                 ));
             } catch (Exception exception) {
+                GenerationFailureType failureType = GENERATION_FAILURE_CLASSIFIER.classify(exception);
                 throw GenerationFailureExceptions.create(
                         subtask.title(),
                         subtask.deliveryMode().name(),
                         "tool-loop",
-                        GenerationFailureType.MODEL_INVOCATION_FAILED,
+                        failureType,
                         turn,
                         true,
-                        "tool loop 调用模型失败。",
+                        failureType == GenerationFailureType.OUTPUT_TRUNCATED
+                                ? "tool loop 输出被截断且没有可续跑内容。"
+                                : "tool loop 调用模型失败。",
                         exception.getMessage(),
                         "请保留当前子任务状态，继续在当前子任务上修复。"
                 );
             }
             if (response.toolCalls() == null || response.toolCalls().isEmpty()) {
                 if (!response.content().isBlank()) {
-                    runtimeState.appendTranscript(LlmChatMessage.assistant(response.content()));
+                    toolSessionState.appendTranscript(LlmChatMessage.assistant(response.content()));
+                    if (isTruncated(response)) {
+                        toolSessionState.appendTranscript(LlmChatMessage.user(truncationContinuationPrompt(subtask)));
+                        toolContext.appendEvent("实现阶段｜tool-loop｜截断续跑｜子任务=%s｜轮次=%d/%d｜模式=assistant-continuation"
+                                .formatted(subtask.title(), turn, maxToolTurns));
+                        continue;
+                    }
                 }
+                if (response.content().isBlank()) {
+                    throw GenerationFailureExceptions.create(
+                            subtask.title(),
+                            subtask.deliveryMode().name(),
+                            "tool-loop",
+                            GenerationFailureType.MODEL_OUTPUT_INVALID,
+                            turn,
+                            true,
+                            "tool loop 返回了空 assistant 响应，无法继续收敛。",
+                            "assistant response had no content and no tool calls",
+                            "请保留当前子任务状态，只补齐当前轮缺失的 assistant 输出或工具调用。"
+                    );
+                }
+                assertDeclaredChangesSatisfied(projectPath, subtask, toolContext, turn);
                 toolContext.appendEvent("实现阶段｜tool-loop｜轮次完成｜子任务=%s｜轮次=%d/%d｜触发工具=0"
                         .formatted(subtask.title(), turn, maxToolTurns));
                 return new ImplementationToolLoopResult(
@@ -117,13 +155,30 @@ final class ImplementationToolLoopExecutor {
                         toolContext.mutationRecords()
                 );
             }
-            runtimeState.appendTranscript(LlmChatMessage.assistantToolCalls(response.content(), response.toolCalls()));
-            List<ImplementationToolResultMessage> rawResults = executeToolCalls(response.toolCalls(), toolContext);
-            runtimeState.resetTranscript(resultBudgetManager.appendToolResults(
-                    runtimeState.transcript(),
+            toolSessionState.appendTranscript(LlmChatMessage.assistantToolCalls(response.content(), response.toolCalls()));
+            List<ImplementationToolResultMessage> rawResults;
+            try {
+                rawResults = executeToolCalls(response.toolCalls(), toolContext);
+            } catch (FatalToolExecutionException exception) {
+                throw GenerationFailureExceptions.create(
+                        subtask.title(),
+                        subtask.deliveryMode().name(),
+                        "tool-loop",
+                        GenerationFailureType.VALIDATION_FAILED,
+                        turn,
+                        true,
+                        exception.summary(),
+                        exception.evidence(),
+                        exception.retryHint().isBlank()
+                                ? "请保留当前子任务状态，只修复当前 fatal tool error，不要重新开始整个子任务。"
+                                : exception.retryHint()
+                );
+            }
+            toolSessionState.resetTranscript(resultBudgetManager.appendToolResults(
+                    toolSessionState.transcript(),
                     toolContext.toolResultsDirectory(),
                     rawResults,
-                    runtimeState.resultReplacementState()
+                    toolSessionState.resultReplacementState()
             ));
             toolContext.appendEvent("实现阶段｜tool-loop｜轮次完成｜子任务=%s｜轮次=%d/%d｜触发工具=%d"
                     .formatted(subtask.title(), turn, maxToolTurns, rawResults.size()));
@@ -141,8 +196,72 @@ final class ImplementationToolLoopExecutor {
         );
     }
 
+    private void assertDeclaredChangesSatisfied(
+            Path projectPath,
+            Subtask subtask,
+            ImplementationToolContext toolContext,
+            int turn
+    ) {
+        if (subtask == null || subtask.changes() == null || subtask.changes().isEmpty()) {
+            return;
+        }
+        Map<Path, PathMutationSummary> mutationsByPath = collectMutationsByPath(toolContext.mutationRecords());
+        List<String> unsatisfied = new ArrayList<>();
+        for (FileChange change : subtask.changes()) {
+            if (change == null || change.path() == null || change.path().isBlank() || change.action() == null) {
+                continue;
+            }
+            Path relativePath = Path.of(change.path()).normalize();
+            Path absolutePath = projectPath.resolve(relativePath).normalize();
+            boolean exists = toolContext.exists(absolutePath);
+            PathMutationSummary mutationSummary = mutationsByPath.get(relativePath);
+            FileStateSnapshot currentState = toolContext.captureFileState(absolutePath);
+            boolean satisfied = switch (change.action()) {
+                case WRITE -> writeSatisfied(mutationSummary, currentState);
+                case DELETE -> deleteSatisfied(mutationSummary, exists);
+            };
+            if (!satisfied) {
+                unsatisfied.add("""
+                        path=%s, action=%s, exists=%s, baselineExists=%s, baselineHash=%s, currentHash=%s, mutations=%s, reason=%s
+                        """.formatted(
+                        relativePath.toString().replace('\\', '/'),
+                        change.action().name(),
+                        exists,
+                        mutationSummary != null && mutationSummary.beforeExists(),
+                        mutationSummary == null ? "" : mutationSummary.beforeHash(),
+                        currentState.contentHash(),
+                        mutationSummary == null || mutationSummary.operations().isEmpty() ? "[]" : mutationSummary.operations(),
+                        change.reason() == null ? "" : change.reason().trim()
+                ).trim());
+            }
+        }
+        if (unsatisfied.isEmpty()) {
+            return;
+        }
+        toolContext.appendEvent("实现阶段｜tool-loop｜交付契约未满足｜子任务=%s｜轮次=%d｜缺口=%d"
+                .formatted(subtask.title(), turn, unsatisfied.size()));
+        throw GenerationFailureExceptions.create(
+                subtask.title(),
+                subtask.deliveryMode().name(),
+                "tool-loop",
+                GenerationFailureType.NO_MATERIAL_CHANGE,
+                turn,
+                true,
+                "tool loop 结束时，当前子任务声明的文件交付契约未满足。",
+                """
+                        terminalMode=assistant-only
+                        declaredChanges=%s
+                        unsatisfiedChanges=%s
+                        """.formatted(
+                        summarizeDeclaredChanges(subtask.changes()),
+                        String.join(" | ", unsatisfied)
+                ).trim(),
+                "请继续当前子任务，只通过工具把缺失的文件写入、更新或删除到位，不要只输出口头完成说明。"
+        );
+    }
+
     private void initializeTranscript(
-            ToolLoopRuntimeState runtimeState,
+            ImplementationToolSessionState toolSessionState,
             Path projectPath,
             Subtask subtask,
             TaskPackage taskPackage,
@@ -151,11 +270,11 @@ final class ImplementationToolLoopExecutor {
             String feedback,
             String coderContextMarkdown
     ) {
-        if (runtimeState == null) {
+        if (toolSessionState == null) {
             return;
         }
-        if (runtimeState.transcript().isEmpty()) {
-            runtimeState.resetTranscript(List.of(
+        if (toolSessionState.transcript().isEmpty()) {
+            toolSessionState.resetTranscript(List.of(
                     LlmChatMessage.system(promptBuilder.systemPrompt()),
                     LlmChatMessage.user(promptBuilder.userPrompt(
                             projectPath,
@@ -170,7 +289,7 @@ final class ImplementationToolLoopExecutor {
             return;
         }
         if (feedback != null && !feedback.isBlank()) {
-            runtimeState.appendTranscript(LlmChatMessage.user("""
+            toolSessionState.appendTranscript(LlmChatMessage.user("""
                     继续当前子任务，不要重新开始整个实现。
                     保留已有 tool loop 状态，只修复当前反馈指出的问题。
 
@@ -194,7 +313,8 @@ final class ImplementationToolLoopExecutor {
         List<List<LlmToolCall>> batches = partitionToolCalls(toolCalls);
         List<ImplementationToolResultMessage> results = new ArrayList<>();
         for (List<LlmToolCall> batch : batches) {
-            boolean concurrent = batch.size() > 1 && tool(batch.get(0).name()).concurrencySafe();
+            ImplementationTool batchTool = toolRegistry.tool(batch.get(0).name());
+            boolean concurrent = batch.size() > 1 && batchTool != null && batchTool.concurrencySafe();
             if (concurrent) {
                 List<CompletableFuture<ImplementationToolResultMessage>> futures = batch.stream()
                         .map(call -> CompletableFuture.supplyAsync(() -> executeToolCall(call, context)))
@@ -214,11 +334,11 @@ final class ImplementationToolLoopExecutor {
     private List<List<LlmToolCall>> partitionToolCalls(List<LlmToolCall> toolCalls) {
         List<List<LlmToolCall>> batches = new ArrayList<>();
         for (LlmToolCall toolCall : toolCalls) {
-            ImplementationTool tool = tool(toolCall.name());
+            ImplementationTool tool = toolRegistry.tool(toolCall.name());
             boolean concurrencySafe = tool != null && tool.concurrencySafe();
             if (concurrencySafe && !batches.isEmpty()) {
                 List<LlmToolCall> lastBatch = batches.get(batches.size() - 1);
-                ImplementationTool firstTool = tool(lastBatch.get(0).name());
+                ImplementationTool firstTool = toolRegistry.tool(lastBatch.get(0).name());
                 if (firstTool != null && firstTool.concurrencySafe()) {
                     lastBatch.add(toolCall);
                     continue;
@@ -232,12 +352,21 @@ final class ImplementationToolLoopExecutor {
     }
 
     private ImplementationToolResultMessage executeToolCall(LlmToolCall toolCall, ImplementationToolContext context) {
-        ImplementationTool tool = tool(toolCall.name());
+        ImplementationTool tool = toolRegistry.resolveVisibleTool(
+                toolCall.name(),
+                context.permissionContext(),
+                permissionPolicy
+        );
         if (tool == null) {
             return new ImplementationToolResultMessage(
                     toolCall.id(),
                     toolCall.name(),
-                    renderFailure(objectMapper, "Unknown tool: " + toolCall.name()),
+                    renderFailure(
+                            objectMapper,
+                            toolRegistry.hasTool(toolCall.name())
+                                    ? "Tool is not available in the current subtask scope: " + toolCall.name()
+                                    : "Unknown tool: " + toolCall.name()
+                    ),
                     8_000
             );
         }
@@ -245,6 +374,8 @@ final class ImplementationToolLoopExecutor {
         ToolInvocationResult result;
         try {
             result = tool.invoke(toolCall, context);
+        } catch (FatalToolExecutionException exception) {
+            throw exception;
         } catch (Exception exception) {
             result = ToolInvocationResult.failure(Map.of(
                     "type", "error",
@@ -265,13 +396,83 @@ final class ImplementationToolLoopExecutor {
         return ToolInvocationResult.failure(Map.of("type", "error", "message", message)).render(objectMapper);
     }
 
-    private ImplementationTool tool(String name) {
-        for (ImplementationTool tool : tools) {
-            if (tool.name().equals(name)) {
-                return tool;
-            }
+    private boolean isTruncated(LlmChatResponse response) {
+        return response != null && DONE_REASON_LENGTH.equalsIgnoreCase(response.doneReason());
+    }
+
+    private Map<Path, PathMutationSummary> collectMutationsByPath(List<FileMutationRecord> mutationRecords) {
+        Map<Path, PathMutationSummary> mutationsByPath = new LinkedHashMap<>();
+        if (mutationRecords == null || mutationRecords.isEmpty()) {
+            return mutationsByPath;
         }
-        return null;
+        for (FileMutationRecord mutationRecord : mutationRecords) {
+            if (mutationRecord == null || mutationRecord.relativePath() == null || mutationRecord.operation() == null) {
+                continue;
+            }
+            Path relativePath = mutationRecord.relativePath().normalize();
+            mutationsByPath.compute(relativePath, (ignored, existing) -> {
+                if (existing == null) {
+                    EnumSet<ToolLoopMutationOperation> operations = EnumSet.noneOf(ToolLoopMutationOperation.class);
+                    operations.add(mutationRecord.operation());
+                    return new PathMutationSummary(
+                            mutationRecord.beforeExists(),
+                            mutationRecord.beforeHash(),
+                            mutationRecord.afterExists(),
+                            mutationRecord.afterHash(),
+                            operations
+                    );
+                }
+                EnumSet<ToolLoopMutationOperation> operations = EnumSet.copyOf(existing.operations());
+                operations.add(mutationRecord.operation());
+                return new PathMutationSummary(
+                        existing.beforeExists(),
+                        existing.beforeHash(),
+                        mutationRecord.afterExists(),
+                        mutationRecord.afterHash(),
+                        operations
+                );
+            });
+        }
+        return mutationsByPath;
+    }
+
+    private boolean writeSatisfied(PathMutationSummary mutationSummary, FileStateSnapshot currentState) {
+        if (mutationSummary == null || currentState == null || !currentState.exists()) {
+            return false;
+        }
+        return mutationSummary.beforeExists() != currentState.exists()
+                || !mutationSummary.beforeHash().equals(currentState.contentHash());
+    }
+
+    private boolean deleteSatisfied(PathMutationSummary mutationSummary, boolean currentExists) {
+        return mutationSummary != null && mutationSummary.beforeExists() && !currentExists;
+    }
+
+    private String truncationContinuationPrompt(Subtask subtask) {
+        String title = subtask == null || subtask.title() == null || subtask.title().isBlank()
+                ? "当前子任务"
+                : subtask.title().trim();
+        return """
+                继续当前子任务，不要重新规划，不要重写已经完成的内容。
+                你上一条 assistant 输出因为长度截断而中断了，现在只继续未完成的部分。
+                目标子任务：%s
+
+                要求：
+                1. 保留当前 transcript 和已有文件状态。
+                2. 如果需要调用工具，直接在当前上下文继续调用。
+                3. 不要从头复述方案，不要回退成占位实现。
+                """.formatted(title).trim();
+    }
+
+    private String summarizeDeclaredChanges(List<FileChange> changes) {
+        if (changes == null || changes.isEmpty()) {
+            return "[]";
+        }
+        return changes.stream()
+                .filter(change -> change != null && change.path() != null && !change.path().isBlank() && change.action() != null)
+                .map(change -> "%s:%s".formatted(change.action().name(), change.path().replace('\\', '/')))
+                .toList()
+                .toString();
     }
 
     private Set<Path> collectOwnedPaths(Subtask subtask) {
@@ -286,5 +487,14 @@ final class ImplementationToolLoopExecutor {
             paths.add(Path.of(change.path()).normalize());
         }
         return Set.copyOf(paths);
+    }
+
+    private record PathMutationSummary(
+            boolean beforeExists,
+            String beforeHash,
+            boolean afterExists,
+            String afterHash,
+            EnumSet<ToolLoopMutationOperation> operations
+    ) {
     }
 }

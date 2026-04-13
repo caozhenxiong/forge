@@ -1,7 +1,5 @@
 package devflow.agent.review;
 
-import devflow.agent.executor.GenerationBudgetProfile;
-import devflow.agent.executor.LlmOptions;
 import devflow.agent.executor.LlmProvider;
 import devflow.agent.executor.ModelRole;
 import devflow.agent.loop.AgentTurnLoop;
@@ -84,7 +82,7 @@ final class DocumentReviewTurnExecutor {
             rawResultRef.set(llmProvider.reviewStructured(
                     systemPrompt,
                     appendReviewerContext(sanitizedCandidate, reviewerContext),
-                    LlmOptions.outputBudgetRatio(GenerationBudgetProfile.documentReviewOutputRatio()),
+                    java.util.Map.of(),
                     ModelRole.CODE_REVIEW
             ));
             return AgentTurnStepResult.advance(

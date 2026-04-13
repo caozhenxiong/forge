@@ -14,8 +14,22 @@ import java.util.List;
 public final class ImplementationCompletenessPolicy {
 
     private static final List<String> PLACEHOLDER_WORD_MARKERS = List.of("todo", "fixme", "placeholder", "stub");
-    private static final List<String> PLACEHOLDER_PHRASE_MARKERS = List.of("not implemented", "implement later", "to be implemented");
-    private static final List<String> PLACEHOLDER_CJK_MARKERS = List.of("占位", "待实现", "后续补充");
+    private static final List<String> PLACEHOLDER_PHRASE_MARKERS = List.of(
+            "not implemented",
+            "implement later",
+            "to be implemented",
+            "implementation goes here",
+            "will be added here"
+    );
+    private static final List<String> PLACEHOLDER_CJK_MARKERS = List.of(
+            "占位",
+            "待实现",
+            "后续补充",
+            "将在这里添加",
+            "稍后实现",
+            "后续实现",
+            "待补齐"
+    );
     private static final List<String> NOT_IMPLEMENTED_MARKERS = List.of(
             "unsupportedoperationexception",
             "notimplementederror",
@@ -24,6 +38,19 @@ public final class ImplementationCompletenessPolicy {
             "thrownewerror('notimplemented",
             "panic(\"todo",
             "panic('todo"
+    );
+    private static final List<String> LOGGING_ONLY_CALL_PREFIXES = List.of(
+            "console.log(",
+            "console.info(",
+            "console.warn(",
+            "console.error(",
+            "console.debug(",
+            "console.trace(",
+            "logger.debug(",
+            "logger.info(",
+            "logger.warn(",
+            "logger.error(",
+            "logger.trace("
     );
     private static final int MAX_EVIDENCE_ITEMS = 8;
 
@@ -44,6 +71,10 @@ public final class ImplementationCompletenessPolicy {
 
     public static List<String> notImplementedMarkers() {
         return NOT_IMPLEMENTED_MARKERS;
+    }
+
+    public static List<String> loggingOnlyCallPrefixes() {
+        return LOGGING_ONLY_CALL_PREFIXES;
     }
 
     public static int maxEvidenceItems() {

@@ -47,12 +47,12 @@ final class ExperienceFailureDispositionResolver {
                     "测试阶段缺少可执行的运行时观测契约。",
                     "请修复真实运行时表面或交互后的可观察状态变化，再重新执行测试。",
                     contractValidation.evidence(),
-                    ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                    implementationPatchTarget(contract),
                     ownerScopedOverrides(contract, "修复运行时表面与可观察状态变化"),
                     failedRequiredCaseIds(caseResults),
                     failureCapabilitySurfaces(plannedCases, caseResults, coverageLedger),
                     missingSurfaces,
-                    ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET,
+                    implementationRepairRoute(contract),
                     ReviewReasonCode.OBSERVATION_CONTRACT_INVALID
             );
         }
@@ -96,12 +96,12 @@ final class ExperienceFailureDispositionResolver {
                     "测试阶段使用的观测目标与实际运行时不一致。",
                     "请先修复主观测面或交互后的真实可观察变化，再重新执行测试。",
                     firstObservationFailureEvidence(caseResults),
-                    ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                    implementationPatchTarget(contract),
                     ownerScopedOverrides(contract, "修复观测主表面与交互后的状态变化"),
                     failedRequiredCaseIds(caseResults),
                     failureCapabilitySurfaces(plannedCases, caseResults, coverageLedger),
                     missingSurfaces,
-                    ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET,
+                    implementationRepairRoute(contract),
                     ReviewReasonCode.OBSERVATION_CONTRACT_INVALID
             );
         }
@@ -112,12 +112,12 @@ final class ExperienceFailureDispositionResolver {
                     "当前实现仍缺少关键体验能力的通过证据。",
                     "请在实现阶段补齐缺失能力，并重新执行测试。",
                     firstRequiredFailureEvidence(caseResults, coverageLedger),
-                    ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                    implementationPatchTarget(contract),
                     ownerScopedOverrides(contract, "修复缺失体验能力与可观察反馈"),
                     failedRequiredCaseIds(caseResults),
                     failureCapabilitySurfaces(plannedCases, caseResults, coverageLedger),
                     missingSurfaces,
-                    ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET,
+                    implementationRepairRoute(contract),
                     ReviewReasonCode.IMPLEMENTATION_GAP
             );
         }
@@ -288,6 +288,30 @@ final class ExperienceFailureDispositionResolver {
             overrides.add(new FileChange(ownerPath, ChangeAction.WRITE, reason));
         }
         return List.copyOf(overrides);
+    }
+
+    private ImplementationPatchTarget implementationPatchTarget(UiRuntimeContract contract) {
+        return hasImplementationOwnerScope(contract)
+                ? ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
+                : ImplementationPatchTarget.NONE;
+    }
+
+    private ReviewRevisionRoute implementationRepairRoute(UiRuntimeContract contract) {
+        return hasImplementationOwnerScope(contract)
+                ? ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET
+                : ReviewRevisionRoute.REQUEST_HUMAN;
+    }
+
+    private boolean hasImplementationOwnerScope(UiRuntimeContract contract) {
+        if (contract == null || contract.ownerPaths().isEmpty()) {
+            return false;
+        }
+        for (String ownerPath : contract.ownerPaths()) {
+            if (ownerPath != null && !ownerPath.isBlank()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private List<RequiredCasePlanDefect> inspectPlanDefects(List<TestCaseSpec> plannedCases) {

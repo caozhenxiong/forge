@@ -64,6 +64,7 @@ final class DesignDocumentComposer {
         String generated = generationSupport.generate(prompt, context.mode(), ModelRole.DESIGN);
         generated = postProcessor.stabilizeSourceMetadata(generated, context.authoritativeSourceMetadata(), 9, language);
         String merged = draftAssembler.mergeDocumentDraft(StageType.DESIGN, context.previousDraft(), generated, context.targetSections());
+        merged = postProcessor.stripMachineBlocks(merged);
         ValidationMetadata validationMetadata = contractExtractor.extractValidationMetadata(merged);
         ExecutionContract executionContract = contractExtractor.extractExecutionContract(
                 runRecord.goal(),
@@ -81,7 +82,7 @@ final class DesignDocumentComposer {
         );
         return postProcessor.upsertDocumentBlocks(
                 sanitized,
-                context.authoritativeSourceMetadata(),
+                contractExtractor.extractConstraintSourceMetadata(sanitized),
                 null,
                 executionContract,
                 contractExtractor.extractValidationMetadata(sanitized)

@@ -131,4 +131,61 @@ class ImplementationCompletenessCheckTests {
         assertFalse(result.passed());
         assertTrue(result.evidenceMarkdown().contains("movePiece"));
     }
+
+    @Test
+    void chinesePlaceholderMarkerStillBlocksCurrentDelivery() throws Exception {
+        Files.writeString(
+                tempDir.resolve("index.html"),
+                """
+                        <!DOCTYPE html>
+                        <html lang="zh-CN">
+                        <body>
+                          <script>
+                            function bootGame() {
+                              // 游戏初始化代码将在这里添加
+                            }
+                          </script>
+                        </body>
+                        </html>
+                        """
+        );
+
+        ImplementationCompletenessCheck check = new ImplementationCompletenessCheck(
+                new FileProjectWorkspace(),
+                new TreeSitterSupport()
+        );
+
+        ImplementationCompletenessResult result = check.inspectFiles(
+                tempDir,
+                List.of(Path.of("index.html"))
+        );
+
+        assertFalse(result.passed());
+        assertTrue(result.evidenceMarkdown().contains("将在这里添加"));
+    }
+
+    @Test
+    void loggingOnlyFunctionIsTreatedAsIncompleteBehavior() throws Exception {
+        Files.writeString(
+                tempDir.resolve("app.js"),
+                """
+                        function bootGame() {
+                          console.log('game boot');
+                        }
+                        """
+        );
+
+        ImplementationCompletenessCheck check = new ImplementationCompletenessCheck(
+                new FileProjectWorkspace(),
+                new TreeSitterSupport()
+        );
+
+        ImplementationCompletenessResult result = check.inspectFiles(
+                tempDir,
+                List.of(Path.of("app.js"))
+        );
+
+        assertFalse(result.passed());
+        assertTrue(result.evidenceMarkdown().contains("bootGame"));
+    }
 }

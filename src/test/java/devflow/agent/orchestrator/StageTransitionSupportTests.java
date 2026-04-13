@@ -164,6 +164,7 @@ class StageTransitionSupportTests {
                 "继续完成剩余子任务",
                 "",
                 "",
+                java.util.List.of(new FileChange("index.html", ChangeAction.WRITE, "继续补齐入口")),
                 ImplementationPatchTarget.NONE,
                 (draft, stageType, runStatus, note) -> {
                     capturedStage.set(stageType);
@@ -176,6 +177,9 @@ class StageTransitionSupportTests {
         assertEquals(StageType.IMPLEMENTATION, capturedStage.get());
         assertTrue(capturedNote.get().contains("阶段中间态"));
         assertTrue(capturedNote.get().contains("继续完成剩余子任务"));
+        ExecutionDirectivePayload payload = ExecutionDirectiveProtocol.parseMerged(capturedNote.get());
+        assertEquals(1, payload.overrideChanges().size());
+        assertEquals("index.html", payload.overrideChanges().getFirst().path());
     }
 
     @Test
