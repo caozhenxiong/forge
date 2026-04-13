@@ -30,23 +30,25 @@
   - `Contract Metadata` 标题与键名保持稳定英文，便于机器读取
 - 文档 prompt 与 reviewer 统一按“信息来源 / 约束升级”管理，不再针对具体场景补关键词规则
 - 当前代码与业务状态总览以 `docs/current-state.md` 为准
-- 文档索引以 `docs/README.md` 为准
+- 文档入口以本 README 为准
 - 根约定与工程约定分别维护在：
   - `AGENTS.md`
   - `docs/engineering-agreements.md`
 
 ## 文档入口
 
-- `docs/README.md`
-  当前文档索引
+- `docs/active-work-items.md`
+  当前执行主线
 - `docs/current-state.md`
   当前代码与业务状态总览
 - `docs/workflow-rules.md`
   当前工作流与 gate 规则
+- `docs/engineering-agreements.md`
+  工程约定与协作硬约束
 - `docs/redesign-roadmap.md`
   后续演进路线图
-- `docs/engineering-agreements.md`
-  工程约定
+- `docs/prompts-reference.md`
+  主要 prompt / 协议参考
 
 ## 当前结构
 - `src/main/java/devflow/agent/orchestrator`
@@ -261,7 +263,7 @@ mvn -q spring-boot:run -Dspring-boot.run.arguments='run logs <runId> --project /
 - implementation 阶段内置自测，优先使用项目自身构建/测试工具链，没有工具链时退回通用静态 Web 检查
 - implementation 阶段在接受模型生成内容前，会先用 `tree-sitter` 校验 `HTML / JavaScript / TypeScript / Java / Python / Go` 的基本结构合法性
 - `WRITE` 已改成事务式候选写入：先 stage 候选文件，再校验，最后 commit；失败会保留调试 artifact
-- fallback testcase 设计已优先基于 `tree-sitter` 提取静态 HTML 结构，而不是只靠正则猜测按钮和选择器
+- 静态 testcase 设计已优先基于 `tree-sitter` 提取 HTML 结构，而不是只靠正则猜测按钮和选择器
 - `ANALYSIS / PRD / DESIGN` 已改成固定模板输出，降低文档漂移和阶段间理解偏差
 - code review 阶段会输出 `fixMode`
 - code review / test 打回后会把 `PATCH` 或 `REWORK` 明确传回 implementation
@@ -396,7 +398,7 @@ mvn -q spring-boot:run -Dspring-boot.run.arguments='run logs <runId> --project /
 
 详细说明见：
 
-- `docs/editing-strategy.md`
+- `docs/engineering-agreements.md`
 
 ## IMPLEMENTATION 阶段当前策略
 

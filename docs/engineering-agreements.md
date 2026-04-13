@@ -1,6 +1,6 @@
 # 工程约定
 
-> 说明：这份文档只维护协作与工程约定。当前代码与业务状态总览请优先看 `docs/current-state.md`，文档入口请看 `docs/README.md`。
+> 说明：这份文档只维护协作与工程约定。当前代码与业务状态总览请优先看 `docs/current-state.md`，文档入口请看仓库根 `README.md`。
 
 ## 目的
 
@@ -94,6 +94,14 @@
 4. 最后才是完整自研
 
 不允许一上来就手搓复杂底层能力。
+
+当前默认技术取向：
+
+- 结构化代码解析与结构验证优先 `tree-sitter`
+- HTML / DOM 修改优先成熟 DOM 工具，不强求统一进字符串替换
+- 通用 diff / patch 优先成熟类库
+- JS / TS 的高层改写优先现成 codemod 能力或 sidecar，不在 Java 主链重复造完整编辑器
+- 这些选择服务于主链收口；如果未来切换方案，也必须同步删掉旧路径，不能双轨长期并存
 
 ### 4. Prompt 不针对案例写规则
 
@@ -376,9 +384,8 @@ Prompt 不应用来堆：
 - `docs/workflow-rules.md`
 - `docs/redesign-roadmap.md`
 - `docs/current-state.md`
-- 相关当前策略文档，例如：
-  - `docs/editing-strategy.md`
-  - `docs/README.md`
+- 相关协议或参考文档，例如：
+  - `docs/prompts-reference.md`
 
 原则：
 

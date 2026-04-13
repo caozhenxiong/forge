@@ -196,14 +196,12 @@ user prompt 结构：
 
 - [ImplementationExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/ImplementationExecutor.java)
 
-`IMPLEMENTATION` 不是一个单 prompt，而是 4 类 prompt：
+`IMPLEMENTATION` 当前不是“单次整文件生成”，而是 4 类 prompt 协作：
 
 1. implementation plan
-2. full-file generation
-3. precise HTML generation
-4. precise code generation
-5. subtask verifier
-6. JSON repair
+2. coder tool loop
+3. subtask verifier
+4. structured repair
 
 ### 1. implementation plan
 
@@ -317,65 +315,77 @@ user prompt 输入：
 - implementation planning 按动态 output ratio 申请输出
 - 不再固定写死 `num_predict`
 
-## `IMPLEMENTATION` file generation
+## `IMPLEMENTATION` coder tool loop
 
 来源：
 
-- [ImplementationExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/ImplementationExecutor.java)
+- [ImplementationToolPromptBuilder.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/ImplementationToolPromptBuilder.java)
+- [ImplementationToolLoopExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/ImplementationToolLoopExecutor.java)
 
-system prompt 核心：
+system prompt 当前围绕下面几类事实组织：
 
 ```text
-你是资深软件工程师。请只输出目标文件的完整最终内容。
-不要解释，不要 markdown 代码块，不要补充额外文字。
+你是当前 implementation 子任务的 coder。
+你必须在当前 task package、当前文件契约和当前工作区事实内工作。
+优先通过工具读取、编辑、写入和验证，不要只写 prose。
 ```
 
-当前 file generation 会根据 `deliveryMode` 追加不同约束：
+当前主链约束：
 
-- `SKELETON`
-  - 只建立最小可运行骨架
-  - 允许占位函数/容器
-- `INCREMENTAL`
-  - 只补当前子任务功能
-  - 保持已有骨架和模块边界
-- `PATCH`
-  - 最小补丁修复
-- `REWORK`
-  - 允许较大范围调整
+- coder 只能在当前 `task package`、`accepted change-set` 和项目既有资产范围内引入本地依赖
+- prompt 会显式展示 `Current File Contracts`
+- 当前 attempt 使用的 task package 必须和 `executionState.effectiveChanges()` 对齐
+- 不能把“未真正落盘的解释性 prose”当作成功
+- 若文件交付契约未被工具真实满足，执行阶段会以 `NO_MATERIAL_CHANGE` 失败
+- runtime ownership / wiring 不再由 planning detail 预判，而由执行与 verifier 基于产物事实校验
 
 预算说明：
 
-- file generation 统一按动态 output ratio 申请输出
-- `deliveryMode` 只影响 prompt 约束和交付方式，不再直接绑定固定 `num_predict`
+- coder tool loop 统一按动态 output ratio 申请输出
+- 不再给 implementation 主链单独写固定 `num_predict`
 
-补充执行规则：
+当前可用工具：
 
-- 完整文件输出不会直接覆盖目标文件
-- `WRITE` 会先把候选内容 stage 到事务目录
-- 然后重新做结构/语法校验
-- 校验通过后才 commit
-- 失败会保留 `.devflow/write-transactions/failed/` 调试 artifact
-- 如果完整文件、精确 HTML 或精确代码在本地校验阶段失败：
-  - 先在当前文件生成内做有限重试
-  - 仍失败时会产出结构化 `generation failure`
-  - 再由 `SupervisorAgent` 决定是否继续重试、切换更保守的 delivery policy，或停止当前子任务
+- `Read`
+- `Edit`
+- `Write`
+- `Delete`
+- `Glob`
+- `Grep`
+- `Bash`
 
 user prompt 输入：
 
 - 总体实现摘要
 - 当前子任务标题/目标
-- 当前子任务 `deliveryMode`
 - 验收标准
-- 文件路径
-- 变更原因
+- 当前 `task package`
+- 当前文件契约
+- 上一轮失败/修复上下文
 - `analysis / prd / design`
-- 上一轮反馈
-- 当前相关文件上下文
-- 当前文件内容
+- 当前相关文件上下文与已读文件状态
 
-### 2.1 precise HTML generation
+### 2.1 低层编辑内核
 
-当目标文件是已有稳定锚点的 HTML 页面，且当前 `deliveryMode` 为 `INCREMENTAL / PATCH` 时，`IMPLEMENTATION` 会切到“精确 HTML 改写” prompt，而不是输出完整页面。
+当前 stage-level coder prompt 下面，文件编辑工具内部仍可能使用更细的结构化编辑 prompt，但它们已经不是 implementation 阶段的顶层 prompt 分类。
+
+这类低层 prompt 主要包括：
+
+- HTML 精确改写
+- 代码结构化 diff 改写
+- JSON / payload repair
+
+它们的职责是：
+
+- 在受控文件范围内做局部编辑
+- 产出结构化 patch / payload
+- 失败时优先 repair，再决定是否升级
+
+而不是重新承担 implementation 的整体规划职责
+
+### 2.2 HTML 精确改写
+
+当文件工具在已有 HTML 宿主上执行局部编辑时，会使用结构化 HTML patch prompt，而不是整页重写。
 
 system prompt 核心：
 
@@ -412,9 +422,9 @@ system prompt 核心：
   - `RESULT_FILE_INVALID`
   然后交给 supervisor 决定是否继续精确改写
 
-### 2.2 precise code generation
+### 2.3 代码结构化 diff 改写
 
-当目标文件是已有 `JavaScript / TypeScript / Java / Python / Go` 文件，且当前 `deliveryMode` 为 `INCREMENTAL / PATCH` 时，`IMPLEMENTATION` 会切到“符号级精确改写” prompt，而不是输出完整源码文件。
+当文件工具在已有代码文件上执行局部编辑时，会使用结构化 diff hunk prompt，而不是直接整文件重写。
 
 system prompt 核心：
 
@@ -457,6 +467,74 @@ system prompt 核心：
   - `RESULT_FILE_INVALID`
   然后交给 supervisor 决定是否继续保持局部编辑、收缩改单范围或停止当前子任务
 
+## `IMPLEMENTATION` verifier
+
+来源：
+
+- `SubtaskVerificationSupport`
+- `Implementation verification` 相关执行链
+
+verifier 的职责不是重新规划实现，而是判断：
+
+- 当前子任务是否满足自己的 `acceptanceCriteria`
+- 当前文件交付契约是否真实落盘
+- 结构/语法/runtime evidence 是否支持通过
+- 当前失败是否属于 implementation patch，还是必须阻断人工
+
+预算说明：
+
+- verifier 走小任务动态预算
+- 不再在文档层维护固定 `num_predict`
+
+verifier 额外约束：
+
+- 若当前输入包含 repair brief：
+  - verifier 必须优先检查 `Must Fix First`
+  - verifier 必须按 `Acceptance Checks` 判定是否收敛
+  - 若实现继续沿着 `Forbidden Directions` 修改，必须拒绝
+
+## `IMPLEMENTATION` structured repair
+
+来源：
+
+- `PatchPayloadRepairSupport`
+- `ModelJsonRepairTurn`
+- `repair-before-regenerate` 相关链路
+
+当前 repair 主线遵循：
+
+- 先 deterministic repair
+- 再 model repair
+- 再决定是否升级或重试
+
+### 4.1 JSON repair
+
+system prompt：
+
+```text
+你是 JSON 修复器。请修复输入中的 implementation plan 或 patch payload，使其成为合法 JSON。
+你必须只返回修复后的 JSON 对象，不要输出任何额外解释。
+```
+
+目标格式按调用方而定：
+
+- implementation plan repair: 修复为 plan 标准 JSON
+- patch payload repair: 修复为 structured diff JSON
+  - `expectedSourceHash`
+  - `hunks[].sourceStartLine`
+  - `hunks[].beforeLines`
+  - `hunks[].afterLines`
+
+user prompt 输入：
+
+- 当前 JSON 解析错误
+- 待修复内容
+
+预算说明：
+
+- JSON repair 走动态预算申请
+- 最终仍由统一预算链按当前上下文裁剪
+
 ## `SupervisorAgent`
 
 来源：
@@ -472,13 +550,13 @@ system prompt 核心：
 
 除主流程决策外，当前还承担一条 implementation 内部恢复路径：
 
-- 当文件生成/精确 patch 连续失败时
-- `ImplementationExecutor` 会把结构化 `generation failure` 交给 supervisor
+- 当文件生成或精确 patch 连续失败时
+- implementation 执行链会把结构化 failure 交给 supervisor
 - supervisor 再输出：
   - `RETRY_SUBTASK`
   - `ROUTE_TO_REPAIR`
   - `FAIL_SUBTASK`
-- 同时给出更保守的 `deliveryPolicy`
+  - 必要时附带更保守的 `deliveryPolicy`
 
 输出 JSON 结构：
 
@@ -531,136 +609,8 @@ system prompt 核心：
 - 对需要入口、运行表面或严格交付契约的任务，优先给出更小粒度的 `focus / constraints`
 - 鼓励“先可运行骨架，再渐进填充”，不要鼓励单轮完成整个产品
 - `ROUTE_TO_REPAIR` 只在重复问题明确且适合定点修补时使用
-- `ROLLBACK_STAGE` 只在根因明显属于上游文档/设计时使用
+- `ROLLBACK_STAGE` 只在根因明显属于上游文档或设计时使用
 - `WorkflowEngine` 仍会对 supervisor 输出做合法性校验；模型决策失败时回退到保守规则
-
-### 2. file generation
-
-system prompt 核心：
-
-```text
-你是资深软件工程师。请只输出目标文件的完整最终内容。
-不要解释，不要 markdown 代码块，不要补充额外文字。
-```
-
-#### `PATCH` 模式附加规则
-
-```text
-当前处于修复模式：
-1. 只修复反馈中明确指出的问题
-2. 尽量保留既有代码结构和已有功能
-3. 不要为了修一个点而重写整份文件
-```
-
-#### `REWORK` 模式附加规则
-
-```text
-当前处于重构模式：
-1. 允许较大范围调整结构来解决根本性问题
-2. 优先解决重复模块、入口未接线、模块边界混乱
-3. 重构后必须保持入口文件、模块引用和测试链路一致
-```
-
-#### `repair brief` 强约束附加规则
-
-```text
-当前输入包含 repair brief：
-1. 优先修复 diagnosis 明确指出的根因
-2. 不要偏离 repair brief 中的 affectedFiles、doNotChange 和 acceptanceTarget
-3. 产出必须能回应 Must Fix First、Forbidden Directions、Acceptance Checks
-```
-
-user prompt 输入：
-
-- 总体实现摘要
-- 当前子任务：
-  - 标题
-  - 目标
-  - 验收标准
-- 文件路径
-- 变更原因
-- 需求分析
-- 产品需求文档
-- 技术方案设计
-- 上一轮反馈
-- 当前相关文件上下文
-- 当前文件内容
-
-预算说明：
-
-- precise HTML / code patch 统一按动态 output ratio 申请输出
-- repair 或收窄后的生效输出仍由统一预算链裁剪
-
-### 3. subtask verifier
-
-来源：
-
-- `ImplementationExecutor.verifySubtask`
-
-system prompt：
-
-```text
-你是实现阶段的子任务验证器。请只根据子任务目标、验收标准和当前文件内容判断该子任务是否已经完成。
-```
-
-candidate 输入包括：
-
-- 子任务标题
-- 子任务目标
-- 验收标准
-- 自检结果
-  - `passed`
-  - `summary`
-  - `details`
-- 当前相关文件内容
-- 若 `DESIGN` 定义了性能验证策略，还会附带对应策略摘要
-- 若当前子任务处于 repair brief 路径，还会附带 repair brief 强约束上下文
-
-预算说明：
-
-- verifier 走小任务动态预算
-- 不再在文档层维护固定 `num_predict`
-
-verifier 额外约束：
-
-- 若当前输入包含 repair brief：
-  - verifier 必须优先检查 `Must Fix First`
-  - verifier 必须按 `Acceptance Checks` 判定是否收敛
-  - 若实现继续沿着 `Forbidden Directions` 修改，必须拒绝
-
-### 4. JSON repair
-
-来源：
-
-- `ImplementationExecutor.repairPlan`
-- `PatchPayloadRepairSupport`
-- `ModelJsonRepairTurn`
-
-system prompt：
-
-```text
-你是 JSON 修复器。请修复输入中的 implementation plan，使其成为合法 JSON。
-你必须只返回修复后的 JSON 对象，不要输出任何额外解释。
-```
-
-目标格式按调用方而定：
-
-- implementation plan repair: 修复为 plan 标准 JSON
-- patch payload repair: 修复为 structured diff JSON
-  - `expectedSourceHash`
-  - `hunks[].sourceStartLine`
-  - `hunks[].beforeLines`
-  - `hunks[].afterLines`
-
-user prompt 输入：
-
-- 当前 JSON 解析错误
-- 待修复内容
-
-预算说明：
-
-- JSON repair 走动态预算申请
-- 最终仍由统一预算链按当前上下文裁剪
 
 ## `CODE_REVIEW`
 

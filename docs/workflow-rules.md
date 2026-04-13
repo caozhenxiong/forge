@@ -1,6 +1,6 @@
 # 工作流规则
 
-> 说明：这份文档只保留当前有效的运行规则。当前代码与业务状态请优先看 `docs/current-state.md`，文档入口请看 `docs/README.md`。
+> 说明：这份文档只保留当前有效的运行规则。当前代码与业务状态请优先看 `docs/current-state.md`，文档入口请看仓库根 `README.md`。
 
 ## 目的
 
@@ -372,17 +372,23 @@ review 负责语义判断，不负责替代：
 
 ## 文档同步规则
 
-只要代码行为发生变化，必须同步更新：
+只要代码行为发生变化，必须同步检查并更新：
 
 - `README.md`
 - `docs/current-state.md`
 - `docs/workflow-rules.md`
-- `docs/redesign-roadmap.md`
 
-如果是编辑主链或工程协作规则变更，还要同步：
+如果是工程约定变更，还要同步：
 
-- `docs/editing-strategy.md`
 - `docs/engineering-agreements.md`
+
+如果是 prompt / 协议变更，还要同步：
+
+- `docs/prompts-reference.md`
+
+如果是后续演进方向改变，还要同步：
+
+- `docs/redesign-roadmap.md`
 
 ## 下一步
 
@@ -392,4 +398,5 @@ review 负责语义判断，不负责替代：
 
 - 当前系统现状：`docs/current-state.md`
 - 当前工程约定：`docs/engineering-agreements.md`
+- prompt / 协议参考：`docs/prompts-reference.md`
 - 后续演进方向：`docs/redesign-roadmap.md`
