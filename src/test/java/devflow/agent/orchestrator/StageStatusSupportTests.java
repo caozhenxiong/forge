@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -61,6 +62,45 @@ class StageStatusSupportTests {
         assertEquals(StageStatus.FAILED, reloaded.stageStates().get(StageType.IMPLEMENTATION).status());
     }
 
+    @Test
+    void applyMaxRevisionGuardMarksRunFailedWhenBudgetIsExhausted() {
+        FileRunRepository runRepository = new FileRunRepository();
+        runRepository.initialize(tempDir);
+        StageStatusSupport support = newSupport(runRepository);
+        RunRecord runRecord = runRepository.save(
+                new RunRecord(
+                        UUID.randomUUID(),
+                        tempDir,
+                        "goal",
+                        "",
+                        new RunConfig(Map.of(StageType.IMPLEMENTATION, devflow.agent.domain.GatePolicy.AGENT_ONLY), 1),
+                        StageType.IMPLEMENTATION,
+                        RunStatus.IN_PROGRESS,
+                        stageStates(StageType.IMPLEMENTATION, StageStatus.RUNNING, 1),
+                        Instant.now(),
+                        Instant.now()
+                )
+        );
+        Map<StageType, StageExecution> nextStates = new EnumMap<>(runRecord.stageStates());
+        StageExecution currentExecution = StageStatusSupport.requireStage(nextStates, StageType.IMPLEMENTATION);
+        nextStates.put(
+                StageType.IMPLEMENTATION,
+                currentExecution.withStatus(StageStatus.NEEDS_REVISION)
+                        .withReview(ReviewDecision.REVISION_REQUIRED, "summary", "change")
+        );
+
+        Optional<RunRecord> failed = support.applyMaxRevisionGuard(
+                tempDir,
+                runRecord,
+                StageType.IMPLEMENTATION,
+                currentExecution,
+                nextStates
+        );
+
+        assertEquals(RunStatus.FAILED, failed.orElseThrow().status());
+        assertEquals(StageStatus.FAILED, failed.orElseThrow().stageStates().get(StageType.IMPLEMENTATION).status());
+    }
+
     private StageStatusSupport newSupport(FileRunRepository runRepository) {
         return new StageStatusSupport(
                 runRepository,
@@ -72,11 +112,6 @@ class StageStatusSupportTests {
     }
 
     private RunRecord newRunRecord(StageType currentStage, StageStatus currentStatus, int attempt) {
-        EnumMap<StageType, StageExecution> states = new EnumMap<>(StageType.class);
-        for (StageType stageType : StageType.values()) {
-            states.put(stageType, new StageExecution(stageType, StageStatus.PENDING, 0, null, null, null, null));
-        }
-        states.put(currentStage, new StageExecution(currentStage, currentStatus, attempt, null, null, null, null));
         return new RunRecord(
                 UUID.randomUUID(),
                 tempDir,
@@ -85,9 +120,18 @@ class StageStatusSupportTests {
                 RunConfig.defaultConfig(),
                 currentStage,
                 RunStatus.IN_PROGRESS,
-                states,
+                stageStates(currentStage, currentStatus, attempt),
                 Instant.now(),
                 Instant.now()
         );
+    }
+
+    private Map<StageType, StageExecution> stageStates(StageType currentStage, StageStatus currentStatus, int attempt) {
+        EnumMap<StageType, StageExecution> states = new EnumMap<>(StageType.class);
+        for (StageType stageType : StageType.values()) {
+            states.put(stageType, new StageExecution(stageType, StageStatus.PENDING, 0, null, null, null, null));
+        }
+        states.put(currentStage, new StageExecution(currentStage, currentStatus, attempt, null, null, null, null));
+        return states;
     }
 }

@@ -106,7 +106,10 @@ class ImplementationExecutorTests {
                 "",
                 "",
                 "",
-                ""
+                "",
+                null,
+                "",
+                ImplementationProgressSink.noop()
         );
 
         assertTrue(Files.readString(file).contains("return 1;"));
@@ -169,7 +172,10 @@ class ImplementationExecutorTests {
                 "",
                 "",
                 "",
-                ""
+                "",
+                null,
+                "",
+                ImplementationProgressSink.noop()
         );
 
         assertTrue(Files.exists(file));
@@ -227,7 +233,10 @@ class ImplementationExecutorTests {
                 "",
                 "",
                 "",
-                ""
+                "",
+                null,
+                "",
+                ImplementationProgressSink.noop()
         );
 
         assertTrue(Files.readString(first).contains("return 1;"));

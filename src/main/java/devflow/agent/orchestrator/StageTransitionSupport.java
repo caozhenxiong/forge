@@ -23,21 +23,15 @@ import java.util.UUID;
  */
 public class StageTransitionSupport {
 
-    private final FileRunRepository runRepository;
-    private final devflow.agent.artifact.EventLogStore eventLogStore;
     private final StageStatusSupport stageStatusSupport;
     private final StageRevisionSupport stageRevisionSupport;
     private final StageContinuationNoteBuilder stageContinuationNoteBuilder;
 
     public StageTransitionSupport(
-            FileRunRepository runRepository,
-            devflow.agent.artifact.EventLogStore eventLogStore,
             StageStatusSupport stageStatusSupport,
             StageRevisionSupport stageRevisionSupport,
             StageContinuationNoteBuilder stageContinuationNoteBuilder
     ) {
-        this.runRepository = runRepository;
-        this.eventLogStore = eventLogStore;
         this.stageStatusSupport = stageStatusSupport;
         this.stageRevisionSupport = stageRevisionSupport;
         this.stageContinuationNoteBuilder = stageContinuationNoteBuilder;
@@ -136,12 +130,10 @@ public class StageTransitionSupport {
         StageExecution continuedExecution = currentExecution.withStatus(StageStatus.NEEDS_REVISION)
                 .withReview(null, continuationContext.summary(), continuationContext.changeRequest());
         nextStates.put(stageType, continuedExecution);
-
-        if (currentExecution.attempt() >= runRecord.config().maxAutoRevisions()) {
-            nextStates.put(stageType, continuedExecution.withStatus(StageStatus.FAILED));
-            RunRecord failed = runRecord.withCurrentStage(stageType, RunStatus.FAILED, nextStates, Instant.now());
-            eventLogStore.append(projectPath, runRecord.runId(), WorkflowEventMessages.maxAutoRevisionsExceeded(stageType));
-            return runRepository.save(failed);
+        java.util.Optional<RunRecord> failed =
+                stageStatusSupport.applyMaxRevisionGuard(projectPath, runRecord, stageType, currentExecution, nextStates);
+        if (failed.isPresent()) {
+            return failed.get();
         }
 
         RunRecord draft = runRecord.withCurrentStage(stageType, RunStatus.IN_PROGRESS, nextStates, Instant.now());

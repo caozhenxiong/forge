@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -169,6 +170,23 @@ public class StageStatusSupport {
                         .withReview(reviewResult.decision(), reviewResult.summary(), reviewResult.changeRequest())
         );
         return runRepository.save(runRecord.withCurrentStage(stageType, RunStatus.FAILED, nextStates, Instant.now()));
+    }
+
+    public Optional<RunRecord> applyMaxRevisionGuard(
+            Path projectPath,
+            RunRecord runRecord,
+            StageType stageType,
+            StageExecution currentExecution,
+            Map<StageType, StageExecution> nextStates
+    ) {
+        if (currentExecution.attempt() < runRecord.config().maxAutoRevisions()) {
+            return Optional.empty();
+        }
+        StageExecution reviewedExecution = requireStage(nextStates, stageType);
+        nextStates.put(stageType, reviewedExecution.withStatus(StageStatus.FAILED));
+        RunRecord failed = runRecord.withCurrentStage(stageType, RunStatus.FAILED, nextStates, Instant.now());
+        eventLogStore.append(projectPath, runRecord.runId(), WorkflowEventMessages.maxAutoRevisionsExceeded(stageType));
+        return Optional.of(runRepository.save(failed));
     }
 
     /**

@@ -81,7 +81,7 @@
 - `SupervisorAgentTests`（已有）
 - `StageTransitionSupportTests`（已有）
 - `DefaultWorkflowEngineTests`（已有）
-- 新增 `FlowControllerTests`
+- 扩展 `FlowControllerTests`
 
 ### Phase 2 联动范围
 
@@ -96,9 +96,10 @@
 ### Phase 3 联动范围
 
 - `orchestrator/`
-  - `StageProgressCoordinator`：拆分为薄编排层 + `StageToolResultGate` + `ImplementationProgressSupport`
+  - `StageProgressCoordinator`：拆分为薄编排层 + `StageToolResultGate` + `ImplementationProgressSupport` + `RepeatIssueDetector`
   - 新增 `StageToolResultGate`：接管 `toolResultLoader` + `toolResultGuard`
   - 新增 `ImplementationProgressSupport`（或复用已有 support）：接管 `implementationStateSupport` + `implementationContinuationSupport` 的调用路径
+  - 新增 `RepeatIssueDetector`：接管 `diagnosisAgent.shouldDiagnose()`
   - `OrchestratorConfiguration`：补新 bean 装配
 
 联动测试范围：
@@ -117,7 +118,7 @@
 - 提取 `maxAutoRevisions` 超限辅助方法，`StageTransitionSupport` 与 `StageRevisionSupport` 共用
 - `ImplementationExecutor` 删除 3 个短签名重载，只保留全参规范入口
 - `ImplementationStageComposer` 与相关测试调用点同步切到全参版本
-- 新增 `FlowControllerTests`
+- 扩展 `FlowControllerTests`
 - Phase 1 self-test / code review / docs
 
 ### Phase 2. SupervisorAgent 决策骨架统一
@@ -129,6 +130,7 @@
 ### Phase 3. StageProgressCoordinator 拆分
 
 - 新增 `StageToolResultGate`：封装 `toolResultLoader.load()` + `toolResultGuard.guard()`
+- 新增 `RepeatIssueDetector`：封装 `diagnosisAgent.shouldDiagnose()`
 - 将 implementation 特殊路径（`implementationStateSupport`、`implementationContinuationSupport`）内聚
 - `StageProgressCoordinator` 最终不再直接持有工具结果与 implementation continuation 细节协作者
 - `OrchestratorConfiguration` 补新 bean 装配
@@ -186,7 +188,7 @@ public boolean shouldContinue(RunRecord runRecord) {
 **修复**：在 `StageStatusSupport` 中提取：
 
 ```java
-Optional<RunRecord> checkMaxRevisions(
+Optional<RunRecord> applyMaxRevisionGuard(
     Path projectPath,
     RunRecord runRecord,
     StageType stageType,
@@ -198,9 +200,11 @@ Optional<RunRecord> checkMaxRevisions(
 返回非空表示已超限并已落盘，调用方直接 return。两处调用点改为：
 
 ```java
-Optional<RunRecord> exceeded = stageStatusSupport.checkMaxRevisions(...);
+Optional<RunRecord> exceeded = stageStatusSupport.applyMaxRevisionGuard(...);
 if (exceeded.isPresent()) return exceeded.get();
 ```
+
+命名选择 `apply...Guard` 而不是 `check...`，因为这不是只读 predicate，而是会写事件、标记 `FAILED` 并保存 run 的有副作用状态应用。
 
 ### 4. ImplementationExecutor 重载链收口（P2）
 
@@ -277,12 +281,22 @@ class StageToolResultGate {
 | `contextProjector` | 上下文投影 |
 | `artifactSupport` | 产物写入 |
 
-`diagnosisAgent.shouldDiagnose()` 调用移入 `StageToolResultGate` 或单独提取为 `RepeatIssueDetector`（视实现复杂度决定）。
+`diagnosisAgent.shouldDiagnose()` 不并入 `StageToolResultGate`。它处理的是“是否属于重复问题”的历史/语义判断，不是工具结果 guarding，同一类职责不应混放。
+
+这轮明确提取：
+
+```java
+class RepeatIssueDetector {
+    boolean shouldDiagnose(Path projectPath, RunRecord runRecord,
+                           StageType stageType, ReviewResult reviewResult)
+}
+```
 
 完成门槛不是“字段数 ≤ 7”，而是：
 
 - coordinator 不再直接依赖 `toolResultLoader`
 - coordinator 不再直接依赖 `toolResultGuard`
+- coordinator 不再直接依赖 `diagnosisAgent`
 - coordinator 不再直接依赖 `implementationStateSupport`
 - coordinator 不再直接依赖 `implementationContinuationSupport`
 - implementation 特殊路径由独立协作者承接
@@ -302,13 +316,14 @@ mvn -q -DskipTests test-compile
 ```
 mvn -q -Dtest=StageProgressCoordinatorTests,SupervisorAgentTests,StageTransitionSupportTests test
 mvn -q -Dtest=DefaultWorkflowEngineTests,FlowControllerTests test
-mvn -q -Dtest=SupervisorFallbackPolicyTests,StageToolResultGateTests test
+mvn -q -Dtest=SupervisorFallbackPolicyTests,StageToolResultGateTests,RepeatIssueDetectorTests test
 ```
 
 说明：
 
-- `FlowControllerTests` 当前不存在，本轮应新增
+- `FlowControllerTests` 当前已存在，本轮扩展 null-stage 覆盖
 - `StageToolResultGateTests` 当前不存在，Phase 3 新增
+- `RepeatIssueDetectorTests` 当前不存在，Phase 3 新增
 
 ## Completion Gate
 
@@ -320,8 +335,10 @@ mvn -q -Dtest=SupervisorFallbackPolicyTests,StageToolResultGateTests test
 - [ ] `SupervisorAgent.decide()` 与 `decideGenerationFailure()` 共用同一私有控制骨架
 - [ ] `StageProgressCoordinator` 不再直接依赖 `toolResultLoader`
 - [ ] `StageProgressCoordinator` 不再直接依赖 `toolResultGuard`
+- [ ] `StageProgressCoordinator` 不再直接依赖 `diagnosisAgent`
 - [ ] `StageProgressCoordinator` 不再直接依赖 `implementationStateSupport`
 - [ ] `StageProgressCoordinator` 不再直接依赖 `implementationContinuationSupport`
 - [ ] `StageToolResultGate` 已提取并装配
+- [ ] `RepeatIssueDetector` 已提取并装配
 - [ ] `OrchestratorConfiguration` 无残留旧 wiring
 - [ ] `self-test + code review + docs + tracker` 已全部补齐

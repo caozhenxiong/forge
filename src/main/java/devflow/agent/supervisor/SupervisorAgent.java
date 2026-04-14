@@ -19,8 +19,11 @@ import devflow.agent.domain.StageExecution;
 import devflow.agent.domain.StageType;
 import devflow.agent.review.ReviewResult;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -74,16 +77,15 @@ public class SupervisorAgent {
     }
 
     public SupervisorDecision decide(
-            Path projectPath,
             RunRecord runRecord,
             StageType currentStage,
             ReviewResult reviewResult,
-            boolean repeatedIssue
+            boolean repeatedIssue,
+            ProjectedContext projectedContext
     ) {
         StageExecution currentExecution = runRecord.stageStates().get(currentStage);
         StageType nextStage = stageFlowPolicy.nextStage(currentStage);
         GatePolicy gatePolicy = runRecord.config().gatePolicies().getOrDefault(currentStage, GatePolicy.AGENT_ONLY);
-        ProjectedContext projectedContext = contextProjector.project(projectPath, runRecord, currentStage);
         DocumentLanguage language = languagePolicy.resolve(runRecord.goal(), runRecord.constraints());
         SupervisorDecision fallback = supervisorFallbackPolicy.decideStageFallback(
                 runRecord,
@@ -93,44 +95,42 @@ public class SupervisorAgent {
                 repeatedIssue,
                 projectedContext
         );
-        if (llmProvider == null) {
-            return fallback;
-        }
-
-        try {
-            String response = llmProvider.generate(LlmGenerateRequest.workingPrompt(
-                    promptAssembler.decisionSystemPrompt(),
-                    promptAssembler.decisionUserPrompt(
+        return resolveWithFallback(
+                fallback,
+                () -> llmProvider.generate(LlmGenerateRequest.workingPrompt(
+                        promptAssembler.decisionSystemPrompt(),
+                        promptAssembler.decisionUserPrompt(
+                                runRecord,
+                                language,
+                                currentStage,
+                                nextStage,
+                                gatePolicy,
+                                currentExecution,
+                                reviewResult,
+                                repeatedIssue,
+                                projectedContext,
+                                fallback
+                        ),
+                        LlmOptions.outputBudgetRatio(GenerationBudgetProfile.supervisorDecisionOutputRatio()),
+                        ModelRole.SUPERVISOR
+                )),
+                response -> {
+                    DecisionPayload payload = structuredPayloadReader.readJsonObject(response, DecisionPayload.class);
+                    return decisionSanitizer.sanitizeDecision(
+                            payload,
                             runRecord,
-                            language,
                             currentStage,
                             nextStage,
                             gatePolicy,
-                            currentExecution,
                             reviewResult,
                             repeatedIssue,
-                            projectedContext,
-                            fallback
-                    ),
-                    LlmOptions.outputBudgetRatio(GenerationBudgetProfile.supervisorDecisionOutputRatio()),
-                    ModelRole.SUPERVISOR
-            ));
-            DecisionPayload payload = structuredPayloadReader.readJsonObject(response, DecisionPayload.class);
-            return decisionSanitizer.sanitizeDecision(
-                    payload,
-                    runRecord,
-                    currentStage,
-                    nextStage,
-                    gatePolicy,
-                    reviewResult,
-                    repeatedIssue,
-                    fallback,
-                    projectedContext
-            );
-        } catch (Exception ex) {
-            log.warn("Supervisor decision failed, using fallback. stage={}", currentStage, ex);
-            return fallback;
-        }
+                            fallback,
+                            projectedContext
+                    );
+                },
+                "Supervisor decision failed, using fallback. stage={}",
+                currentStage
+        );
     }
 
     public GenerationRecoveryDecision decideGenerationFailure(
@@ -155,33 +155,31 @@ public class SupervisorAgent {
                 subtaskAttempt,
                 currentPolicy
         );
-        if (llmProvider == null) {
-            return fallback;
-        }
-
-        try {
-            String response = llmProvider.generate(LlmGenerateRequest.workingPrompt(
-                    promptAssembler.generationRecoverySystemPrompt(),
-                    promptAssembler.generationRecoveryUserPrompt(
-                            runRecord,
-                            failureReport,
-                            subtaskAttempt,
-                            subtaskTitle,
-                            subtaskGoal,
-                            feedback,
-                            projectedContext,
-                            language,
-                            fallback
-                    ),
-                    LlmOptions.outputBudgetRatio(GenerationBudgetProfile.generationRecoveryOutputRatio()),
-                    ModelRole.SUPERVISOR
-            ));
-            GenerationRecoveryPayload payload = structuredPayloadReader.readJsonObject(response, GenerationRecoveryPayload.class);
-            return decisionSanitizer.sanitizeGenerationRecoveryDecision(payload, fallback, failureReport);
-        } catch (Exception ex) {
-            log.warn("Generation recovery decision failed, using fallback. attempt={}", subtaskAttempt, ex);
-            return fallback;
-        }
+        return resolveWithFallback(
+                fallback,
+                () -> llmProvider.generate(LlmGenerateRequest.workingPrompt(
+                        promptAssembler.generationRecoverySystemPrompt(),
+                        promptAssembler.generationRecoveryUserPrompt(
+                                runRecord,
+                                failureReport,
+                                subtaskAttempt,
+                                subtaskTitle,
+                                subtaskGoal,
+                                feedback,
+                                projectedContext,
+                                language,
+                                fallback
+                        ),
+                        LlmOptions.outputBudgetRatio(GenerationBudgetProfile.generationRecoveryOutputRatio()),
+                        ModelRole.SUPERVISOR
+                )),
+                response -> {
+                    GenerationRecoveryPayload payload = structuredPayloadReader.readJsonObject(response, GenerationRecoveryPayload.class);
+                    return decisionSanitizer.sanitizeGenerationRecoveryDecision(payload, fallback, failureReport);
+                },
+                "Generation recovery decision failed, using fallback. attempt={}",
+                subtaskAttempt
+        );
     }
 
     public String renderDecisionArtifact(
@@ -192,6 +190,26 @@ public class SupervisorAgent {
             DocumentLanguage language
     ) {
         return artifactRenderer.renderDecisionArtifact(currentStage, reviewResult, repeatedIssue, decision, language);
+    }
+
+    private <T> T resolveWithFallback(
+            T fallback,
+            Supplier<String> requestSupplier,
+            Function<String, T> responseHandler,
+            String failureLogMessage,
+            Object... failureLogArgs
+    ) {
+        if (llmProvider == null) {
+            return fallback;
+        }
+        try {
+            return responseHandler.apply(requestSupplier.get());
+        } catch (Exception ex) {
+            Object[] logArgs = Arrays.copyOf(failureLogArgs, failureLogArgs.length + 1);
+            logArgs[logArgs.length - 1] = ex;
+            log.warn(failureLogMessage, logArgs);
+            return fallback;
+        }
     }
 
 }

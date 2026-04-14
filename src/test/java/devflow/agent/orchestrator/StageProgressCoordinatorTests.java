@@ -145,17 +145,19 @@ class StageProgressCoordinatorTests {
         };
         StageProgressCoordinator coordinator = new StageProgressCoordinator(
                 artifactStore,
-                diagnosisAgent,
                 supervisorAgent,
                 new FlowController(),
                 contextProjector,
                 stageOperationExecutor,
                 flowDecisionExecutor,
                 new StageProgressArtifactSupport(artifactStore, eventLogStore, workflowArtifactRenderer),
-                new StageToolResultLoader(artifactStore),
-                new StageToolResultGuard(),
-                new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
-                new ImplementationContinuationSupport(),
+                new StageToolResultGate(new StageToolResultLoader(artifactStore), new StageToolResultGuard()),
+                new ImplementationProgressSupport(
+                        artifactStore,
+                        new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
+                        new ImplementationContinuationSupport()
+                ),
+                new RepeatIssueDetector(diagnosisAgent),
                 new devflow.agent.i18n.LanguagePolicy()
         );
 
@@ -273,17 +275,19 @@ class StageProgressCoordinatorTests {
         };
         StageProgressCoordinator coordinator = new StageProgressCoordinator(
                 artifactStore,
-                diagnosisAgent,
                 supervisorAgent,
                 new FlowController(),
                 contextProjector,
                 stageOperationExecutor,
                 flowDecisionExecutor,
                 new StageProgressArtifactSupport(artifactStore, eventLogStore, workflowArtifactRenderer),
-                new StageToolResultLoader(artifactStore),
-                new StageToolResultGuard(),
-                new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
-                new ImplementationContinuationSupport(),
+                new StageToolResultGate(new StageToolResultLoader(artifactStore), new StageToolResultGuard()),
+                new ImplementationProgressSupport(
+                        artifactStore,
+                        new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
+                        new ImplementationContinuationSupport()
+                ),
+                new RepeatIssueDetector(diagnosisAgent),
                 new devflow.agent.i18n.LanguagePolicy()
         );
 
@@ -389,17 +393,19 @@ class StageProgressCoordinatorTests {
         };
         StageProgressCoordinator coordinator = new StageProgressCoordinator(
                 artifactStore,
-                diagnosisAgent,
                 supervisorAgent,
                 new FlowController(),
                 contextProjector,
                 stageOperationExecutor,
                 flowDecisionExecutor,
                 new StageProgressArtifactSupport(artifactStore, eventLogStore, workflowArtifactRenderer),
-                new StageToolResultLoader(artifactStore),
-                new StageToolResultGuard(),
-                new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
-                new ImplementationContinuationSupport(),
+                new StageToolResultGate(new StageToolResultLoader(artifactStore), new StageToolResultGuard()),
+                new ImplementationProgressSupport(
+                        artifactStore,
+                        new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
+                        new ImplementationContinuationSupport()
+                ),
+                new RepeatIssueDetector(diagnosisAgent),
                 new devflow.agent.i18n.LanguagePolicy()
         );
 
@@ -469,7 +475,6 @@ class StageProgressCoordinatorTests {
         };
         StageProgressCoordinator coordinator = new StageProgressCoordinator(
                 artifactStore,
-                diagnosisAgentThatSetsFlag(artifactStore, new AtomicBoolean(false)),
                 supervisorAgentThatSetsFlag(artifactStore, new AtomicBoolean(false)),
                 new FlowController(),
                 new ContextProjector(
@@ -490,10 +495,13 @@ class StageProgressCoordinatorTests {
                 ),
                 flowDecisionExecutor,
                 new StageProgressArtifactSupport(artifactStore, eventLogStore, workflowArtifactRenderer),
-                new StageToolResultLoader(artifactStore),
-                new StageToolResultGuard(),
-                new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
-                new ImplementationContinuationSupport(),
+                new StageToolResultGate(new StageToolResultLoader(artifactStore), new StageToolResultGuard()),
+                new ImplementationProgressSupport(
+                        artifactStore,
+                        new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
+                        new ImplementationContinuationSupport()
+                ),
+                new RepeatIssueDetector(diagnosisAgentThatSetsFlag(artifactStore, new AtomicBoolean(false))),
                 new devflow.agent.i18n.LanguagePolicy()
         );
 
@@ -562,11 +570,11 @@ class StageProgressCoordinatorTests {
         ) {
             @Override
             public devflow.agent.supervisor.SupervisorDecision decide(
-                    Path projectPath,
                     RunRecord runRecord,
                     StageType currentStage,
                     ReviewResult reviewResult,
-                    boolean repeatedIssue
+                    boolean repeatedIssue,
+                    ProjectedContext projectedContext
             ) {
                 supervisorCalled.set(true);
                 throw new AssertionError("incomplete implementation should not invoke supervisor");

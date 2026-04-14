@@ -1,24 +1,17 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.artifact.FileArtifactStore;
+import devflow.agent.context.ContextProjector;
+import devflow.agent.context.ProjectedContext;
 import devflow.agent.domain.RunRecord;
 import devflow.agent.domain.StageExecution;
 import devflow.agent.domain.StageStatus;
 import devflow.agent.domain.StageType;
-
-import devflow.agent.artifact.FileArtifactStore;
-import devflow.agent.artifact.AuxiliaryArtifactNames;
-import devflow.agent.context.ContextProjector;
-import devflow.agent.context.ProjectedContext;
-import devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.LanguagePolicy;
 import devflow.agent.loop.LoopStepResult;
 import devflow.agent.loop.TransitionDecision;
 import devflow.agent.loop.TransitionReason;
-import devflow.agent.protocol.ImplementationContinuationMode;
-import devflow.agent.protocol.ImplementationStageStatusPayload;
-import devflow.agent.repair.DiagnosisAgent;
-import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.supervisor.SupervisorAgent;
 import devflow.agent.supervisor.SupervisorDecision;
@@ -31,51 +24,45 @@ import java.nio.file.Path;
  * 3. 投影上下文并请求 supervisor 决策
  * 4. 交给 FlowController 与 StageTransitionSupport 推进下一步
  *
- * 这样 workflow engine 可以只保留 run 生命周期入口，而不再手工串整段阶段编排。
+ * <p>这样 workflow engine 可以只保留 run 生命周期入口，而不再手工串整段阶段编排。
  */
 public class StageProgressCoordinator {
 
     private final FileArtifactStore artifactStore;
-    private final DiagnosisAgent diagnosisAgent;
     private final SupervisorAgent supervisorAgent;
     private final FlowController flowController;
     private final ContextProjector contextProjector;
     private final StageOperationExecutor stageOperationExecutor;
     private final FlowDecisionExecutor flowDecisionExecutor;
     private final StageProgressArtifactSupport artifactSupport;
-    private final StageToolResultLoader toolResultLoader;
-    private final StageToolResultGuard toolResultGuard;
-    private final ImplementationStateArtifactSupport implementationStateSupport;
-    private final ImplementationContinuationSupport implementationContinuationSupport;
+    private final StageToolResultGate stageToolResultGate;
+    private final ImplementationProgressSupport implementationProgressSupport;
+    private final RepeatIssueDetector repeatIssueDetector;
     private final LanguagePolicy languagePolicy;
 
     public StageProgressCoordinator(
             FileArtifactStore artifactStore,
-            DiagnosisAgent diagnosisAgent,
             SupervisorAgent supervisorAgent,
             FlowController flowController,
             ContextProjector contextProjector,
             StageOperationExecutor stageOperationExecutor,
             FlowDecisionExecutor flowDecisionExecutor,
             StageProgressArtifactSupport artifactSupport,
-            StageToolResultLoader toolResultLoader,
-            StageToolResultGuard toolResultGuard,
-            ImplementationStateArtifactSupport implementationStateSupport,
-            ImplementationContinuationSupport implementationContinuationSupport,
+            StageToolResultGate stageToolResultGate,
+            ImplementationProgressSupport implementationProgressSupport,
+            RepeatIssueDetector repeatIssueDetector,
             LanguagePolicy languagePolicy
     ) {
         this.artifactStore = artifactStore;
-        this.diagnosisAgent = diagnosisAgent;
         this.supervisorAgent = supervisorAgent;
         this.flowController = flowController;
         this.contextProjector = contextProjector;
         this.stageOperationExecutor = stageOperationExecutor;
         this.flowDecisionExecutor = flowDecisionExecutor;
         this.artifactSupport = artifactSupport;
-        this.toolResultLoader = toolResultLoader;
-        this.toolResultGuard = toolResultGuard;
-        this.implementationStateSupport = implementationStateSupport;
-        this.implementationContinuationSupport = implementationContinuationSupport;
+        this.stageToolResultGate = stageToolResultGate;
+        this.implementationProgressSupport = implementationProgressSupport;
+        this.repeatIssueDetector = repeatIssueDetector;
         this.languagePolicy = languagePolicy;
     }
 
@@ -89,38 +76,30 @@ public class StageProgressCoordinator {
         DocumentLanguage language = languagePolicy.resolve(current.goal(), current.constraints());
         String artifactContent;
         if (stageType == StageType.IMPLEMENTATION) {
-            String implementationStateJson = readImplementationStateArtifact(projectPath, current);
-            ImplementationStageStatusPayload stageStatus = implementationStateSupport.readStageStatus(implementationStateJson);
-            if (!stageStatus.stageReady()) {
-                if (stageStatus.continuationMode() == ImplementationContinuationMode.BLOCK_STAGE) {
-                    return blockImplementationForHuman(projectPath, current, stageType, stageStatus, language);
+            ImplementationProgressState implementationProgress = implementationProgressSupport.read(projectPath, current);
+            if (!implementationProgress.stageReady()) {
+                if (implementationProgress.blocked()) {
+                    return blockImplementationForHuman(projectPath, current, stageType, implementationProgress, language);
                 }
-                return continueIncompleteImplementation(projectPath, current, stageType, stageStatus, language);
+                return continueIncompleteImplementation(projectPath, current, stageType, implementationProgress, language);
             }
-            artifactContent = implementationStateSupport.renderImplementationReviewSummary(implementationStateJson);
+            artifactContent = implementationProgress.reviewSummary();
         } else {
             artifactContent = artifactStore.readArtifact(projectPath, current.runId(), stageType);
         }
         ReviewResult reviewed = stageOperationExecutor.reviewStage(projectPath, current, stageType, stageExecution, artifactContent, language);
-        StageToolResultSummary toolSummary = toolResultLoader.load(projectPath, current, stageType);
-        ReviewResult reviewResult = toolResultGuard.guard(stageType, reviewed, toolSummary);
+        StageToolResultGateResult gateResult = stageToolResultGate.apply(projectPath, current, stageType, reviewed);
+        StageToolResultSummary toolSummary = gateResult.toolSummary();
+        ReviewResult reviewResult = gateResult.reviewResult();
         artifactSupport.writeReviewArtifacts(projectPath, current, stageType, stageExecution, reviewResult, language);
 
-        boolean repeatedIssue = reviewResult.decision() != ReviewDecision.APPROVED
-                && stageType != StageType.ANALYSIS
-                && diagnosisAgent.shouldDiagnose(
-                projectPath,
-                current,
-                stageType,
-                reviewResult.fixMode(),
-                reviewResult.summary(),
-                reviewResult.changeRequest()
-        );
+        boolean repeatedIssue = repeatIssueDetector.shouldDiagnose(projectPath, current, stageType, reviewResult);
 
         ProjectedContext projectedContext = contextProjector.project(projectPath, current, stageType);
         artifactSupport.writeProjectedContextArtifacts(projectPath, current, projectedContext, language);
 
-        SupervisorDecision supervisorDecision = supervisorAgent.decide(projectPath, current, stageType, reviewResult, repeatedIssue);
+        SupervisorDecision supervisorDecision =
+                supervisorAgent.decide(current, stageType, reviewResult, repeatedIssue, projectedContext);
         artifactSupport.writeSupervisorArtifacts(
                 projectPath,
                 current,
@@ -152,10 +131,10 @@ public class StageProgressCoordinator {
             Path projectPath,
             RunRecord current,
             StageType stageType,
-            ImplementationStageStatusPayload stageStatus,
+            ImplementationProgressState implementationProgress,
             DocumentLanguage language
     ) {
-        StageContinuationContext continuationContext = implementationContinuationSupport.toContinuationContext(stageStatus);
+        StageContinuationContext continuationContext = implementationProgress.continuationContext();
         TransitionDecision transitionDecision = new TransitionDecision(
                 TransitionReason.STAGE_CONTINUE,
                 stageType,
@@ -183,10 +162,10 @@ public class StageProgressCoordinator {
             Path projectPath,
             RunRecord current,
             StageType stageType,
-            ImplementationStageStatusPayload stageStatus,
+            ImplementationProgressState implementationProgress,
             DocumentLanguage language
     ) {
-        StageContinuationContext continuationContext = implementationContinuationSupport.toContinuationContext(stageStatus);
+        StageContinuationContext continuationContext = implementationProgress.continuationContext();
         TransitionDecision transitionDecision = new TransitionDecision(
                 TransitionReason.HUMAN_REVIEW_REQUIRED,
                 stageType,
@@ -196,21 +175,8 @@ public class StageProgressCoordinator {
                 null
         );
         artifactSupport.writeBlockedStageArtifacts(projectPath, current, transitionDecision, language);
-        ReviewResult reviewResult = implementationContinuationSupport.toHumanReviewResult(continuationContext);
+        ReviewResult reviewResult = implementationProgress.humanReviewResult();
         RunRecord next = flowDecisionExecutor.blockForHumanReview(current, stageType, reviewResult);
         return new LoopStepResult(next, transitionDecision, flowController.shouldContinue(next));
     }
-
-    private String readImplementationStateArtifact(Path projectPath, RunRecord current) {
-        String content = artifactStore.readAuxiliaryArtifact(
-                projectPath,
-                current.runId(),
-                AuxiliaryArtifactNames.IMPLEMENTATION_STATE
-        );
-        if (content == null || content.isBlank()) {
-            throw new IllegalStateException("Missing implementation_state auxiliary artifact.");
-        }
-        return content;
-    }
-
 }

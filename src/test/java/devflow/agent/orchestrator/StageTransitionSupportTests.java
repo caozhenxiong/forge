@@ -341,7 +341,6 @@ class StageTransitionSupportTests {
                 new WorkflowArtifactRenderer()
         );
         StageRevisionSupport stageRevisionSupport = new StageRevisionSupport(
-                runRepository,
                 artifactStore,
                 eventLogStore,
                 new StageFlowPolicy(),
@@ -355,11 +354,10 @@ class StageTransitionSupportTests {
                         new StageRevisionNoteBuilder(),
                         new devflow.agent.i18n.LanguagePolicy()
                 ),
+                stageStatusSupport,
                 new devflow.agent.i18n.LanguagePolicy()
         );
         return new StageTransitionSupport(
-                runRepository,
-                eventLogStore,
                 stageStatusSupport,
                 stageRevisionSupport,
                 new StageContinuationNoteBuilder()

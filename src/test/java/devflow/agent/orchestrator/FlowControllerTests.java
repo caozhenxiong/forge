@@ -81,6 +81,22 @@ class FlowControllerTests {
         states.put(StageType.ANALYSIS, new StageExecution(StageType.ANALYSIS, StageStatus.AWAITING_HUMAN_REVIEW, 1, null, null, null, null));
         RunRecord blocked = running.withCurrentStage(StageType.ANALYSIS, RunStatus.BLOCKED, states, Instant.now());
         assertFalse(controller.shouldContinue(blocked));
+
+        EnumMap<StageType, StageExecution> missingStates = new EnumMap<>(states);
+        missingStates.remove(StageType.ANALYSIS);
+        RunRecord missingCurrentStage = new RunRecord(
+                UUID.randomUUID(),
+                null,
+                "goal",
+                "",
+                RunConfig.defaultConfig(),
+                StageType.ANALYSIS,
+                RunStatus.IN_PROGRESS,
+                missingStates,
+                Instant.now(),
+                Instant.now()
+        );
+        assertFalse(controller.shouldContinue(missingCurrentStage));
     }
 
     @Test

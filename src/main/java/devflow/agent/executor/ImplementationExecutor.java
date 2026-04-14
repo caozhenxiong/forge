@@ -41,45 +41,6 @@ public class ImplementationExecutor implements AutoCloseable {
         this.toolExecutor = Objects.requireNonNull(toolExecutor, "toolExecutor");
     }
 
-    public ImplementationExecutionBundle execute(Path projectPath, RunRecord runRecord, String analysis, String prd, String design, String note) {
-        return execute(projectPath, runRecord, analysis, prd, design, note, null, "", ImplementationProgressSink.noop());
-    }
-
-    public ImplementationExecutionBundle execute(
-            Path projectPath,
-            RunRecord runRecord,
-            String analysis,
-            String prd,
-            String design,
-            String note,
-            ContractView authoritativeContractView
-    ) {
-        return execute(projectPath, runRecord, analysis, prd, design, note, authoritativeContractView, "", ImplementationProgressSink.noop());
-    }
-
-    public ImplementationExecutionBundle execute(
-            Path projectPath,
-            RunRecord runRecord,
-            String analysis,
-            String prd,
-            String design,
-            String note,
-            ContractView authoritativeContractView,
-            String previousStateJson
-    ) {
-        return execute(
-                projectPath,
-                runRecord,
-                analysis,
-                prd,
-                design,
-                note,
-                authoritativeContractView,
-                previousStateJson,
-                ImplementationProgressSink.noop()
-        );
-    }
-
     public ImplementationExecutionBundle execute(
             Path projectPath,
             RunRecord runRecord,

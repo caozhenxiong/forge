@@ -55,23 +55,23 @@ class OrchestratorConfiguration {
 
     @Bean
     StageRevisionSupport stageRevisionSupport(
-            FileRunRepository runRepository,
             FileArtifactStore artifactStore,
             EventLogStore eventLogStore,
             StageFlowPolicy stageFlowPolicy,
             WorkflowArtifactRenderer workflowArtifactRenderer,
             SupervisorGuidanceRenderer supervisorGuidanceRenderer,
             StageRevisionRepairSupport stageRevisionRepairSupport,
+            StageStatusSupport stageStatusSupport,
             LanguagePolicy languagePolicy
     ) {
         return new StageRevisionSupport(
-                runRepository,
                 artifactStore,
                 eventLogStore,
                 stageFlowPolicy,
                 workflowArtifactRenderer,
                 supervisorGuidanceRenderer,
                 stageRevisionRepairSupport,
+                stageStatusSupport,
                 languagePolicy
         );
     }
@@ -112,15 +112,11 @@ class OrchestratorConfiguration {
 
     @Bean
     StageTransitionSupport stageTransitionSupport(
-            FileRunRepository runRepository,
-            EventLogStore eventLogStore,
             StageStatusSupport stageStatusSupport,
             StageRevisionSupport stageRevisionSupport,
             StageContinuationNoteBuilder stageContinuationNoteBuilder
     ) {
         return new StageTransitionSupport(
-                runRepository,
-                eventLogStore,
                 stageStatusSupport,
                 stageRevisionSupport,
                 stageContinuationNoteBuilder
@@ -189,6 +185,14 @@ class OrchestratorConfiguration {
     }
 
     @Bean
+    StageToolResultGate stageToolResultGate(
+            StageToolResultLoader stageToolResultLoader,
+            StageToolResultGuard stageToolResultGuard
+    ) {
+        return new StageToolResultGate(stageToolResultLoader, stageToolResultGuard);
+    }
+
+    @Bean
     ImplementationStateArtifactSupport implementationStateArtifactSupport() {
         return new ImplementationStateArtifactSupport();
     }
@@ -199,34 +203,48 @@ class OrchestratorConfiguration {
     }
 
     @Bean
+    ImplementationProgressSupport implementationProgressSupport(
+            FileArtifactStore artifactStore,
+            ImplementationStateArtifactSupport implementationStateArtifactSupport,
+            ImplementationContinuationSupport implementationContinuationSupport
+    ) {
+        return new ImplementationProgressSupport(
+                artifactStore,
+                implementationStateArtifactSupport,
+                implementationContinuationSupport
+        );
+    }
+
+    @Bean
+    RepeatIssueDetector repeatIssueDetector(DiagnosisAgent diagnosisAgent) {
+        return new RepeatIssueDetector(diagnosisAgent);
+    }
+
+    @Bean
     StageProgressCoordinator stageProgressCoordinator(
             FileArtifactStore artifactStore,
-            DiagnosisAgent diagnosisAgent,
             SupervisorAgent supervisorAgent,
             FlowController flowController,
             ContextProjector contextProjector,
             StageOperationExecutor stageOperationExecutor,
             FlowDecisionExecutor flowDecisionExecutor,
             StageProgressArtifactSupport stageProgressArtifactSupport,
-            StageToolResultLoader stageToolResultLoader,
-            StageToolResultGuard stageToolResultGuard,
-            ImplementationStateArtifactSupport implementationStateArtifactSupport,
-            ImplementationContinuationSupport implementationContinuationSupport,
+            StageToolResultGate stageToolResultGate,
+            ImplementationProgressSupport implementationProgressSupport,
+            RepeatIssueDetector repeatIssueDetector,
             LanguagePolicy languagePolicy
     ) {
         return new StageProgressCoordinator(
                 artifactStore,
-                diagnosisAgent,
                 supervisorAgent,
                 flowController,
                 contextProjector,
                 stageOperationExecutor,
                 flowDecisionExecutor,
                 stageProgressArtifactSupport,
-                stageToolResultLoader,
-                stageToolResultGuard,
-                implementationStateArtifactSupport,
-                implementationContinuationSupport,
+                stageToolResultGate,
+                implementationProgressSupport,
+                repeatIssueDetector,
                 languagePolicy
         );
     }

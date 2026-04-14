@@ -9,6 +9,7 @@ import devflow.agent.artifact.FileArtifactStore;
 import devflow.agent.context.ArtifactSummaryBuilder;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ContextProjector;
+import devflow.agent.context.ProjectedContext;
 import devflow.agent.orchestrator.FileRunRepository;
 import devflow.agent.domain.GatePolicy;
 import devflow.agent.domain.RunConfig;
@@ -45,15 +46,7 @@ class SupervisorAgentTests {
         SupervisorArtifactRenderer artifactRenderer = new SupervisorArtifactRenderer();
         return new SupervisorAgent(
                 provider,
-                new ContextProjector(
-                        new devflow.agent.context.ContextProjectionArtifactReader(artifactStore, new FileProjectWorkspace()),
-                        new devflow.agent.context.ContextProjectionContractResolver(
-                                new ContractExtractor(),
-                                new devflow.agent.i18n.LanguagePolicy()
-                        ),
-                        new devflow.agent.context.ContextProjectionSummaryAssembler(new ArtifactSummaryBuilder()),
-                        new devflow.agent.context.ContextProjectionAssembler(new devflow.agent.context.ContextLayerAssembler())
-                ),
+                newContextProjector(artifactStore),
                 stageFlowPolicy,
                 fallbackPolicy,
                 artifactRenderer,
@@ -68,6 +61,22 @@ class SupervisorAgentTests {
         );
     }
 
+    private ContextProjector newContextProjector(FileArtifactStore artifactStore) {
+        return new ContextProjector(
+                new devflow.agent.context.ContextProjectionArtifactReader(artifactStore, new FileProjectWorkspace()),
+                new devflow.agent.context.ContextProjectionContractResolver(
+                        new ContractExtractor(),
+                        new devflow.agent.i18n.LanguagePolicy()
+                ),
+                new devflow.agent.context.ContextProjectionSummaryAssembler(new ArtifactSummaryBuilder()),
+                new devflow.agent.context.ContextProjectionAssembler(new devflow.agent.context.ContextLayerAssembler())
+        );
+    }
+
+    private ProjectedContext projectedContext(FileArtifactStore artifactStore, RunRecord runRecord, StageType stageType) {
+        return newContextProjector(artifactStore).project(tempDir, runRecord, stageType);
+    }
+
     @Test
     void fallbackRequestsHumanReviewForApprovedDocumentStage() {
         FileRunRepository runRepository = new FileRunRepository();
@@ -77,11 +86,11 @@ class SupervisorAgentTests {
 
         RunRecord runRecord = runRecord(StageType.ANALYSIS, GatePolicy.AGENT_PLUS_HUMAN);
         SupervisorDecision decision = supervisorAgent.decide(
-                tempDir,
                 runRecord,
                 StageType.ANALYSIS,
                 new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", ""),
-                false
+                false,
+                projectedContext(artifactStore, runRecord, StageType.ANALYSIS)
         );
 
         assertEquals(WorkflowAction.REQUEST_HUMAN_REVIEW, decision.action());
@@ -97,11 +106,11 @@ class SupervisorAgentTests {
 
         RunRecord runRecord = runRecord(StageType.CODE_REVIEW, GatePolicy.AGENT_PLUS_HUMAN);
         SupervisorDecision decision = supervisorAgent.decide(
-                tempDir,
                 runRecord,
                 StageType.CODE_REVIEW,
                 new ReviewResult(ReviewDecision.REVISION_REQUIRED, FixMode.PATCH, "仍有相同问题", "继续修复"),
-                true
+                true,
+                projectedContext(artifactStore, runRecord, StageType.CODE_REVIEW)
         );
 
         assertEquals(WorkflowAction.ROUTE_TO_REPAIR, decision.action());
@@ -147,11 +156,11 @@ class SupervisorAgentTests {
 
         RunRecord runRecord = runRecord(StageType.PRD, GatePolicy.AGENT_ONLY);
         SupervisorDecision decision = supervisorAgent.decide(
-                tempDir,
                 runRecord,
                 StageType.PRD,
                 new ReviewResult(ReviewDecision.REVISION_REQUIRED, FixMode.PATCH, "文档仍有相同问题", "继续修订 PRD"),
-                true
+                true,
+                projectedContext(artifactStore, runRecord, StageType.PRD)
         );
 
         assertEquals(WorkflowAction.RETRY_STAGE, decision.action());
@@ -197,11 +206,11 @@ class SupervisorAgentTests {
 
         RunRecord runRecord = runRecord(StageType.IMPLEMENTATION, GatePolicy.AGENT_ONLY);
         SupervisorDecision decision = supervisorAgent.decide(
-                tempDir,
                 runRecord,
                 StageType.IMPLEMENTATION,
                 new ReviewResult(ReviewDecision.REVISION_REQUIRED, FixMode.PATCH, "需要修补", "补一个点"),
-                false
+                false,
+                projectedContext(artifactStore, runRecord, StageType.IMPLEMENTATION)
         );
 
         assertEquals(WorkflowAction.RETRY_STAGE, decision.action());
@@ -247,11 +256,11 @@ class SupervisorAgentTests {
 
         RunRecord runRecord = runRecord(StageType.ANALYSIS, GatePolicy.AGENT_PLUS_HUMAN);
         SupervisorDecision decision = supervisorAgent.decide(
-                tempDir,
                 runRecord,
                 StageType.ANALYSIS,
                 new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", ""),
-                false
+                false,
+                projectedContext(artifactStore, runRecord, StageType.ANALYSIS)
         );
 
         assertEquals(WorkflowAction.REQUEST_HUMAN_REVIEW, decision.action());
@@ -404,11 +413,11 @@ class SupervisorAgentTests {
 
         RunRecord runRecord = runRecord(StageType.ANALYSIS, GatePolicy.AGENT_ONLY);
         SupervisorDecision decision = supervisorAgent.decide(
-                tempDir,
                 runRecord,
                 StageType.ANALYSIS,
                 new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "分析已满足要求", ""),
-                false
+                false,
+                projectedContext(artifactStore, runRecord, StageType.ANALYSIS)
         );
 
         assertTrue(decision.focus().contains("明确像素风格的像素大小"));

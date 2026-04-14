@@ -34,26 +34,25 @@ import java.util.Map;
  */
 public class StageRevisionSupport {
 
-    private final FileRunRepository runRepository;
     private final FileArtifactStore artifactStore;
     private final EventLogStore eventLogStore;
     private final StageFlowPolicy stageFlowPolicy;
     private final WorkflowArtifactRenderer workflowArtifactRenderer;
     private final SupervisorGuidanceRenderer supervisorGuidanceRenderer;
     private final StageRevisionRepairSupport stageRevisionRepairSupport;
+    private final StageStatusSupport stageStatusSupport;
     private final LanguagePolicy languagePolicy;
 
     public StageRevisionSupport(
-            FileRunRepository runRepository,
             FileArtifactStore artifactStore,
             EventLogStore eventLogStore,
             StageFlowPolicy stageFlowPolicy,
             WorkflowArtifactRenderer workflowArtifactRenderer,
             SupervisorGuidanceRenderer supervisorGuidanceRenderer,
             StageRevisionRepairSupport stageRevisionRepairSupport,
+            StageStatusSupport stageStatusSupport,
             LanguagePolicy languagePolicy
     ) {
-        this.runRepository = runRepository;
         this.artifactStore = artifactStore;
         this.eventLogStore = eventLogStore;
         this.stageFlowPolicy = stageFlowPolicy;
@@ -61,6 +60,7 @@ public class StageRevisionSupport {
         this.supervisorGuidanceRenderer = supervisorGuidanceRenderer;
         this.languagePolicy = languagePolicy;
         this.stageRevisionRepairSupport = stageRevisionRepairSupport;
+        this.stageStatusSupport = stageStatusSupport;
     }
 
     public RunRecord rejectHumanReview(
@@ -122,12 +122,10 @@ public class StageRevisionSupport {
         StageExecution reviewedExecution = currentExecution.withStatus(StageStatus.NEEDS_REVISION)
                 .withReview(revisionContext.decision(), revisionContext.summary(), revisionContext.changeRequest());
         nextStates.put(stageType, reviewedExecution);
-
-        if (currentExecution.attempt() >= runRecord.config().maxAutoRevisions()) {
-            nextStates.put(stageType, reviewedExecution.withStatus(StageStatus.FAILED));
-            RunRecord failed = runRecord.withCurrentStage(stageType, RunStatus.FAILED, nextStates, Instant.now());
-            eventLogStore.append(projectPath, runRecord.runId(), WorkflowEventMessages.maxAutoRevisionsExceeded(stageType));
-            return runRepository.save(failed);
+        java.util.Optional<RunRecord> failed =
+                stageStatusSupport.applyMaxRevisionGuard(projectPath, runRecord, stageType, currentExecution, nextStates);
+        if (failed.isPresent()) {
+            return failed.get();
         }
 
         String revisionNote = stageRevisionRepairSupport.buildRevisionNote(

@@ -50,7 +50,6 @@ class StageEntryExecutorTests {
                 new devflow.agent.orchestrator.WorkflowArtifactRenderer()
         );
         StageRevisionSupport stageRevisionSupport = new StageRevisionSupport(
-                runRepository,
                 artifactStore,
                 eventLogStore,
                 new StageFlowPolicy(),
@@ -64,11 +63,10 @@ class StageEntryExecutorTests {
                         new StageRevisionNoteBuilder(),
                         new devflow.agent.i18n.LanguagePolicy()
                 ),
+                stageStatusSupport,
                 new devflow.agent.i18n.LanguagePolicy()
         );
         StageTransitionSupport transitionSupport = new StageTransitionSupport(
-                runRepository,
-                eventLogStore,
                 stageStatusSupport,
                 stageRevisionSupport,
                 new StageContinuationNoteBuilder()

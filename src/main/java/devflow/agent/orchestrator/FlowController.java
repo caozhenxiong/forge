@@ -11,6 +11,8 @@ import devflow.agent.loop.TransitionReason;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.domain.WorkflowAction;
 import devflow.agent.supervisor.SupervisorDecision;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
@@ -22,6 +24,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class FlowController {
+    private static final Logger log = LoggerFactory.getLogger(FlowController.class);
     private static final String TOOL_SUMMARY_SEPARATOR = " | ";
 
     /**
@@ -59,8 +62,15 @@ public class FlowController {
      */
     public boolean shouldContinue(RunRecord runRecord) {
         StageExecution currentStage = runRecord.stageStates().get(runRecord.currentStage());
+        if (currentStage == null) {
+            log.warn(
+                    "shouldContinue: currentStage not found in stageStates, runId={} stage={}",
+                    runRecord.runId(),
+                    runRecord.currentStage()
+            );
+            return false;
+        }
         return runRecord.status() == RunStatus.IN_PROGRESS
-                && currentStage != null
                 && currentStage.status() == StageStatus.RUNNING;
     }
 

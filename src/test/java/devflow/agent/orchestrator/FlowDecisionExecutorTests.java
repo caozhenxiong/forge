@@ -173,7 +173,7 @@ class FlowDecisionExecutorTests {
     }
 
     private FlowDecisionExecutor newExecutor(AtomicReference<RevisionContext> capturedContext) {
-        StageTransitionSupport stageTransitionSupport = new StageTransitionSupport(null, null, null, null, null) {
+        StageTransitionSupport stageTransitionSupport = new StageTransitionSupport(null, null, null) {
             @Override
             public RunRecord rerouteForRevision(
                     Path projectPath,

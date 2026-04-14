@@ -170,7 +170,6 @@ class DefaultWorkflowEngineTests {
                 languagePolicy
         );
         StageRevisionSupport stageRevisionSupport = new StageRevisionSupport(
-                runRepository,
                 artifactStore,
                 eventLogStore,
                 new StageFlowPolicy(),
@@ -184,11 +183,10 @@ class DefaultWorkflowEngineTests {
                         new StageRevisionNoteBuilder(),
                         languagePolicy
                 ),
+                stageStatusSupport,
                 languagePolicy
         );
         StageTransitionSupport stageTransitionSupport = new StageTransitionSupport(
-                runRepository,
-                eventLogStore,
                 stageStatusSupport,
                 stageRevisionSupport,
                 new StageContinuationNoteBuilder()
@@ -210,17 +208,19 @@ class DefaultWorkflowEngineTests {
         FlowDecisionExecutor flowDecisionExecutor = new FlowDecisionExecutor(stageTransitionSupport, stageEntryExecutor);
         StageProgressCoordinator stageProgressCoordinator = new StageProgressCoordinator(
                 artifactStore,
-                diagnosisAgent,
                 supervisorAgent,
                 new FlowController(),
                 newContextProjector(artifactStore, workspace),
                 stageOperationExecutor,
                 flowDecisionExecutor,
                 new StageProgressArtifactSupport(artifactStore, eventLogStore, workflowArtifactRenderer),
-                new StageToolResultLoader(artifactStore),
-                new StageToolResultGuard(),
-                new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
-                new ImplementationContinuationSupport(),
+                new StageToolResultGate(new StageToolResultLoader(artifactStore), new StageToolResultGuard()),
+                new ImplementationProgressSupport(
+                        artifactStore,
+                        new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
+                        new ImplementationContinuationSupport()
+                ),
+                new RepeatIssueDetector(diagnosisAgent),
                 languagePolicy
         );
         return new DefaultWorkflowEngine(new WorkflowRunLifecycleSupport(
