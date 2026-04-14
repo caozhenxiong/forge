@@ -217,7 +217,7 @@ public final class BashTool implements ImplementationTool {
         payload.put("readOnly", decision.readOnly());
         payload.put("commandSummary", decision.commandSummary());
         payload.put("evidence", decision.evidence());
-        payload.put("declaredWritePaths", renderPaths(decision.declaredWritePaths()));
+        payload.put("declaredWritePaths", renderPaths(decision.declaredTargetPaths()));
         return payload;
     }
 
@@ -237,7 +237,7 @@ public final class BashTool implements ImplementationTool {
         payload.put("readOnly", decision.readOnly());
         payload.put("commandSummary", decision.commandSummary());
         payload.put("evidence", decision.evidence());
-        payload.put("declaredWritePaths", renderPaths(decision.declaredWritePaths()));
+        payload.put("declaredWritePaths", renderPaths(decision.declaredTargetPaths()));
         return payload;
     }
 
@@ -265,7 +265,7 @@ public final class BashTool implements ImplementationTool {
         payload.put("evidence", mutationAccounting.scopeViolationPaths().stream()
                 .map(path -> path.toString().replace('\\', '/'))
                 .toList());
-        payload.put("declaredWritePaths", renderPaths(decision.declaredWritePaths()));
+        payload.put("declaredWritePaths", renderPaths(decision.declaredTargetPaths()));
         payload.put("changedPaths", renderPaths(mutationAccounting.changedPaths()));
         payload.put("exitCode", exitCode);
         payload.put("stdout", stdout);
@@ -345,7 +345,7 @@ public final class BashTool implements ImplementationTool {
         payload.put("executed", true);
         payload.put("readOnly", decision.readOnly());
         payload.put("commandSummary", decision.commandSummary());
-        payload.put("declaredWritePaths", renderPaths(decision.declaredWritePaths()));
+        payload.put("declaredWritePaths", renderPaths(decision.declaredTargetPaths()));
         payload.put("exitCode", exitCode);
         payload.put("stdout", stdout);
         payload.put("stderr", stderr);
@@ -370,10 +370,10 @@ public final class BashTool implements ImplementationTool {
     }
 
     private Path diagnosticPath(ShellCommandDecision decision) {
-        if (decision == null || decision.declaredWritePaths() == null || decision.declaredWritePaths().isEmpty()) {
+        if (decision == null || decision.declaredTargetPaths() == null || decision.declaredTargetPaths().isEmpty()) {
             return Path.of("");
         }
-        return decision.declaredWritePaths().getFirst().normalize();
+        return decision.declaredTargetPaths().getFirst().normalize();
     }
 
     private String shellFailureEvidence(ShellCommandDecision decision, String message) {
@@ -386,8 +386,8 @@ public final class BashTool implements ImplementationTool {
             if (decision.evidence() != null && !decision.evidence().isEmpty()) {
                 builder.append(", decisionEvidence=").append(decision.evidence());
             }
-            if (decision.declaredWritePaths() != null && !decision.declaredWritePaths().isEmpty()) {
-                builder.append(", declaredWritePaths=").append(renderPaths(decision.declaredWritePaths()));
+            if (decision.declaredTargetPaths() != null && !decision.declaredTargetPaths().isEmpty()) {
+                builder.append(", declaredWritePaths=").append(renderPaths(decision.declaredTargetPaths()));
             }
         }
         if (message != null && !message.isBlank()) {

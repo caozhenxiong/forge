@@ -53,7 +53,8 @@ public record ShellCommandDecision(
             String reasonCode,
             String message,
             boolean retryable,
-            List<String> evidence
+            List<String> evidence,
+            List<ShellPathIntent> pathIntents
     ) {
         return new ShellCommandDecision(
                 ShellCommandDisposition.DENY,
@@ -62,7 +63,7 @@ public record ShellCommandDecision(
                 retryable,
                 commandSummary,
                 evidence,
-                List.of()
+                pathIntents
         );
     }
 
@@ -79,6 +80,14 @@ public record ShellCommandDecision(
                 .filter(intent -> intent != null
                         && intent.path() != null
                         && (intent.kind() == ShellPathIntentKind.WRITE_FILE || intent.kind() == ShellPathIntentKind.DELETE_FILE))
+                .map(ShellPathIntent::path)
+                .distinct()
+                .toList();
+    }
+
+    public List<Path> declaredTargetPaths() {
+        return pathIntents.stream()
+                .filter(intent -> intent != null && intent.path() != null)
                 .map(ShellPathIntent::path)
                 .distinct()
                 .toList();

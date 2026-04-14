@@ -89,6 +89,7 @@ public final class ImplementationMutationContractGuard {
                 projectPath,
                 relativePath,
                 null,
+                null,
                 scopedChanges,
                 content,
                 List.of()

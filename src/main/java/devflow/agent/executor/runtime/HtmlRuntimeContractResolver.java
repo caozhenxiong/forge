@@ -17,11 +17,12 @@ import java.util.Set;
  * <p>优先级固定为：
  * 1. continuation scope
  * 2. accepted change-set
- * 3. execution-state facts
+ * 3. 当前 host HTML 已观察到的结构化 wiring facts
  *
  * <p>其中 1 和 2 在运行时已经折叠为当前 effective scope changes。
+ * 只有已经显式进入 host-entry 语义的 HTML 才允许进入这里；
  * 下游只允许消费这里产出的 canonical contract，不能再各自从 change 列表、
- * HTML 内容或 project graph 单独重建一份。
+ * HTML 内容或目录扫描单独重建一份。
  */
 public final class HtmlRuntimeContractResolver {
 
@@ -35,6 +36,7 @@ public final class HtmlRuntimeContractResolver {
     public HtmlRuntimeOwnershipContract resolveCanonicalContract(
             Path projectPath,
             Path htmlEntryPath,
+            Path resolvedHostEntryPath,
             HtmlRuntimeOwnershipContract explicitContract,
             List<FileChange> scopeChanges,
             String htmlSource,
@@ -44,21 +46,34 @@ public final class HtmlRuntimeContractResolver {
             return null;
         }
         Path normalizedHtmlEntry = htmlEntryPath.normalize();
+        FileChange scopedHtmlChange = resolveScopedHtmlChange(normalizedHtmlEntry, scopeChanges);
+        if (!hostEntryDeclared(normalizedHtmlEntry, resolvedHostEntryPath, explicitContract, scopedHtmlChange)) {
+            return null;
+        }
         HtmlRuntimeOwnershipContract normalizedExplicit = normalizeExplicitContract(
                 normalizedHtmlEntry,
                 explicitContract,
-                projectPath,
                 htmlSource,
                 relatedPaths
         );
         if (normalizedExplicit != null && normalizedExplicit.active()) {
             return normalizedExplicit;
         }
-        HtmlRuntimeOwnershipContract scopedContract = resolveScopeContract(projectPath, normalizedHtmlEntry, scopeChanges);
+        HtmlRuntimeOwnershipContract scopedContract = resolveScopeContract(
+                projectPath,
+                normalizedHtmlEntry,
+                scopedHtmlChange,
+                scopeChanges,
+                htmlSource,
+                relatedPaths
+        );
         if (scopedContract != null && scopedContract.active()) {
             return scopedContract;
         }
-        List<Path> factRuntimePaths = resolveRuntimePathsFromFacts(projectPath, normalizedHtmlEntry, htmlSource, relatedPaths);
+        if (!matchesResolvedHostEntry(normalizedHtmlEntry, resolvedHostEntryPath)) {
+            return null;
+        }
+        List<Path> factRuntimePaths = resolveRuntimePathsFromObservedFacts(normalizedHtmlEntry, htmlSource, relatedPaths);
         if (factRuntimePaths.isEmpty()) {
             return null;
         }
@@ -68,7 +83,6 @@ public final class HtmlRuntimeContractResolver {
     private HtmlRuntimeOwnershipContract normalizeExplicitContract(
             Path htmlEntryPath,
             HtmlRuntimeOwnershipContract explicitContract,
-            Path projectPath,
             String htmlSource,
             List<Path> relatedPaths
     ) {
@@ -83,16 +97,18 @@ public final class HtmlRuntimeContractResolver {
         }
         return HtmlRuntimeOwnershipContract.externalCompanion(
                 htmlEntryPath,
-                resolveRuntimePathsFromFacts(projectPath, htmlEntryPath, htmlSource, relatedPaths)
+                resolveRuntimePathsFromObservedFacts(htmlEntryPath, htmlSource, relatedPaths)
         );
     }
 
     private HtmlRuntimeOwnershipContract resolveScopeContract(
             Path projectPath,
             Path htmlEntryPath,
-            List<FileChange> scopeChanges
+            FileChange scopedHtmlChange,
+            List<FileChange> scopeChanges,
+            String htmlSource,
+            List<Path> relatedPaths
     ) {
-        FileChange scopedHtmlChange = resolveScopedHtmlChange(htmlEntryPath, scopeChanges);
         if (scopedHtmlChange == null
                 || scopedHtmlChange.action() == ChangeAction.DELETE
                 || scopedHtmlChange.runtimeOwnership() == null) {
@@ -103,7 +119,7 @@ public final class HtmlRuntimeContractResolver {
         }
         List<Path> runtimeRoots = resolveDeclaredRuntimeRoots(projectPath, htmlEntryPath, scopeChanges);
         if (runtimeRoots.isEmpty()) {
-            runtimeRoots = resolveRuntimePathsFromFacts(projectPath, htmlEntryPath, null, List.of());
+            runtimeRoots = resolveRuntimePathsFromObservedFacts(htmlEntryPath, htmlSource, relatedPaths);
         }
         return HtmlRuntimeOwnershipContract.externalCompanion(htmlEntryPath, runtimeRoots);
     }
@@ -144,42 +160,48 @@ public final class HtmlRuntimeContractResolver {
         return runtimeRoots.isEmpty() ? declaredRuntimeScripts : runtimeRoots;
     }
 
-    private List<Path> resolveRuntimePathsFromFacts(
-            Path projectPath,
+    private boolean hostEntryDeclared(
             Path htmlEntryPath,
-            String htmlSource,
-            List<Path> relatedPaths
+            Path resolvedHostEntryPath,
+            HtmlRuntimeOwnershipContract explicitContract,
+            FileChange scopedHtmlChange
     ) {
-        List<Path> relatedRuntimeRoots = resolveRelatedRuntimeRoots(htmlEntryPath, htmlSource, relatedPaths);
-        if (!relatedRuntimeRoots.isEmpty()) {
-            return relatedRuntimeRoots;
+        if (htmlEntryPath == null) {
+            return false;
         }
-        if (projectPath == null || htmlEntryPath == null) {
-            return List.of();
+        if (explicitContract != null
+                && explicitContract.active()
+                && htmlEntryPath.equals(explicitContract.htmlEntryPath())) {
+            return true;
         }
-        RuntimeScriptGraphInspector.RuntimeScriptGraph graph = runtimeScriptGraphInspector.inspectProject(projectPath, htmlEntryPath);
-        return runtimeScriptGraphInspector.selectRootScripts(graph.runtimeScripts(), graph);
+        if (scopedHtmlChange != null
+                && scopedHtmlChange.action() != ChangeAction.DELETE
+                && scopedHtmlChange.runtimeOwnership() != null) {
+            return true;
+        }
+        return matchesResolvedHostEntry(htmlEntryPath, resolvedHostEntryPath);
     }
 
-    private List<Path> resolveRelatedRuntimeRoots(
+    private boolean matchesResolvedHostEntry(Path htmlEntryPath, Path resolvedHostEntryPath) {
+        return htmlEntryPath != null
+                && resolvedHostEntryPath != null
+                && htmlEntryPath.equals(resolvedHostEntryPath.normalize());
+    }
+
+    private List<Path> resolveRuntimePathsFromObservedFacts(
             Path htmlEntryPath,
             String htmlSource,
             List<Path> relatedPaths
     ) {
         if (htmlEntryPath == null
                 || htmlSource == null
-                || htmlSource.isBlank()
-                || relatedPaths == null
-                || relatedPaths.isEmpty()) {
+                || htmlSource.isBlank()) {
             return List.of();
         }
-        Set<Path> candidateRuntimePaths = relatedPaths.stream()
+        Set<Path> candidateRuntimePaths = (relatedPaths == null ? List.<Path>of() : relatedPaths).stream()
                 .filter(path -> path != null && ProjectPathSupport.isRuntimeScript(path))
                 .map(Path::normalize)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-        if (candidateRuntimePaths.isEmpty()) {
-            return List.of();
-        }
         Set<Path> resolvedRuntimePaths = resolveReferencedRuntimePaths(
                 htmlEntryPath.normalize(),
                 htmlSource,
@@ -193,17 +215,16 @@ public final class HtmlRuntimeContractResolver {
             String htmlSource,
             Set<Path> candidateRuntimePaths
     ) {
-        if (htmlEntryPath == null || candidateRuntimePaths == null || candidateRuntimePaths.isEmpty()) {
+        if (htmlEntryPath == null) {
             return Set.of();
         }
-        Path htmlParent = htmlEntryPath.getParent() == null ? Path.of("") : htmlEntryPath.getParent().normalize();
         Set<Path> resolved = new LinkedHashSet<>();
         for (String rawReference : HtmlDocumentInspector.referencedScriptPaths(htmlSource)) {
-            addResolvedRuntimePath(resolved, candidateRuntimePaths, htmlParent, rawReference);
+            addResolvedRuntimePath(resolved, candidateRuntimePaths, htmlEntryPath, rawReference);
         }
         for (String inlineScript : HtmlDocumentInspector.inlineScriptBodies(htmlSource)) {
             for (String specifier : JavaScriptLiteralScanner.extractImportSpecifiers(inlineScript)) {
-                addResolvedRuntimePath(resolved, candidateRuntimePaths, htmlParent, specifier);
+                addResolvedRuntimePath(resolved, candidateRuntimePaths, htmlEntryPath, specifier);
             }
         }
         return Set.copyOf(resolved);
@@ -212,16 +233,55 @@ public final class HtmlRuntimeContractResolver {
     private void addResolvedRuntimePath(
             Set<Path> resolved,
             Set<Path> candidateRuntimePaths,
-            Path htmlParent,
+            Path htmlEntryPath,
             String rawReference
     ) {
-        if (rawReference == null || rawReference.isBlank() || ProjectPathSupport.isExternalReference(rawReference)) {
+        Path runtimePath = resolveRuntimePath(htmlEntryPath, rawReference);
+        if (runtimePath == null) {
             return;
         }
-        Path runtimePath = htmlParent.resolve(rawReference.trim()).normalize();
-        if (candidateRuntimePaths.contains(runtimePath)) {
+        if (candidateRuntimePaths.isEmpty() || candidateRuntimePaths.contains(runtimePath)) {
             resolved.add(runtimePath);
         }
+    }
+
+    private Path resolveRuntimePath(Path htmlEntryPath, String rawReference) {
+        if (htmlEntryPath == null || rawReference == null || rawReference.isBlank()) {
+            return null;
+        }
+        String normalizedReference = stripQueryAndFragment(rawReference.trim());
+        if (normalizedReference.isBlank() || ProjectPathSupport.isExternalReference(normalizedReference)) {
+            return null;
+        }
+        Path runtimePath;
+        if (normalizedReference.startsWith("/")) {
+            String projectRelative = normalizedReference.substring(1).trim();
+            if (projectRelative.isBlank()) {
+                return null;
+            }
+            runtimePath = Path.of(projectRelative).normalize();
+        } else {
+            Path htmlParent = htmlEntryPath.getParent() == null ? Path.of("") : htmlEntryPath.getParent().normalize();
+            runtimePath = htmlParent.resolve(normalizedReference).normalize();
+        }
+        return ProjectPathSupport.isRuntimeScript(runtimePath) ? runtimePath : null;
+    }
+
+    private String stripQueryAndFragment(String rawReference) {
+        if (rawReference == null || rawReference.isBlank()) {
+            return "";
+        }
+        int queryIndex = rawReference.indexOf('?');
+        int fragmentIndex = rawReference.indexOf('#');
+        int cutIndex = -1;
+        if (queryIndex >= 0 && fragmentIndex >= 0) {
+            cutIndex = Math.min(queryIndex, fragmentIndex);
+        } else if (queryIndex >= 0) {
+            cutIndex = queryIndex;
+        } else if (fragmentIndex >= 0) {
+            cutIndex = fragmentIndex;
+        }
+        return cutIndex < 0 ? rawReference : rawReference.substring(0, cutIndex);
     }
 
     private boolean isUnderHtmlEntryTree(Path candidatePath, Path htmlParent) {

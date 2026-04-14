@@ -55,7 +55,7 @@
 - accepted change-set 已进入 implementation coder 的确定性边界：新本地依赖只能引用当前 owned files 或项目里已存在资产
 - HTML runtime ownership 仍由执行链与 verifier 校验，但已经不再由 planning detail 预判或填写
 - runtime wiring 续跑 scope 已改成显式携带 `host html + companion runtime roots`，不再只给一个宿主 HTML 让 coder 自己猜 companion 路径
-- implementation 侧 host entry runtime contract 已补成单一 resolver，当前按 `continuation scope > accepted change-set > execution-state facts` 产出 canonical contract；guard / validator 不再各自重建
+- implementation 侧 host entry runtime contract 已补成单一 resolver，当前只对已明确进入 host-entry 语义的 HTML 生效，并按 `continuation scope > accepted change-set > 当前 host HTML 已观察到的 wiring facts` 产出 canonical contract；guard / validator 不再各自重建，也不再通过目录扫描推断 sibling runtime roots
 - coder prompt 已显式展示 `Current File Contracts`，并且当前 attempt 使用的 task package 会和 `executionState.effectiveChanges()` 对齐，不再出现“writable files 已缩窄，但 Current Subtask 仍展示旧 owned files”的双轨提示
 - PRD 的低权重条目已从正文承诺区收束到 `Source Metadata`；`推断 / 建议 / 设计选择 / 待确认问题` 不再进入 `PRODUCT_CONTRACT` 的 capability / acceptance 投影
 - snapshot / restore 只恢复确定性会话状态，不再跨 attempt 恢复 transcript

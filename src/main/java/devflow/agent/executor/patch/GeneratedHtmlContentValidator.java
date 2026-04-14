@@ -148,9 +148,13 @@ public final class GeneratedHtmlContentValidator {
             HtmlRuntimeOwnershipContract runtimeContract,
             java.util.List<Path> relatedPaths
     ) {
+        if (runtimeContract == null || !runtimeContract.active()) {
+            return null;
+        }
         return runtimeContractResolver.resolveCanonicalContract(
                 projectPath,
                 relativePath,
+                null,
                 runtimeContract,
                 java.util.List.of(),
                 content,

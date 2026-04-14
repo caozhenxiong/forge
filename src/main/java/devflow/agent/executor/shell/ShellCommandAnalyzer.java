@@ -75,7 +75,8 @@ public final class ShellCommandAnalyzer {
                     "INVALID_COMMAND",
                     "Shell command is empty.",
                     false,
-                    List.of("command is blank")
+                    List.of("command is blank"),
+                    List.of()
             );
         }
         if (context == null) {
@@ -84,7 +85,8 @@ public final class ShellCommandAnalyzer {
                     "MISSING_PERMISSION_CONTEXT",
                     "Missing shell permission context.",
                     false,
-                    List.of("permission context is null")
+                    List.of("permission context is null"),
+                    List.of()
             );
         }
         try {
@@ -105,7 +107,8 @@ public final class ShellCommandAnalyzer {
                             analysis.reasonCode(),
                             analysis.message(),
                             analysis.retryable(),
-                            analysis.evidence().isBlank() ? List.of() : List.of(analysis.evidence())
+                            analysis.evidence().isBlank() ? List.of() : List.of(analysis.evidence()),
+                            analysis.pathIntents()
                     );
                 }
                 if (analysis.writesWorkspace()) {
@@ -122,7 +125,8 @@ public final class ShellCommandAnalyzer {
                         "UNSAFE_WRITE_SYNTAX",
                         "Bash write commands may contain at most one write-capable command segment. Use file tools for multi-step edits.",
                         true,
-                        List.of("write command segments=" + writeSegments)
+                        List.of("write command segments=" + writeSegments),
+                        List.copyOf(pathIntents)
                 );
             }
             if (writeSegments == 1 && segments.stream()
@@ -137,7 +141,8 @@ public final class ShellCommandAnalyzer {
                         segments.stream()
                                 .map(ShellSegment::separatorAfter)
                                 .filter(separator -> separator != null && !separator.isBlank())
-                                .toList()
+                                .toList(),
+                        List.copyOf(pathIntents)
                 );
             }
             return writeSegments == 0
@@ -149,7 +154,8 @@ public final class ShellCommandAnalyzer {
                     exception.reasonCode(),
                     exception.getMessage(),
                     exception.retryable(),
-                    exception.evidence().isBlank() ? List.of() : List.of(exception.evidence())
+                    exception.evidence().isBlank() ? List.of() : List.of(exception.evidence()),
+                    exception.pathIntents()
             );
         }
     }
@@ -649,7 +655,8 @@ public final class ShellCommandAnalyzer {
                     "SCOPE_VIOLATION",
                     "Bash write targets must stay inside the current accepted change-set.",
                     true,
-                    commandName + " -> " + renderRelativePath(relativePath)
+                    commandName + " -> " + renderRelativePath(relativePath),
+                    List.of(new ShellPathIntent(relativePath, kind))
             );
         }
         return new ShellPathIntent(relativePath, kind);
@@ -666,7 +673,8 @@ public final class ShellCommandAnalyzer {
                     "SCOPE_VIOLATION",
                     "mkdir is only allowed for directories that contain current owned paths.",
                     true,
-                    renderRelativePath(relativePath)
+                    renderRelativePath(relativePath),
+                    List.of(new ShellPathIntent(relativePath, ShellPathIntentKind.PREPARE_DIRECTORY))
             );
         }
         return new ShellPathIntent(relativePath, ShellPathIntentKind.PREPARE_DIRECTORY);
@@ -1116,12 +1124,24 @@ public final class ShellCommandAnalyzer {
         private final String reasonCode;
         private final boolean retryable;
         private final String evidence;
+        private final List<ShellPathIntent> pathIntents;
 
         private ShellAnalysisException(String reasonCode, String message, boolean retryable, String evidence) {
+            this(reasonCode, message, retryable, evidence, List.of());
+        }
+
+        private ShellAnalysisException(
+                String reasonCode,
+                String message,
+                boolean retryable,
+                String evidence,
+                List<ShellPathIntent> pathIntents
+        ) {
             super(message);
             this.reasonCode = reasonCode;
             this.retryable = retryable;
             this.evidence = evidence == null ? "" : evidence;
+            this.pathIntents = pathIntents == null ? List.of() : List.copyOf(pathIntents);
         }
 
         String reasonCode() {
@@ -1134,6 +1154,10 @@ public final class ShellCommandAnalyzer {
 
         String evidence() {
             return evidence;
+        }
+
+        List<ShellPathIntent> pathIntents() {
+            return pathIntents;
         }
     }
 }

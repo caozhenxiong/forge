@@ -110,7 +110,7 @@ public final class FileEditRequestFactory {
                 fingerprint,
                 eventJournal,
                 resolveScopedChange(relativePath, activeChanges),
-                resolveRuntimeContract(projectPath, relativePath, activeChanges)
+                resolveRuntimeContract(projectPath, relativePath, activeChanges, fingerprint, existingContent)
         );
     }
 
@@ -151,16 +151,26 @@ public final class FileEditRequestFactory {
     private HtmlRuntimeOwnershipContract resolveRuntimeContract(
             Path projectPath,
             Path relativePath,
-            List<FileChange> activeChanges
+            List<FileChange> activeChanges,
+            ProjectFingerprint fingerprint,
+            String existingContent
     ) {
         return runtimeContractResolver.resolveCanonicalContract(
                 projectPath,
                 relativePath,
+                resolvedHostEntryPath(fingerprint),
                 null,
                 activeChanges,
-                null,
+                existingContent,
                 List.of()
         );
+    }
+
+    private Path resolvedHostEntryPath(ProjectFingerprint fingerprint) {
+        if (fingerprint == null || !fingerprint.hasResolvedHtmlEntry()) {
+            return null;
+        }
+        return Path.of(fingerprint.resolvedHtmlEntryPath()).normalize();
     }
 
     private boolean isEmbeddedWorksetProgress(String strategyName) {

@@ -46,11 +46,34 @@ class BashToolFailureDiagnosticsTests {
         assertFalse(result.success());
         assertEquals(1, context.diagnostics().size());
         ImplementationDiagnosticRecord diagnostic = context.diagnostics().getFirst();
-        assertEquals(Path.of(""), diagnostic.relativePath());
+        assertEquals(Path.of("app.js"), diagnostic.relativePath());
         assertEquals(ToolLoopDiagnosticStatus.FAILED, diagnostic.status());
         assertEquals(ImplementationDiagnosticSource.TOOL_FAILURE, diagnostic.source());
         assertEquals(ToolFailureCode.TARGET_SCOPE_VIOLATION, diagnostic.failureCode());
         org.junit.jupiter.api.Assertions.assertTrue(diagnostic.evidence().contains("printf 'hello' > app.js"));
+    }
+
+    @Test
+    void unsupportedCommandMayStillRecordEmptyDiagnosticPath() {
+        BashTool bashTool = new BashTool();
+        ImplementationToolContext context = newContext(Set.of(Path.of("app.js")));
+
+        ToolInvocationResult result = bashTool.invoke(
+                new LlmToolCall(
+                        "call-unsupported-command",
+                        "Bash",
+                        Map.of("command", "python app.py")
+                ),
+                context
+        );
+
+        assertFalse(result.success());
+        assertEquals(1, context.diagnostics().size());
+        ImplementationDiagnosticRecord diagnostic = context.diagnostics().getFirst();
+        assertEquals(Path.of(""), diagnostic.relativePath());
+        assertEquals(ToolLoopDiagnosticStatus.FAILED, diagnostic.status());
+        assertEquals(ImplementationDiagnosticSource.TOOL_FAILURE, diagnostic.source());
+        assertEquals(ToolFailureCode.COMMAND_FAILED, diagnostic.failureCode());
     }
 
     @Test

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HtmlRuntimeContractResolverTests {
@@ -29,6 +30,7 @@ class HtmlRuntimeContractResolverTests {
         HtmlRuntimeOwnershipContract contract = resolver.resolveCanonicalContract(
                 tempDir,
                 Path.of("index.html"),
+                null,
                 null,
                 List.of(
                         new FileChange(
@@ -56,6 +58,7 @@ class HtmlRuntimeContractResolverTests {
         HtmlRuntimeOwnershipContract contract = resolver.resolveCanonicalContract(
                 tempDir,
                 Path.of("index.html"),
+                null,
                 HtmlRuntimeOwnershipContract.inlineHost(Path.of("index.html")),
                 List.of(),
                 """
@@ -74,11 +77,14 @@ class HtmlRuntimeContractResolverTests {
     }
 
     @Test
-    void relatedPathsProvideExecutionFactsWhenNoScopeContractExists() {
+    void resolvedHostEntryUsesObservedRuntimeFactsWithoutScanningSiblingRoots() throws Exception {
+        Files.writeString(tempDir.resolve("index.app.js"), "export const app = true;\n");
+        Files.writeString(tempDir.resolve("admin.app.js"), "export const admin = true;\n");
         HtmlRuntimeContractResolver resolver = new HtmlRuntimeContractResolver(new FileProjectWorkspace());
 
         HtmlRuntimeOwnershipContract contract = resolver.resolveCanonicalContract(
                 tempDir,
+                Path.of("index.html"),
                 Path.of("index.html"),
                 null,
                 List.of(),
@@ -90,10 +96,31 @@ class HtmlRuntimeContractResolverTests {
                         </body>
                         </html>
                         """,
-                List.of(Path.of("index.app.js"), Path.of("assets/theme.css"))
+                List.of()
         );
 
         assertTrue(contract.externalCompanion());
         assertEquals(List.of("index.app.js"), contract.runtimePathStrings());
+    }
+
+    @Test
+    void nonHostHtmlDoesNotInferRuntimeContractFromObservedFacts() {
+        HtmlRuntimeContractResolver resolver = new HtmlRuntimeContractResolver(new FileProjectWorkspace());
+
+        HtmlRuntimeOwnershipContract contract = resolver.resolveCanonicalContract(
+                tempDir,
+                Path.of("partials/card.html"),
+                null,
+                null,
+                List.of(),
+                """
+                        <div class="card">
+                          <script type="module" src="../index.app.js"></script>
+                        </div>
+                        """,
+                List.of()
+        );
+
+        assertNull(contract);
     }
 }
