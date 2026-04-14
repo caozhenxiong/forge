@@ -38,38 +38,39 @@ public class FlowDecisionExecutor {
             SupervisorDecision supervisorDecision,
             FlowDecision flowDecision
     ) {
+        ReviewResult effectiveReviewResult = effectiveReviewResult(reviewResult, flowDecision);
         WorkflowAction action = flowDecision.action();
         if (action == WorkflowAction.ADVANCE_STAGE) {
             return stageTransitionSupport.onStageApproved(
                     projectPath,
                     runRecord,
                     stageType,
-                    reviewResult,
+                    effectiveReviewResult,
                     supervisorDecision,
                     stageEntryExecutor::enterStage
             );
         }
         if (action == WorkflowAction.REQUEST_HUMAN_REVIEW) {
-            return stageTransitionSupport.blockForHumanReview(runRecord, stageType, reviewResult);
+            return stageTransitionSupport.blockForHumanReview(runRecord, stageType, effectiveReviewResult);
         }
         if (action == WorkflowAction.COMPLETE_RUN) {
-            return stageTransitionSupport.completeRun(runRecord, stageType, reviewResult);
+            return stageTransitionSupport.completeRun(runRecord, stageType, effectiveReviewResult);
         }
         if (action == WorkflowAction.RETRY_STAGE
                 || action == WorkflowAction.ROLLBACK_STAGE
                 || action == WorkflowAction.ROUTE_TO_REPAIR) {
             return rerouteForRevision(
-                    projectPath,
-                    runRecord,
-                    stageType,
-                    reviewResult,
-                    repeatedIssue,
-                    supervisorDecision,
-                    flowDecision,
-                    action == WorkflowAction.ROUTE_TO_REPAIR
+                projectPath,
+                runRecord,
+                stageType,
+                effectiveReviewResult,
+                repeatedIssue,
+                supervisorDecision,
+                flowDecision,
+                action == WorkflowAction.ROUTE_TO_REPAIR
             );
         }
-        return stageTransitionSupport.failRun(runRecord, stageType, reviewResult);
+        return stageTransitionSupport.failRun(runRecord, stageType, effectiveReviewResult);
     }
 
     private RunRecord rerouteForRevision(
@@ -133,6 +134,13 @@ public class FlowDecisionExecutor {
             return revisionRoutingPlan.overrideChanges();
         }
         return reviewResult.overrideChanges();
+    }
+
+    private ReviewResult effectiveReviewResult(ReviewResult reviewResult, FlowDecision flowDecision) {
+        if (flowDecision != null && flowDecision.reviewResultOverride() != null) {
+            return flowDecision.reviewResultOverride();
+        }
+        return reviewResult;
     }
 
     public RunRecord continueStage(

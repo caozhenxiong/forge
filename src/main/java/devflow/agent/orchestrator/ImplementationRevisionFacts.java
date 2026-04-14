@@ -2,6 +2,10 @@ package devflow.agent.orchestrator;
 
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ImplementationPatchTarget;
+import devflow.agent.review.ReviewDecision;
+import devflow.agent.review.ReviewReasonCode;
+import devflow.agent.review.ReviewResult;
+import devflow.agent.review.ReviewRevisionRoute;
 import java.util.List;
 
 /**
@@ -45,6 +49,24 @@ public record ImplementationRevisionFacts(
 
     public boolean shouldBlockForHumanReview() {
         return !stageReady && blocked;
+    }
+
+    public ReviewResult blockedReviewResult() {
+        if (!shouldBlockForHumanReview() || continuationContext == null) {
+            return null;
+        }
+        return new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.PATCH,
+                continuationContext.summary(),
+                continuationContext.changeRequest(),
+                continuationContext.evidence(),
+                continuationContext.actionItems(),
+                continuationContext.implementationPatchTarget(),
+                continuationContext.overrideChanges(),
+                ReviewRevisionRoute.REQUEST_HUMAN,
+                continuationContext.reasonCode() == null ? ReviewReasonCode.NONE : continuationContext.reasonCode()
+        );
     }
 
     public RevisionRoutingPlan toRevisionRoutingPlan() {

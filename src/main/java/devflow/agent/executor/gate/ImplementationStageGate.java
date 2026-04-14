@@ -204,21 +204,30 @@ public class ImplementationStageGate {
             }
             allowedByPath.put(java.nio.file.Path.of(change.path()).normalize(), change);
         }
-        java.util.ArrayList<FileChange> restricted = new java.util.ArrayList<>();
+        java.util.LinkedHashSet<java.nio.file.Path> acceptedPaths = new java.util.LinkedHashSet<>();
         for (FileChange change : proposedChanges) {
             if (change == null || change.path() == null || change.path().isBlank()) {
                 continue;
             }
             java.nio.file.Path normalizedPath = java.nio.file.Path.of(change.path()).normalize();
-            FileChange allowedChange = allowedByPath.get(normalizedPath);
-            if (allowedChange != null) {
-                restricted.add(change);
+            if (allowedByPath.containsKey(normalizedPath)) {
+                acceptedPaths.add(normalizedPath);
             }
         }
-        if (restricted.isEmpty()) {
+        if (acceptedPaths.isEmpty()) {
             return List.copyOf(allowedScope);
         }
-        return List.copyOf(restricted);
+        java.util.ArrayList<FileChange> canonical = new java.util.ArrayList<>();
+        for (FileChange change : allowedScope) {
+            if (change == null || change.path() == null || change.path().isBlank()) {
+                continue;
+            }
+            java.nio.file.Path normalizedPath = java.nio.file.Path.of(change.path()).normalize();
+            if (acceptedPaths.contains(normalizedPath)) {
+                canonical.add(change);
+            }
+        }
+        return List.copyOf(canonical);
     }
 
     private ContinuationDisposition incompletePlanContinuation(List<String> incompleteSubtasks) {

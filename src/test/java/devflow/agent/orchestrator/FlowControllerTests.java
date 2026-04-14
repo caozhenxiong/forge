@@ -238,5 +238,11 @@ class FlowControllerTests {
         assertEquals(StageType.CODE_REVIEW, flowDecision.targetStage());
         assertFalse(flowDecision.revisionRoutingPlan().active());
         assertEquals(TransitionReason.HUMAN_REVIEW_REQUIRED, flowDecision.transitionDecision().reason());
+        assertEquals("当前实现需要继续 patch，但阶段汇总没有拿到结构化文件范围，不能自动续跑。",
+                flowDecision.reviewResultOverride().summary());
+        assertEquals("请先补齐 overrideChanges 指向的受影响文件。",
+                flowDecision.reviewResultOverride().changeRequest());
+        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                flowDecision.reviewResultOverride().implementationPatchTarget());
     }
 }

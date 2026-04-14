@@ -64,6 +64,7 @@ public class FlowController {
             transitionSummary = appendToolSummary(transitionSummary, toolSummary);
         }
         RevisionRoutingPlan revisionRoutingPlan = RevisionRoutingPlan.none();
+        ReviewResult reviewResultOverride = null;
         if (targetsImplementationRevision(action, targetStage)) {
             if (implementationFacts != null && implementationFacts.shouldAutoContinueCurrentImplementation()) {
                 revisionRoutingPlan = implementationFacts.toRevisionRoutingPlan();
@@ -71,6 +72,7 @@ public class FlowController {
                 action = WorkflowAction.REQUEST_HUMAN_REVIEW;
                 targetStage = stageType;
                 transitionSummary = blockedImplementationSummary(transitionSummary, implementationFacts);
+                reviewResultOverride = implementationFacts.blockedReviewResult();
             }
         }
         TransitionReason reason = mapReason(action, stageType);
@@ -82,7 +84,7 @@ public class FlowController {
                 transitionSummary,
                 supervisorDecision
         );
-        return new FlowDecision(action, targetStage, transitionDecision, revisionRoutingPlan);
+        return new FlowDecision(action, targetStage, transitionDecision, revisionRoutingPlan, reviewResultOverride);
     }
 
     /**

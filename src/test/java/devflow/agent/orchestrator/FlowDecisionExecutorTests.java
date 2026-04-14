@@ -224,6 +224,69 @@ class FlowDecisionExecutorTests {
         assertEquals("src/game.js", revisionContext.overrideChanges().getFirst().path());
     }
 
+    @Test
+    void requestHumanReviewUsesBlockedReviewOverrideWhenProvided() {
+        AtomicReference<ReviewResult> capturedReview = new AtomicReference<>();
+        StageTransitionSupport stageTransitionSupport = new StageTransitionSupport(null, null, null) {
+            @Override
+            public RunRecord blockForHumanReview(RunRecord runRecord, StageType stageType, ReviewResult reviewResult) {
+                capturedReview.set(reviewResult);
+                return runRecord;
+            }
+        };
+        FlowDecisionExecutor executor = new FlowDecisionExecutor(
+                stageTransitionSupport,
+                new StageEntryExecutor(null, null, null, null, null)
+        );
+        ReviewResult originalReview = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.REWORK,
+                "原始 review 总结",
+                "原始 review 要求"
+        );
+        ReviewResult blockedReview = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.PATCH,
+                "缺少结构化 patch scope，不能自动续跑。",
+                "请先补齐 overrideChanges。",
+                "continuation evidence",
+                "action items",
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                List.of()
+        );
+        SupervisorDecision supervisorDecision = new SupervisorDecision(
+                WorkflowAction.RETRY_STAGE,
+                StageType.IMPLEMENTATION,
+                FixMode.REWORK,
+                "supervisor reason",
+                List.of(),
+                List.of(),
+                List.of(),
+                DeliveryPolicy.patchSafe(),
+                false
+        );
+
+        executor.apply(
+                tempDir,
+                runRecord(StageType.CODE_REVIEW),
+                StageType.CODE_REVIEW,
+                originalReview,
+                false,
+                supervisorDecision,
+                new FlowDecision(
+                        WorkflowAction.REQUEST_HUMAN_REVIEW,
+                        StageType.CODE_REVIEW,
+                        null,
+                        RevisionRoutingPlan.none(),
+                        blockedReview
+                )
+        );
+
+        assertEquals("缺少结构化 patch scope，不能自动续跑。", capturedReview.get().summary());
+        assertEquals("请先补齐 overrideChanges。", capturedReview.get().changeRequest());
+        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, capturedReview.get().implementationPatchTarget());
+    }
+
     private FlowDecisionExecutor newExecutor(AtomicReference<RevisionContext> capturedContext) {
         StageTransitionSupport stageTransitionSupport = new StageTransitionSupport(null, null, null) {
             @Override

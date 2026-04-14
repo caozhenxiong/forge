@@ -155,9 +155,33 @@ class ImplementationStageGateTests {
     @Test
     void clampsPatchScopeToCurrentSubtaskEffectiveChanges() {
         ImplementationStageGate gate = new ImplementationStageGate();
-        Subtask subtask = subtask("补逻辑", false, "src/game.js");
+        Subtask subtask = new Subtask(
+                "补逻辑",
+                "补逻辑",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("完成当前子任务"),
+                false,
+                DeliveryMode.PATCH,
+                List.of(new FileChange(
+                        "index.html",
+                        ChangeAction.WRITE,
+                        "补齐核心逻辑",
+                        FileEditScope.HOST_HTML_PATCH,
+                        RuntimeOwnershipMode.EXTERNAL_COMPANION,
+                        true
+                ))
+        );
         SubtaskExecutionState executionState = new SubtaskExecutionState(DeliveryMode.PATCH, true);
-        executionState.setEffectiveChanges(List.of(new FileChange("src/game.js", ChangeAction.WRITE, "补齐核心逻辑")));
+        executionState.setEffectiveChanges(List.of(new FileChange(
+                "index.html",
+                ChangeAction.WRITE,
+                "补齐核心逻辑",
+                FileEditScope.HOST_HTML_PATCH,
+                RuntimeOwnershipMode.EXTERNAL_COMPANION,
+                true
+        )));
         ReviewResult patchReview = new ReviewResult(
                 ReviewDecision.REVISION_REQUIRED,
                 FixMode.PATCH,
@@ -166,7 +190,10 @@ class ImplementationStageGateTests {
                 "evidence",
                 "继续修复",
                 ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
-                List.of(new FileChange("STATUS.txt", ChangeAction.WRITE, "越界路径"))
+                List.of(
+                        new FileChange("index.html", ChangeAction.DELETE, "篡改 metadata"),
+                        new FileChange("STATUS.txt", ChangeAction.WRITE, "越界路径")
+                )
         );
 
         ImplementationStageStatus stageStatus = gate.summarizeStageStatus(
@@ -186,7 +213,12 @@ class ImplementationStageGateTests {
         );
 
         assertEquals(1, stageStatus.continuationOverrideChanges().size());
-        assertEquals("src/game.js", stageStatus.continuationOverrideChanges().getFirst().path());
+        assertEquals("index.html", stageStatus.continuationOverrideChanges().getFirst().path());
+        assertEquals(ChangeAction.WRITE, stageStatus.continuationOverrideChanges().getFirst().action());
+        assertEquals(FileEditScope.HOST_HTML_PATCH, stageStatus.continuationOverrideChanges().getFirst().editScope());
+        assertEquals(RuntimeOwnershipMode.EXTERNAL_COMPANION,
+                stageStatus.continuationOverrideChanges().getFirst().runtimeOwnership());
+        assertTrue(stageStatus.continuationOverrideChanges().getFirst().hostHtmlPatchRequired());
     }
 
     private Subtask subtask(String title, boolean runnableMilestone, String path) {
