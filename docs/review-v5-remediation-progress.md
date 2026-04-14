@@ -21,8 +21,8 @@
 - `FlowController.shouldContinue()` 在 `currentStage == null` 时有 `log.warn()`
 - `maxAutoRevisions` 超限检查只在一处定义
 - `ImplementationExecutor` 只剩一个规范 `execute()` 入口
-- `SupervisorAgent.decide()` 与 `decideGenerationFailure()` 共用同一私有决策骨架
-- `StageProgressCoordinator` 字段数 ≤ 7
+- `SupervisorAgent.decide()` 与 `decideGenerationFailure()` 共用同一私有控制骨架
+- `StageProgressCoordinator` 不再直接依赖 `toolResultLoader`、`toolResultGuard`、`implementationStateSupport`、`implementationContinuationSupport`
 - `StageToolResultGate` 已提取并装配
 
 ## Removal Plan
@@ -47,7 +47,7 @@
 - [ ] `StageTransitionSupport.continueStage()` 切到辅助方法
 - [ ] `StageRevisionSupport.rerouteForRevision()` 切到辅助方法
 - [ ] `ImplementationExecutor` 删除 3 个短签名重载
-- [ ] `ImplementationExecutorWiring` 调用点同步更新
+- [ ] `ImplementationStageComposer` 与相关测试调用点同步更新
 - [ ] 新增 `FlowControllerTests`
 - [ ] Phase 1 `self-test`
 - [ ] Phase 1 `code review`
@@ -67,8 +67,8 @@
 - [ ] 新增 `StageToolResultGate`（封装 `toolResultLoader` + `toolResultGuard`）
 - [ ] `diagnosisAgent.shouldDiagnose()` 调用迁移（进 Gate 或独立 detector）
 - [ ] implementation 特殊路径内聚（`implementationStateSupport` + `implementationContinuationSupport`）
-- [ ] `StageProgressCoordinator` 字段数 ≤ 7
-- [ ] `DefaultWorkflowEngineConfiguration` 补新 bean 装配
+- [ ] `StageProgressCoordinator` 不再直接持有工具结果与 implementation continuation 细节协作者
+- [ ] `OrchestratorConfiguration` 补新 bean 装配
 - [ ] 新增 `StageToolResultGateTests`
 - [ ] Phase 3 `self-test`
 - [ ] Phase 3 `code review`
@@ -76,7 +76,7 @@
 
 ## Current Status
 
-- 当前阶段：`PLAN_REVIEW_PENDING`
+- 当前阶段：`PLAN_UPDATED_FOR_REVIEW`
 - 当前 blocker：`无`
 - 当前约束：`禁止兼容层、禁止双轨并存、禁止"后续再清理"`
 
@@ -110,8 +110,11 @@
 - [ ] `FlowController.shouldContinue()` 在 `currentStage == null` 时有 `log.warn()`
 - [ ] `maxAutoRevisions` 超限检查只在一处定义
 - [ ] `ImplementationExecutor` 只剩一个规范 `execute()` 入口
-- [ ] `SupervisorAgent.decide()` 与 `decideGenerationFailure()` 共用同一私有决策骨架
-- [ ] `StageProgressCoordinator` 字段数 ≤ 7
+- [ ] `SupervisorAgent.decide()` 与 `decideGenerationFailure()` 共用同一私有控制骨架
+- [ ] `StageProgressCoordinator` 不再直接依赖 `toolResultLoader`
+- [ ] `StageProgressCoordinator` 不再直接依赖 `toolResultGuard`
+- [ ] `StageProgressCoordinator` 不再直接依赖 `implementationStateSupport`
+- [ ] `StageProgressCoordinator` 不再直接依赖 `implementationContinuationSupport`
 - [ ] `StageToolResultGate` 已提取并装配
 - [ ] `self-test + code review + docs + tracker` 已全部补齐
 

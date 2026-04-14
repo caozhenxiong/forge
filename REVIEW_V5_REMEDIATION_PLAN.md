@@ -17,7 +17,7 @@
 1. `ContextProjector` 重复投影消除：`SupervisorAgent.decide()` 改接外部传入的 `ProjectedContext`
 2. `FlowController.shouldContinue()` 静默 null 补日志
 3. `maxAutoRevisions` 检查去重、`ImplementationExecutor` 重载链收口（小修）
-4. `StageProgressCoordinator` 拆分：13 依赖上帝对象 → 责任分层
+4. `StageProgressCoordinator` 拆分：13 依赖上帝对象 → 责任分层与边界收口
 
 ## Scope
 
@@ -44,8 +44,9 @@
 - `FlowController.shouldContinue()` 在 `currentStage == null` 时有 `log.warn()` 记录
 - `maxAutoRevisions` 超限检查只在一处定义，`StageTransitionSupport` 和 `StageRevisionSupport` 共用
 - `ImplementationExecutor` 的冗余重载已清理，只保留一个规范入口
-- `StageProgressCoordinator` 的依赖数降到 ≤ 7，工具结果处理与 implementation 特殊路径已分离到独立协作类
-- `SupervisorAgent.decide()` 与 `decideGenerationFailure()` 的 fallback→LLM→sanitize 流程共用同一私有骨架方法
+- `StageProgressCoordinator` 不再直接依赖 `toolResultLoader`、`toolResultGuard`、`implementationStateSupport`、`implementationContinuationSupport`
+- 工具结果处理与 implementation 特殊路径已分离到独立协作类
+- `SupervisorAgent.decide()` 与 `decideGenerationFailure()` 的 fallback→LLM→sanitize 控制骨架共用同一私有辅助方法
 
 ## Removal Plan
 
@@ -71,7 +72,8 @@
   - `FlowController`：补 `log.warn`
 - `executor/`
   - `ImplementationExecutor`：删除冗余重载，保留单一规范 `execute()`
-  - `ImplementationExecutorWiring`：同步调整调用点
+  - `artifact/ImplementationStageComposer`：切到单一规范入口
+  - executor 相关测试与 test support：同步调整调用点
 
 联动测试范围：
 
@@ -84,7 +86,7 @@
 ### Phase 2 联动范围
 
 - `supervisor/`
-  - `SupervisorAgent`：提取 `supervisorDecide(fallback, llmDecision, sanitizer)` 私有骨架，`decide()` 与 `decideGenerationFailure()` 共用
+  - `SupervisorAgent`：提取共享的“fallback / should-call-llm / llm-path / exception fallback”控制骨架，`decide()` 与 `decideGenerationFailure()` 共用
 
 联动测试范围：
 
@@ -97,7 +99,7 @@
   - `StageProgressCoordinator`：拆分为薄编排层 + `StageToolResultGate` + `ImplementationProgressSupport`
   - 新增 `StageToolResultGate`：接管 `toolResultLoader` + `toolResultGuard`
   - 新增 `ImplementationProgressSupport`（或复用已有 support）：接管 `implementationStateSupport` + `implementationContinuationSupport` 的调用路径
-  - `DefaultWorkflowEngineConfiguration`：补新 bean 装配
+  - `OrchestratorConfiguration`：补新 bean 装配
 
 联动测试范围：
 
@@ -114,12 +116,13 @@
 - `FlowController.shouldContinue()` 补 `log.warn("...")` 在 `currentStage == null` 分支
 - 提取 `maxAutoRevisions` 超限辅助方法，`StageTransitionSupport` 与 `StageRevisionSupport` 共用
 - `ImplementationExecutor` 删除 3 个短签名重载，只保留全参规范入口
+- `ImplementationStageComposer` 与相关测试调用点同步切到全参版本
 - 新增 `FlowControllerTests`
 - Phase 1 self-test / code review / docs
 
 ### Phase 2. SupervisorAgent 决策骨架统一
 
-- 提取私有骨架方法（`decide()` 与 `decideGenerationFailure()` 共用 fallback→LLM→sanitize 流程）
+- 提取私有控制骨架方法（`decide()` 与 `decideGenerationFailure()` 共用 fallback→should-call-llm→llm-path→exception fallback 流程）
 - 验证两条路径语义不变
 - Phase 2 self-test / code review / docs
 
@@ -127,8 +130,8 @@
 
 - 新增 `StageToolResultGate`：封装 `toolResultLoader.load()` + `toolResultGuard.guard()`
 - 将 implementation 特殊路径（`implementationStateSupport`、`implementationContinuationSupport`）内聚
-- `StageProgressCoordinator` 最终依赖数 ≤ 7
-- `DefaultWorkflowEngineConfiguration` 补新 bean 装配
+- `StageProgressCoordinator` 最终不再直接持有工具结果与 implementation continuation 细节协作者
+- `OrchestratorConfiguration` 补新 bean 装配
 - 新增 `StageToolResultGateTests`
 - Phase 3 self-test / code review / docs
 
@@ -155,7 +158,7 @@ public SupervisorDecision decide(
 
 `StageProgressCoordinator.progress()` 已在 line 120 持有 `projectedContext`，直接传入即可。`SupervisorAgent.decide()` 内部删除 `contextProjector.project()` 调用。
 
-`decideGenerationFailure()` 路径独立调用投影（由 `WorkflowRunLifecycleSupport` 等生成失败路径触发），不在本次修改范围内，保持不变。
+`decideGenerationFailure()` 路径仍保留独立投影。也就是说，这轮只删除 `decide()` 的内部重复投影，不把整个 `SupervisorAgent` 去投影化。
 
 ### 2. FlowController.shouldContinue() 静默 null（P1）
 
@@ -223,26 +226,33 @@ public ImplementationExecutionBundle execute(
 
 ### 5. SupervisorAgent 决策骨架提取（P2 配套）
 
-**问题**：`decide()` 与 `decideGenerationFailure()` 结构几乎一致（fallback → 是否调 LLM → sanitize），但两套 sanitizer 方法签名不同，维护时易漏改一处。
+**问题**：`decide()` 与 `decideGenerationFailure()` 结构几乎一致（fallback → 是否调 LLM → sanitize），但两条路径的 payload 和 sanitizer 签名不同，不能靠错误的返回类型约束硬凑成一个“统一泛型决策器”。
 
-**修复**：提取私有泛型骨架：
+**修复**：提取共享控制骨架，而不是错误的 `T extends SupervisorDecision` 泛型：
 
 ```java
-private <T extends SupervisorDecision> T supervisorDecide(
+private <T> T resolveWithFallback(
     Supplier<T> fallbackSupplier,
     BooleanSupplier shouldCallLlm,
-    Supplier<T> llmDecision,
-    UnaryOperator<T> sanitizer
+    Supplier<T> llmPath,
+    Consumer<Exception> failureLogger
 )
 ```
 
-`decide()` 与 `decideGenerationFailure()` 各自构造 lambda 后调用骨架方法。
+语义是：
+
+- 先求 fallback
+- 决定是否需要调 LLM
+- 如果需要则执行各自的 llm-path，其中各自完成 payload parse + sanitize
+- 失败时统一回落 fallback，并记录各自日志
+
+这样共用的是控制骨架，而不是伪统一两条不同业务返回值的类型层次。
 
 ### 6. StageProgressCoordinator 拆分（P2 主线）
 
 **问题**：13 个依赖，存储层 + 诊断决策 + 上下文投影 + 执行决策流 + 工具结果处理 + implementation 特殊路径全混在一个类，单元测试极难。
 
-**目标依赖数 ≤ 7**：
+**目标是边界收口，不是机械压字段数**：
 
 新增 `StageToolResultGate`（封装 `toolResultLoader` + `toolResultGuard`）：
 
@@ -255,7 +265,7 @@ class StageToolResultGate {
 
 `StageProgressCoordinator` 中 implementation 特殊路径（`implementationStateSupport.renderImplementationReviewSummary()` 与 `implementationContinuationSupport`）已通过现有 support 对象内聚，coordinator 不再直接持有这两个字段，而是内聚到一个 `ImplementationStageProgressAdapter`（或复用已有辅助类）中，减少 coordinator 直接感知的 implementation 细节。
 
-最终 `StageProgressCoordinator` 保留的依赖：
+一个合理的最终依赖面可以接近下面这个形态，但它只是结果示意，不是验收门槛：
 
 | 字段 | 职责 |
 |---|---|
@@ -268,6 +278,15 @@ class StageToolResultGate {
 | `artifactSupport` | 产物写入 |
 
 `diagnosisAgent.shouldDiagnose()` 调用移入 `StageToolResultGate` 或单独提取为 `RepeatIssueDetector`（视实现复杂度决定）。
+
+完成门槛不是“字段数 ≤ 7”，而是：
+
+- coordinator 不再直接依赖 `toolResultLoader`
+- coordinator 不再直接依赖 `toolResultGuard`
+- coordinator 不再直接依赖 `implementationStateSupport`
+- coordinator 不再直接依赖 `implementationContinuationSupport`
+- implementation 特殊路径由独立协作者承接
+- 工具结果 gate 有独立测试
 
 ## Test Plan
 
@@ -298,8 +317,11 @@ mvn -q -Dtest=SupervisorFallbackPolicyTests,StageToolResultGateTests test
 - [ ] `FlowController.shouldContinue()` 在 `currentStage == null` 时有 `log.warn()`
 - [ ] `maxAutoRevisions` 超限检查只在一处定义
 - [ ] `ImplementationExecutor` 只剩一个规范 `execute()` 入口
-- [ ] `SupervisorAgent.decide()` 与 `decideGenerationFailure()` 共用同一私有决策骨架
-- [ ] `StageProgressCoordinator` 字段数 ≤ 7
+- [ ] `SupervisorAgent.decide()` 与 `decideGenerationFailure()` 共用同一私有控制骨架
+- [ ] `StageProgressCoordinator` 不再直接依赖 `toolResultLoader`
+- [ ] `StageProgressCoordinator` 不再直接依赖 `toolResultGuard`
+- [ ] `StageProgressCoordinator` 不再直接依赖 `implementationStateSupport`
+- [ ] `StageProgressCoordinator` 不再直接依赖 `implementationContinuationSupport`
 - [ ] `StageToolResultGate` 已提取并装配
-- [ ] `DefaultWorkflowEngineConfiguration` 无残留旧 wiring
+- [ ] `OrchestratorConfiguration` 无残留旧 wiring
 - [ ] `self-test + code review + docs + tracker` 已全部补齐
