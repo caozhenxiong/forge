@@ -289,7 +289,7 @@ private <T> T readRequiredProperty(
     Properties properties,
     String key,
     Function<String, T> parser,
-    Function<String, IllegalStateException> invalidValue
+    BiFunction<String, String, IllegalStateException> invalidValueFactory
 ) { ... }
 ```
 
