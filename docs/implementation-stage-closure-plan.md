@@ -229,6 +229,10 @@
 ### 4. runtime repair package / resume 链
 
 - `ImplementationArtifactPersister`
+- `ImplementationStageStatus`
+- `ImplementationStateSnapshotSerializer`
+- `ImplementationStateSnapshot`
+- `ImplementationStateCodec`
 - `ImplementationStateArtifactSupport`
 - `ImplementationProgressSupport`
 - `ImplementationContinuationSupport`
@@ -242,6 +246,7 @@
 要求：
 
 - implementation resume 的机器事实源只允许来自 `implementation_state` 及其结构化读写链
+- canonical repair package 必须真正进入 `ImplementationStageStatus -> ImplementationStateSnapshotSerializer -> ImplementationStateSnapshot -> ImplementationStateCodec -> implementation_state.json` 这条写侧协议链
 - continuation / resume 的 typed carrier 必须显式落在真实协议边界上；当前至少要覆盖 `ImplementationStageStatusPayload`
 - 如果现有 continuation payload 无法干净承载 current subtask canonical repair package，应新增专用 typed payload，而不是继续依赖 markdown 展示物或 support 层临时拼装
 - `implementation_stage_status.md` 只是派生展示物，不得再被当成 resume / continuation 的真实 owner
@@ -277,12 +282,16 @@
 - `StageTransitionSupport`
 - `StageRevisionSupport`
 - `StageRevisionRepairSupport`
+- `StageProgressArtifactSupport`
+- `StageEntryExecutor`
 - `StageStatusSupport`
 
 要求：
 
 - review reject、supervisor repair route、最终 run/stage 落盘必须走同一条收尾链
 - `StageRevisionSupport` 负责 repair reroute 的 review history、event log、revision note 和 re-entry owner；不得把这条链留在 scope 之外
+- `StageProgressArtifactSupport` 负责 transition artifact 与相关 event 的真实落盘；不得留下“状态正确但 artifact / event 口径漂移”的尾巴
+- `StageEntryExecutor` 负责 repair reroute 后的 stage re-entry、attempt 推进和 artifactPath 持久化；不得把最终 re-entry owner 留在 scope 之外
 - 不允许上层已进入 repair，而底层仍把 run/stage 收成 approved/completed
 - `events.log`、artifact、`run.json` 必须保持一致
 
@@ -316,9 +325,9 @@
 
 - 第 1 步和第 2 步必须一起完成，否则 planning 收紧会被旧 task package fallback 重新污染。
 - 第 3 步必须落到真实结构化 payload owner，不能只改 prompt prose。
-- 第 4 步必须复用现有 `RuntimeWiringRetryChangeFactory`，禁止子任务级再造一套 builder。
+- 第 4 步必须复用现有 `RuntimeWiringRetryChangeFactory`，禁止子任务级再造一套 builder；同时必须把 canonical repair package 真正写入 `implementation_state` 的写侧协议链。
 - 第 5 步必须把 repair/resume mode 送进 permission policy，不能只改 analyzer 名单。
-- 第 6 步必须连同 `FlowDecisionExecutor / StageTransitionSupport / StageRevisionSupport / StageRevisionRepairSupport / StageStatusSupport` 一起收，不能只改展示层、coordinator 或状态表层落盘。
+- 第 6 步必须连同 `FlowDecisionExecutor / StageTransitionSupport / StageRevisionSupport / StageRevisionRepairSupport / StageProgressArtifactSupport / StageEntryExecutor / StageStatusSupport` 一起收，不能只改展示层、coordinator 或状态表层落盘。
 
 ## Problem-to-Solution Mapping
 
@@ -499,12 +508,39 @@
 - shell deny 失败证据可稳定指向具体文件。
 - 排障和后续 repair package 聚合继续基于结构化路径，而不是基于命令文本猜意图。
 
-### R5. run-state consistency
+### R5. tool-level full Read / stale Read invariants
+
+验证点：
+
+- 未 full Read 就对已有文件执行 `Edit` / `Write` 必须拒绝。
+- 文件在 read 之后发生漂移，继续 `Edit` / `Write` 必须拒绝。
+- shell 写已有文件也必须经过同样的 fresh-read 校验，而不是绕过工具级不变量。
+- repair/resume 的 patch-first 收紧不得把现有 full Read / stale Read 工具防线打松。
+
+期望结果：
+
+- patch-first 约束停留在工具级不变量，而不是 prompt 建议。
+- `Edit / Write / Bash` 对已有文件保持同一套 fresh-read 防线。
+
+### R6. typed payload round-trip
+
+验证点：
+
+- subtask review 的 typed payload 必须经过 `LlmProvider -> StructuredReviewResult -> verification gate` 后仍可被 deterministic boundary gate 消费。
+- canonical repair package 必须经过 `ImplementationStageStatus -> ImplementationStateSnapshotSerializer -> implementation_state.json -> ImplementationStateArtifactSupport -> ImplementationContinuationSupport` 后仍保持结构化。
+- 中途不得 flatten 回 prose，也不得退回 support 层临时拼装。
+
+期望结果：
+
+- subtask structured review 和 continuation payload 都真正穿过真实协议边界。
+- typed payload round-trip 可被单测与集成回归同时锁死。
+
+### R7. run-state consistency
 
 验证点：
 
 - `TEST` 或 `CODE_REVIEW` 产物为 `REJECTED` 且 supervisor 动作为 `ROUTE_TO_REPAIR` 时，`run.json` 不得再被写成 `COMPLETED + APPROVED`。
-- `FlowDecisionExecutor`、`StageTransitionSupport`、`StageRevisionSupport`、`StageRevisionRepairSupport`、`StageStatusSupport` 必须对同一份 repair 决策达成一致。
+- `FlowDecisionExecutor`、`StageTransitionSupport`、`StageRevisionSupport`、`StageRevisionRepairSupport`、`StageProgressArtifactSupport`、`StageEntryExecutor`、`StageStatusSupport` 必须对同一份 repair 决策达成一致。
 - reroute event、revision note、repair brief 与最终 stage re-entry 必须来自同一条 repair reroute 链，不允许一部分已进入 repair、一部分仍落成 approved/completed。
 - `events.log`、阶段 artifact、`run.json` 三者必须指向同一最终状态。
 
