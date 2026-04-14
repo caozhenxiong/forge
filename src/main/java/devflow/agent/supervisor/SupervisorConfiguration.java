@@ -20,6 +20,27 @@ class SupervisorConfiguration {
     }
 
     @Bean
+    SupervisorStageFallbackSupport supervisorStageFallbackSupport(StageFlowPolicy stageFlowPolicy) {
+        return new SupervisorStageFallbackSupport(stageFlowPolicy);
+    }
+
+    @Bean
+    SupervisorGenerationRecoverySupport supervisorGenerationRecoverySupport() {
+        return new SupervisorGenerationRecoverySupport();
+    }
+
+    @Bean
+    SupervisorFallbackPolicy supervisorFallbackPolicy(
+            SupervisorStageFallbackSupport supervisorStageFallbackSupport,
+            SupervisorGenerationRecoverySupport supervisorGenerationRecoverySupport
+    ) {
+        return new SupervisorFallbackPolicy(
+                supervisorStageFallbackSupport,
+                supervisorGenerationRecoverySupport
+        );
+    }
+
+    @Bean
     SupervisorPromptAssembler supervisorPromptAssembler(SupervisorArtifactRenderer supervisorArtifactRenderer) {
         return new SupervisorPromptAssembler(supervisorArtifactRenderer);
     }

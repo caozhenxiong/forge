@@ -74,7 +74,7 @@ public class StageArtifactComposer {
 
     public String compose(Path projectPath, RunRecord runRecord, StageType stageType, String note) {
         return switch (stageType) {
-            case ANALYSIS -> documentStageComposer.composeAnalysis(runRecord, note);
+            case ANALYSIS -> documentStageComposer.composeAnalysis(projectPath, runRecord, note);
             case PRD -> documentStageComposer.composePrd(projectPath, runRecord, note);
             case DESIGN -> documentStageComposer.composeDesign(projectPath, runRecord, note);
             case IMPLEMENTATION -> implementationStageComposer.compose(projectPath, runRecord, note);

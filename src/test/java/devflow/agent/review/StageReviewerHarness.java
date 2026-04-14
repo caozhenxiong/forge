@@ -5,11 +5,11 @@ import devflow.agent.executor.gate.ArchitectIntegrationCheck;
 import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.testing.TestExecutor;
 import devflow.agent.i18n.LanguagePolicy;
+import devflow.agent.project.WorkspaceSnapshotStore;
+import devflow.agent.prompt.PromptTemplateCatalog;
 import devflow.agent.loop.AgentTurnLoop;
 import devflow.agent.parsing.TreeSitterSupport;
 import devflow.agent.project.FileProjectWorkspace;
-import devflow.agent.project.WorkspaceSnapshotStore;
-import devflow.agent.prompt.PromptTemplateCatalog;
 
 public class StageReviewerHarness extends StageReviewer {
 
@@ -19,20 +19,9 @@ public class StageReviewerHarness extends StageReviewer {
             TestExecutor testExecutor
     ) {
         super(
-                provider,
-                snapshotStore,
-                testExecutor,
-                new PromptTemplateCatalog(),
-                new LanguagePolicy(),
-                new ReviewDecisionArtifactParser(),
-                documentStructureGuard(),
-                documentReviewNormalizer(),
-                implementationReviewNormalizer(),
-                reviewArtifactLoader(),
-                documentReviewTurnExecutor(provider),
-                implementationReviewTurnExecutor(provider),
-                contractExtractor(),
-                new ArchitectIntegrationCheck(new FileProjectWorkspace(), new TreeSitterSupport())
+                documentStageReviewer(provider),
+                implementationStageReviewer(provider, snapshotStore, testExecutor),
+                executionStageReviewer()
         );
     }
 
@@ -56,14 +45,46 @@ public class StageReviewerHarness extends StageReviewer {
         return new ReviewArtifactLoader();
     }
 
+    private static DocumentStageReviewer documentStageReviewer(LlmProvider provider) {
+        ReviewArtifactLoader reviewArtifactLoader = reviewArtifactLoader();
+        return new DocumentStageReviewer(
+                new PromptTemplateCatalog(),
+                new LanguagePolicy(),
+                reviewArtifactLoader,
+                documentReviewTurnExecutor(provider),
+                documentStructureGuard()
+        );
+    }
+
     private static DocumentReviewTurnExecutor documentReviewTurnExecutor(LlmProvider provider) {
         DocumentReviewNormalizer normalizer = documentReviewNormalizer();
         return new DocumentReviewTurnExecutor(provider, new AgentTurnLoop(), normalizer);
+    }
+
+    private static ImplementationStageReviewer implementationStageReviewer(
+            LlmProvider provider,
+            WorkspaceSnapshotStore snapshotStore,
+            TestExecutor testExecutor
+    ) {
+        ReviewArtifactLoader reviewArtifactLoader = reviewArtifactLoader();
+        return new ImplementationStageReviewer(
+                snapshotStore,
+                testExecutor,
+                reviewArtifactLoader,
+                contractExtractor(),
+                new ArchitectIntegrationCheck(new FileProjectWorkspace(), new TreeSitterSupport()),
+                implementationReviewTurnExecutor(provider),
+                new LanguagePolicy()
+        );
     }
 
     private static ImplementationReviewTurnExecutor implementationReviewTurnExecutor(LlmProvider provider) {
         ImplementationReviewNormalizer normalizer = implementationReviewNormalizer();
         ReviewArtifactLoader reviewArtifactLoader = reviewArtifactLoader();
         return new ImplementationReviewTurnExecutor(provider, new AgentTurnLoop(), normalizer, reviewArtifactLoader);
+    }
+
+    private static ExecutionStageReviewer executionStageReviewer() {
+        return new ExecutionStageReviewer(new ReviewDecisionArtifactParser());
     }
 }

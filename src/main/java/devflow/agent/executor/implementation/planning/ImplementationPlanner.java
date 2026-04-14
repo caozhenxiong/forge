@@ -10,8 +10,6 @@ import devflow.agent.executor.patch.*;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
-import devflow.agent.executor.llm.LlmProvider;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.context.ContractView;
@@ -53,50 +51,32 @@ public class ImplementationPlanner {
     private final ImplementationPlanningPayloadParser payloadParser;
 
     public ImplementationPlanner(
-            LlmProvider llmProvider,
             ObjectMapper objectMapper,
-            ImplementationPlanCoverageAnalyzer coverageAnalyzer,
-            devflow.agent.loop.AgentTurnLoop agentTurnLoop,
-            int payloadRepairAttempts,
+            ImplementationPlanGate implementationPlanGate,
+            ImplementationOutlineGate outlineGate,
+            ImplementationSubtaskDetailGate detailGate,
+            ImplementationPlanAssembler planAssembler,
+            ImplementationPlanningFeedbackRouter feedbackRouter,
+            ImplementationPlanGateInputBuilder gateInputBuilder,
             int maxPlanningUnitAttempts,
-            int maxFilesPerSubtask,
-            int maxDeliveryPolicyFiles
+            ImplementationPlanningPromptAssembler promptAssembler,
+            ImplementationPlanningTurnRunner planningTurnRunner,
+            ImplementationPlanningPayloadParser payloadParser
     ) {
         this.objectMapper = objectMapper;
-        this.implementationPlanGate = new ImplementationPlanGate(coverageAnalyzer);
-        this.outlineGate = new ImplementationOutlineGate(coverageAnalyzer);
-        this.detailGate = new ImplementationSubtaskDetailGate();
-        this.planAssembler = new ImplementationPlanAssembler();
-        this.feedbackRouter = new ImplementationPlanningFeedbackRouter();
-        this.gateInputBuilder = new ImplementationPlanGateInputBuilder();
+        this.implementationPlanGate = implementationPlanGate;
+        this.outlineGate = outlineGate;
+        this.detailGate = detailGate;
+        this.planAssembler = planAssembler;
+        this.feedbackRouter = feedbackRouter;
+        this.gateInputBuilder = gateInputBuilder;
         this.maxPlanningUnitAttempts = maxPlanningUnitAttempts;
-        this.promptAssembler = new ImplementationPlanningPromptAssembler(maxFilesPerSubtask, maxDeliveryPolicyFiles);
-        this.planningTurnRunner = new ImplementationPlanningTurnRunner(llmProvider, agentTurnLoop);
-        this.payloadParser = new ImplementationPlanningPayloadParser(llmProvider, objectMapper, payloadRepairAttempts);
+        this.promptAssembler = promptAssembler;
+        this.planningTurnRunner = planningTurnRunner;
+        this.payloadParser = payloadParser;
     }
 
-    public ImplementationPlan plan(
-            Path projectPath,
-            RunRecord runRecord,
-            String analysis,
-            String prd,
-            String design,
-            String note,
-            String workspaceContext,
-            String plannerContextMarkdown,
-            String performanceValidationGuidance,
-            boolean preferSkeletonFlow,
-            DeliveryPolicyEnvelope deliveryPolicy,
-            ContractView contractView,
-            QualityPlan qualityPlan,
-            ProjectFingerprint fingerprint,
-            DocumentLanguage language,
-            FixMode fixMode,
-            ImplementationPatchTarget implementationPatchTarget,
-            String requirementCatalog,
-            ImplementationContinuationConstraints continuationConstraints,
-            ImplementationEventJournal eventJournal
-    ) {
+    public ImplementationPlan plan(PlanningRequest request) {
         PlanningAttemptLedger attemptLedger = new PlanningAttemptLedger();
         String outlineFeedback = "";
         Map<String, String> detailFeedback = new LinkedHashMap<>();
@@ -105,20 +85,20 @@ public class ImplementationPlanner {
         while (true) {
             if (outline == null) {
                 outline = planOutline(
-                        runRecord,
-                        note,
-                        workspaceContext,
-                        plannerContextMarkdown,
-                        deliveryPolicy,
-                        contractView,
-                        qualityPlan,
-                        fingerprint,
-                        language,
-                        fixMode,
-                        implementationPatchTarget,
-                        requirementCatalog,
-                        continuationConstraints,
-                        eventJournal,
+                        request.runRecord(),
+                        request.note(),
+                        request.workspaceContext(),
+                        request.plannerContextMarkdown(),
+                        request.deliveryPolicy(),
+                        request.contractView(),
+                        request.qualityPlan(),
+                        request.fingerprint(),
+                        request.language(),
+                        request.fixMode(),
+                        request.implementationPatchTarget(),
+                        request.requirementCatalog(),
+                        request.continuationConstraints(),
+                        request.eventJournal(),
                         attemptLedger,
                         outlineFeedback
                 );
@@ -130,19 +110,19 @@ public class ImplementationPlanner {
                     continue;
                 }
                 acceptedDetails.put(subtask.id(), planSubtaskDetail(
-                        runRecord,
-                        workspaceContext,
-                        deliveryPolicy,
-                        contractView,
-                        qualityPlan,
-                        fingerprint,
-                        language,
-                        fixMode,
-                        implementationPatchTarget,
-                        continuationConstraints,
+                        request.runRecord(),
+                        request.workspaceContext(),
+                        request.deliveryPolicy(),
+                        request.contractView(),
+                        request.qualityPlan(),
+                        request.fingerprint(),
+                        request.language(),
+                        request.fixMode(),
+                        request.implementationPatchTarget(),
+                        request.continuationConstraints(),
                         outline,
                         subtask,
-                        eventJournal,
+                        request.eventJournal(),
                         attemptLedger,
                         detailFeedback.getOrDefault(subtask.id(), "")
                 ));
@@ -150,11 +130,11 @@ public class ImplementationPlanner {
             ImplementationPlan finalPlan = planAssembler.assemble(outline, acceptedDetails);
             GateReport gateReport = implementationPlanGate.evaluate(
                     gateInputBuilder.build(
-                            fingerprint,
-                            contractView,
-                            qualityPlan,
-                            implementationPatchTarget,
-                            continuationConstraints,
+                            request.fingerprint(),
+                            request.contractView(),
+                            request.qualityPlan(),
+                            request.implementationPatchTarget(),
+                            request.continuationConstraints(),
                             finalPlan
                     )
             );
@@ -168,7 +148,7 @@ public class ImplementationPlanner {
                         "Implementation plan does not satisfy execution contract: " + implementationPlanGate.toPlanningFeedback(gateReport)
                 );
             }
-            eventJournal.append(ImplementationEventMessages.planningFinalGateReroute(
+            request.eventJournal().append(ImplementationEventMessages.planningFinalGateReroute(
                     routeDecision.unitKind(),
                     routeDecision.unitId(),
                     routeDecision.feedback()

@@ -3,6 +3,7 @@ package devflow.agent.review;
 import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.llm.ModelRole;
 
+import devflow.agent.executor.generation.GenerationTelemetry;
 import devflow.agent.loop.AgentTurnLoop;
 import devflow.agent.loop.AgentTurnSnapshot;
 import devflow.agent.loop.AgentTurnState;
@@ -56,6 +57,10 @@ final class DocumentReviewTurnExecutor {
                 )
         );
         return normalizedRef.get();
+    }
+
+    GenerationTelemetry consumeLastTelemetry() {
+        return llmProvider.consumeLastTelemetry();
     }
 
     private AgentTurnStepResult handleTurn(

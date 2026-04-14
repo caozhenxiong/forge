@@ -33,8 +33,8 @@ public class DocumentStageComposer {
         this.designComposer = designComposer;
     }
 
-    String composeAnalysis(RunRecord runRecord, String note) {
-        return template.compose(runRecord.projectPath(), runRecord, note, analysisComposer);
+    String composeAnalysis(Path projectPath, RunRecord runRecord, String note) {
+        return template.compose(projectPath, runRecord, note, analysisComposer);
     }
 
     String composePrd(Path projectPath, RunRecord runRecord, String note) {

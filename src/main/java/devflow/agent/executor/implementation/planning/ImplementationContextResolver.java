@@ -154,7 +154,8 @@ public class ImplementationContextResolver {
                 preferSkeletonFlow,
                 sharedContextBundle,
                 sharedContextFactory.renderAuthoritativeCoverageCatalog(authoritativeCoverageCatalog, language),
-                continuationConstraints
+                continuationConstraints,
+                previousStateJson
         );
     }
 

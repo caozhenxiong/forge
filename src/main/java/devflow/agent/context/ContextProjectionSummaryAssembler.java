@@ -5,6 +5,11 @@ import java.util.stream.Collectors;
 
 public final class ContextProjectionSummaryAssembler {
 
+    private static final int CURRENT_STAGE_SUMMARY_CHAR_BUDGET = 1800;
+    private static final int RECENT_HISTORY_CHAR_BUDGET = 2200;
+    private static final int REPAIR_SUMMARY_CHAR_BUDGET = 1800;
+    private static final int WORKING_SET_CHAR_BUDGET = 2200;
+
     private final ArtifactSummaryBuilder summaryBuilder;
 
     public ContextProjectionSummaryAssembler(ArtifactSummaryBuilder summaryBuilder) {
@@ -22,11 +27,20 @@ public final class ContextProjectionSummaryAssembler {
                         currentStage,
                         contracts.authorityCorpus()
                 ),
-                1800
+                CURRENT_STAGE_SUMMARY_CHAR_BUDGET
         );
-        String recentHistorySummary = summaryBuilder.summarizeMarkdown(artifacts.recentHistory(), 2200);
-        String repairSummary = summaryBuilder.summarizeMarkdown(artifacts.repairBrief(), 1800);
-        String workingSetSummary = summaryBuilder.summarizeMarkdown(artifacts.workingSet(), 2200);
+        String recentHistorySummary = summaryBuilder.summarizeMarkdown(
+                artifacts.recentHistory(),
+                RECENT_HISTORY_CHAR_BUDGET
+        );
+        String repairSummary = summaryBuilder.summarizeMarkdown(
+                artifacts.repairBrief(),
+                REPAIR_SUMMARY_CHAR_BUDGET
+        );
+        String workingSetSummary = summaryBuilder.summarizeMarkdown(
+                artifacts.workingSet(),
+                WORKING_SET_CHAR_BUDGET
+        );
         String failureSummary = artifacts.failures().isEmpty()
                 ? ""
                 : summaryBuilder.renderBulletList(

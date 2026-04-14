@@ -33,8 +33,7 @@ class SupervisorFallbackPolicyTests {
     @TempDir
     Path tempDir;
 
-    private final SupervisorFallbackPolicy fallbackPolicy =
-            new SupervisorFallbackPolicy(new StageFlowPolicy());
+    private final SupervisorFallbackPolicy fallbackPolicy = newFallbackPolicy();
 
     @Test
     void requestsHumanReviewWhenApprovedStageNeedsHumanGate() {
@@ -108,6 +107,10 @@ class SupervisorFallbackPolicyTests {
 
     private ProjectedContext projectedContext() {
         return new ProjectedContext("", "", "", "", "", "", "", null);
+    }
+
+    private SupervisorFallbackPolicy newFallbackPolicy() {
+        return SupervisorTestSupport.newFallbackPolicy(new StageFlowPolicy());
     }
 
     private RunRecord runRecord(StageType currentStage, GatePolicy gatePolicy) {

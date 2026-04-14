@@ -11,13 +11,9 @@ import devflow.agent.i18n.LanguagePolicy;
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.StructuredArtifactBlocks;
 import devflow.agent.quality.QualityLedger;
-import devflow.agent.executor.FileChange;
 import devflow.agent.repair.DiagnosisAgent;
 import devflow.agent.repair.RepairAgent;
 import devflow.agent.repair.RepairBrief;
-import devflow.agent.review.FixMode;
-import devflow.agent.review.ImplementationPatchTarget;
-import devflow.agent.supervisor.SupervisorDecision;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -56,40 +52,31 @@ final class StageRevisionRepairSupport {
             Path projectPath,
             RunRecord runRecord,
             StageType sourceStage,
-            StageType rerouteStage,
-            FixMode fixMode,
-            ImplementationPatchTarget implementationPatchTarget,
-            String summary,
-            String changeRequest,
-            String evidence,
-            String actionItems,
-            List<FileChange> overrideChanges,
-            SupervisorDecision supervisorDecision,
-            boolean forceRepair,
-            boolean repeatedIssue
+            RevisionContext revisionContext
     ) {
         List<String> requiredCapabilitySurfaces = loadRequiredCapabilitySurfaces(projectPath, runRecord, sourceStage);
         String revisionNote = stageRevisionNoteBuilder.build(
-                fixMode,
-                implementationPatchTarget,
-                summary,
-                changeRequest,
-                evidence,
-                actionItems,
-                overrideChanges,
-                supervisorDecision,
+                revisionContext.fixMode(),
+                revisionContext.implementationPatchTarget(),
+                revisionContext.summary(),
+                revisionContext.changeRequest(),
+                revisionContext.evidence(),
+                revisionContext.actionItems(),
+                revisionContext.overrideChanges(),
+                revisionContext.supervisorDecision(),
                 requiredCapabilitySurfaces
         );
-        if (rerouteStage != StageType.IMPLEMENTATION || (!forceRepair && !repeatedIssue)) {
+        if (revisionContext.rerouteStage() != StageType.IMPLEMENTATION
+                || (!revisionContext.forceRepair() && !revisionContext.repeatedIssue())) {
             return revisionNote;
         }
         RepairBrief repairBrief = diagnosisAgent.diagnose(
                 projectPath,
                 runRecord,
                 sourceStage,
-                fixMode,
-                summary,
-                changeRequest
+                revisionContext.fixMode(),
+                revisionContext.summary(),
+                revisionContext.changeRequest()
         );
         DocumentLanguage language = languagePolicy.resolve(runRecord.goal(), runRecord.constraints());
         artifactStore.writeAuxiliaryArtifact(
@@ -104,13 +91,13 @@ final class StageRevisionRepairSupport {
                 WorkflowEventMessages.diagnosisTriggered(sourceStage, repairBrief.recommendedMode().name())
         );
         return repairAgent.buildRepairNote(
-                fixMode,
-                implementationPatchTarget,
-                summary,
-                changeRequest,
-                evidence,
-                actionItems,
-                overrideChanges,
+                revisionContext.fixMode(),
+                revisionContext.implementationPatchTarget(),
+                revisionContext.summary(),
+                revisionContext.changeRequest(),
+                revisionContext.evidence(),
+                revisionContext.actionItems(),
+                revisionContext.overrideChanges(),
                 requiredCapabilitySurfaces,
                 repairBrief,
                 language

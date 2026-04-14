@@ -1,6 +1,8 @@
 package devflow.agent.executor;
 import devflow.agent.executor.editing.*;
 import devflow.agent.executor.implementation.CoderTurnCoordinator;
+import devflow.agent.executor.implementation.ImplementationExecutionContext;
+import devflow.agent.executor.implementation.planning.ImplementationContextResolver;
 import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
@@ -26,13 +28,16 @@ import java.util.concurrent.ExecutorService;
 public class ImplementationExecutor implements AutoCloseable {
 
     private final CoderTurnCoordinator coderTurnCoordinator;
+    private final ImplementationContextResolver implementationContextResolver;
     private final ExecutorService toolExecutor;
 
     public ImplementationExecutor(
             CoderTurnCoordinator coderTurnCoordinator,
+            ImplementationContextResolver implementationContextResolver,
             ExecutorService toolExecutor
     ) {
         this.coderTurnCoordinator = Objects.requireNonNull(coderTurnCoordinator, "coderTurnCoordinator");
+        this.implementationContextResolver = Objects.requireNonNull(implementationContextResolver, "implementationContextResolver");
         this.toolExecutor = Objects.requireNonNull(toolExecutor, "toolExecutor");
     }
 
@@ -86,7 +91,7 @@ public class ImplementationExecutor implements AutoCloseable {
             String previousStateJson,
             ImplementationProgressSink progressSink
     ) {
-        return coderTurnCoordinator.execute(
+        ImplementationExecutionContext executionContext = implementationContextResolver.resolve(
                 projectPath,
                 runRecord,
                 analysis,
@@ -94,7 +99,13 @@ public class ImplementationExecutor implements AutoCloseable {
                 design,
                 note,
                 authoritativeContractView,
-                previousStateJson,
+                previousStateJson
+        );
+        return coderTurnCoordinator.execute(
+                projectPath,
+                runRecord,
+                note,
+                executionContext,
                 progressSink
         );
     }

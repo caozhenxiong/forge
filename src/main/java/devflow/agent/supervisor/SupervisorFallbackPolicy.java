@@ -8,7 +8,6 @@ import devflow.agent.domain.RunRecord;
 import devflow.agent.orchestrator.StageFlowPolicy;
 import devflow.agent.domain.StageType;
 import devflow.agent.review.ReviewResult;
-import org.springframework.stereotype.Component;
 
 /**
  * 统一维护 Supervisor 的默认保守决策。
@@ -17,15 +16,17 @@ import org.springframework.stereotype.Component;
  * 由这层给出确定性决策。这样 SupervisorAgent 可以逐步退化成
  * “升级仲裁 + 结果净化”，而不是继续兼任流程规则中心。
  */
-@Component
 public class SupervisorFallbackPolicy {
 
     private final SupervisorStageFallbackSupport stageFallbackSupport;
     private final SupervisorGenerationRecoverySupport generationRecoverySupport;
 
-    public SupervisorFallbackPolicy(StageFlowPolicy stageFlowPolicy) {
-        this.stageFallbackSupport = new SupervisorStageFallbackSupport(stageFlowPolicy);
-        this.generationRecoverySupport = new SupervisorGenerationRecoverySupport();
+    public SupervisorFallbackPolicy(
+            SupervisorStageFallbackSupport stageFallbackSupport,
+            SupervisorGenerationRecoverySupport generationRecoverySupport
+    ) {
+        this.stageFallbackSupport = stageFallbackSupport;
+        this.generationRecoverySupport = generationRecoverySupport;
     }
 
     public SupervisorDecision decideStageFallback(

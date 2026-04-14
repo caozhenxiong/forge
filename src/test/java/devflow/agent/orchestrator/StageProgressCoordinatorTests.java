@@ -549,12 +549,12 @@ class StageProgressCoordinatorTests {
                 fakeProvider(),
                 projector,
                 new StageFlowPolicy(),
-                new SupervisorFallbackPolicy(new StageFlowPolicy()),
+                devflow.agent.supervisor.SupervisorTestSupport.newFallbackPolicy(new StageFlowPolicy()),
                 new devflow.agent.supervisor.SupervisorArtifactRenderer(),
                 new devflow.agent.supervisor.SupervisorDecisionSanitizer(
                         new StageFlowPolicy(),
                         new devflow.agent.supervisor.SupervisorPayloadNormalizer(),
-                        new SupervisorFallbackPolicy(new StageFlowPolicy())
+                        devflow.agent.supervisor.SupervisorTestSupport.newFallbackPolicy(new StageFlowPolicy())
                 ),
                 new devflow.agent.supervisor.SupervisorPromptAssembler(new devflow.agent.supervisor.SupervisorArtifactRenderer()),
                 new devflow.agent.executor.llm.StructuredPayloadReader(new ObjectMapper()),

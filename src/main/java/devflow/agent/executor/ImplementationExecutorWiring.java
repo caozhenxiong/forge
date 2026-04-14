@@ -81,7 +81,7 @@ final class ImplementationExecutorWiring {
         AgentTurnLoop planningTurnLoop = new AgentTurnLoop();
         AgentTurnLoop subtaskTurnLoop = new AgentTurnLoop();
 
-        ImplementationPlanner implementationPlanner = new ImplementationPlanner(
+        ImplementationPlanner implementationPlanner = ImplementationPlanningWiring.createPlanner(
                 llmProvider,
                 objectMapper,
                 coverageAnalyzer,
@@ -161,9 +161,12 @@ final class ImplementationExecutorWiring {
                 implementationResumePolicy,
                 implementationPlanner,
                 implementationPlanRunner,
-                implementationSnapshotAssembler,
-                implementationContextResolver
+                implementationSnapshotAssembler
         );
-        return new ImplementationExecutor(coderTurnCoordinator, toolExecutor);
+        return new ImplementationExecutor(
+                coderTurnCoordinator,
+                implementationContextResolver,
+                toolExecutor
+        );
     }
 }

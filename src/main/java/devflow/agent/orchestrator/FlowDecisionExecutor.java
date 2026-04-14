@@ -55,47 +55,53 @@ public class FlowDecisionExecutor {
         if (action == WorkflowAction.COMPLETE_RUN) {
             return stageTransitionSupport.completeRun(runRecord, stageType, reviewResult);
         }
-        if (action == WorkflowAction.RETRY_STAGE || action == WorkflowAction.ROLLBACK_STAGE) {
-            return stageTransitionSupport.rerouteForRevision(
+        if (action == WorkflowAction.RETRY_STAGE
+                || action == WorkflowAction.ROLLBACK_STAGE
+                || action == WorkflowAction.ROUTE_TO_REPAIR) {
+            return rerouteForRevision(
                     projectPath,
                     runRecord,
                     stageType,
-                    reviewResult.decision(),
-                    supervisorDecision.mode(),
-                    reviewResult.implementationPatchTarget(),
-                    reviewResult.summary(),
-                    reviewResult.changeRequest(),
-                    reviewResult.evidence(),
-                    stageTransitionSupport.mergeActionItems(reviewResult.actionItems(), supervisorDecision),
-                    reviewResult.overrideChanges(),
-                    supervisorDecision,
-                    flowDecision.targetStage(),
-                    false,
+                    reviewResult,
                     repeatedIssue,
-                    stageEntryExecutor::enterStage
-            );
-        }
-        if (action == WorkflowAction.ROUTE_TO_REPAIR) {
-            return stageTransitionSupport.rerouteForRevision(
-                    projectPath,
-                    runRecord,
-                    stageType,
-                    reviewResult.decision(),
-                    supervisorDecision.mode(),
-                    reviewResult.implementationPatchTarget(),
-                    reviewResult.summary(),
-                    reviewResult.changeRequest(),
-                    reviewResult.evidence(),
-                    stageTransitionSupport.mergeActionItems(reviewResult.actionItems(), supervisorDecision),
-                    reviewResult.overrideChanges(),
                     supervisorDecision,
-                    flowDecision.targetStage(),
-                    true,
-                    repeatedIssue,
-                    stageEntryExecutor::enterStage
+                    flowDecision,
+                    action == WorkflowAction.ROUTE_TO_REPAIR
             );
         }
         return stageTransitionSupport.failRun(runRecord, stageType, reviewResult);
+    }
+
+    private RunRecord rerouteForRevision(
+            Path projectPath,
+            RunRecord runRecord,
+            StageType stageType,
+            ReviewResult reviewResult,
+            boolean repeatedIssue,
+            SupervisorDecision supervisorDecision,
+            FlowDecision flowDecision,
+            boolean forceRepair
+    ) {
+        return stageTransitionSupport.rerouteForRevision(
+                projectPath,
+                runRecord,
+                stageType,
+                new RevisionContext(
+                        reviewResult.decision(),
+                        supervisorDecision.mode(),
+                        reviewResult.implementationPatchTarget(),
+                        reviewResult.summary(),
+                        reviewResult.changeRequest(),
+                        reviewResult.evidence(),
+                        stageTransitionSupport.mergeActionItems(reviewResult.actionItems(), supervisorDecision),
+                        reviewResult.overrideChanges(),
+                        supervisorDecision,
+                        flowDecision.targetStage(),
+                        forceRepair,
+                        repeatedIssue
+                ),
+                stageEntryExecutor::enterStage
+        );
     }
 
     public RunRecord continueStage(

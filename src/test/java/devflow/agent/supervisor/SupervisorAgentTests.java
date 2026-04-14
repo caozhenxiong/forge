@@ -41,7 +41,7 @@ class SupervisorAgentTests {
 
     private SupervisorAgent newSupervisorAgent(LlmProvider provider, FileArtifactStore artifactStore) {
         StageFlowPolicy stageFlowPolicy = new StageFlowPolicy();
-        SupervisorFallbackPolicy fallbackPolicy = new SupervisorFallbackPolicy(stageFlowPolicy);
+        SupervisorFallbackPolicy fallbackPolicy = SupervisorTestSupport.newFallbackPolicy(stageFlowPolicy);
         SupervisorArtifactRenderer artifactRenderer = new SupervisorArtifactRenderer();
         return new SupervisorAgent(
                 provider,

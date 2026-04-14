@@ -45,7 +45,6 @@ public final class CoderTurnCoordinator {
     private final ImplementationPlanner implementationPlanner;
     private final ImplementationPlanRunner implementationPlanRunner;
     private final ImplementationSnapshotAssembler implementationSnapshotAssembler;
-    private final ImplementationContextResolver implementationContextResolver;
 
     public CoderTurnCoordinator(
             EventLogStore eventLogStore,
@@ -55,8 +54,7 @@ public final class CoderTurnCoordinator {
             ImplementationResumePolicy implementationResumePolicy,
             ImplementationPlanner implementationPlanner,
             ImplementationPlanRunner implementationPlanRunner,
-            ImplementationSnapshotAssembler implementationSnapshotAssembler,
-            ImplementationContextResolver implementationContextResolver
+            ImplementationSnapshotAssembler implementationSnapshotAssembler
     ) {
         this.eventLogStore = eventLogStore;
         this.fileArtifactStore = fileArtifactStore;
@@ -66,30 +64,15 @@ public final class CoderTurnCoordinator {
         this.implementationPlanner = implementationPlanner;
         this.implementationPlanRunner = implementationPlanRunner;
         this.implementationSnapshotAssembler = implementationSnapshotAssembler;
-        this.implementationContextResolver = implementationContextResolver;
     }
 
     public ImplementationExecutionBundle execute(
             Path projectPath,
             RunRecord runRecord,
-            String analysis,
-            String prd,
-            String design,
             String note,
-            ContractView authoritativeContractView,
-            String previousStateJson,
+            ImplementationExecutionContext executionContext,
             ImplementationProgressSink progressSink
     ) {
-        ImplementationExecutionContext executionContext = implementationContextResolver.resolve(
-                projectPath,
-                runRecord,
-                analysis,
-                prd,
-                design,
-                note,
-                authoritativeContractView,
-                previousStateJson
-        );
         ImplementationEventJournal eventJournal = new ImplementationEventJournal(
                 eventLogStore,
                 fileArtifactStore,
@@ -97,7 +80,7 @@ public final class CoderTurnCoordinator {
                 runRecord
         );
         ReusableImplementationState reusableState = implementationResumePolicy.loadReusableImplementationState(
-                previousStateJson,
+                executionContext.previousStateJson(),
                 executionContext.fixMode(),
                 executionContext.implementationPatchTarget(),
                 executionContext.overrideChanges(),
@@ -112,12 +95,8 @@ public final class CoderTurnCoordinator {
         ImplementationPlan plan;
         try {
             plan = reusableState == null
-                    ? implementationPlanner.plan(
-                    projectPath,
+                    ? implementationPlanner.plan(new PlanningRequest(
                     runRecord,
-                    analysis,
-                    prd,
-                    design,
                     note,
                     executionContext.workspaceContext(),
                     executionContext.plannerContextMarkdown(),
@@ -133,7 +112,7 @@ public final class CoderTurnCoordinator {
                     executionContext.authoritativeCoverageCatalog(),
                     executionContext.continuationConstraints(),
                     eventJournal
-            )
+            ))
                     : reusableState.plan();
         } catch (ImplementationPlanningException exception) {
             if (!exception.reason().recoverable()) {

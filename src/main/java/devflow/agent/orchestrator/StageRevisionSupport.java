@@ -89,18 +89,20 @@ public class StageRevisionSupport {
                 projectPath,
                 runRecord,
                 stageType,
-                ReviewDecision.REJECTED,
-                FixMode.REWORK,
-                ImplementationPatchTarget.NONE,
-                "Rejected by " + reviewer,
-                reason,
-                "",
-                "",
-                java.util.List.of(),
-                null,
-                stageFlowPolicy.rerouteStage(stageType, FixMode.REWORK),
-                false,
-                false,
+                new RevisionContext(
+                        ReviewDecision.REJECTED,
+                        FixMode.REWORK,
+                        ImplementationPatchTarget.NONE,
+                        "Rejected by " + reviewer,
+                        reason,
+                        "",
+                        "",
+                        java.util.List.of(),
+                        null,
+                        stageFlowPolicy.rerouteStage(stageType, FixMode.REWORK),
+                        false,
+                        false
+                ),
                 stageEntryAction
         );
     }
@@ -112,24 +114,13 @@ public class StageRevisionSupport {
             Path projectPath,
             RunRecord runRecord,
             StageType stageType,
-            ReviewDecision decision,
-            FixMode fixMode,
-            ImplementationPatchTarget implementationPatchTarget,
-            String summary,
-            String changeRequest,
-            String evidence,
-            String actionItems,
-            java.util.List<devflow.agent.executor.FileChange> overrideChanges,
-            SupervisorDecision supervisorDecision,
-            StageType rerouteStage,
-            boolean forceRepair,
-            boolean repeatedIssue,
+            RevisionContext revisionContext,
             StageTransitionSupport.StageEntryAction stageEntryAction
     ) {
         Map<StageType, StageExecution> nextStates = new EnumMap<>(runRecord.stageStates());
         StageExecution currentExecution = StageStatusSupport.requireStage(nextStates, stageType);
         StageExecution reviewedExecution = currentExecution.withStatus(StageStatus.NEEDS_REVISION)
-                .withReview(decision, summary, changeRequest);
+                .withReview(revisionContext.decision(), revisionContext.summary(), revisionContext.changeRequest());
         nextStates.put(stageType, reviewedExecution);
 
         if (currentExecution.attempt() >= runRecord.config().maxAutoRevisions()) {
@@ -143,26 +134,16 @@ public class StageRevisionSupport {
                 projectPath,
                 runRecord,
                 stageType,
-                rerouteStage,
-                fixMode,
-                implementationPatchTarget,
-                summary,
-                changeRequest,
-                evidence,
-                actionItems,
-                overrideChanges,
-                supervisorDecision,
-                forceRepair,
-                repeatedIssue
+                revisionContext
         );
 
-        RunRecord draft = runRecord.withCurrentStage(rerouteStage, RunStatus.IN_PROGRESS, nextStates, Instant.now());
+        RunRecord draft = runRecord.withCurrentStage(revisionContext.rerouteStage(), RunStatus.IN_PROGRESS, nextStates, Instant.now());
         eventLogStore.append(
                 projectPath,
                 runRecord.runId(),
-                WorkflowEventMessages.reroutedForRevision(stageType, rerouteStage, fixMode)
+                WorkflowEventMessages.reroutedForRevision(stageType, revisionContext.rerouteStage(), revisionContext.fixMode())
         );
-        return stageEntryAction.enter(draft, rerouteStage, RunStatus.IN_PROGRESS, revisionNote);
+        return stageEntryAction.enter(draft, revisionContext.rerouteStage(), RunStatus.IN_PROGRESS, revisionNote);
     }
 
     public String mergeActionItems(String actionItems, SupervisorDecision supervisorDecision) {

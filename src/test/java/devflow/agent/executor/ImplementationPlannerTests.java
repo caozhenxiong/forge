@@ -121,12 +121,8 @@ class ImplementationPlannerTests {
         ImplementationPlanner planner = newPlanner(llmProvider);
         ImplementationEventJournal eventJournal = newEventJournal();
 
-        ImplementationPlan plan = planner.plan(
-                tempDir,
+        ImplementationPlan plan = planner.plan(new PlanningRequest(
                 runRecord(),
-                "",
-                "",
-                "",
                 "",
                 "",
                 "",
@@ -142,7 +138,7 @@ class ImplementationPlannerTests {
                 "",
                 ImplementationContinuationConstraints.empty(),
                 eventJournal
-        );
+        ));
 
         assertEquals(2, plan.subtasks().size());
         assertEquals(1, llmProvider.outlinePromptCount());
@@ -211,12 +207,8 @@ class ImplementationPlannerTests {
         ImplementationPlanner planner = newPlanner(llmProvider);
         ImplementationEventJournal eventJournal = newEventJournal();
 
-        ImplementationPlan plan = planner.plan(
-                tempDir,
+        ImplementationPlan plan = planner.plan(new PlanningRequest(
                 runRecord(),
-                "",
-                "",
-                "",
                 "",
                 "",
                 "",
@@ -235,7 +227,7 @@ class ImplementationPlannerTests {
                         List.of(new ImplementationContinuationConstraints.ProtectedHtmlEntryConstraint("index.html"))
                 ),
                 eventJournal
-        );
+        ));
 
         assertEquals(1, plan.subtasks().size());
         assertEquals(2, llmProvider.outlinePromptCount());
@@ -248,7 +240,7 @@ class ImplementationPlannerTests {
     }
 
     private ImplementationPlanner newPlanner(SequenceLlmProvider llmProvider) {
-        return new ImplementationPlanner(
+        return ImplementationPlanningWiring.createPlanner(
                 llmProvider,
                 new ObjectMapper(),
                 new ImplementationPlanCoverageAnalyzer(),

@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 /**
  * 统一维护 run 生命周期入口。
@@ -93,13 +94,10 @@ public class WorkflowRunLifecycleSupport {
 
     public RunRecord startRun(Path projectPath, UUID runId) {
         RunRecord runRecord = find(projectPath, runId);
-        try {
+        return withFatalGuard(projectPath, runId, StageType.ANALYSIS, () -> {
             RunRecord started = stageEntryExecutor.enterStage(runRecord, StageType.ANALYSIS, RunStatus.IN_PROGRESS, "初次启动工作流。");
             return progress(projectPath, started);
-        } catch (RuntimeException ex) {
-            stageTransitionSupport.markFatalFailure(projectPath, runId, StageType.ANALYSIS, ex);
-            throw ex;
-        }
+        });
     }
 
     public RunRecord resumeRun(Path projectPath, UUID runId) {
@@ -107,17 +105,7 @@ public class WorkflowRunLifecycleSupport {
         if (runRecord.status() == RunStatus.COMPLETED || runRecord.status() == RunStatus.FAILED || runRecord.status() == RunStatus.CANCELLED) {
             return runRecord;
         }
-
-        try {
-            StageExecution currentExecution = StageStatusSupport.requireStage(runRecord.stageStates(), runRecord.currentStage());
-            if (currentExecution.status() == StageStatus.PENDING || currentExecution.artifactPath() == null) {
-                runRecord = stageEntryExecutor.enterStage(runRecord, runRecord.currentStage(), RunStatus.IN_PROGRESS, "恢复执行。");
-            }
-            return progress(projectPath, runRecord);
-        } catch (RuntimeException ex) {
-            stageTransitionSupport.markFatalFailure(projectPath, runId, runRecord.currentStage(), ex);
-            throw ex;
-        }
+        return withFatalGuard(projectPath, runId, runRecord.currentStage(), () -> resume(projectPath, runRecord));
     }
 
     public RunRecord approveStage(Path projectPath, UUID runId, StageType stageType, String reviewer) {
@@ -146,15 +134,35 @@ public class WorkflowRunLifecycleSupport {
     }
 
     private RunRecord progress(Path projectPath, RunRecord runRecord) {
-        try {
+        return withFatalGuard(projectPath, runRecord.runId(), runRecord.currentStage(), () -> {
             return agentLoop.runUntilStable(runRecord, loopState -> progressOnce(projectPath, loopState));
-        } catch (RuntimeException ex) {
-            stageTransitionSupport.markFatalFailure(projectPath, runRecord.runId(), runRecord.currentStage(), ex);
-            throw ex;
-        }
+        });
     }
 
     private LoopStepResult progressOnce(Path projectPath, devflow.agent.loop.LoopState loopState) {
         return stageProgressCoordinator.progress(projectPath, loopState.runRecord());
+    }
+
+    private RunRecord resume(Path projectPath, RunRecord runRecord) {
+        StageExecution currentExecution = StageStatusSupport.requireStage(runRecord.stageStates(), runRecord.currentStage());
+        RunRecord effectiveRunRecord = runRecord;
+        if (currentExecution.status() == StageStatus.PENDING || currentExecution.artifactPath() == null) {
+            effectiveRunRecord = stageEntryExecutor.enterStage(
+                    runRecord,
+                    runRecord.currentStage(),
+                    RunStatus.IN_PROGRESS,
+                    "恢复执行。"
+            );
+        }
+        return progress(projectPath, effectiveRunRecord);
+    }
+
+    private <T> T withFatalGuard(Path projectPath, UUID runId, StageType stageType, Supplier<T> action) {
+        try {
+            return action.get();
+        } catch (RuntimeException ex) {
+            stageTransitionSupport.markFatalFailure(projectPath, runId, stageType, ex);
+            throw ex;
+        }
     }
 }

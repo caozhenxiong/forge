@@ -3,7 +3,11 @@ package devflow.agent.review;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.executor.gate.ArchitectIntegrationCheck;
 import devflow.agent.executor.llm.LlmProvider;
+import devflow.agent.executor.testing.TestExecutor;
+import devflow.agent.i18n.LanguagePolicy;
 import devflow.agent.loop.AgentTurnLoop;
+import devflow.agent.project.WorkspaceSnapshotStore;
+import devflow.agent.prompt.PromptTemplateCatalog;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -57,5 +61,48 @@ class ReviewConfiguration {
                 implementationReviewNormalizer,
                 reviewArtifactLoader
         );
+    }
+
+    @Bean
+    DocumentStageReviewer documentStageReviewer(
+            PromptTemplateCatalog promptTemplateCatalog,
+            LanguagePolicy languagePolicy,
+            ReviewArtifactLoader reviewArtifactLoader,
+            DocumentReviewTurnExecutor documentReviewTurnExecutor,
+            DocumentStructureGuard documentStructureGuard
+    ) {
+        return new DocumentStageReviewer(
+                promptTemplateCatalog,
+                languagePolicy,
+                reviewArtifactLoader,
+                documentReviewTurnExecutor,
+                documentStructureGuard
+        );
+    }
+
+    @Bean
+    ImplementationStageReviewer implementationStageReviewer(
+            WorkspaceSnapshotStore snapshotStore,
+            TestExecutor testExecutor,
+            ReviewArtifactLoader reviewArtifactLoader,
+            ContractExtractor contractExtractor,
+            ArchitectIntegrationCheck architectIntegrationCheck,
+            ImplementationReviewTurnExecutor implementationReviewTurnExecutor,
+            LanguagePolicy languagePolicy
+    ) {
+        return new ImplementationStageReviewer(
+                snapshotStore,
+                testExecutor,
+                reviewArtifactLoader,
+                contractExtractor,
+                architectIntegrationCheck,
+                implementationReviewTurnExecutor,
+                languagePolicy
+        );
+    }
+
+    @Bean
+    ExecutionStageReviewer executionStageReviewer(ReviewDecisionArtifactParser reviewDecisionArtifactParser) {
+        return new ExecutionStageReviewer(reviewDecisionArtifactParser);
     }
 }

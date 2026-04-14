@@ -6,6 +6,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.function.Function;
 import java.util.Properties;
 import java.util.Set;
 
@@ -97,44 +98,52 @@ public final class QualityRulesLoader {
     }
 
     private boolean readBoolean(Properties properties, String key) {
-        String raw = requireProperty(properties, key);
-        if (!"true".equalsIgnoreCase(raw) && !"false".equalsIgnoreCase(raw)) {
-            throw new IllegalStateException("Invalid boolean quality rule: " + key + "=" + raw);
-        }
-        return Boolean.parseBoolean(raw);
+        return readRequiredProperty(properties, key, raw -> {
+            if (!"true".equalsIgnoreCase(raw) && !"false".equalsIgnoreCase(raw)) {
+                throw new IllegalStateException("Invalid boolean quality rule: " + key + "=" + raw);
+            }
+            return Boolean.parseBoolean(raw);
+        });
     }
 
     private int readPositiveInt(Properties properties, String key) {
-        String raw = requireProperty(properties, key);
-        try {
-            int parsed = Integer.parseInt(raw);
-            if (parsed <= 0) {
-                throw new IllegalStateException("Invalid positive integer quality rule: " + key + "=" + raw);
+        return readRequiredProperty(properties, key, raw -> {
+            try {
+                int parsed = Integer.parseInt(raw);
+                if (parsed <= 0) {
+                    throw new IllegalStateException("Invalid positive integer quality rule: " + key + "=" + raw);
+                }
+                return parsed;
+            } catch (NumberFormatException exception) {
+                throw new IllegalStateException("Invalid positive integer quality rule: " + key + "=" + raw, exception);
             }
-            return parsed;
-        } catch (NumberFormatException exception) {
-            throw new IllegalStateException("Invalid positive integer quality rule: " + key + "=" + raw, exception);
-        }
+        });
     }
 
     private StructureRiskLevel readRiskLevel(Properties properties, String key) {
-        String raw = requireProperty(properties, key);
-        try {
-            return StructureRiskLevel.valueOf(raw.toUpperCase());
-        } catch (IllegalArgumentException exception) {
-            throw new IllegalStateException("Invalid risk level quality rule: " + key + "=" + raw, exception);
-        }
+        return readRequiredProperty(properties, key, raw -> {
+            try {
+                return StructureRiskLevel.valueOf(raw.toUpperCase());
+            } catch (IllegalArgumentException exception) {
+                throw new IllegalStateException("Invalid risk level quality rule: " + key + "=" + raw, exception);
+            }
+        });
     }
 
     private Set<String> readCapabilityIdSet(Properties properties, String key) {
-        String raw = requireProperty(properties, key);
-        if (raw.isBlank()) {
-            return Set.of();
-        }
-        return CapabilityIds.normalizeSet(Arrays.stream(raw.split(","))
-                .map(String::trim)
-                .filter(value -> !value.isBlank())
-                .toList());
+        return readRequiredProperty(properties, key, raw -> {
+            if (raw.isBlank()) {
+                return Set.of();
+            }
+            return CapabilityIds.normalizeSet(Arrays.stream(raw.split(","))
+                    .map(String::trim)
+                    .filter(value -> !value.isBlank())
+                    .toList());
+        });
+    }
+
+    private <T> T readRequiredProperty(Properties properties, String key, Function<String, T> reader) {
+        return reader.apply(requireProperty(properties, key));
     }
 
     private String requireProperty(Properties properties, String key) {

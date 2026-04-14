@@ -40,6 +40,7 @@ public record ImplementationExecutionContext(
         boolean preferSkeletonFlow,
         SharedContextBundle sharedContextBundle,
         String authoritativeCoverageCatalog,
-        ImplementationContinuationConstraints continuationConstraints
+        ImplementationContinuationConstraints continuationConstraints,
+        String previousStateJson
 ) {
 }

@@ -124,7 +124,7 @@ class DefaultWorkflowEngineTests {
 
     private SupervisorAgent newSupervisorAgent(LlmProvider provider, FileArtifactStore artifactStore, FileProjectWorkspace workspace) {
         StageFlowPolicy stageFlowPolicy = new StageFlowPolicy();
-        SupervisorFallbackPolicy fallbackPolicy = new SupervisorFallbackPolicy(stageFlowPolicy);
+        SupervisorFallbackPolicy fallbackPolicy = devflow.agent.supervisor.SupervisorTestSupport.newFallbackPolicy(stageFlowPolicy);
         devflow.agent.supervisor.SupervisorArtifactRenderer artifactRenderer = new devflow.agent.supervisor.SupervisorArtifactRenderer();
         return new SupervisorAgent(
                 provider,

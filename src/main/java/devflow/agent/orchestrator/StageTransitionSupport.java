@@ -6,9 +6,6 @@ import devflow.agent.domain.StageExecution;
 import devflow.agent.domain.StageStatus;
 import devflow.agent.domain.StageType;
 
-import devflow.agent.review.FixMode;
-import devflow.agent.review.ImplementationPatchTarget;
-import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.supervisor.SupervisorDecision;
 import java.nio.file.Path;
@@ -115,36 +112,14 @@ public class StageTransitionSupport {
             Path projectPath,
             RunRecord runRecord,
             StageType stageType,
-            ReviewDecision decision,
-            FixMode fixMode,
-            ImplementationPatchTarget implementationPatchTarget,
-            String summary,
-            String changeRequest,
-            String evidence,
-            String actionItems,
-            java.util.List<devflow.agent.executor.FileChange> overrideChanges,
-            SupervisorDecision supervisorDecision,
-            StageType rerouteStage,
-            boolean forceRepair,
-            boolean repeatedIssue,
+            RevisionContext revisionContext,
             StageEntryAction stageEntryAction
     ) {
         return stageRevisionSupport.rerouteForRevision(
                 projectPath,
                 runRecord,
                 stageType,
-                decision,
-                fixMode,
-                implementationPatchTarget,
-                summary,
-                changeRequest,
-                evidence,
-                actionItems,
-                overrideChanges,
-                supervisorDecision,
-                rerouteStage,
-                forceRepair,
-                repeatedIssue,
+                revisionContext,
                 stageEntryAction
         );
     }

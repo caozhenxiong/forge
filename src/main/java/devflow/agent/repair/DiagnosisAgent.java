@@ -14,10 +14,14 @@ import devflow.agent.domain.StageType;
 import devflow.agent.review.FixMode;
 import java.nio.file.Path;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
 public class DiagnosisAgent {
+
+    private static final Logger log = LoggerFactory.getLogger(DiagnosisAgent.class);
 
     private final LlmProvider llmProvider;
     private final FileArtifactStore artifactStore;
@@ -110,6 +114,13 @@ public class DiagnosisAgent {
                     safeList(payload.acceptanceChecks())
             );
         } catch (Exception exception) {
+            log.warn(
+                    "Diagnosis fallback applied for run {} stage {} mode {}",
+                    runRecord == null ? null : runRecord.runId(),
+                    stageType,
+                    requestedMode,
+                    exception
+            );
             return diagnosisFallbackBriefBuilder.build(recentEntries, requestedMode, summary, changeRequest);
         }
     }
