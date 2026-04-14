@@ -178,8 +178,10 @@
 
 - `ImplementationPlanNormalizationSupport`
 - `ImplementationPlanGateInput`
+- `ImplementationPlanGateInputBuilder`
 - `PlanningRequest`
 - `ImplementationPlanningWiring`
+- `ImplementationPlanner`
 - `ImplementationOutlineGate`
 - `ImplementationPlanCoverageAnalyzer`
 - `ImplementationPlanChangeGate`
@@ -188,6 +190,7 @@
 要求：
 
 - capability partition 的 canonical owner 只允许在 planning 链产生
+- `ImplementationPlanGateInputBuilder` 是 gate 输入的唯一展平装配点；新的 planning runtime facts 不得绕过 builder 散落到 gate 或 planner
 - accepted package completeness gate 必须复用单一 planning runtime facts 输入
 - planning gate 不得自行新增目录扫描、root-script 猜测或 companion 文件名 fallback
 
@@ -212,10 +215,12 @@
 
 要求：
 
-- boundary finding 必须先保留在子任务级结构化 review payload 中
-- deterministic gate 直接消费结构化 boundary finding
+- boundary finding 的 typed carrier 必须显式定义；不得停留在 ad hoc JSON 或 prose 约定
+- typed carrier 采用新的 subtask-only payload，挂在 `StructuredReviewResult` 对应的子任务 review 结构化结果层，和全局 `ReviewResult` 分离
+- `SubtaskVerificationSupport` 必须先消费这份 typed payload，再做 deterministic boundary gate，最后再映射回 `ReviewResult`
 - 最终再映射回 `ReviewResult`
 - 不直接把 implementation-subtask 专属 boundary 字段散入全局 `ReviewResult` 主协议
+- 也不把 subtask boundary 语义硬塞进通用 `ReviewSemantics`，避免全局 review 协议被 implementation 子任务语义污染
 
 ### 4. runtime repair package / resume 链
 
@@ -250,11 +255,14 @@
 - `FlowController`
 - `FlowDecisionExecutor`
 - `StageTransitionSupport`
+- `StageRevisionSupport`
+- `StageRevisionRepairSupport`
 - `StageStatusSupport`
 
 要求：
 
 - review reject、supervisor repair route、最终 run/stage 落盘必须走同一条收尾链
+- `StageRevisionSupport` 负责 repair reroute 的 review history、event log、revision note 和 re-entry owner；不得把这条链留在 scope 之外
 - 不允许上层已进入 repair，而底层仍把 run/stage 收成 approved/completed
 - `events.log`、artifact、`run.json` 必须保持一致
 
@@ -264,8 +272,10 @@
 
 - skeleton 分工塌陷
 - runtime split package 不完整
+- subtask boundary review 不可信
 - stage continue 缺 repair package
 - repair mode tool loop 不收敛
+- run-state consistency 漂移
 
 如果把范围再扩到 token 预算、旧 continuation routing 基础收口、runtime metadata 规划协议等已收口项，就会再次偏离主线。
 
