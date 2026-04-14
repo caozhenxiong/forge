@@ -111,6 +111,7 @@ public final class CoderTurnCoordinator {
                     executionContext.implementationPatchTarget(),
                     executionContext.authoritativeCoverageCatalog(),
                     executionContext.continuationConstraints(),
+                    null,
                     eventJournal
             ))
                     : reusableState.plan();

@@ -122,6 +122,7 @@ class CoderTurnCoordinatorTests {
                                 throw new AssertionError("planner should not run when reusable state exists");
                             }
                         },
+                        workspace,
                         new ObjectMapper(),
                         new devflow.agent.executor.implementation.planning.ImplementationPlanCoverageAnalyzer(),
                         new devflow.agent.loop.AgentTurnLoop(),

@@ -27,6 +27,7 @@ import devflow.agent.executor.subtask.Subtask;
 public record ImplementationPlanGateInput(
         ProjectFingerprint fingerprint,
         ContractView contractView,
+        PlanningRuntimeFacts runtimeFacts,
         List<String> plannedPaths,
         List<String> plannedCoverageItems,
         List<String> plannedCoverageRefs,

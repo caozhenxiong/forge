@@ -31,6 +31,7 @@ class ImplementationPlanGateTests {
         GateReport report = gate.evaluate(new ImplementationPlanGateInput(
                 new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html"), List.of()),
                 contractView(),
+                PlanningRuntimeFacts.empty(),
                 List.of("index.html", "src/app.js"),
                 List.of("创建网页入口", "补齐脚本"),
                 List.of("CAP-1", "CAP-2"),
@@ -75,6 +76,7 @@ class ImplementationPlanGateTests {
         GateReport report = gate.evaluate(new ImplementationPlanGateInput(
                 new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html"), List.of()),
                 contractView(),
+                PlanningRuntimeFacts.empty(),
                 List.of("src/app.js"),
                 List.of("继续修复脚本"),
                 List.of("CAP-1"),
@@ -110,6 +112,10 @@ class ImplementationPlanGateTests {
         GateReport report = gate.evaluate(new ImplementationPlanGateInput(
                 new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html"), List.of()),
                 contractView(),
+                new PlanningRuntimeFacts(
+                        java.nio.file.Path.of("index.html"),
+                        HtmlRuntimeOwnershipContract.inlineHost(java.nio.file.Path.of("index.html"))
+                ),
                 List.of("index.html"),
                 List.of("继续修复入口"),
                 List.of("CAP-1"),
@@ -137,6 +143,83 @@ class ImplementationPlanGateTests {
 
         assertFalse(report.passed());
         assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("REWORK/整页重写")));
+    }
+
+    @Test
+    void failsWhenRuntimeSplitAddsCompanionScriptWithoutHostHtmlPatch() {
+        ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
+        GateReport report = gate.evaluate(new ImplementationPlanGateInput(
+                new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html", "src/engine.js"), List.of()),
+                contractView(),
+                new PlanningRuntimeFacts(
+                        java.nio.file.Path.of("index.html"),
+                        HtmlRuntimeOwnershipContract.inlineHost(java.nio.file.Path.of("index.html"))
+                ),
+                List.of("src/engine.js"),
+                List.of("新增 companion runtime"),
+                List.of("CAP-1"),
+                List.of("PATCH"),
+                false,
+                false,
+                null,
+                ImplementationPatchTarget.NONE,
+                ImplementationContinuationConstraints.empty(),
+                List.of(new Subtask(
+                        "拆 runtime",
+                        "只新增 companion runtime",
+                        List.of("CAP-1"),
+                        List.of("runtime split"),
+                        List.of(),
+                        List.of("入口可运行"),
+                        false,
+                        DeliveryMode.PATCH,
+                        List.of(new FileChange("src/engine.js", ChangeAction.WRITE, "新增 runtime root"))
+                ))
+        ));
+
+        assertFalse(report.passed());
+        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("宿主 HTML patch")));
+    }
+
+    @Test
+    void allowsRuntimeLeafWhenScopeAlsoPatchesCurrentlyWiredRoot() {
+        ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
+        GateReport report = gate.evaluate(new ImplementationPlanGateInput(
+                new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html", "index.app.js", "src/engine.js"), List.of()),
+                contractView(),
+                new PlanningRuntimeFacts(
+                        java.nio.file.Path.of("index.html"),
+                        HtmlRuntimeOwnershipContract.externalCompanion(
+                                java.nio.file.Path.of("index.html"),
+                                List.of(java.nio.file.Path.of("index.app.js"))
+                        )
+                ),
+                List.of("index.html", "index.app.js", "src/engine.js"),
+                List.of("扩展已有 runtime"),
+                List.of("CAP-1"),
+                List.of("PATCH"),
+                true,
+                true,
+                null,
+                ImplementationPatchTarget.NONE,
+                ImplementationContinuationConstraints.empty(),
+                List.of(new Subtask(
+                        "扩展已有 runtime",
+                        "在现有 runtime root 下引入新模块",
+                        List.of("CAP-1"),
+                        List.of("runtime wiring"),
+                        List.of(),
+                        List.of("入口可运行"),
+                        false,
+                        DeliveryMode.PATCH,
+                        List.of(
+                                new FileChange("index.app.js", ChangeAction.WRITE, "扩展已有 root"),
+                                new FileChange("src/engine.js", ChangeAction.WRITE, "新增 leaf module")
+                        )
+                ))
+        ));
+
+        assertTrue(report.passed(), report.issues().toString());
     }
 
     private ContractView contractView() {

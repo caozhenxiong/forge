@@ -26,6 +26,7 @@ public record PlanningRequest(
         ImplementationPatchTarget implementationPatchTarget,
         String requirementCatalog,
         ImplementationContinuationConstraints continuationConstraints,
+        PlanningRuntimeFacts planningRuntimeFacts,
         ImplementationEventJournal eventJournal
 ) {
 }

@@ -90,8 +90,8 @@ class ImplementationToolPromptBuilderTests {
                 true,
                 List.of("index.html", "src/app.js"),
                 List.of("CAP-1"),
-                List.of("页面加载"),
-                List.of(),
+                List.of("SHELL"),
+                List.of("GAMEPLAY"),
                 List.of("页面可以打开"),
                 List.of(),
                 List.of(),
@@ -102,8 +102,8 @@ class ImplementationToolPromptBuilderTests {
                 "创建入口页面与基础结构",
                 "当前只修接线",
                 List.of("CAP-1"),
-                List.of("页面加载"),
                 List.of(),
+                List.of("GAMEPLAY"),
                 List.of("页面可以打开"),
                 true,
                 DeliveryMode.PATCH,
@@ -123,6 +123,11 @@ class ImplementationToolPromptBuilderTests {
         assertTrue(markdown.contains("- index.html"));
         assertTrue(!markdown.contains("- src/app.js"));
         assertTrue(markdown.contains("- 交付模式: PATCH"));
+        assertTrue(markdown.contains("### 当前负责能力"));
+        assertTrue(markdown.contains("- (无)"));
+        assertTrue(markdown.contains("### 后续负责能力"));
+        assertTrue(markdown.contains("- GAMEPLAY"));
+        assertTrue(!markdown.contains("- SHELL"));
     }
 
     @Test

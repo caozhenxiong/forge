@@ -157,6 +157,7 @@ class OllamaLlmProviderTests {
         assertTrue(result.semantics().downstreamDetailOnly());
         assertTrue(result.semantics().performanceClaim());
         assertTrue(result.semantics().measurementEvidencePresent());
+        assertTrue(!result.subtaskBoundary().provided());
     }
 
     @Test
@@ -187,6 +188,36 @@ class OllamaLlmProviderTests {
                 () -> provider.reviewStructured("system", "candidate", LlmOptions.numPredict(64))
         );
         assertEquals(StructuredPayloadFailureReason.JSON_PAYLOAD_INVALID, exception.reason());
+    }
+
+    @Test
+    void reviewStructuredParsesSubtaskBoundaryPayload() throws Exception {
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/api/generate", new JsonSubtaskBoundaryReviewHandler());
+        server.start();
+
+        int port = server.getAddress().getPort();
+        OllamaProperties properties = new OllamaProperties("http://127.0.0.1:" + port, "fake-model", 3, 10, 3, null);
+        OllamaLlmProvider provider = new OllamaLlmProvider(
+                properties,
+                new ObjectMapper(),
+                new OutputBudgetCalculator(
+                        new ModelBudgetRegistry(new GenerationBudgetProperties(null, null)),
+                        new PromptTokenEstimator()
+                ),
+                new ContextCompactor(
+                        new ContextBudgetPlanner(
+                                new ModelBudgetRegistry(new GenerationBudgetProperties(null, null)),
+                                new PromptTokenEstimator()
+                        )
+                )
+        );
+
+        StructuredReviewResult result = provider.reviewStructured("system", "candidate", LlmOptions.numPredict(64));
+
+        assertTrue(result.subtaskBoundary().provided());
+        assertTrue(result.subtaskBoundary().implementsDeferredCapabilities());
+        assertTrue(result.subtaskBoundary().summary().contains("后续能力"));
     }
 
     @Test
@@ -352,6 +383,25 @@ class OllamaLlmProviderTests {
 
         int requestCount() {
             return requestCount.get();
+        }
+    }
+
+    private static class JsonSubtaskBoundaryReviewHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            byte[] body = """
+                    {
+                      "response":"{\\"decision\\":\\"APPROVED\\",\\"fixMode\\":\\"NONE\\",\\"summary\\":\\"ok\\",\\"changeRequest\\":\\"\\",\\"evidence\\":\\"\\",\\"actionItems\\":\\"\\",\\"subtaskBoundary\\":{\\"provided\\":true,\\"implementsDeferredCapabilities\\":true,\\"implementsForeignCapabilities\\":false,\\"summary\\":\\"实现落入后续能力\\",\\"evidence\\":\\"计分逻辑已经出现\\",\\"actionItems\\":\\"移除越界实现\\"},\\"semantics\\":{\\"targetsLowAuthorityContent\\":false,\\"targetsTrackedOpenQuestion\\":false,\\"clarificationRequest\\":false,\\"backedByHardAuthority\\":false,\\"requestsQuantitativeHardening\\":false,\\"requestsImplementationHardening\\":false,\\"downstreamDetailOnly\\":false,\\"coreStageGap\\":true,\\"performanceClaim\\":false,\\"measurementEvidencePresent\\":false,\\"unsupportedQuantitativeConstraintPresent\\":false,\\"unsupportedImplementationConstraintPresent\\":false}}",
+                      "done":true,
+                      "done_reason":"stop",
+                      "eval_count":1
+                    }
+                    """.strip().getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream outputStream = exchange.getResponseBody()) {
+                outputStream.write(body);
+            }
         }
     }
 

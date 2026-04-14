@@ -74,8 +74,8 @@ public final class ImplementationPlanNormalizationSupport {
                     subtask.title(),
                     subtask.goal(),
                     sanitizeCoverageRefs(subtask.coverageRefs(), authoritativeCoverageCatalog),
-                    sanitizeCapabilities(subtask.ownedCapabilities(), subtask.acceptanceCriteria()),
-                    sanitizeCapabilities(subtask.deferredCapabilities(), List.of()),
+                    sanitizeCapabilities(subtask.ownedCapabilities()),
+                    sanitizeCapabilities(subtask.deferredCapabilities()),
                     subtask.acceptanceCriteria(),
                     subtask.runnableMilestone(),
                     deliveryMode,
@@ -135,12 +135,11 @@ public final class ImplementationPlanNormalizationSupport {
                 .toList();
     }
 
-    private List<String> sanitizeCapabilities(List<String> values, List<String> fallback) {
-        List<String> source = values == null || values.isEmpty() ? fallback : values;
-        if (source == null || source.isEmpty()) {
+    private List<String> sanitizeCapabilities(List<String> values) {
+        if (values == null || values.isEmpty()) {
             return List.of();
         }
-        return source.stream()
+        return values.stream()
                 .filter(value -> value != null && !value.isBlank())
                 .map(String::trim)
                 .distinct()

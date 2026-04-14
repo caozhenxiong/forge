@@ -51,6 +51,7 @@ final class ImplementationOutlineGate {
             ContractView contractView,
             QualityPlan qualityPlan,
             DeliveryPolicyEnvelope deliveryPolicy,
+            PlanningRuntimeFacts runtimeFacts,
             ImplementationContinuationConstraints continuationConstraints,
             ImplementationOutline outline
     ) {
@@ -67,7 +68,7 @@ final class ImplementationOutlineGate {
         List<GateIssue> issues = new ArrayList<>();
         issues.addAll(validateTargetPaths(deliveryPolicy, outline.subtasks()));
         issues.addAll(validateRunnableMilestones(contractView, outline.subtasks()));
-        issues.addAll(changeGate.evaluateOutlineContinuationConstraints(continuationConstraints, outline.subtasks()));
+        issues.addAll(changeGate.evaluateOutlineContinuationConstraints(runtimeFacts, continuationConstraints, outline.subtasks()));
         CoverageResult coverageResult = coverageAnalyzer.analyze(
                 fingerprint,
                 contractView,

@@ -83,6 +83,7 @@ final class ImplementationExecutorWiring {
 
         ImplementationPlanner implementationPlanner = ImplementationPlanningWiring.createPlanner(
                 llmProvider,
+                workspace,
                 objectMapper,
                 coverageAnalyzer,
                 planningTurnLoop,

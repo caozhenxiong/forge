@@ -56,8 +56,8 @@ public record TaskPackage(
                 subtask.runnableMilestone(),
                 ownedFilesFromChanges(subtask.changes(), ownedFiles),
                 emptyAware(subtask.coverageRefs(), coverageRefs),
-                emptyAware(subtask.ownedCapabilities(), ownedCapabilities),
-                emptyAware(subtask.deferredCapabilities(), deferredCapabilities),
+                explicitOnly(subtask.ownedCapabilities()),
+                explicitOnly(subtask.deferredCapabilities()),
                 emptyAware(subtask.acceptanceCriteria(), acceptanceCriteria),
                 mustFixFirst,
                 forbiddenDirections,
@@ -184,5 +184,12 @@ public record TaskPackage(
             return List.copyOf(preferred);
         }
         return fallback == null ? List.of() : List.copyOf(fallback);
+    }
+
+    private List<String> explicitOnly(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        return List.copyOf(values);
     }
 }

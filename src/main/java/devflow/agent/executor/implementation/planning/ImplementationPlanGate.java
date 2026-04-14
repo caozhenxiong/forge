@@ -62,6 +62,7 @@ public class ImplementationPlanGate implements DeterministicGate<ImplementationP
         issues.addAll(toIssues("PLAN_EXECUTION_CONTRACT", coverageResult));
         issues.addAll(toIssues("PLAN_RUNNABLE_MILESTONE", runnableMilestoneResult));
         issues.addAll(changeGate.evaluate(
+                input.runtimeFacts(),
                 input.continuationConstraints(),
                 input.subtasks()
         ));

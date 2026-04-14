@@ -29,6 +29,7 @@ import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.review.ReviewRevisionRoute;
+import devflow.agent.review.StructuredReviewResult;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Path;
@@ -69,6 +70,7 @@ public final class SubtaskVerificationSupport {
     private final SubtaskRetryFeedbackRenderer retryFeedbackRenderer;
     private final ImplementationSelfCheckReviewResolver selfCheckReviewResolver = new ImplementationSelfCheckReviewResolver();
     private final StructureGateEvaluator structureGateEvaluator = new StructureGateEvaluator();
+    private final SubtaskBoundaryGate subtaskBoundaryGate = new SubtaskBoundaryGate();
 
     public SubtaskVerificationSupport(
             TestExecutor testExecutor,
@@ -160,7 +162,8 @@ public final class SubtaskVerificationSupport {
                 performanceGuidanceResolver.resolve(runRecord),
                 promptAssembler.renderRepairVerificationContext(feedback)
         );
-        ReviewResult review = reviewWithObservation(subtask, candidate, language, eventJournal);
+        StructuredReviewResult structuredReview = reviewWithObservation(subtask, candidate, language, eventJournal);
+        ReviewResult review = subtaskBoundaryGate.enforce(subtask, structuredReview, language);
         ReviewResult enforcedReview = normalizeScopedPatchReview(
                 enforceCompleteness(completenessOutcome, review, language),
                 subtask
@@ -179,7 +182,7 @@ public final class SubtaskVerificationSupport {
         return retryFeedbackRenderer.render(selfCheck, verification, completenessResult);
     }
 
-    private ReviewResult reviewWithObservation(
+    private StructuredReviewResult reviewWithObservation(
             Subtask subtask,
             String candidate,
             DocumentLanguage language,
@@ -198,9 +201,9 @@ public final class SubtaskVerificationSupport {
                                             retryFeedback == null || retryFeedback.isBlank()
                                                     ? candidate
                                                     : candidate + "\n\n上一轮结构化验证调用失败，请仅重新输出审阅 JSON：\n" + retryFeedback,
-                                    java.util.Map.of(),
-                                    ModelRole.CODE_REVIEW
-                            ).result()
+                                            java.util.Map.of(),
+                                            ModelRole.CODE_REVIEW
+                            )
                     ),
                     this::mapReviewInvocationFailure,
                     (failureType, evidence) -> GenerationFailureExceptions.create(
@@ -217,14 +220,17 @@ public final class SubtaskVerificationSupport {
                     llmProvider::consumeLastTelemetry
             ));
         } catch (GenerationFailureException exception) {
-            return new ReviewResult(
-                    ReviewDecision.REVISION_REQUIRED,
-                    FixMode.PATCH,
-                    language.choose("子任务验证调用超时或失败，暂不放行当前子任务。", "Subtask verification timed out or failed, so the subtask cannot be approved yet."),
-                    language.choose("请保持当前实现结果不变，重新执行当前子任务验证。", "Keep the current implementation result and rerun the current subtask verification."),
-                    exception.report().evidence(),
-                    language.choose("先重新验证当前子任务；若多次超时，再收缩验证输入。", "Retry the current subtask verification first; if it times out repeatedly, shrink the verification input."),
-                    ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
+            return new StructuredReviewResult(
+                    new ReviewResult(
+                            ReviewDecision.REVISION_REQUIRED,
+                            FixMode.PATCH,
+                            language.choose("子任务验证调用超时或失败，暂不放行当前子任务。", "Subtask verification timed out or failed, so the subtask cannot be approved yet."),
+                            language.choose("请保持当前实现结果不变，重新执行当前子任务验证。", "Keep the current implementation result and rerun the current subtask verification."),
+                            exception.report().evidence(),
+                            language.choose("先重新验证当前子任务；若多次超时，再收缩验证输入。", "Retry the current subtask verification first; if it times out repeatedly, shrink the verification input."),
+                            ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
+                    ),
+                    null
             );
         }
     }

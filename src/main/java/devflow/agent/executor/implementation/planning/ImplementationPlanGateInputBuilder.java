@@ -30,6 +30,7 @@ final class ImplementationPlanGateInputBuilder {
     ImplementationPlanGateInput build(
             ProjectFingerprint fingerprint,
             ContractView contractView,
+            PlanningRuntimeFacts runtimeFacts,
             QualityPlan qualityPlan,
             ImplementationPatchTarget implementationPatchTarget,
             ImplementationContinuationConstraints continuationConstraints,
@@ -38,6 +39,7 @@ final class ImplementationPlanGateInputBuilder {
         return new ImplementationPlanGateInput(
                 fingerprint,
                 contractView,
+                runtimeFacts == null ? PlanningRuntimeFacts.empty() : runtimeFacts,
                 plan.subtasks().stream()
                         .flatMap(subtask -> subtask.changes().stream())
                         .map(FileChange::path)

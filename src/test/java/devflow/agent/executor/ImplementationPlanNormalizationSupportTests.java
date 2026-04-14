@@ -27,6 +27,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import devflow.agent.executor.subtask.Subtask;
@@ -148,6 +149,40 @@ class ImplementationPlanNormalizationSupportTests {
         );
 
         assertTrue(normalized.subtasks().getFirst().deliveryMode() != DeliveryMode.SKELETON);
+    }
+
+    @Test
+    void normalizeDoesNotFallbackOwnedCapabilitiesToAcceptanceCriteria() {
+        ImplementationPlanNormalizationSupport support = new ImplementationPlanNormalizationSupport();
+        ImplementationPlan plan = new ImplementationPlan(
+                "plan",
+                List.of(new Subtask(
+                        "只做壳体",
+                        "保留 capability 分区",
+                        List.of(),
+                        List.of(),
+                        List.of("CAP-2"),
+                        List.of("页面可以打开"),
+                        true,
+                        DeliveryMode.SKELETON,
+                        List.of(new FileChange("index.html", ChangeAction.WRITE, "创建入口"))
+                ))
+        );
+
+        ImplementationPlan normalized = support.normalize(
+                plan,
+                FixMode.NONE,
+                false,
+                DeliveryPolicyEnvelope.defaultPolicy(),
+                new AuthoritativeCoverageCatalog(List.of()),
+                null,
+                ImplementationContinuationConstraints.empty()
+        );
+
+        Subtask subtask = normalized.subtasks().getFirst();
+        assertTrue(subtask.ownedCapabilities().isEmpty());
+        assertEquals(List.of("CAP-2"), subtask.deferredCapabilities());
+        assertFalse(subtask.ownedCapabilities().contains("页面可以打开"));
     }
 
     private QualityPlan qualityPlan() {

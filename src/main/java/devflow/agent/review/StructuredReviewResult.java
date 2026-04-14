@@ -9,7 +9,8 @@ package devflow.agent.review;
  */
 public record StructuredReviewResult(
         ReviewResult result,
-        ReviewSemantics semantics
+        ReviewSemantics semantics,
+        SubtaskBoundaryReviewPayload subtaskBoundary
 ) {
 
     public StructuredReviewResult {
@@ -17,5 +18,10 @@ public record StructuredReviewResult(
                 ? new ReviewResult(ReviewDecision.REVISION_REQUIRED, FixMode.PATCH, "", "")
                 : result;
         semantics = semantics == null ? ReviewSemantics.empty() : semantics;
+        subtaskBoundary = subtaskBoundary == null ? SubtaskBoundaryReviewPayload.empty() : subtaskBoundary;
+    }
+
+    public StructuredReviewResult(ReviewResult result, ReviewSemantics semantics) {
+        this(result, semantics, SubtaskBoundaryReviewPayload.empty());
     }
 }

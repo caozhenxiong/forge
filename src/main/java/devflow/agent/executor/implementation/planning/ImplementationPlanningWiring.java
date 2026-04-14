@@ -3,6 +3,7 @@ package devflow.agent.executor.implementation.planning;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.loop.AgentTurnLoop;
+import devflow.agent.project.FileProjectWorkspace;
 
 public final class ImplementationPlanningWiring {
 
@@ -11,6 +12,7 @@ public final class ImplementationPlanningWiring {
 
     public static ImplementationPlanner createPlanner(
             LlmProvider llmProvider,
+            FileProjectWorkspace workspace,
             ObjectMapper objectMapper,
             ImplementationPlanCoverageAnalyzer coverageAnalyzer,
             AgentTurnLoop planningTurnLoop,
@@ -27,6 +29,7 @@ public final class ImplementationPlanningWiring {
                 new ImplementationPlanAssembler(),
                 new ImplementationPlanningFeedbackRouter(),
                 new ImplementationPlanGateInputBuilder(),
+                new PlanningRuntimeFactsResolver(workspace),
                 maxPlanningUnitAttempts,
                 new ImplementationPlanningPromptAssembler(maxFilesPerSubtask, maxDeliveryPolicyFiles),
                 new ImplementationPlanningTurnRunner(llmProvider, planningTurnLoop),

@@ -137,6 +137,7 @@ class ImplementationPlannerTests {
                 devflow.agent.review.ImplementationPatchTarget.NONE,
                 "",
                 ImplementationContinuationConstraints.empty(),
+                null,
                 eventJournal
         ));
 
@@ -226,6 +227,7 @@ class ImplementationPlannerTests {
                         List.of("index.html"),
                         List.of(new ImplementationContinuationConstraints.ProtectedHtmlEntryConstraint("index.html"))
                 ),
+                null,
                 eventJournal
         ));
 
@@ -239,9 +241,112 @@ class ImplementationPlannerTests {
                 entry.message().contains("实现规划｜单元驳回｜类型=SUBTASK_DETAIL｜单元=subtask-1")));
     }
 
+    @Test
+    void replansOutlineWhenRuntimeSplitOmitsHostHtmlPatch() throws Exception {
+        java.nio.file.Files.writeString(
+                tempDir.resolve("index.html"),
+                """
+                        <!doctype html>
+                        <html>
+                        <body>
+                          <main id="app"></main>
+                        </body>
+                        </html>
+                        """
+        );
+
+        SequenceLlmProvider llmProvider = new SequenceLlmProvider(List.of(
+                response("""
+                        {
+                          "summary": "invalid runtime split",
+                          "subtasks": [
+                            {
+                              "id": "subtask-1",
+                              "title": "add runtime file",
+                              "goal": "create companion runtime only",
+                              "deliveryMode": "PATCH",
+                              "runnableMilestone": false,
+                              "coverageRefs": [],
+                              "ownedCapabilities": ["cap-1"],
+                              "deferredCapabilities": [],
+                              "acceptanceCriteria": ["acc-1"],
+                              "targetPaths": ["src/engine.js"]
+                            }
+                          ]
+                        }
+                        """),
+                response("""
+                        {
+                          "summary": "valid runtime split",
+                          "subtasks": [
+                            {
+                              "id": "subtask-1",
+                              "title": "wire host and runtime",
+                              "goal": "patch host html and add runtime companion",
+                              "deliveryMode": "PATCH",
+                              "runnableMilestone": true,
+                              "coverageRefs": [],
+                              "ownedCapabilities": ["cap-1"],
+                              "deferredCapabilities": [],
+                              "acceptanceCriteria": ["acc-1"],
+                              "targetPaths": ["index.html", "src/engine.js"]
+                            }
+                          ]
+                        }
+                        """),
+                response("""
+                        {
+                          "subtaskId": "subtask-1",
+                          "changes": [
+                            {
+                              "path": "index.html",
+                              "action": "WRITE",
+                              "reason": "wire host html"
+                            },
+                            {
+                              "path": "src/engine.js",
+                              "action": "WRITE",
+                              "reason": "add runtime companion"
+                            }
+                          ]
+                        }
+                        """)
+        ));
+        ImplementationPlanner planner = newPlanner(llmProvider);
+        ImplementationEventJournal eventJournal = newEventJournal();
+
+        ImplementationPlan plan = planner.plan(new PlanningRequest(
+                runRecord(),
+                "",
+                "",
+                "",
+                "",
+                false,
+                new DeliveryPolicyEnvelope(DeliveryMode.PATCH, 2, 4, true, false, true, List.of()),
+                null,
+                QualityPlan.empty(),
+                new devflow.agent.validation.ProjectInspector(new devflow.agent.project.FileProjectWorkspace()).inspect(tempDir),
+                devflow.agent.i18n.DocumentLanguage.ZH,
+                devflow.agent.review.FixMode.NONE,
+                devflow.agent.review.ImplementationPatchTarget.NONE,
+                "",
+                ImplementationContinuationConstraints.empty(),
+                null,
+                eventJournal
+        ));
+
+        assertEquals(1, plan.subtasks().size());
+        assertEquals(2, llmProvider.outlinePromptCount());
+        assertTrue(plan.subtasks().getFirst().changes().stream().anyMatch(change -> "index.html".equals(change.path())));
+        assertTrue(eventJournal.snapshot().stream().anyMatch(entry ->
+                entry.message().contains("实现规划｜单元驳回｜类型=OUTLINE｜单元=outline")
+                        && entry.message().contains("宿主 HTML patch")));
+    }
+
     private ImplementationPlanner newPlanner(SequenceLlmProvider llmProvider) {
         return ImplementationPlanningWiring.createPlanner(
                 llmProvider,
+                new devflow.agent.project.FileProjectWorkspace(),
                 new ObjectMapper(),
                 new ImplementationPlanCoverageAnalyzer(),
                 new devflow.agent.loop.AgentTurnLoop(),

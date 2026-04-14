@@ -55,35 +55,35 @@
 
 ### Phase 1. Planning Input / Wiring / Gate
 
-- [ ] `T1` 删除 `ImplementationPlanNormalizationSupport` 的 capability fallback
-- [ ] `T2` 把 planning runtime facts 接入 `ImplementationPlanGateInput`
-- [ ] `T2` 把 planning runtime facts 装配集中到 `ImplementationPlanGateInputBuilder`
-- [ ] `T2` `ImplementationPlanningWiring` 与 `ImplementationPlanner` 切到单一 planning runtime facts 输入
-- [ ] `T2` `ImplementationOutlineGate` / `ImplementationPlanChangeGate` / `ImplementationSubtaskDetailGate` 接 accepted package completeness gate
-- [ ] `T2` 明确禁止目录扫描、root-script 猜测、companion 文件名 fallback
-- [ ] Phase 1 `self-test`
-- [ ] Phase 1 `code review`
-- [ ] Phase 1 `docs`
+- [x] `T1` 删除 `ImplementationPlanNormalizationSupport` 的 capability fallback
+- [x] `T2` 把 planning runtime facts 接入 `ImplementationPlanGateInput`
+- [x] `T2` 把 planning runtime facts 装配集中到 `ImplementationPlanGateInputBuilder`
+- [x] `T2` `ImplementationPlanningWiring` 与 `ImplementationPlanner` 切到单一 planning runtime facts 输入
+- [x] `T2` `ImplementationOutlineGate` / `ImplementationPlanChangeGate` / `ImplementationSubtaskDetailGate` 接 accepted package completeness gate
+- [x] `T2` 明确禁止目录扫描、root-script 猜测、companion 文件名 fallback
+- [x] Phase 1 `self-test`
+- [x] Phase 1 `code review`
+- [x] Phase 1 `docs`
 
 ### Phase 2. Task Package And Coder Input
 
-- [ ] `T1` 删除 `TaskPackage.alignToSubtask()` 的 capability 回灌
-- [ ] `T1` `TaskPackageAssembler` 与 `TaskPackageMarkdownRenderer` 切到 canonical capability partition
-- [ ] `T1` `ImplementationToolPromptBuilder` 与 task package 对齐，不再展示旧能力边界
-- [ ] Phase 2 `self-test`
-- [ ] Phase 2 `code review`
-- [ ] Phase 2 `docs`
+- [x] `T1` 删除 `TaskPackage.alignToSubtask()` 的 capability 回灌
+- [x] `T1` `TaskPackageAssembler` 与 `TaskPackageMarkdownRenderer` 切到 canonical capability partition
+- [x] `T1` `ImplementationToolPromptBuilder` 与 task package 对齐，不再展示旧能力边界
+- [x] Phase 2 `self-test`
+- [x] Phase 2 `code review`
+- [x] Phase 2 `docs`
 
 ### Phase 3. Subtask Structured Review Boundary Gate
 
-- [ ] `T3` 明确 subtask-only typed payload 的真实类型边界
-- [ ] `T3` `LlmProvider` 能承载 subtask structured review typed payload
-- [ ] `T3` `OllamaStructuredReviewExecutor` 接入对应 typed payload schema
-- [ ] `T3` `SubtaskVerificationSupport` 不再直接 flatten `.result()`，而是先消费 typed payload
-- [ ] `T3` deterministic boundary gate 对 deferred / foreign capability 越权直接驳回
-- [ ] Phase 3 `self-test`
-- [ ] Phase 3 `code review`
-- [ ] Phase 3 `docs`
+- [x] `T3` 明确 subtask-only typed payload 的真实类型边界
+- [x] `T3` `LlmProvider` 能承载 subtask structured review typed payload
+- [x] `T3` `OllamaStructuredReviewExecutor` 接入对应 typed payload schema
+- [x] `T3` `SubtaskVerificationSupport` 不再直接 flatten `.result()`，而是先消费 typed payload
+- [x] `T3` deterministic boundary gate 对 deferred / foreign capability 越权直接驳回
+- [x] Phase 3 `self-test`
+- [x] Phase 3 `code review`
+- [x] Phase 3 `docs`
 
 ### Phase 4. Runtime Repair Package / Resume Round-Trip
 
@@ -145,33 +145,33 @@
 
 ## Current Status
 
-- 当前阶段：`DOCS_PREPARED_PENDING_REVIEW`
-- 当前 blocker：`待执行文档审阅通过`
+- 当前阶段：`PHASE_1_3_DONE_PHASE_4_PENDING`
+- 当前 blocker：`无`
 - 当前约束：`禁止兼容层、禁止 fallback、禁止双轨并存、禁止“后续再清理”`
-- 当前执行入口：`先审阅本文档，再进入代码实现`
+- 当前执行入口：`进入 Phase 4：runtime repair package / resume round-trip`
 
 ## Evidence Log
 
 ### Phase 1
 
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`待开始`
+- commit：`待提交`
+- self-test：`mvn -q -Dtest=ImplementationPlanNormalizationSupportTests,ImplementationPlanGateTests,ImplementationSubtaskDetailGateTests,ImplementationPlannerTests,ImplementationToolPromptBuilderTests,CoderTurnCoordinatorTests,PlanningRuntimeFactsResolverTests test`
+- code review：`已完成自查；核对了 planning runtime facts owner、accepted package completeness gate、task package capability partition，无新增 fallback / 双轨 / 目录扫描路径`
+- docs：`本文档已更新`
 
 ### Phase 2
 
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`待开始`
+- commit：`待提交`
+- self-test：`同 Phase 1`
+- code review：`已完成自查；确认 TaskPackage / coder prompt 只消费 canonical capability partition，不再回灌旧能力`
+- docs：`本文档已更新`
 
 ### Phase 3
 
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`待开始`
+- commit：`待提交`
+- self-test：`mvn -q -Dtest=PlanningRuntimeFactsResolverTests,ImplementationPlanNormalizationSupportTests,ImplementationPlanGateTests,ImplementationSubtaskDetailGateTests,ImplementationPlannerTests,ImplementationToolPromptBuilderTests,CoderTurnCoordinatorTests,SubtaskBoundaryGateTests,OllamaLlmProviderTests test`
+- code review：`已完成自查；确认 subtask boundary 语义只落在 StructuredReviewResult -> SubtaskBoundaryReviewPayload -> SubtaskBoundaryGate，本地 gate 消费 typed payload，不再 flatten 回 prose`
+- docs：`本文档已更新`
 
 ### Phase 4
 

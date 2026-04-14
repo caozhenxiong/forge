@@ -16,6 +16,7 @@ import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.review.ReviewSemantics;
 import devflow.agent.review.StructuredReviewResult;
+import devflow.agent.review.SubtaskBoundaryReviewPayload;
 import devflow.agent.text.TextCanonicalizer;
 import devflow.agent.util.EnumParsers;
 import java.util.LinkedHashMap;
@@ -69,6 +70,14 @@ final class OllamaStructuredReviewExecutor {
                   "changeRequest": "不超过120字，无则返回空字符串",
                   "evidence": "不超过160字，写清关键证据，无则返回空字符串",
                   "actionItems": "不超过200字，给 coder 可直接执行的动作，无则返回空字符串",
+                  "subtaskBoundary": {
+                    "provided": false,
+                    "implementsDeferredCapabilities": false,
+                    "implementsForeignCapabilities": false,
+                    "summary": "",
+                    "evidence": "",
+                    "actionItems": ""
+                  },
                   "semantics": {
                     "targetsLowAuthorityContent": true,
                     "targetsTrackedOpenQuestion": false,
@@ -101,6 +110,8 @@ final class OllamaStructuredReviewExecutor {
                 6. evidence 必须写清支持结论的代码/测试/自检证据
                 7. actionItems 必须是可执行动作，优先写文件、函数、模块、验证步骤
                 8. semantics 必须是你对本次审阅语义的结构化判断，不要省略任何字段
+                8.1 如果当前是 implementation 子任务审阅，且发现实现越过了当前 capability boundary，必须在 subtaskBoundary 中显式标记
+                8.2 如果没有 boundary finding，subtaskBoundary 可以返回 null，或 provided=false
                 9. targetsLowAuthorityContent 表示 finding 主要针对推断/建议/设计选择/低权重内容
                 10. targetsTrackedOpenQuestion 表示 finding 主要针对文档里已经显式标为待确认/开放问题的内容
                 11. clarificationRequest 表示本次 finding 的核心诉求是“请明确/补充/说明/确认”
@@ -135,7 +146,8 @@ final class OllamaStructuredReviewExecutor {
                             parsePatchTarget(payload.implementationPatchTarget()),
                             parseOverrideChanges(payload.overrideChanges())
                     ),
-                    payload.semantics() == null ? ReviewSemantics.empty() : payload.semantics().toReviewSemantics()
+                    payload.semantics() == null ? ReviewSemantics.empty() : payload.semantics().toReviewSemantics(),
+                    payload.subtaskBoundary() == null ? SubtaskBoundaryReviewPayload.empty() : payload.subtaskBoundary().toPayload()
             );
         } catch (Exception exception) {
             throw new StructuredPayloadException(
@@ -181,8 +193,29 @@ final class OllamaStructuredReviewExecutor {
             @JsonProperty("changeRequest") String changeRequest,
             @JsonProperty("evidence") String evidence,
             @JsonProperty("actionItems") String actionItems,
+            @JsonProperty("subtaskBoundary") SubtaskBoundaryPayload subtaskBoundary,
             @JsonProperty("semantics") ReviewSemanticsPayload semantics
     ) {
+    }
+
+    private record SubtaskBoundaryPayload(
+            @JsonProperty("provided") Boolean provided,
+            @JsonProperty("implementsDeferredCapabilities") Boolean implementsDeferredCapabilities,
+            @JsonProperty("implementsForeignCapabilities") Boolean implementsForeignCapabilities,
+            @JsonProperty("summary") String summary,
+            @JsonProperty("evidence") String evidence,
+            @JsonProperty("actionItems") String actionItems
+    ) {
+        private SubtaskBoundaryReviewPayload toPayload() {
+            return new SubtaskBoundaryReviewPayload(
+                    Boolean.TRUE.equals(provided),
+                    Boolean.TRUE.equals(implementsDeferredCapabilities),
+                    Boolean.TRUE.equals(implementsForeignCapabilities),
+                    summary == null ? "" : summary,
+                    evidence == null ? "" : evidence,
+                    actionItems == null ? "" : actionItems
+            );
+        }
     }
 
     private record ReviewSemanticsPayload(

@@ -45,6 +45,7 @@ public class ImplementationPlanner {
     private final ImplementationPlanAssembler planAssembler;
     private final ImplementationPlanningFeedbackRouter feedbackRouter;
     private final ImplementationPlanGateInputBuilder gateInputBuilder;
+    private final PlanningRuntimeFactsResolver planningRuntimeFactsResolver;
     private final int maxPlanningUnitAttempts;
     private final ImplementationPlanningPromptAssembler promptAssembler;
     private final ImplementationPlanningTurnRunner planningTurnRunner;
@@ -58,6 +59,7 @@ public class ImplementationPlanner {
             ImplementationPlanAssembler planAssembler,
             ImplementationPlanningFeedbackRouter feedbackRouter,
             ImplementationPlanGateInputBuilder gateInputBuilder,
+            PlanningRuntimeFactsResolver planningRuntimeFactsResolver,
             int maxPlanningUnitAttempts,
             ImplementationPlanningPromptAssembler promptAssembler,
             ImplementationPlanningTurnRunner planningTurnRunner,
@@ -70,6 +72,7 @@ public class ImplementationPlanner {
         this.planAssembler = planAssembler;
         this.feedbackRouter = feedbackRouter;
         this.gateInputBuilder = gateInputBuilder;
+        this.planningRuntimeFactsResolver = planningRuntimeFactsResolver;
         this.maxPlanningUnitAttempts = maxPlanningUnitAttempts;
         this.promptAssembler = promptAssembler;
         this.planningTurnRunner = planningTurnRunner;
@@ -78,6 +81,9 @@ public class ImplementationPlanner {
 
     public ImplementationPlan plan(PlanningRequest request) {
         PlanningAttemptLedger attemptLedger = new PlanningAttemptLedger();
+        PlanningRuntimeFacts runtimeFacts = request.planningRuntimeFacts() == null
+                ? planningRuntimeFactsResolver.resolve(request)
+                : request.planningRuntimeFacts();
         String outlineFeedback = "";
         Map<String, String> detailFeedback = new LinkedHashMap<>();
         Map<String, ImplementationSubtaskDetail> acceptedDetails = new LinkedHashMap<>();
@@ -90,6 +96,7 @@ public class ImplementationPlanner {
                         request.workspaceContext(),
                         request.plannerContextMarkdown(),
                         request.deliveryPolicy(),
+                        runtimeFacts,
                         request.contractView(),
                         request.qualityPlan(),
                         request.fingerprint(),
@@ -113,6 +120,7 @@ public class ImplementationPlanner {
                         request.runRecord(),
                         request.workspaceContext(),
                         request.deliveryPolicy(),
+                        runtimeFacts,
                         request.contractView(),
                         request.qualityPlan(),
                         request.fingerprint(),
@@ -132,6 +140,7 @@ public class ImplementationPlanner {
                     gateInputBuilder.build(
                             request.fingerprint(),
                             request.contractView(),
+                            runtimeFacts,
                             request.qualityPlan(),
                             request.implementationPatchTarget(),
                             request.continuationConstraints(),
@@ -174,6 +183,7 @@ public class ImplementationPlanner {
             String workspaceContext,
             String plannerContextMarkdown,
             DeliveryPolicyEnvelope deliveryPolicy,
+            PlanningRuntimeFacts runtimeFacts,
             ContractView contractView,
             QualityPlan qualityPlan,
             ProjectFingerprint fingerprint,
@@ -238,6 +248,7 @@ public class ImplementationPlanner {
                         contractView,
                         qualityPlan,
                         deliveryPolicy,
+                        runtimeFacts,
                         continuationConstraints,
                         parseResult.payload()
                 );
@@ -293,6 +304,7 @@ public class ImplementationPlanner {
             RunRecord runRecord,
             String workspaceContext,
             DeliveryPolicyEnvelope deliveryPolicy,
+            PlanningRuntimeFacts runtimeFacts,
             ContractView contractView,
             QualityPlan qualityPlan,
             ProjectFingerprint fingerprint,
@@ -354,6 +366,7 @@ public class ImplementationPlanner {
                 }
                 GateReport gateReport = detailGate.evaluate(
                         deliveryPolicy,
+                        runtimeFacts,
                         subtask,
                         parseResult.payload()
                 );

@@ -26,6 +26,8 @@ import java.util.Set;
  */
 public final class ImplementationSubtaskDetailGate {
 
+    private final ImplementationPlanChangeGate changeGate = new ImplementationPlanChangeGate();
+
     private static final String DETAIL_RETRY_GUIDANCE = """
             请重新规划当前子任务的 detail，并确保：
             1. changes 只允许覆盖当前子任务自己的 targetPaths
@@ -36,6 +38,7 @@ public final class ImplementationSubtaskDetailGate {
 
     public GateReport evaluate(
             DeliveryPolicyEnvelope deliveryPolicy,
+            PlanningRuntimeFacts runtimeFacts,
             ImplementationOutlineSubtask outlineSubtask,
             ImplementationSubtaskDetail detail
     ) {
@@ -114,9 +117,10 @@ public final class ImplementationSubtaskDetailGate {
                             ImplementationPlanningUnitKind.SUBTASK_DETAIL,
                             expectedId,
                             List.copyOf(changedPaths)
-                    )
+                )
             ));
         }
+        issues.addAll(changeGate.evaluateDetailAcceptedPackageCompleteness(runtimeFacts, expectedId, changes));
         if (issues.isEmpty()) {
             return GateReport.success();
         }
