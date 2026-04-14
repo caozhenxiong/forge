@@ -82,6 +82,53 @@ class FlowDecisionExecutorTests {
     }
 
     @Test
+    void rollbackStageBuildsRevisionContextWithoutForceRepair() {
+        AtomicReference<RevisionContext> capturedContext = new AtomicReference<>();
+        FlowDecisionExecutor executor = newExecutor(capturedContext);
+        ReviewResult reviewResult = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.REWORK,
+                "rollback summary",
+                "return to design",
+                "design drift evidence",
+                "restore approved design boundary",
+                ImplementationPatchTarget.NONE,
+                List.of()
+        );
+        SupervisorDecision supervisorDecision = new SupervisorDecision(
+                WorkflowAction.ROLLBACK_STAGE,
+                StageType.DESIGN,
+                FixMode.REWORK,
+                "rollback supervisor reason",
+                List.of("restore design authority"),
+                List.of("do not continue implementation patching"),
+                List.of("approved design delta"),
+                new DeliveryPolicy(DeliveryPolicyMode.REWORK, 3, 6, true, false, true),
+                false
+        );
+
+        executor.apply(
+                tempDir,
+                runRecord(StageType.IMPLEMENTATION),
+                StageType.IMPLEMENTATION,
+                reviewResult,
+                false,
+                supervisorDecision,
+                new FlowDecision(WorkflowAction.ROLLBACK_STAGE, StageType.DESIGN, null)
+        );
+
+        RevisionContext revisionContext = capturedContext.get();
+        assertEquals(ReviewDecision.REVISION_REQUIRED, revisionContext.decision());
+        assertEquals(FixMode.REWORK, revisionContext.fixMode());
+        assertEquals(ImplementationPatchTarget.NONE, revisionContext.implementationPatchTarget());
+        assertEquals(StageType.DESIGN, revisionContext.rerouteStage());
+        assertFalse(revisionContext.forceRepair());
+        assertFalse(revisionContext.repeatedIssue());
+        assertTrue(revisionContext.actionItems().contains("restore approved design boundary"));
+        assertTrue(revisionContext.actionItems().contains("rollback supervisor reason"));
+    }
+
+    @Test
     void routeToRepairBuildsRevisionContextWithForceRepair() {
         AtomicReference<RevisionContext> capturedContext = new AtomicReference<>();
         FlowDecisionExecutor executor = newExecutor(capturedContext);
