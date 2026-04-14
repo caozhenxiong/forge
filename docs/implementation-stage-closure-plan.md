@@ -232,8 +232,13 @@
 2. 这条判断只依赖：
    - 当前 accepted change-set
    - 当前项目已有宿主入口事实
+   - 且这些 facts 的合法来源只能是：
+     - explicit host contract
+     - 当前 accepted scope
+     - 当前 HTML 已观察到的 structured wiring facts
 3. 不允许把“新增 `src/engine.js` / `src/board.js`”和“接线 `index.html`”拆到不同 execution package。
-4. 这条规则不回灌 planning detail 的 runtime metadata，只在 accepted package 完整性层判断。
+4. 显式禁止把目录扫描、root-script 猜测、基于 companion 文件名的 fallback 推断作为 package completeness gate 的事实来源。
+5. 这条规则不回灌 planning detail 的 runtime metadata，只在 accepted package 完整性层判断。
 
 目标：
 
@@ -269,8 +274,14 @@
    - material mutations
    - tool failure diagnostics
    - 下一轮必须遵守的 patch-only boundary
-3. 第二轮 implementation 尝试直接从这份 repair package 恢复，而不是重新给同一子任务宽泛 execution package。
-4. 该 package 的 owner 单一化：
+3. repair package 的 canonical scope 硬上限只能来自当前 subtask 的 accepted/effective structured change-set。
+4. material mutations、tool failure diagnostics 只能作为：
+   - 当前 scope 内的失败证据
+   - 当前 scope 内的修复优先级信号
+   - 当前 scope 内的 resume 提示
+   它们不能扩张 scope，更不能把本轮越界触达路径反向转正成下一轮 repair package 的合法范围。
+5. 第二轮 implementation 尝试直接从这份 repair package 恢复，而不是重新给同一子任务宽泛 execution package。
+6. 该 package 的 owner 单一化：
    - stage roll-up 负责落盘
    - implementation resume 只消费，不得重新猜当前修复范围
 
@@ -287,12 +298,12 @@
    - `Read`
    - 精确 `Edit`
 2. 不允许继续把已有文件当成 fresh `Write`。
-3. 不允许继续用 shell 做 `cat/head` 这类只读读取；等价动作统一收敛到 `Read/Grep`。
-4. `UNSUPPORTED_SHELL_COMMAND` 一旦出现，续跑提示必须直接把等价动作转成结构化文件工具，不再继续消耗回合试 shell。
-5. patch-first 约束只在 repair/resume 生效，不影响真正的新文件创建场景。
+3. deny 决策必须保留 analyzer 已解析出的 `pathIntents`，diagnostics 尽量落到具体路径，而不是退回 `(tool-loop)` 级别的泛化证据。
+4. shell 只读读取统一收敛到结构化文件工具，不再依赖命令字符串 heuristics 去猜用户意图。
+5. `UNSUPPORTED_SHELL_COMMAND` 一旦出现，续跑提示必须直接把等价动作转成结构化文件工具，不再继续消耗回合试 shell。
+6. patch-first 约束只在 repair/resume 生效，不影响真正的新文件创建场景。
 
 目标：
 
 - repair mode 的 tool loop 收敛到局部修补
 - 避免回合继续浪费在重写和无效 shell 读上
-
