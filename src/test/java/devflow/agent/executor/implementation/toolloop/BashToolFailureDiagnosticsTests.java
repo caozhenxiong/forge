@@ -77,6 +77,70 @@ class BashToolFailureDiagnosticsTests {
     }
 
     @Test
+    void deniedCpKeepsStructuredTargetPath() throws Exception {
+        Files.writeString(tempDir.resolve("source.txt"), "hello\n");
+        BashTool bashTool = new BashTool();
+        ImplementationToolContext context = newContext(Set.of());
+
+        ToolInvocationResult result = bashTool.invoke(
+                new LlmToolCall(
+                        "call-denied-cp",
+                        "Bash",
+                        Map.of("command", "cp source.txt copied.txt")
+                ),
+                context
+        );
+
+        assertFalse(result.success());
+        assertEquals(1, context.diagnostics().size());
+        ImplementationDiagnosticRecord diagnostic = context.diagnostics().getFirst();
+        assertEquals(Path.of("copied.txt"), diagnostic.relativePath());
+        assertEquals(ToolFailureCode.TARGET_SCOPE_VIOLATION, diagnostic.failureCode());
+    }
+
+    @Test
+    void deniedMkdirKeepsStructuredDirectoryPath() {
+        BashTool bashTool = new BashTool();
+        ImplementationToolContext context = newContext(Set.of());
+
+        ToolInvocationResult result = bashTool.invoke(
+                new LlmToolCall(
+                        "call-denied-mkdir",
+                        "Bash",
+                        Map.of("command", "mkdir src/generated")
+                ),
+                context
+        );
+
+        assertFalse(result.success());
+        assertEquals(1, context.diagnostics().size());
+        ImplementationDiagnosticRecord diagnostic = context.diagnostics().getFirst();
+        assertEquals(Path.of("src/generated"), diagnostic.relativePath());
+        assertEquals(ToolFailureCode.TARGET_SCOPE_VIOLATION, diagnostic.failureCode());
+    }
+
+    @Test
+    void deniedMultiSegmentWriteKeepsFirstStructuredTargetPath() {
+        BashTool bashTool = new BashTool();
+        ImplementationToolContext context = newContext(Set.of(Path.of("one.js"), Path.of("two.js")));
+
+        ToolInvocationResult result = bashTool.invoke(
+                new LlmToolCall(
+                        "call-multi-write",
+                        "Bash",
+                        Map.of("command", "touch one.js && touch two.js")
+                ),
+                context
+        );
+
+        assertFalse(result.success());
+        assertEquals(1, context.diagnostics().size());
+        ImplementationDiagnosticRecord diagnostic = context.diagnostics().getFirst();
+        assertEquals(Path.of("one.js"), diagnostic.relativePath());
+        assertEquals(ToolFailureCode.COMMAND_FAILED, diagnostic.failureCode());
+    }
+
+    @Test
     void preExecutionValidationFailureRecordsCommandFailedDiagnostic() throws Exception {
         Files.writeString(tempDir.resolve("app.js"), "export const ready = true;\n");
         BashTool bashTool = new BashTool();
