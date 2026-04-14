@@ -79,6 +79,56 @@ class ImplementationStageGateTests {
     }
 
     @Test
+    void blocksStageCompletionRuntimeWiringWhenExternalCompanionContractHasNoRuntimeRoots() {
+        ImplementationStageGate gate = new ImplementationStageGate();
+        Subtask subtask = subtask("修接线", false, "index.html");
+        HtmlRuntimeOwnershipContract runtimeContract = HtmlRuntimeOwnershipContract.externalCompanion(
+                Path.of("index.html"),
+                List.of()
+        );
+
+        ImplementationStageStatus stageStatus = gate.summarizeStageStatus(
+                new ImplementationPlan("summary", List.of(subtask)),
+                List.of(completedReport(subtask)),
+                ArchitectIntegrationCheckResult.failure(
+                        ArchitectIntegrationCheckScope.STAGE_COMPLETION,
+                        ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID,
+                        "runtime contract is missing companion roots",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                        runtimeContract
+                )
+        );
+
+        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
+        assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
+    }
+
+    @Test
+    void allowsStageCompletionRuntimeWiringContinuationForInlineHostWithoutRuntimeRoots() {
+        ImplementationStageGate gate = new ImplementationStageGate();
+        Subtask subtask = subtask("修接线", false, "index.html");
+        HtmlRuntimeOwnershipContract runtimeContract = HtmlRuntimeOwnershipContract.inlineHost(Path.of("index.html"));
+
+        ImplementationStageStatus stageStatus = gate.summarizeStageStatus(
+                new ImplementationPlan("summary", List.of(subtask)),
+                List.of(completedReport(subtask)),
+                ArchitectIntegrationCheckResult.failure(
+                        ArchitectIntegrationCheckScope.STAGE_COMPLETION,
+                        ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID,
+                        "inline host should not load external runtime scripts",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                        runtimeContract
+                )
+        );
+
+        assertEquals(ImplementationContinuationMode.CONTINUE_SUBTASKS, stageStatus.continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
+        assertEquals(1, stageStatus.continuationOverrideChanges().size());
+        assertEquals("index.html", stageStatus.continuationOverrideChanges().getFirst().path());
+    }
+
+    @Test
     void blocksWhenContractGateCannotProduceStructuredImplementationScope() {
         ImplementationStageGate gate = new ImplementationStageGate();
         Subtask subtask = subtask("补交互", false, "index.html");

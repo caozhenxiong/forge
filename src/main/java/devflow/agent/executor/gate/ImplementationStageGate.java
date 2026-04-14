@@ -320,7 +320,7 @@ public class ImplementationStageGate {
     ) {
         if (contractGateResult.implementationPatchTarget() == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
             HtmlRuntimeOwnershipContract runtimeContract = contractGateResult.runtimeContract();
-            if (runtimeContract != null && runtimeContract.active() && runtimeContract.htmlEntryPath() != null) {
+            if (hasResolvedRuntimeContract(contractGateResult)) {
                 return new ContinuationDisposition(
                         ImplementationContinuationMode.CONTINUE_SUBTASKS,
                         ImplementationContractGateMessages.summary(contractGateResult),
