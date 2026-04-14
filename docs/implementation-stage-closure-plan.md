@@ -210,6 +210,7 @@
 ### 3. subtask structured review / boundary gate 链
 
 - `LlmProvider`
+- `StructuredReviewResult`
 - `SubtaskReviewPromptAssembler`
 - `SubtaskVerificationSupport`
 - `OllamaStructuredReviewExecutor`
@@ -217,7 +218,8 @@
 要求：
 
 - boundary finding 的 typed carrier 必须显式定义；不得停留在 ad hoc JSON 或 prose 约定
-- typed carrier 采用新的 subtask-only payload，挂在 `StructuredReviewResult` 对应的子任务 review 结构化结果层，和全局 `ReviewResult` 分离
+- typed carrier 必须显式挂在真实协议类型边界上；当前子任务 review 的结构化入口至少要落在 `StructuredReviewResult` 对应层
+- 如果现有 `StructuredReviewResult` 无法干净承载 subtask-only payload，应新增专用 typed result，而不是退回 executor 层 ad hoc JSON
 - `LlmProvider` 必须能跨 provider 类型边界承载这份 subtask-only typed payload；不能只在 executor 层临时拼 ad hoc JSON
 - `SubtaskVerificationSupport` 必须先消费这份 typed payload，再做 deterministic boundary gate，最后再映射回 `ReviewResult`
 - 最终再映射回 `ReviewResult`
@@ -230,6 +232,7 @@
 - `ImplementationStateArtifactSupport`
 - `ImplementationProgressSupport`
 - `ImplementationContinuationSupport`
+- `ImplementationStageStatusPayload`
 - `SubtaskRuntimeWiringGuard`
 - `RuntimeWiringRetryChangeFactory`
 - `SubtaskRevisionDirective`
@@ -239,6 +242,8 @@
 要求：
 
 - implementation resume 的机器事实源只允许来自 `implementation_state` 及其结构化读写链
+- continuation / resume 的 typed carrier 必须显式落在真实协议边界上；当前至少要覆盖 `ImplementationStageStatusPayload`
+- 如果现有 continuation payload 无法干净承载 current subtask canonical repair package，应新增专用 typed payload，而不是继续依赖 markdown 展示物或 support 层临时拼装
 - `implementation_stage_status.md` 只是派生展示物，不得再被当成 resume / continuation 的真实 owner
 - 子任务级 `PATCH_RUNTIME_WIRING` 必须直接复用 `RuntimeWiringRetryChangeFactory`
 - 不允许在 `SubtaskRuntimeWiringGuard` 自己再拼第二套 runtime repair package
@@ -253,6 +258,7 @@
 - `ToolExecutionContext`
 - `FileEditTool`
 - `FileWriteTool`
+- `BashTool`
 - `ShellCommandAnalyzer`
 
 要求：
@@ -261,6 +267,7 @@
 - tool loop 不得再靠 prompt 文案约束 Bash 只读探索
 - 已有文件禁止 fresh rewrite、whole-file rewrite 与 shell read 收敛必须覆盖 permission / tool-context / tool implementation 全链
 - 不允许只在 permission policy 引入 repair/resume mode，而具体工具仍按旧 `deliveryMode == REWORK` 分支放行 whole rewrite
+- `BashTool` 必须和 analyzer / permission / context 一起收口，确保 shell deny payload、pathIntents diagnostics、执行前 `assertShellWriteTargets(...)`、执行后 mutation 校验都同步进入 repair-mode patch-first 约束
 
 ### 6. run-state consistency 链
 
