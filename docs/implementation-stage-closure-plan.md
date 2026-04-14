@@ -1,8 +1,8 @@
-# IMPLEMENTATION 增量收口方案
+# IMPLEMENTATION v171 收口方案
 
 ## Purpose
 
-本方案服务于当前主线 `黄金路径集成验证`，不是重开已经完成的基础整改。
+这份文档只处理 `2026-04-14` 黄金路径集成测试 `tetris_test_itest_v171` 暴露出的**当前真实未闭合问题**。
 
 约束来源：
 
@@ -11,280 +11,360 @@
 - `docs/current-state.md`
 - `docs/active-work-items.md`
 
-本方案只覆盖**当前还未被代码和状态文档证明解决的 implementation 主线残余问题**。已经收口的项必须显式标注“不要重做”，避免把工作重心从真实未完成项拉回已关闭路径。
+本方案不是重开旧整改，也不是补过渡层。它只收当前这次集成失败真正暴露出的协议冲突与执行不收敛问题。
 
-## Summary
+## Latest Evidence
 
-当前主线不是继续扩散架构整改，而是把已完成的编码内核放回真实 case 做黄金路径验证。
+本轮失败证据来自：
 
-因此，这份方案只保留三类增量收口工作：
+- `/home/linus/workspace/tetris_test_itest_v171.itest.log`
+- `/home/linus/workspace/tetris_test_itest_v171/.devflow/runs/59876204-72fb-49ec-aa5e-fd17ca6f5a6f/events.log`
+- `/home/linus/workspace/tetris_test_itest_v171/.devflow/runs/59876204-72fb-49ec-aa5e-fd17ca6f5a6f/implementation_progress.md`
+- `/home/linus/workspace/tetris_test_itest_v171/.devflow/runs/59876204-72fb-49ec-aa5e-fd17ca6f5a6f/implementation_stage_status.md`
+- `/home/linus/workspace/tetris_test_itest_v171/.devflow/runs/59876204-72fb-49ec-aa5e-fd17ca6f5a6f/implementation_diagnostics.md`
+- `/home/linus/workspace/tetris_test_itest_v171/.devflow/runs/59876204-72fb-49ec-aa5e-fd17ca6f5a6f/code_review_feedback.md`
+- `/home/linus/workspace/tetris_test_itest_v171/.devflow/runs/59876204-72fb-49ec-aa5e-fd17ca6f5a6f/transition_decision.md`
 
-1. 明确 runtime contract 的**承载边界与生效时机**：
-   - planning detail 不承载 runtime metadata
-   - accepted / continuation scope 可以承载 runtime contract
-2. 补齐 unsupported shell write 等**工具失败证据的落盘与消费闭环**
-3. 以真实黄金路径集成验证作为唯一验收，而不是重做已完成整改
+本轮已证实的事实：
 
-## 已完成项（不要重做）
+1. `ANALYSIS / PRD / DESIGN` 的输出预算正常，不存在“小 cap 把代码截断”的主因。
+2. 当前失败也不是老的“外提脚本未接线”问题。最终产物里 `index.html` 已接入 `src/game.js`。
+3. 当前失败发生在 `IMPLEMENTATION -> CODE_REVIEW -> IMPLEMENTATION` 的续跑主链。
+4. 当前失败不是单点语法错误，而是**repair scope 丢失 + continuation 语义冲突 + tool loop 不收敛**叠加造成。
 
-以下事项已经由代码与状态文档收口，本轮不得重新定义为“当前根因”：
+## 已排除项（不要重做）
 
-1. implementation live control flow 只认 `implementation_state.json`
-2. `StageProgressCoordinator` 已按 `READY / CONTINUE / BLOCKED` 分流 implementation
-3. 纯 assistant prose 在未满足文件交付契约时，不再被当作成功
-4. planning detail 已收敛为最小协议，不再承载 `runtimeOwnership` 等 runtime metadata
-5. `PATCH` continuation 没有 concrete patch target / safe scope 时，已不能静默续跑
-6. runtime wiring continuation scope 已能显式携带 `host html + companion runtime roots`
+以下项不是当前主根因，本轮不得重开：
 
-本轮实施中，不允许再把这些项写成“待收口问题”，也不允许为了本轮调整把它们退回旧设计。
+1. `implementation_state.json` 单一真相源
+2. prose-only success 判定收紧
+3. planning detail 回填 runtime metadata
+4. runtime wiring orphan script 基础修复
+5. token 预算整体过低
 
-## 当前未闭合项
+这些项已经在代码和状态文档里收口。本轮如果再围绕这些点重做，只会把问题面重新扩散。
 
-### 1. accepted / continuation scope 里的 runtime contract 何时必须具备
+## Current Problems
 
-当前边界已经明确：
+### P1. 子任务失败后，阶段汇总拿到了 patch 目标，但没有拿到结构化 repair scope
 
-- planning detail 不承载 runtime metadata
-- `FileChange` / accepted scope 可以承载 `runtimeOwnership`
+当前证据：
 
-但还需要进一步收口的问题是：
+- `implementation_progress.md` 显示：
+  - `continuationMode=BLOCK_STAGE`
+  - `continuationPatchTarget=PATCH_EXISTING_IMPLEMENTATION`
+  - `continuationOverrideChanges=[]`
+- 同时失败子任务是明确的：`实现行消除与计分系统`
+- 当前子任务的有效文件边界并不模糊，至少已经包含 `src/game.js`，并且产物里也确实发生了对应修改
 
-- 当某个 HTML 文件已经被确定为当前实现闭环里的 host entry 时，accepted / continuation scope 在什么时点必须具备完整 runtime contract
-- 如果当前 scope 已经需要 runtime contract，但结构化来源无法提供该 contract，系统应该在哪里阻断，而不是把空值继续带到 coder / verifier / review
+这说明当前问题不是“没有 patch 目标”，而是：
 
-这项问题的关键不是“把 metadata 塞回 planning”，而是**把 accepted scope 的结构化边界定义清楚**。
+- 系统已经知道这是 `PATCH_EXISTING_IMPLEMENTATION`
+- 但没有把当前失败子任务的结构化文件范围稳定带出来
+- 后续链路只能看到“需要 patch”，却拿不到“补哪里”
 
-### 2. unsupported shell write 的证据是否已完整闭环
+这会直接导致后续续跑语义漂移。
 
-当前主链已经收紧 Bash 写入子集，但还需要确认并收口：
+### P2. CODE_REVIEW 打回后的续跑语义，与 implementation continuation 语义冲突
 
-- unsupported shell write / 非法重定向 / 越权写入在工具层是否总能产出结构化失败证据
-- 这些证据是否会稳定进入 event log、implementation diagnostics、attempt failure 聚合结果
-- repair / review / 集成排障是否读取同一份结构化证据，而不是回退成看 prose 或手工猜测
+当前证据：
 
-这项问题的关键不是新增一套 reason code，而是**复用现有 owner，把证据链打通**。
+- `CODE_REVIEW` 给出 `REVISION_REQUIRED`
+- `fixMode=REWORK`
+- `implementationPatchTarget=NONE`
+- `overrideChanges=[]`
+- supervisor 决策为 `RETRY_STAGE`
+- 回流后重新进入 `IMPLEMENTATION outline`
 
-### 3. 黄金路径集成验证仍是当前唯一业务验收
+但同一轮 implementation 自己的状态又明确写着：
 
-本轮最终仍必须回到真实 case 验证：
+- 当前实现还没有完成
+- 当前需要 patch
+- 只是没有结构化 scope，所以自动续跑被阻断
 
-- accepted scope 是否真正成为 coder 的唯一新增依赖边界
-- runtime contract 在 accepted / continuation scope 的边界定义是否足够支撑真实网页产出
-- unsupported shell write 等失败证据是否能帮助 repair / review / 排障，而不是只在日志里留下模糊痕迹
+这两个语义放在一起是冲突的：
 
-## Protocol Boundaries
+- implementation 侧说“当前 stage 还在 patch continuation 语义里”
+- code review / supervisor 侧却把它重新抬成“整阶段 REWORK 重开 outline”
 
-本轮协议边界必须明确写死，禁止实现时再次漂移：
+最终结果就是系统从一个边界清晰的 repair 问题，被抬回成了一个重新规划问题。
 
-### 1. planning detail 不承载 runtime metadata
+### P3. fresh outline 规则与 host-entry rewrite guard 在 continuation repair 上互相打架
 
-- `ImplementationSubtaskDetailChange` 继续只保留最小协议
-- 不允许把 `runtimeOwnership`、`hostHtmlPatchRequired`、companion 路径等高层 runtime 语义塞回 planning detail
+当前证据：
 
-### 2. accepted / continuation scope 可以承载 runtime contract
+- `events.log` 连续 3 次驳回 outline，核心原因一致：
+  - `Continuation 计划不能对现有 HTML 入口使用 REWORK/整页重写: index.html`
+- 同时驳回原因还要求：
+  - runnable milestone 必须直接覆盖 HTML 入口
 
-- `FileChange`、`effectiveChanges()`、结构化 `overrideChanges` 可以携带 runtime contract
-- host entry 的最终 runtime contract 只允许由单一 resolver 产出；下游只消费 resolver 输出，不得在 guard、validator、review 中各自重建
-- resolver 的裁决优先级固定为：
-  - continuation scope
-  - accepted change-set
-  - 当前运行态已有的 runtime wiring facts
-- 这些 contract 只能来自上述**结构化来源**
-- 不允许通过模型 prose、文件名猜测、场景黑名单回灌这些语义
+这说明当前有两套本来各自合理、但不该在同一条 continuation repair 链路里同时生效的规则：
 
-### 3. REWORK 继续合法
+1. fresh outline 规则：
+   - 可运行里程碑必须直接覆盖 HTML 入口
+2. continuation repair 规则：
+   - 对现有 host entry 不能走整页 REWORK / 重写
 
-- `REWORK + ImplementationPatchTarget.NONE` 作为 stage-level rework / rollback 仍然合法
-- 本轮禁止的不是 `REWORK + NONE`
-- 本轮真正要继续守住的是：
-  - `FixMode.PATCH` 必须有 concrete patch target
-  - `PATCH_EXISTING_IMPLEMENTATION` 必须有结构化 `overrideChanges`
+当系统错误地把当前 bounded repair 抬回 fresh outline 后，这两条规则就发生正面冲突，最后 planner 被卡死。
 
-### 4. reason code 不新开体系
+### P4. implementation tool loop 在 bounded repair 场景下不收敛
 
-失败分类继续复用现有 owner：
+当前证据：
 
-- 工具/本地验证失败：`ToolFailureCode`
-- attempt / generation 聚合失败：`GenerationFailureType`
-- review 语义结论：`ReviewReasonCode`
+- 第 3 个子任务最终以 `tool loop exceeded max turns without a terminal assistant response` 结束
+- 中间出现了多次无关或非法动作：
+  - `python3 -m http.server 8000`
+  - `head -20 ...`
+  - `echo ... > STATUS.txt`
+- `implementation_diagnostics.md` 已经记录了结构化失败证据，但执行主链仍然没有在当前 scope 内收敛成：
+  - 继续 patch
+  - 或明确失败并保留 scope
 
-本轮不新增第四套 reason-code 体系。
+这说明问题不只是“模型偶发乱调用工具”，而是：
+
+- bounded repair 子任务在接近回合上限时
+- 缺少一个稳定的收口出口
+- 系统允许它消耗完 turns，却没有把当前 material changes、失败证据、当前文件范围合成一个可继续的 repair package
 
 ## Final State
 
 完成态必须同时满足：
 
-1. `docs/current-state.md` 中已完成项保持成立，没有被本轮改动回退。
-2. planning detail 仍然不承载 runtime metadata。
-3. accepted / continuation scope 对 host entry HTML 的 runtime contract 要求被明确且单点定义。
-4. 当 host entry HTML 已进入 accepted / continuation scope 且当前闭环需要 runtime contract 时：
-   - contract 缺失会在进入 coder 前被阻断
-   - 不会再把 `runtimeOwnership=null` 静默带到后置链路
-5. unsupported shell write 的失败证据可以被稳定落盘并被 repair / review / 排障消费。
-6. 本轮不新增 reason-code 枚举，只复用既有 owner。
-7. 黄金路径集成验证至少跑通一条真实 case，或明确给出基于结构化证据的剩余 blocker。
+1. 子任务在 tool loop 内失败时，如果已经存在可判定的当前 repair scope，则阶段汇总必须输出结构化 `overrideChanges`，不能再出现“`PATCH_EXISTING_IMPLEMENTATION` 但 scope 为空”的半结构化状态。
+2. `CODE_REVIEW` 打回当前 implementation 时，若当前 run 已存在未完成 subtask 或 stage-level patch scope，则只能沿当前 continuation 语义回流，不允许重新抬成 fresh outline `REWORK`。
+3. fresh outline 的“覆盖 HTML 入口”规则，只能用于真正的新一轮 implementation planning；continuation repair 不再复用这套规则。
+4. host-entry rewrite guard 继续保留，不放松。
+5. tool loop 子任务在 bounded repair 场景下，必须在回合耗尽前收敛成以下二选一：
+   - 成功完成并提交终态
+   - 失败，但留下可直接续跑的结构化 repair package
+6. 本轮不引入兼容层、fallback、heuristic patch，也不新增第二套 repair scope 推导体系。
 
 ## Removal Plan
 
-本轮必须删除旧文档里的错误表述，不能保留为“说法不同但都能理解”：
+本轮必须删除或封死以下错误路径：
 
-1. 删除“implementation machine truth 不单一”作为当前根因的表述。
-2. 删除“prose-only 完成判定仍是当前问题”的表述。
-3. 删除“要禁掉所有 `REWORK + NONE`”的表述。
-4. 删除“planning detail 或 plan 阶段要补 runtime metadata”的暗示。
-5. 删除“新增一套 attempt failure reason code”这类再造一层枚举体系的表述。
+1. `PATCH_EXISTING_IMPLEMENTATION` 与空 `overrideChanges` 并存后仍继续流入后续阶段决策的路径。
+2. `CODE_REVIEW` 在当前 implementation 已存在 continuation 语义时，仍然回流为 fresh outline `REWORK` 的路径。
+3. fresh outline 的入口覆盖规则在 continuation repair 中误生效的路径。
+4. tool loop 在 bounded repair 子任务中，允许“有 material edits + 有结构化失败证据 + 无 terminal 收口结果”直接耗尽的路径。
 
 ## Joint-Change Scope
 
-如果进入实现，本轮只允许改这几个联动面：
+这轮如果进入实现，必须一起改以下联动面，否则一定会留下半成品：
 
-### 1. runtime contract 边界
+### 1. repair scope 产出链
 
-- accepted scope / continuation scope 物化链路
-- runtime wiring scope builder
-- `ImplementationMutationContractGuard`
-- `SubtaskVerificationSupport`
+- subtask 失败汇总
+- implementation stage roll-up
+- continuation stage status / progress 产物
+- patch continuation scope builder
 
-### 2. 失败证据闭环
+### 2. stage 回流语义链
 
-- Bash / tool failure 事件写入
-- implementation diagnostics / event log 聚合
-- repair / review 读取结构化失败证据的入口
+- code review 结果消费
+- supervisor / transition 决策
+- implementation retry 入口
+- outline planner 选择逻辑
 
-### 3. 集成验证与文档
+### 3. planner / guard 边界
 
-- 黄金路径集成测试
-- `docs/current-state.md`
-- `docs/active-work-items.md`
-- 本方案文档与对应 tracker
+- fresh outline 契约校验
+- continuation repair 包构建
+- host-entry rewrite guard 的生效范围
 
-不在本轮范围内：
+### 4. tool loop 收口链
 
-- 重开 implementation machine truth 改造
-- 重开 prose-only success 判定改造
-- 重开 PATCH concrete target 规范化改造
-
-## Implementation
-
-### Phase 1. 锁定基线，防止重做已完成项
-
-目标：先把“不要重做”的边界钉死。
-
-实施：
-
-1. 在相关设计和实现说明中显式引用 `docs/current-state.md` 与 `docs/active-work-items.md` 的已完成项。
-2. 所有实现方案、review 和测试结论都必须先判断“是不是在重做已关闭路径”。
-3. 任何试图把 runtime metadata 塞回 planning detail、把 `REWORK + NONE` 视为非法、或把 prose-only success 写回当前根因的修改，直接视为方案违规。
-
-完成标志：
-
-- 本轮方案与后续实现不再重开已完成整改。
-
-### Phase 2. 收口 accepted / continuation scope 的 runtime contract 边界
-
-目标：不回灌 planning detail 的前提下，明确 runtime contract 在 accepted scope 的生效点。
-
-实施：
-
-1. 定义 host entry HTML 的 runtime contract 只在 accepted / continuation scope 物化时进入结构化变更集。
-2. 该 contract 只能来自结构化来源：
-   - 当前 continuation scope
-   - 当前 accepted change-set
-   - 当前执行状态中已知的 runtime wiring facts
-3. 如果某个 host entry HTML 已经进入 accepted / continuation scope，且当前闭环要求 companion wiring，但结构化来源无法提供 runtime contract，则在进入 coder 前直接阻断。
-4. 由单一 runtime contract resolver 按固定优先级产出 canonical contract；mutation guard、verification、review 只消费该 resolver 输出，不新增第二套 runtime metadata 来源。
-
-完成标志：
-
-- planning detail 仍最小化。
-- accepted / continuation scope 的 runtime contract 要求单点定义。
-- host entry runtime contract 的 canonical owner 与优先级已固定。
-- `runtimeOwnership=null` 不再作为 host entry HTML 的可接受 accepted scope 状态。
-
-### Phase 3. 收口 unsupported shell write 的证据闭环
-
-目标：让工具失败成为统一的结构化排障证据，而不是日志噪声。
-
-实施：
-
-1. unsupported shell write、非法重定向、越权写入等失败，由工具层继续使用既有 `ToolFailureCode` 体系表达，不新增新枚举。
-2. attempt 聚合层继续复用既有 `GenerationFailureType`，只负责汇总失败类别，不复制工具层原因码。
-3. review 如需给出高层语义结论，继续复用既有 `ReviewReasonCode`，不在执行链新增 review 外 reason-code。
-4. event log、implementation diagnostics、attempt failure 摘要统一引用这条结构化证据链，避免 repair / review 再退回 prose 推断。
-
-完成标志：
-
-- unsupported shell write 的失败证据可追踪、可聚合、可被 repair / review 消费。
-- 没有新增第四套 reason-code 体系。
-
-### Phase 4. 黄金路径集成验证
-
-目标：以真实 case 验证本轮增量收口是否有效。
-
-实施：
-
-1. 跑至少一条真实黄金路径 case。
-2. 重点核对：
-   - accepted scope 是否成为 coder 的唯一新增依赖边界
-   - runtime contract 是否只在 accepted / continuation scope 生效
-   - unsupported shell write 等失败是否留下结构化证据
-3. 集成若失败，必须先基于结构化证据归因，再决定是否进入下一轮收口；不得回退成“凭现象猜根因”。
-
-完成标志：
-
-- 至少一条真实 case 通过，或失败原因已被结构化证据明确锁定。
-
-## Test Plan
-
-本轮测试只覆盖仍未闭合的问题，不重测已证明成立的基线结论。
-
-### 1. runtime contract 边界
-
-- planning detail 仍不出现 runtime metadata
-- host entry HTML 进入 accepted / continuation scope 且需要 companion wiring 时，若 contract 缺失则在 coder 前阻断
-- accepted scope contract 被 mutation guard 与 verifier 共同消费
-
-### 2. failure evidence 闭环
-
-- unsupported shell write 会产出结构化 `ToolFailureCode`
-- attempt 聚合结果会保留对应的失败类别与证据引用
-- repair / review 可读取同一份结构化失败证据
-
-### 3. 黄金路径集成
-
-- 跑一条真实 case
-- 核对 accepted scope、runtime contract、failure evidence 三条主线
-
-## Assumptions
-
-1. 当前仓库中 `implementation_state.json` 单一真相源、prose-only success 收紧、PATCH concrete target 约束均已成立，本轮不重做。
-2. runtime contract 的新增边界只允许落在 accepted / continuation scope，不回灌 planning detail。
-3. `REWORK` 在 stage-level rollback / rework 中继续合法，本轮不会改变这一协议。
-4. 若黄金路径集成再次失败，必须先读结构化证据，再决定下一轮改动面。
+- subtask attempt terminalization
+- tool failure 证据汇总
+- material mutation ledger
+- bounded repair 失败时的 repair package 合成
 
 ## Closure Decision
 
-本轮可以直接进入实现，但前提是严格限定在“增量收口”范围内。
+可以一次性收口，但前提是本轮只做**同一问题族**：
 
-如果实现过程中发现需要重开以下任一已关闭路径：
+- repair scope 丢失
+- continuation 语义冲突
+- bounded repair tool loop 不收敛
 
-- implementation machine truth
-- prose-only success 判定
-- PATCH concrete target 规范化
-- planning detail runtime metadata
+如果把范围再扩到 token 预算、runtime ownership 基础协议、planning detail 结构等已收口项，就会再次偏离主线。
 
-则说明本轮方案越界，必须先停下来回到文档层修正，而不是继续把旧问题重开。
+## Problem-to-Solution Mapping
+
+### P1 对应方案：repair scope 从失败子任务直接物化，不再等后置链路猜
+
+做法：
+
+1. 当子任务失败时，若当前 subtask 已有确定的 `effectiveChanges` 或等价结构化文件范围，则直接以该范围生成 stage-level continuation `overrideChanges`。
+2. 该物化动作只使用当前 run 内已有结构化信息：
+   - 当前 subtask 文件契约
+   - 当前 accepted/effective change-set
+   - 当前 attempt material mutations
+3. 不允许用 prose 猜路径，也不允许退回文件名 heuristics。
+4. 如果当前 run 内确实无法推出安全 scope，则保持 `BLOCK_STAGE`，但不得再生成“有 patch target、无 patch scope、还可继续自动回流”的混合状态。
+
+目标：
+
+- repair scope 的 owner 单一化
+- stage status 与 continuation scope 保持一致
+
+### P2 对应方案：review 打回时优先续跑当前 implementation，而不是重开 outline
+
+做法：
+
+1. 当 `CODE_REVIEW` 面向的是一个尚未完成、且已有 continuation patch 语义的 implementation run 时，回流必须优先复用当前 run 的 continuation package。
+2. 只有以下条件同时成立时，才允许回到 fresh outline：
+   - 当前 implementation 没有未完成 subtask
+   - 当前 stage 不存在可用 patch scope
+   - 当前问题本质上需要重新规划而非局部修复
+3. `REWORK` 保持合法，但它不再默认等价于“重新规划 outline”。对于当前 implementation run，`REWORK` 也可以落到 continuation repair。
+
+目标：
+
+- 把“review 打回”重新收敛到当前 run 的 repair 语义里
+- 避免 bounded repair 被升级成 stage replan
+
+### P3 对应方案：把 fresh outline 与 continuation repair 明确拆成两套入口
+
+做法：
+
+1. fresh outline 继续使用现有“可运行里程碑必须覆盖入口/运行表面”的规则。
+2. continuation repair 改为消费结构化 repair package，不再重新生成 fresh outline。
+3. host-entry rewrite guard 只负责约束 continuation repair 不得做整页重写；它不再与 fresh outline 规则在同一调用链里互相打架。
+4. planner 选择逻辑必须先判断当前是：
+   - fresh implementation planning
+   - 还是 continuation repair resume
+
+目标：
+
+- 两套规则各守各的边界
+- 不再出现“既要求直接覆盖 HTML 入口，又禁止对现有 HTML 入口做 REWORK”的自冲突
+
+### P4 对应方案：给 bounded repair tool loop 增加确定性的失败收口
+
+做法：
+
+1. 当前子任务存在 material edits 或结构化失败证据时，tool loop 不能只以“无 terminal assistant response”裸失败结束。
+2. 在接近回合上限或触发明显不可继续条件时，执行器必须产出结构化终态：
+   - 要么成功完成
+   - 要么失败并输出当前 repair package
+3. repair package 只允许复用现有结构化 owner：
+   - 当前 subtask 文件契约
+   - material mutation ledger
+   - `ToolFailureCode`
+   - 当前 accepted/effective change-set
+4. 不新增“临时自动修复层”或“猜意图补丁层”。
+
+目标：
+
+- bounded repair 子任务失败后仍可直接续跑
+- 不再把 turns 耗尽变成结构化信息丢失
+
+## Risks / Blockers
+
+### 风险 1
+
+如果当前实现里 repair scope 的 owner 还不单一，本轮改动时容易再次出现：
+
+- stage status 一套 scope
+- review 一套 scope
+- resume 一套 scope
+
+这会直接违反本轮收口目标。
+
+### 风险 2
+
+如果只改 stage roll-up，不改 review / supervisor / planner 选择逻辑，那么 repair scope 即使补出来，仍可能被后续阶段重新抬成 fresh outline，问题会原样复发。
+
+### 风险 3
+
+如果只改 tool loop 的终态判定，不把失败产物接到 continuation package 上，当前问题会从“卡死在 outline”变成“卡死在人工阻断”，仍然不算收口。
+
+## Implementation
+
+### Phase 1. 锁定 scope owner
+
+目标：
+
+- 把子任务失败后的 repair scope 单点物化
+
+实施：
+
+1. 明确当前 run 中 repair scope 的 canonical owner。
+2. 子任务失败后由该 owner 直接生成 stage-level continuation scope。
+3. 封死“patch target 已知但 scope 为空仍继续自动回流”的路径。
+
+### Phase 2. 修正 review -> implementation 回流语义
+
+目标：
+
+- review 打回后优先沿当前 continuation 语义续跑
+
+实施：
+
+1. 调整 code review 结果消费与 supervisor/transition 决策。
+2. 有 continuation package 时直接回到 continuation repair。
+3. 无 continuation package 且确需重规划时，才进入 fresh outline。
+
+### Phase 3. 拆开 fresh outline 与 continuation repair
+
+目标：
+
+- 让入口覆盖规则与 host-entry rewrite guard 不再同链冲突
+
+实施：
+
+1. 把 planner 入口分成 fresh planning 与 continuation repair 两类。
+2. continuation repair 直接消费结构化 repair package。
+3. fresh outline 校验不再对 continuation repair 生效。
+
+### Phase 4. 收口 bounded repair tool loop
+
+目标：
+
+- turns 耗尽时仍能留下可继续的结构化状态
+
+实施：
+
+1. 在 subtask attempt terminalization 处补确定性失败收口。
+2. 把 material mutations 与 tool failures 合成 continuation repair package。
+3. 不允许再以“无 terminal response”裸失败丢失当前 scope。
+
+## Test Plan
+
+### 1. repair scope 物化
+
+- 子任务失败但已有 material edits 时，`implementation_stage_status.md` 必须带结构化 `overrideChanges`
+- 不再出现 `PATCH_EXISTING_IMPLEMENTATION + overrideChanges=[]` 的自动续跑语义
+
+### 2. review 回流语义
+
+- code review 打回未完成 implementation 时，优先走 continuation repair
+- 不再直接回到 fresh outline
+
+### 3. planner / guard 边界
+
+- fresh outline 继续要求 runnable milestone 覆盖入口
+- continuation repair 不再触发该校验
+- host-entry rewrite guard 仍然有效
+
+### 4. tool loop 收口
+
+- bounded repair 子任务在 turn budget 内若无法完成，必须输出结构化 repair package
+- 非法 shell / scope violation 等证据会进入 repair package，而不是只留日志
+
+### 5. 黄金路径回归
+
+- 重新跑网页版俄罗斯方块 case
+- 验证 `IMPLEMENTATION -> CODE_REVIEW -> IMPLEMENTATION` 不再因续跑语义冲突而卡死
 
 ## Completion Gate Result
 
-只有同时满足以下条件，本轮才算成功：
+当前结果：`方案完成，可进入实现；代码尚未开始`
 
-1. 已完成项没有被重开或回退。
-2. planning detail 仍保持最小协议。
-3. accepted / continuation scope 的 runtime contract 边界已单点定义清楚。
-4. host entry HTML 的 runtime contract 缺失不会再静默漏到 coder / verifier / review。
-5. unsupported shell write 的结构化失败证据链已闭环。
-6. 没有新增 reason-code 体系。
-7. 已完成 `self-test + code review + 黄金路径集成验证 + 文档更新`。
+本轮成功标准：
 
-任一条件不满足，都视为未完成。
+1. 不重开已完成整改
+2. 不新增 fallback / shim / heuristic patch
+3. repair scope、review 回流、planner 入口、tool loop 收口四条链一次性一起收住
+4. 重新跑黄金路径集成测试，失败若仍存在，必须是新问题，而不是这四条链上的原问题复发
