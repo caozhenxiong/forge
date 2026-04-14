@@ -119,7 +119,7 @@ public class ImplementationStageGate {
                 continue;
             }
             SubtaskAttemptReport latest = report.attempts().get(report.attempts().size() - 1);
-            ReviewResult review = latest.review();
+            ReviewResult review = canonicalizeContinuationReview(report, latest.review());
             if (review == null) {
                 continue;
             }
@@ -157,6 +157,68 @@ public class ImplementationStageGate {
             }
         }
         return null;
+    }
+
+    private ReviewResult canonicalizeContinuationReview(
+            SubtaskExecutionReport report,
+            ReviewResult review
+    ) {
+        if (review == null
+                || review.fixMode() != FixMode.PATCH
+                || review.implementationPatchTarget() != ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION) {
+            return review;
+        }
+        List<FileChange> allowedScope = report == null ? List.of() : List.copyOf(report.effectiveChanges());
+        if (allowedScope.isEmpty()) {
+            return review;
+        }
+        List<FileChange> canonicalScope = canonicalOverrideChanges(review.overrideChanges(), allowedScope);
+        return new ReviewResult(
+                review.decision(),
+                review.fixMode(),
+                review.summary(),
+                review.changeRequest(),
+                review.evidence(),
+                review.actionItems(),
+                review.implementationPatchTarget(),
+                canonicalScope,
+                review.revisionRoute(),
+                review.reasonCode()
+        );
+    }
+
+    private List<FileChange> canonicalOverrideChanges(
+            List<FileChange> proposedChanges,
+            List<FileChange> allowedScope
+    ) {
+        if (allowedScope == null || allowedScope.isEmpty()) {
+            return List.of();
+        }
+        if (proposedChanges == null || proposedChanges.isEmpty()) {
+            return List.copyOf(allowedScope);
+        }
+        java.util.LinkedHashMap<java.nio.file.Path, FileChange> allowedByPath = new java.util.LinkedHashMap<>();
+        for (FileChange change : allowedScope) {
+            if (change == null || change.path() == null || change.path().isBlank()) {
+                continue;
+            }
+            allowedByPath.put(java.nio.file.Path.of(change.path()).normalize(), change);
+        }
+        java.util.ArrayList<FileChange> restricted = new java.util.ArrayList<>();
+        for (FileChange change : proposedChanges) {
+            if (change == null || change.path() == null || change.path().isBlank()) {
+                continue;
+            }
+            java.nio.file.Path normalizedPath = java.nio.file.Path.of(change.path()).normalize();
+            FileChange allowedChange = allowedByPath.get(normalizedPath);
+            if (allowedChange != null) {
+                restricted.add(change);
+            }
+        }
+        if (restricted.isEmpty()) {
+            return List.copyOf(allowedScope);
+        }
+        return List.copyOf(restricted);
     }
 
     private ContinuationDisposition incompletePlanContinuation(List<String> incompleteSubtasks) {

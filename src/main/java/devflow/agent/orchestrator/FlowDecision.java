@@ -14,6 +14,10 @@ import devflow.agent.loop.TransitionDecision;
 public record FlowDecision(
         WorkflowAction action,
         StageType targetStage,
-        TransitionDecision transitionDecision
+        TransitionDecision transitionDecision,
+        RevisionRoutingPlan revisionRoutingPlan
 ) {
+    public FlowDecision(WorkflowAction action, StageType targetStage, TransitionDecision transitionDecision) {
+        this(action, targetStage, transitionDecision, RevisionRoutingPlan.none());
+    }
 }

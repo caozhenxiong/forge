@@ -111,7 +111,16 @@ public class StageProgressCoordinator {
                 language
         );
 
-        FlowDecision flowDecision = flowController.decide(stageType, reviewResult, repeatedIssue, supervisorDecision, toolSummary);
+        ImplementationRevisionFacts implementationRevisionFacts =
+                resolveImplementationRevisionFacts(projectPath, current, supervisorDecision);
+        FlowDecision flowDecision = flowController.decide(
+                stageType,
+                reviewResult,
+                repeatedIssue,
+                supervisorDecision,
+                toolSummary,
+                implementationRevisionFacts
+        );
         TransitionDecision transitionDecision = flowDecision.transitionDecision();
         artifactSupport.writeTransitionArtifacts(projectPath, current, supervisorDecision, repeatedIssue, transitionDecision, language);
 
@@ -125,6 +134,17 @@ public class StageProgressCoordinator {
                 flowDecision
         );
         return new LoopStepResult(next, transitionDecision, flowController.shouldContinue(next));
+    }
+
+    private ImplementationRevisionFacts resolveImplementationRevisionFacts(
+            Path projectPath,
+            RunRecord current,
+            SupervisorDecision supervisorDecision
+    ) {
+        if (supervisorDecision == null || supervisorDecision.targetStage() != StageType.IMPLEMENTATION) {
+            return ImplementationRevisionFacts.none();
+        }
+        return implementationProgressSupport.readRevisionFacts(projectPath, current);
     }
 
     private LoopStepResult continueIncompleteImplementation(

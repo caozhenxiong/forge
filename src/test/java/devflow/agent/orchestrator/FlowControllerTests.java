@@ -6,9 +6,12 @@ import devflow.agent.domain.RunStatus;
 import devflow.agent.domain.StageExecution;
 import devflow.agent.domain.StageStatus;
 import devflow.agent.domain.StageType;
+import devflow.agent.executor.ChangeAction;
+import devflow.agent.executor.FileChange;
 
 import devflow.agent.loop.TransitionReason;
 import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.supervisor.DeliveryPolicy;
@@ -134,5 +137,106 @@ class FlowControllerTests {
         assertEquals(WorkflowAction.RETRY_STAGE, flowDecision.action());
         assertEquals(StageType.TEST, flowDecision.targetStage());
         assertEquals(TransitionReason.STAGE_RETRY, flowDecision.transitionDecision().reason());
+    }
+
+    @Test
+    void reusesImplementationContinuationAsSingleRevisionOwner() {
+        FlowController controller = new FlowController();
+        ReviewResult reviewResult = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.REWORK,
+                "代码未满足验收",
+                "继续修复 implementation"
+        );
+        SupervisorDecision supervisorDecision = new SupervisorDecision(
+                WorkflowAction.RETRY_STAGE,
+                StageType.IMPLEMENTATION,
+                FixMode.REWORK,
+                "回 implementation 修复",
+                List.of(),
+                List.of(),
+                List.of(),
+                DeliveryPolicy.patchSafe(),
+                false
+        );
+
+        FlowDecision flowDecision = controller.decide(
+                StageType.CODE_REVIEW,
+                reviewResult,
+                false,
+                supervisorDecision,
+                StageToolResultSummary.none(),
+                new ImplementationRevisionFacts(
+                        false,
+                        false,
+                        List.of("实现行消除与计分系统"),
+                        new StageContinuationContext(
+                                "继续修当前子任务",
+                                "只修 src/game.js",
+                                "continuationSubtask=实现行消除与计分系统",
+                                "继续 patch",
+                                List.of(new FileChange("src/game.js", ChangeAction.WRITE, "修复计分逻辑")),
+                                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                                devflow.agent.review.ReviewReasonCode.NONE
+                        )
+                )
+        );
+
+        assertEquals(WorkflowAction.RETRY_STAGE, flowDecision.action());
+        assertEquals(StageType.IMPLEMENTATION, flowDecision.targetStage());
+        assertTrue(flowDecision.revisionRoutingPlan().active());
+        assertEquals(FixMode.PATCH, flowDecision.revisionRoutingPlan().fixMode());
+        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                flowDecision.revisionRoutingPlan().implementationPatchTarget());
+        assertEquals("src/game.js", flowDecision.revisionRoutingPlan().overrideChanges().getFirst().path());
+    }
+
+    @Test
+    void blocksForHumanReviewWhenImplementationContinuationIsBlocked() {
+        FlowController controller = new FlowController();
+        ReviewResult reviewResult = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.REWORK,
+                "代码未满足验收",
+                "继续修复 implementation"
+        );
+        SupervisorDecision supervisorDecision = new SupervisorDecision(
+                WorkflowAction.RETRY_STAGE,
+                StageType.IMPLEMENTATION,
+                FixMode.REWORK,
+                "回 implementation 修复",
+                List.of(),
+                List.of(),
+                List.of(),
+                DeliveryPolicy.patchSafe(),
+                false
+        );
+
+        FlowDecision flowDecision = controller.decide(
+                StageType.CODE_REVIEW,
+                reviewResult,
+                false,
+                supervisorDecision,
+                StageToolResultSummary.none(),
+                new ImplementationRevisionFacts(
+                        false,
+                        true,
+                        List.of("实现行消除与计分系统"),
+                        new StageContinuationContext(
+                                "当前实现需要继续 patch，但阶段汇总没有拿到结构化文件范围，不能自动续跑。",
+                                "请先补齐 overrideChanges 指向的受影响文件。",
+                                "evidence",
+                                "actionItems",
+                                List.of(),
+                                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                                devflow.agent.review.ReviewReasonCode.IMPLEMENTATION_GAP
+                        )
+                )
+        );
+
+        assertEquals(WorkflowAction.REQUEST_HUMAN_REVIEW, flowDecision.action());
+        assertEquals(StageType.CODE_REVIEW, flowDecision.targetStage());
+        assertFalse(flowDecision.revisionRoutingPlan().active());
+        assertEquals(TransitionReason.HUMAN_REVIEW_REQUIRED, flowDecision.transitionDecision().reason());
     }
 }

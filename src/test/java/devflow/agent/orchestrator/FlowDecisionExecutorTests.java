@@ -172,6 +172,58 @@ class FlowDecisionExecutorTests {
         assertFalse(revisionContext.repeatedIssue());
     }
 
+    @Test
+    void usesRevisionRoutingPlanFromFlowControllerWhenPresent() {
+        AtomicReference<RevisionContext> capturedContext = new AtomicReference<>();
+        FlowDecisionExecutor executor = newExecutor(capturedContext);
+        ReviewResult reviewResult = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.REWORK,
+                "review summary",
+                "review change request",
+                "review evidence",
+                "review items",
+                ImplementationPatchTarget.NONE,
+                List.of()
+        );
+        SupervisorDecision supervisorDecision = new SupervisorDecision(
+                WorkflowAction.RETRY_STAGE,
+                StageType.IMPLEMENTATION,
+                FixMode.REWORK,
+                "supervisor reason",
+                List.of(),
+                List.of(),
+                List.of(),
+                new DeliveryPolicy(DeliveryPolicyMode.REWORK, 3, 6, true, false, true),
+                false
+        );
+
+        executor.apply(
+                tempDir,
+                runRecord(StageType.CODE_REVIEW),
+                StageType.CODE_REVIEW,
+                reviewResult,
+                false,
+                supervisorDecision,
+                new FlowDecision(
+                        WorkflowAction.RETRY_STAGE,
+                        StageType.IMPLEMENTATION,
+                        null,
+                        new RevisionRoutingPlan(
+                                FixMode.PATCH,
+                                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                                List.of(new FileChange("src/game.js", ChangeAction.WRITE, "继续修复当前子任务"))
+                        )
+                )
+        );
+
+        RevisionContext revisionContext = capturedContext.get();
+        assertEquals(FixMode.PATCH, revisionContext.fixMode());
+        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, revisionContext.implementationPatchTarget());
+        assertEquals(1, revisionContext.overrideChanges().size());
+        assertEquals("src/game.js", revisionContext.overrideChanges().getFirst().path());
+    }
+
     private FlowDecisionExecutor newExecutor(AtomicReference<RevisionContext> capturedContext) {
         StageTransitionSupport stageTransitionSupport = new StageTransitionSupport(null, null, null) {
             @Override

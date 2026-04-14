@@ -171,13 +171,23 @@ class ImplementationGateEngineTests {
     }
 
     @Test
-    void blocksWhenPatchExistingReviewHasNoStructuredScope() {
+    void blocksWhenPatchExistingReviewStillHasNoDeterministicSubtaskScope() {
         ImplementationGateEngine gateEngine = new ImplementationGateEngine(
                 new ImplementationStageGate(),
                 new ArchitectIntegrationCheck(new FileProjectWorkspace(), new TreeSitterSupport())
         );
 
-        Subtask subtask = subtask("补齐交互", false, "index.html");
+        Subtask subtask = new Subtask(
+                "补齐交互",
+                "补齐交互",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("完成当前子任务"),
+                false,
+                DeliveryMode.PATCH,
+                List.of()
+        );
         ReviewResult review = new ReviewResult(
                 ReviewDecision.REVISION_REQUIRED,
                 FixMode.PATCH,

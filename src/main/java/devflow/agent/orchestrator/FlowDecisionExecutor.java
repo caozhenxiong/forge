@@ -82,19 +82,20 @@ public class FlowDecisionExecutor {
             FlowDecision flowDecision,
             boolean forceRepair
     ) {
+        RevisionRoutingPlan revisionRoutingPlan = flowDecision.revisionRoutingPlan();
         return stageTransitionSupport.rerouteForRevision(
                 projectPath,
                 runRecord,
                 stageType,
                 new RevisionContext(
                         reviewResult.decision(),
-                        supervisorDecision.mode(),
-                        reviewResult.implementationPatchTarget(),
+                        effectiveFixMode(supervisorDecision, revisionRoutingPlan),
+                        effectivePatchTarget(reviewResult, revisionRoutingPlan),
                         reviewResult.summary(),
                         reviewResult.changeRequest(),
                         reviewResult.evidence(),
                         stageTransitionSupport.mergeActionItems(reviewResult.actionItems(), supervisorDecision),
-                        reviewResult.overrideChanges(),
+                        effectiveOverrideChanges(reviewResult, revisionRoutingPlan),
                         supervisorDecision,
                         flowDecision.targetStage(),
                         forceRepair,
@@ -102,6 +103,36 @@ public class FlowDecisionExecutor {
                 ),
                 stageEntryExecutor::enterStage
         );
+    }
+
+    private devflow.agent.review.FixMode effectiveFixMode(
+            SupervisorDecision supervisorDecision,
+            RevisionRoutingPlan revisionRoutingPlan
+    ) {
+        if (revisionRoutingPlan != null && revisionRoutingPlan.active()) {
+            return revisionRoutingPlan.fixMode();
+        }
+        return supervisorDecision.mode();
+    }
+
+    private devflow.agent.review.ImplementationPatchTarget effectivePatchTarget(
+            ReviewResult reviewResult,
+            RevisionRoutingPlan revisionRoutingPlan
+    ) {
+        if (revisionRoutingPlan != null && revisionRoutingPlan.active()) {
+            return revisionRoutingPlan.implementationPatchTarget();
+        }
+        return reviewResult.implementationPatchTarget();
+    }
+
+    private java.util.List<devflow.agent.executor.FileChange> effectiveOverrideChanges(
+            ReviewResult reviewResult,
+            RevisionRoutingPlan revisionRoutingPlan
+    ) {
+        if (revisionRoutingPlan != null && revisionRoutingPlan.active()) {
+            return revisionRoutingPlan.overrideChanges();
+        }
+        return reviewResult.overrideChanges();
     }
 
     public RunRecord continueStage(

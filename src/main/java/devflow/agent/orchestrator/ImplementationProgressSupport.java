@@ -45,6 +45,26 @@ public class ImplementationProgressSupport {
         return ImplementationProgressState.continuing(continuationContext);
     }
 
+    public ImplementationRevisionFacts readRevisionFacts(Path projectPath, RunRecord current) {
+        String implementationStateJson;
+        try {
+            implementationStateJson = readImplementationStateArtifact(projectPath, current);
+        } catch (IllegalStateException ignored) {
+            return ImplementationRevisionFacts.none();
+        }
+        ImplementationStageStatusPayload stageStatus = implementationStateArtifactSupport.readStageStatus(implementationStateJson);
+        if (stageStatus.stageReady()) {
+            return ImplementationRevisionFacts.none();
+        }
+        StageContinuationContext continuationContext = implementationContinuationSupport.toContinuationContext(stageStatus);
+        return new ImplementationRevisionFacts(
+                false,
+                stageStatus.continuationMode() == ImplementationContinuationMode.BLOCK_STAGE,
+                stageStatus.incompleteSubtasks(),
+                continuationContext
+        );
+    }
+
     private String readImplementationStateArtifact(Path projectPath, RunRecord current) {
         String content = artifactStore.readAuxiliaryArtifact(
                 projectPath,

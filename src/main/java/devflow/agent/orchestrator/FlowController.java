@@ -37,6 +37,24 @@ public class FlowController {
             SupervisorDecision supervisorDecision,
             StageToolResultSummary toolSummary
     ) {
+        return decide(
+                stageType,
+                reviewResult,
+                repeatedIssue,
+                supervisorDecision,
+                toolSummary,
+                ImplementationRevisionFacts.none()
+        );
+    }
+
+    public FlowDecision decide(
+            StageType stageType,
+            ReviewResult reviewResult,
+            boolean repeatedIssue,
+            SupervisorDecision supervisorDecision,
+            StageToolResultSummary toolSummary,
+            ImplementationRevisionFacts implementationFacts
+    ) {
         WorkflowAction action = supervisorDecision.action();
         StageType targetStage = supervisorDecision.targetStage();
         String transitionSummary = reviewResult.summary() == null ? "" : reviewResult.summary();
@@ -44,6 +62,16 @@ public class FlowController {
             action = WorkflowAction.RETRY_STAGE;
             targetStage = stageType;
             transitionSummary = appendToolSummary(transitionSummary, toolSummary);
+        }
+        RevisionRoutingPlan revisionRoutingPlan = RevisionRoutingPlan.none();
+        if (targetsImplementationRevision(action, targetStage)) {
+            if (implementationFacts != null && implementationFacts.shouldAutoContinueCurrentImplementation()) {
+                revisionRoutingPlan = implementationFacts.toRevisionRoutingPlan();
+            } else if (implementationFacts != null && implementationFacts.shouldBlockForHumanReview()) {
+                action = WorkflowAction.REQUEST_HUMAN_REVIEW;
+                targetStage = stageType;
+                transitionSummary = blockedImplementationSummary(transitionSummary, implementationFacts);
+            }
         }
         TransitionReason reason = mapReason(action, stageType);
         TransitionDecision transitionDecision = new TransitionDecision(
@@ -54,7 +82,7 @@ public class FlowController {
                 transitionSummary,
                 supervisorDecision
         );
-        return new FlowDecision(action, targetStage, transitionDecision);
+        return new FlowDecision(action, targetStage, transitionDecision, revisionRoutingPlan);
     }
 
     /**
@@ -101,5 +129,29 @@ public class FlowController {
             return toolSummary.summary();
         }
         return reviewSummary + TOOL_SUMMARY_SEPARATOR + toolSummary.summary();
+    }
+
+    private boolean targetsImplementationRevision(WorkflowAction action, StageType targetStage) {
+        if (targetStage != StageType.IMPLEMENTATION) {
+            return false;
+        }
+        return action == WorkflowAction.RETRY_STAGE || action == WorkflowAction.ROUTE_TO_REPAIR;
+    }
+
+    private String blockedImplementationSummary(
+            String reviewSummary,
+            ImplementationRevisionFacts implementationFacts
+    ) {
+        if (implementationFacts == null || implementationFacts.continuationContext() == null) {
+            return reviewSummary == null ? "" : reviewSummary;
+        }
+        String blockedSummary = implementationFacts.continuationContext().summary();
+        if (blockedSummary == null || blockedSummary.isBlank()) {
+            return reviewSummary == null ? "" : reviewSummary;
+        }
+        if (reviewSummary == null || reviewSummary.isBlank()) {
+            return blockedSummary;
+        }
+        return reviewSummary + TOOL_SUMMARY_SEPARATOR + blockedSummary;
     }
 }
