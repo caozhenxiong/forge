@@ -137,7 +137,9 @@
 5. tool loop 子任务在 bounded repair 场景下，必须在回合耗尽前收敛成以下二选一：
    - 成功完成并提交终态
    - 失败，但留下可直接续跑的结构化 repair package
-6. 本轮不引入兼容层、fallback、heuristic patch，也不新增第二套 repair scope 推导体系。
+6. `overrideChanges` 的 canonical scope 只能来自当前 subtask 的 accepted/effective structured change-set；material mutations、tool failures、diagnostics 只能作为该 scope 内的证据与优先级信息，不能扩张 scope，更不能把越界路径合法化进后续 repair。
+7. “continuation repair 是否升级回 fresh outline”的流程判定 owner 只能有一个：`FlowController`。`StageProgressCoordinator` 只负责提供结构化输入，`FlowDecisionExecutor` 只负责执行既定动作，不得再次重解释。
+8. 本轮不引入兼容层、fallback、heuristic patch，也不新增第二套 repair scope 推导体系或第二个流程判定 owner。
 
 ## Removal Plan
 
@@ -147,6 +149,8 @@
 2. `CODE_REVIEW` 在当前 implementation 已存在 continuation 语义时，仍然回流为 fresh outline `REWORK` 的路径。
 3. fresh outline 的入口覆盖规则在 continuation repair 中误生效的路径。
 4. tool loop 在 bounded repair 子任务中，允许“有 material edits + 有结构化失败证据 + 无 terminal 收口结果”直接耗尽的路径。
+5. 任何用越界 material mutation、越界 tool failure 路径去扩张 `overrideChanges` 的路径。
+6. review / supervisor / planner 各自重新解释“是否需要 fresh outline”的多 owner 判定路径。
 
 ## Joint-Change Scope
 
@@ -200,8 +204,14 @@
    - 当前 subtask 文件契约
    - 当前 accepted/effective change-set
    - 当前 attempt material mutations
-3. 不允许用 prose 猜路径，也不允许退回文件名 heuristics。
-4. 如果当前 run 内确实无法推出安全 scope，则保持 `BLOCK_STAGE`，但不得再生成“有 patch target、无 patch scope、还可继续自动回流”的混合状态。
+3. `overrideChanges` 的硬上限固定为当前 subtask 的 accepted/effective structured change-set。
+4. material mutations、tool failures、diagnostics 只能用于：
+   - 证明该 scope 内哪些文件确实被触达
+   - 标记该 scope 内的修复优先级
+   - 解释当前失败原因
+   它们不能扩张 scope，也不能把越界路径、非法写入目标、被拒绝工具目标转正成 continuation scope。
+5. 不允许用 prose 猜路径，也不允许退回文件名 heuristics。
+6. 如果当前 run 内确实无法推出安全 scope，则保持 `BLOCK_STAGE`，但不得再生成“有 patch target、无 patch scope、还可继续自动回流”的混合状态。
 
 目标：
 
@@ -212,12 +222,20 @@
 
 做法：
 
-1. 当 `CODE_REVIEW` 面向的是一个尚未完成、且已有 continuation patch 语义的 implementation run 时，回流必须优先复用当前 run 的 continuation package。
-2. 只有以下条件同时成立时，才允许回到 fresh outline：
+1. `FlowController` 是“continuation repair 是否升级回 fresh outline”的唯一判定 owner。
+2. `StageProgressCoordinator` 只负责把结构化输入送进 `FlowController`，至少包括：
+   - 当前 implementation 是否仍有未完成 subtask
+   - 当前 stage 是否已有 continuation package
+   - 当前 stage 是否已有结构化 patch scope
+   - review / supervisor 给出的修订模式与目标阶段
+3. `FlowDecisionExecutor` 只执行 `FlowController` 已给出的动作，不得重新解释 continuation 还是 replan。
+4. 当 `CODE_REVIEW` 面向的是一个尚未完成、且已有 continuation patch 语义的 implementation run 时，回流必须优先复用当前 run 的 continuation package。
+5. 只有以下条件同时成立时，`FlowController` 才允许把 continuation repair 升级回 fresh outline：
    - 当前 implementation 没有未完成 subtask
-   - 当前 stage 不存在可用 patch scope
-   - 当前问题本质上需要重新规划而非局部修复
-3. `REWORK` 保持合法，但它不再默认等价于“重新规划 outline”。对于当前 implementation run，`REWORK` 也可以落到 continuation repair。
+   - 当前 stage 不存在可继续消费的 continuation package
+   - 当前 stage 不存在结构化 patch scope
+   - review / supervisor 的结构化结论表明当前问题需要 stage replan，而不是局部修复
+6. `REWORK` 保持合法，但它不再默认等价于“重新规划 outline”。对于当前 implementation run，`REWORK` 也可以落到 continuation repair。
 
 目标：
 
@@ -317,6 +335,7 @@
 1. 把 planner 入口分成 fresh planning 与 continuation repair 两类。
 2. continuation repair 直接消费结构化 repair package。
 3. fresh outline 校验不再对 continuation repair 生效。
+4. planner 不再自行决定是否从 continuation 升级到 fresh outline；它只消费 `FlowController` 已确定的入口类型。
 
 ### Phase 4. 收口 bounded repair tool loop
 
@@ -327,7 +346,7 @@
 实施：
 
 1. 在 subtask attempt terminalization 处补确定性失败收口。
-2. 把 material mutations 与 tool failures 合成 continuation repair package。
+2. 把 material mutations 与 tool failures 合成 continuation repair package 的证据层，但不得突破 accepted/effective structured change-set 的 scope 上限。
 3. 不允许再以“无 terminal response”裸失败丢失当前 scope。
 
 ## Test Plan
@@ -341,6 +360,8 @@
 
 - code review 打回未完成 implementation 时，优先走 continuation repair
 - 不再直接回到 fresh outline
+- `FlowController` 作为唯一 owner 做出是否升级为 fresh outline 的判定
+- `StageProgressCoordinator` 与 `FlowDecisionExecutor` 不再各自重解释
 
 ### 3. planner / guard 边界
 
@@ -352,6 +373,7 @@
 
 - bounded repair 子任务在 turn budget 内若无法完成，必须输出结构化 repair package
 - 非法 shell / scope violation 等证据会进入 repair package，而不是只留日志
+- repair package 的 `overrideChanges` 不得包含越界路径；越界路径只能作为失败证据，不能转正进 scope
 
 ### 5. 黄金路径回归
 
