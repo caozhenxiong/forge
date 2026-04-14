@@ -268,9 +268,7 @@ public class ImplementationStageGate {
 
     private boolean hasResolvedRuntimeContract(ArchitectIntegrationCheckResult contractGateResult) {
         HtmlRuntimeOwnershipContract runtimeContract = contractGateResult == null ? null : contractGateResult.runtimeContract();
-        return runtimeContract != null
-                && runtimeContract.active()
-                && runtimeContract.htmlEntryPath() != null;
+        return runtimeContract != null && runtimeContract.hasResolvedWiringRepairScope();
     }
 
     private List<FileChange> structuredRepairScope(SubtaskExecutionReport report) {

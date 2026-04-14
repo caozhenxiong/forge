@@ -21,8 +21,8 @@ import java.util.List;
 public final class RuntimeWiringRetryChangeFactory {
 
     public List<FileChange> build(HtmlRuntimeOwnershipContract runtimeContract) {
-        if (runtimeContract == null || !runtimeContract.active() || runtimeContract.htmlEntryPath() == null) {
-            throw new IllegalStateException("Runtime wiring retry changes require an active runtime contract.");
+        if (runtimeContract == null || !runtimeContract.hasResolvedWiringRepairScope()) {
+            throw new IllegalStateException("Runtime wiring retry changes require a resolved runtime wiring contract.");
         }
         ArrayList<FileChange> changes = new ArrayList<>();
         changes.add(new FileChange(

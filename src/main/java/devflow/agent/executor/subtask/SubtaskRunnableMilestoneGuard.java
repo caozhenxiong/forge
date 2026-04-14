@@ -73,7 +73,7 @@ public final class SubtaskRunnableMilestoneGuard {
         }
         if (runnableCheck.implementationPatchTarget() == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
             HtmlRuntimeOwnershipContract runtimeContract = runnableCheck.runtimeContract();
-            if (runtimeContract == null || !runtimeContract.active() || runtimeContract.htmlEntryPath() == null) {
+            if (runtimeContract == null || !runtimeContract.hasResolvedWiringRepairScope()) {
                 throw new IllegalStateException("Runnable milestone wiring patch requires an explicit runtime contract.");
             }
             return SubtaskRevisionDirective.patch(runtimeWiringRetryChangeFactory.build(runtimeContract));

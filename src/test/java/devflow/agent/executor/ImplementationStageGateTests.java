@@ -239,6 +239,100 @@ class ImplementationStageGateTests {
     }
 
     @Test
+    void blocksWhenExternalCompanionContractHasNoRuntimeRoots() {
+        ImplementationStageGate gate = new ImplementationStageGate();
+        Subtask subtask = subtask("修接线", true, "index.html");
+        ReviewResult runtimeReview = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.PATCH,
+                "运行时接线未完成",
+                "把 companion runtime 接入宿主 HTML。",
+                "runtime contract is missing companion roots",
+                "1. 仅修复当前入口接线。 2. 保持当前实现结构不变。",
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                List.of(),
+                ReviewRevisionRoute.PATCH_CURRENT_STAGE,
+                devflow.agent.review.ReviewReasonCode.RUNTIME_WIRING_GAP
+        );
+        HtmlRuntimeOwnershipContract runtimeContract = HtmlRuntimeOwnershipContract.externalCompanion(
+                Path.of("index.html"),
+                List.of()
+        );
+
+        ImplementationStageStatus stageStatus = gate.summarizeStageStatus(
+                new ImplementationPlan("summary", List.of(subtask)),
+                List.of(new SubtaskExecutionReport(
+                        subtask,
+                        false,
+                        List.of(SubtaskAttemptReport.fromVerification(
+                                1,
+                                new SelfCheckResult(false, "failed", ""),
+                                List.of(),
+                                runtimeReview
+                        )),
+                        new SubtaskExecutionState(DeliveryMode.PATCH, true)
+                )),
+                ArchitectIntegrationCheckResult.failure(
+                        ArchitectIntegrationCheckScope.RUNNABLE_MILESTONE,
+                        ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID,
+                        "runtime contract is missing companion roots",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                        runtimeContract
+                )
+        );
+
+        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
+        assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
+    }
+
+    @Test
+    void allowsInlineHostRuntimeWiringContinuationWithoutRuntimeRoots() {
+        ImplementationStageGate gate = new ImplementationStageGate();
+        Subtask subtask = subtask("修接线", true, "index.html");
+        ReviewResult runtimeReview = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.PATCH,
+                "运行时接线未完成",
+                "清理错误的 external runtime 接线。",
+                "inline host should not load external runtime scripts",
+                "1. 仅修复当前入口接线。 2. 保持当前实现结构不变。",
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                List.of(),
+                ReviewRevisionRoute.PATCH_CURRENT_STAGE,
+                devflow.agent.review.ReviewReasonCode.RUNTIME_WIRING_GAP
+        );
+        HtmlRuntimeOwnershipContract runtimeContract = HtmlRuntimeOwnershipContract.inlineHost(Path.of("index.html"));
+
+        ImplementationStageStatus stageStatus = gate.summarizeStageStatus(
+                new ImplementationPlan("summary", List.of(subtask)),
+                List.of(new SubtaskExecutionReport(
+                        subtask,
+                        false,
+                        List.of(SubtaskAttemptReport.fromVerification(
+                                1,
+                                new SelfCheckResult(false, "failed", ""),
+                                List.of(),
+                                runtimeReview
+                        )),
+                        new SubtaskExecutionState(DeliveryMode.PATCH, true)
+                )),
+                ArchitectIntegrationCheckResult.failure(
+                        ArchitectIntegrationCheckScope.RUNNABLE_MILESTONE,
+                        ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID,
+                        "inline host should not load external runtime scripts",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                        runtimeContract
+                )
+        );
+
+        assertEquals(ImplementationContinuationMode.CONTINUE_SUBTASKS, stageStatus.continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
+        assertEquals(1, stageStatus.continuationOverrideChanges().size());
+        assertEquals("index.html", stageStatus.continuationOverrideChanges().getFirst().path());
+    }
+
+    @Test
     void derivesContinuationScopeFromFailedSubtaskEffectiveChanges() {
         ImplementationStageGate gate = new ImplementationStageGate();
         Subtask subtask = new Subtask(

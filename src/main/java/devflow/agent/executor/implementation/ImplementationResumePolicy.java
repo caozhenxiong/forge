@@ -240,7 +240,7 @@ public class ImplementationResumePolicy {
             return SubtaskRevisionDirective.patch(List.copyOf(overrideChanges));
         }
         HtmlRuntimeOwnershipContract runtimeContract = contractGateResult == null ? null : contractGateResult.runtimeContract();
-        if (runtimeContract == null || !runtimeContract.active() || runtimeContract.htmlEntryPath() == null) {
+        if (runtimeContract == null || !runtimeContract.hasResolvedWiringRepairScope()) {
             throw new IllegalStateException("Runtime wiring continuation requires a resolved runtime contract.");
         }
         return SubtaskRevisionDirective.patch(runtimeWiringRetryChangeFactory.build(runtimeContract));

@@ -46,6 +46,16 @@ public record HtmlRuntimeOwnershipContract(
                 && runtimeOwnership != null;
     }
 
+    public boolean hasResolvedWiringRepairScope() {
+        if (!active()) {
+            return false;
+        }
+        if (runtimeOwnership == RuntimeOwnershipMode.EXTERNAL_COMPANION) {
+            return !runtimePaths.isEmpty();
+        }
+        return runtimeOwnership == RuntimeOwnershipMode.INLINE_HOST;
+    }
+
     public boolean externalCompanion() {
         return runtimeOwnership == RuntimeOwnershipMode.EXTERNAL_COMPANION;
     }
