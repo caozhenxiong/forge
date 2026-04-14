@@ -81,6 +81,9 @@ public final class FileEditTool implements ImplementationTool {
             if (oldString.equals(newString)) {
                 return error("old_string and new_string must differ.");
             }
+            if (replacesEntireExistingBody(currentContent, oldString)) {
+                context.assertExistingFileWholeRewriteAllowed(absolutePath, "Edit whole-file replacement");
+            }
             String revised = applyExactReplace(currentContent, oldString, newString, Boolean.TRUE.equals(input.replaceAll()));
             context.assertMutationContract(absolutePath, revised);
             context.writeFile(absolutePath, revised);
@@ -125,6 +128,12 @@ public final class FileEditTool implements ImplementationTool {
             throw new IllegalArgumentException("Edit did not change the file.");
         }
         return revised;
+    }
+
+    private boolean replacesEntireExistingBody(String source, String oldString) {
+        String normalizedSource = source == null ? "" : source;
+        String normalizedOldString = oldString == null ? "" : oldString;
+        return normalizedOldString.equals(normalizedSource);
     }
 
     private boolean stale(ToolExecutionContext.ToolReadState readState, long currentTimestamp, String currentContent) {

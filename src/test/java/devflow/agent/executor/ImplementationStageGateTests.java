@@ -101,6 +101,54 @@ class ImplementationStageGateTests {
     }
 
     @Test
+    void blocksWhenPatchReviewCannotDeriveSafeRepairPackageFromCurrentSubtaskScope() {
+        ImplementationStageGate gate = new ImplementationStageGate();
+        Subtask subtask = new Subtask(
+                "补逻辑",
+                "补逻辑",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("完成当前子任务"),
+                false,
+                DeliveryMode.PATCH,
+                List.of()
+        );
+        SubtaskExecutionState executionState = new SubtaskExecutionState(DeliveryMode.PATCH, true);
+        ReviewResult patchReview = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.PATCH,
+                "需要继续修补",
+                "继续修复当前子任务",
+                "tool loop exceeded max turns without a terminal assistant response",
+                "继续修复",
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                List.of(new FileChange("src/game.js", ChangeAction.WRITE, "review 自带的越界 scope"))
+        );
+
+        ImplementationStageStatus stageStatus = gate.summarizeStageStatus(
+                new ImplementationPlan("summary", List.of(subtask)),
+                List.of(new SubtaskExecutionReport(
+                        subtask,
+                        false,
+                        List.of(SubtaskAttemptReport.fromVerification(
+                                1,
+                                new SelfCheckResult(false, "failed", ""),
+                                List.of(),
+                                patchReview
+                        )),
+                        executionState
+                )),
+                null
+        );
+
+        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, stageStatus.continuationPatchTarget());
+        assertTrue(stageStatus.continuationSummary().contains("结构化文件范围"));
+        assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
+    }
+
+    @Test
     void derivesContinuationScopeFromFailedSubtaskEffectiveChanges() {
         ImplementationStageGate gate = new ImplementationStageGate();
         Subtask subtask = new Subtask(

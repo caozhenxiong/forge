@@ -215,6 +215,51 @@ class ImplementationGateEngineTests {
         assertTrue(outcome.stageStatus().continuationSummary().contains("结构化文件范围"));
     }
 
+    @Test
+    void blocksWhenReviewProvidesOverrideButCurrentSubtaskHasNoSafeEffectiveScope() {
+        ImplementationGateEngine gateEngine = new ImplementationGateEngine(
+                new ImplementationStageGate(),
+                new ArchitectIntegrationCheck(new FileProjectWorkspace(), new TreeSitterSupport())
+        );
+
+        Subtask subtask = new Subtask(
+                "补齐交互",
+                "补齐交互",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("完成当前子任务"),
+                false,
+                DeliveryMode.PATCH,
+                List.of()
+        );
+        ReviewResult review = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.PATCH,
+                "当前实现缺少关键体验能力。",
+                "请补齐主交互反馈。",
+                "missingExperienceCoverage=primary-interaction",
+                "1. 修复交互反馈。 2. 重新验证。",
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                List.of(new FileChange("index.html", ChangeAction.WRITE, "review 自带的 repair scope")),
+                ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET,
+                devflow.agent.review.ReviewReasonCode.IMPLEMENTATION_GAP
+        );
+
+        ImplementationGateOutcome outcome = gateEngine.evaluate(
+                tempDir,
+                new ImplementationPlan("summary", List.of(subtask)),
+                List.of(failedReport(subtask, review)),
+                new ExecutionContract(true, "html-entry", true, true, List.of()),
+                DocumentLanguage.ZH
+        );
+
+        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, outcome.stageStatus().continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, outcome.stageStatus().continuationPatchTarget());
+        assertTrue(outcome.stageStatus().continuationOverrideChanges().isEmpty());
+        assertTrue(outcome.stageStatus().continuationSummary().contains("结构化文件范围"));
+    }
+
     private Subtask subtask(String title, boolean runnableMilestone, String path) {
         return new Subtask(
                 title,

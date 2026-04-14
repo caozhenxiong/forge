@@ -123,6 +123,14 @@ public class ImplementationStageGate {
             if (review == null) {
                 continue;
             }
+            if (requiresCanonicalRepairPackage(review) && !hasSafeRepairPackage(report)) {
+                return continuationDisposition(
+                        report,
+                        missingScopeReview(review),
+                        ImplementationContinuationMode.BLOCK_STAGE,
+                        "当前实现需要继续 patch，但阶段汇总没有拿到结构化文件范围，不能自动续跑。"
+                );
+            }
             if (review.revisionRoute() == devflow.agent.review.ReviewRevisionRoute.REQUEST_HUMAN) {
                 return continuationDisposition(
                         report,
@@ -163,28 +171,15 @@ public class ImplementationStageGate {
             SubtaskExecutionReport report,
             ReviewResult review
     ) {
-        if (review == null
-                || review.fixMode() != FixMode.PATCH
-                || review.implementationPatchTarget() != ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION) {
+        if (!requiresCanonicalRepairPackage(review)) {
             return review;
         }
-        List<FileChange> allowedScope = report == null ? List.of() : List.copyOf(report.effectiveChanges());
+        List<FileChange> allowedScope = structuredRepairScope(report);
         if (allowedScope.isEmpty()) {
-            return review;
+            return withOverrideChanges(review, List.of());
         }
         List<FileChange> canonicalScope = canonicalOverrideChanges(review.overrideChanges(), allowedScope);
-        return new ReviewResult(
-                review.decision(),
-                review.fixMode(),
-                review.summary(),
-                review.changeRequest(),
-                review.evidence(),
-                review.actionItems(),
-                review.implementationPatchTarget(),
-                canonicalScope,
-                review.revisionRoute(),
-                review.reasonCode()
-        );
+        return withOverrideChanges(review, canonicalScope);
     }
 
     private List<FileChange> canonicalOverrideChanges(
@@ -228,6 +223,48 @@ public class ImplementationStageGate {
             }
         }
         return List.copyOf(canonical);
+    }
+
+    private boolean requiresCanonicalRepairPackage(ReviewResult review) {
+        if (review == null || review.fixMode() != FixMode.PATCH) {
+            return false;
+        }
+        if (review.implementationPatchTarget() != ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION) {
+            return false;
+        }
+        return review.revisionRoute() == ReviewRevisionRoute.PATCH_CURRENT_STAGE
+                || review.revisionRoute() == ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET;
+    }
+
+    private boolean hasSafeRepairPackage(SubtaskExecutionReport report) {
+        return !structuredRepairScope(report).isEmpty();
+    }
+
+    private List<FileChange> structuredRepairScope(SubtaskExecutionReport report) {
+        if (report == null || report.effectiveChanges() == null || report.effectiveChanges().isEmpty()) {
+            return List.of();
+        }
+        return report.effectiveChanges().stream()
+                .filter(change -> change != null && change.path() != null && !change.path().isBlank())
+                .toList();
+    }
+
+    private ReviewResult withOverrideChanges(ReviewResult review, List<FileChange> overrideChanges) {
+        if (review == null) {
+            return null;
+        }
+        return new ReviewResult(
+                review.decision(),
+                review.fixMode(),
+                review.summary(),
+                review.changeRequest(),
+                review.evidence(),
+                review.actionItems(),
+                review.implementationPatchTarget(),
+                overrideChanges,
+                review.revisionRoute(),
+                review.reasonCode()
+        );
     }
 
     private ContinuationDisposition incompletePlanContinuation(List<String> incompleteSubtasks) {

@@ -19,8 +19,10 @@ import devflow.agent.context.ArtifactSummaryBuilder;
 import devflow.agent.context.ContextProjector;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ProjectedContext;
+import devflow.agent.context.TaskMemory;
 import devflow.agent.executor.ChangeAction;
 import devflow.agent.executor.FileChange;
+import devflow.agent.executor.generation.GenerationTelemetry;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.protocol.ImplementationContinuationMode;
 import devflow.agent.protocol.ImplementationStageStatusPayload;
@@ -33,10 +35,13 @@ import devflow.agent.review.ReviewReasonCode;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.review.StageReviewer;
 import devflow.agent.supervisor.SupervisorAgent;
+import devflow.agent.supervisor.DeliveryPolicy;
+import devflow.agent.supervisor.SupervisorDecision;
 import devflow.agent.supervisor.SupervisorFallbackPolicy;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -511,6 +516,164 @@ class StageProgressCoordinatorTests {
         assertEquals("继续修当前子任务", continuationSummary.get());
     }
 
+    @Test
+    void blockedImplementationReviewOverrideStaysAlignedAcrossTransitionArtifactAndRunState() {
+        FileRunRepository runRepository = new FileRunRepository();
+        FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
+        EventLogStore eventLogStore = new EventLogStore(runRepository);
+        WorkflowArtifactRenderer workflowArtifactRenderer = new WorkflowArtifactRenderer();
+        AtomicBoolean reviewerCalled = new AtomicBoolean(false);
+        AtomicBoolean diagnosisCalled = new AtomicBoolean(false);
+        AtomicBoolean supervisorCalled = new AtomicBoolean(false);
+        AtomicBoolean contextProjected = new AtomicBoolean(false);
+
+        String blockedSummary = "当前 implementation continuation 缺少可自动续跑的结构化 patch scope。";
+        String blockedChangeRequest = "请人工确认 host entry 与 runtime companion 的最终修复范围。";
+        String rawReviewChangeRequest = "原始 code review 只给出泛化返工意见。";
+
+        RunRecord runRecord = runningCodeReviewRun();
+        runRepository.save(runRecord);
+        artifactStore.writeArtifact(
+                tempDir,
+                runRecord.runId(),
+                StageType.CODE_REVIEW,
+                "# code review\n"
+        );
+        writeImplementationArtifacts(
+                artifactStore,
+                runRecord,
+                new ImplementationStageStatusPayload(
+                        false,
+                        false,
+                        List.of("修复宿主入口接线"),
+                        null,
+                        ImplementationContinuationMode.BLOCK_STAGE,
+                        blockedSummary,
+                        blockedChangeRequest,
+                        "index.app.js exists but host entry wiring scope is unresolved",
+                        "1. 明确 host entry。 2. 确认允许修复的文件范围。",
+                        List.of(
+                                new devflow.agent.protocol.FileChangePayload(
+                                        "index.html",
+                                        "WRITE",
+                                        "修复 host entry 接线",
+                                        "HOST_HTML_PATCH",
+                                        "EXTERNAL_COMPANION",
+                                        true
+                                )
+                        ),
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                        ReviewReasonCode.RUNTIME_PROBE_INVALID
+                )
+        );
+
+        StageOperationExecutor stageOperationExecutor = new StageOperationExecutor(
+                null,
+                reviewerReturning(
+                        reviewerCalled,
+                        new ReviewResult(
+                                ReviewDecision.REVISION_REQUIRED,
+                                FixMode.REWORK,
+                                "",
+                                rawReviewChangeRequest,
+                                "review evidence",
+                                "review action items"
+                        )
+                ),
+                eventLogStore,
+                new GenerationEngine(),
+                new StageOperationPolicy()
+        );
+        DiagnosisAgent diagnosisAgent = diagnosisAgentReturningFalse(diagnosisCalled);
+        ContextProjector contextProjector = new ContextProjector(
+                new devflow.agent.context.ContextProjectionArtifactReader(artifactStore, new FileProjectWorkspace()),
+                new devflow.agent.context.ContextProjectionContractResolver(
+                        new ContractExtractor(),
+                        new devflow.agent.i18n.LanguagePolicy()
+                ),
+                new devflow.agent.context.ContextProjectionSummaryAssembler(new ArtifactSummaryBuilder()),
+                new devflow.agent.context.ContextProjectionAssembler(new devflow.agent.context.ContextLayerAssembler())
+        ) {
+            @Override
+            public ProjectedContext project(Path projectPath, RunRecord currentRun, StageType currentStage) {
+                contextProjected.set(true);
+                return projectedContext();
+            }
+        };
+        SupervisorDecision supervisorDecision = new SupervisorDecision(
+                devflow.agent.domain.WorkflowAction.RETRY_STAGE,
+                StageType.IMPLEMENTATION,
+                FixMode.REWORK,
+                "回 implementation 修复",
+                List.of("聚焦 runtime wiring"),
+                List.of("不要扩张到未批准文件"),
+                List.of("给出结构化 patch scope"),
+                DeliveryPolicy.patchSafe(),
+                false
+        );
+        SupervisorAgent supervisorAgent = supervisorAgentReturning(artifactStore, supervisorCalled, supervisorDecision);
+        StageStatusSupport stageStatusSupport = new StageStatusSupport(
+                runRepository,
+                artifactStore,
+                eventLogStore,
+                new StageFlowPolicy(),
+                workflowArtifactRenderer
+        );
+        FlowDecisionExecutor flowDecisionExecutor = new FlowDecisionExecutor(
+                new StageTransitionSupport(stageStatusSupport, null, null),
+                null
+        );
+        StageProgressCoordinator coordinator = new StageProgressCoordinator(
+                artifactStore,
+                supervisorAgent,
+                new FlowController(),
+                contextProjector,
+                stageOperationExecutor,
+                flowDecisionExecutor,
+                new StageProgressArtifactSupport(artifactStore, eventLogStore, workflowArtifactRenderer),
+                new StageToolResultGate(new StageToolResultLoader(artifactStore), new StageToolResultGuard()),
+                new ImplementationProgressSupport(
+                        artifactStore,
+                        new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
+                        new ImplementationContinuationSupport()
+                ),
+                new RepeatIssueDetector(diagnosisAgent),
+                new devflow.agent.i18n.LanguagePolicy()
+        );
+
+        var result = coordinator.progress(tempDir, runRecord);
+
+        assertTrue(reviewerCalled.get());
+        assertTrue(diagnosisCalled.get());
+        assertTrue(supervisorCalled.get());
+        assertTrue(contextProjected.get());
+        assertNotNull(result.transitionDecision());
+        assertEquals(devflow.agent.loop.TransitionReason.HUMAN_REVIEW_REQUIRED, result.transitionDecision().reason());
+        assertEquals(StageType.CODE_REVIEW, result.transitionDecision().targetStage());
+        assertEquals(blockedSummary, result.transitionDecision().summary());
+        assertFalse(result.continueLoop());
+
+        String transitionArtifact = artifactStore.readAuxiliaryArtifact(
+                tempDir,
+                runRecord.runId(),
+                AuxiliaryArtifactNames.TRANSITION_DECISION
+        );
+        assertTrue(transitionArtifact.contains("reason: HUMAN_REVIEW_REQUIRED"));
+        assertTrue(transitionArtifact.contains("targetStage: CODE_REVIEW"));
+        assertTrue(transitionArtifact.contains("reviewSummary: " + blockedSummary));
+        assertTrue(transitionArtifact.contains("supervisorAction: RETRY_STAGE"));
+
+        RunRecord reloaded = runRepository.findById(tempDir, runRecord.runId()).orElseThrow();
+        StageExecution codeReviewExecution = reloaded.stageStates().get(StageType.CODE_REVIEW);
+        assertEquals(RunStatus.BLOCKED, reloaded.status());
+        assertEquals(StageType.CODE_REVIEW, reloaded.currentStage());
+        assertEquals(StageStatus.AWAITING_HUMAN_REVIEW, codeReviewExecution.status());
+        assertEquals(ReviewDecision.REVISION_REQUIRED, codeReviewExecution.reviewDecision());
+        assertEquals(blockedSummary, codeReviewExecution.reviewSummary());
+        assertEquals(blockedChangeRequest, codeReviewExecution.changeRequest());
+        assertFalse(rawReviewChangeRequest.equals(codeReviewExecution.changeRequest()));
+    }
+
     private StageReviewer reviewerThatSetsFlag(AtomicBoolean reviewerCalled) {
         LlmProvider provider = fakeProvider();
         return new devflow.agent.review.StageReviewerHarness(
@@ -522,6 +685,21 @@ class StageProgressCoordinatorTests {
             public ReviewResult review(Path projectPath, RunRecord runRecord, StageType stageType, String artifactContent) {
                 reviewerCalled.set(true);
                 throw new AssertionError("incomplete implementation should not enter reviewer");
+            }
+        };
+    }
+
+    private StageReviewer reviewerReturning(AtomicBoolean reviewerCalled, ReviewResult reviewResult) {
+        return new StageReviewer(null, null, null) {
+            @Override
+            public ReviewResult review(Path projectPath, RunRecord runRecord, StageType stageType, String artifactContent) {
+                reviewerCalled.set(true);
+                return reviewResult;
+            }
+
+            @Override
+            public GenerationTelemetry consumeLastTelemetry() {
+                return null;
             }
         };
     }
@@ -539,6 +717,23 @@ class StageProgressCoordinatorTests {
             ) {
                 diagnosisCalled.set(true);
                 throw new AssertionError("incomplete implementation should not invoke diagnosis");
+            }
+        };
+    }
+
+    private DiagnosisAgent diagnosisAgentReturningFalse(AtomicBoolean diagnosisCalled) {
+        return new DiagnosisAgent(fakeProvider(), new FileArtifactStore(new FileRunRepository()), new ObjectMapper()) {
+            @Override
+            public boolean shouldDiagnose(
+                    Path projectPath,
+                    RunRecord runRecord,
+                    StageType stageType,
+                    FixMode requestedMode,
+                    String summary,
+                    String changeRequest
+            ) {
+                diagnosisCalled.set(true);
+                return false;
             }
         };
     }
@@ -578,6 +773,49 @@ class StageProgressCoordinatorTests {
             ) {
                 supervisorCalled.set(true);
                 throw new AssertionError("incomplete implementation should not invoke supervisor");
+            }
+        };
+    }
+
+    private SupervisorAgent supervisorAgentReturning(
+            FileArtifactStore artifactStore,
+            AtomicBoolean supervisorCalled,
+            SupervisorDecision supervisorDecision
+    ) {
+        ContextProjector projector = new ContextProjector(
+                new devflow.agent.context.ContextProjectionArtifactReader(artifactStore, new FileProjectWorkspace()),
+                new devflow.agent.context.ContextProjectionContractResolver(
+                        new ContractExtractor(),
+                        new devflow.agent.i18n.LanguagePolicy()
+                ),
+                new devflow.agent.context.ContextProjectionSummaryAssembler(new ArtifactSummaryBuilder()),
+                new devflow.agent.context.ContextProjectionAssembler(new devflow.agent.context.ContextLayerAssembler())
+        );
+        return new SupervisorAgent(
+                fakeProvider(),
+                projector,
+                new StageFlowPolicy(),
+                devflow.agent.supervisor.SupervisorTestSupport.newFallbackPolicy(new StageFlowPolicy()),
+                new devflow.agent.supervisor.SupervisorArtifactRenderer(),
+                new devflow.agent.supervisor.SupervisorDecisionSanitizer(
+                        new StageFlowPolicy(),
+                        new devflow.agent.supervisor.SupervisorPayloadNormalizer(),
+                        devflow.agent.supervisor.SupervisorTestSupport.newFallbackPolicy(new StageFlowPolicy())
+                ),
+                new devflow.agent.supervisor.SupervisorPromptAssembler(new devflow.agent.supervisor.SupervisorArtifactRenderer()),
+                new devflow.agent.executor.llm.StructuredPayloadReader(new ObjectMapper()),
+                new devflow.agent.i18n.LanguagePolicy()
+        ) {
+            @Override
+            public devflow.agent.supervisor.SupervisorDecision decide(
+                    RunRecord runRecord,
+                    StageType currentStage,
+                    ReviewResult reviewResult,
+                    boolean repeatedIssue,
+                    ProjectedContext projectedContext
+            ) {
+                supervisorCalled.set(true);
+                return supervisorDecision;
             }
         };
     }
@@ -700,6 +938,61 @@ class StageProgressCoordinatorTests {
                 states,
                 Instant.now(),
                 Instant.now()
+        );
+    }
+
+    private RunRecord runningCodeReviewRun() {
+        EnumMap<StageType, StageExecution> states = new EnumMap<>(StageType.class);
+        for (StageType stageType : StageType.values()) {
+            StageStatus status;
+            int attempt;
+            if (stageType.ordinal() < StageType.CODE_REVIEW.ordinal()) {
+                status = StageStatus.APPROVED;
+                attempt = 1;
+            } else if (stageType == StageType.CODE_REVIEW) {
+                status = StageStatus.RUNNING;
+                attempt = 1;
+            } else {
+                status = StageStatus.PENDING;
+                attempt = 0;
+            }
+            states.put(stageType, new StageExecution(stageType, status, attempt, null, null, null, null));
+        }
+        return new RunRecord(
+                UUID.randomUUID(),
+                tempDir,
+                "goal",
+                "constraints",
+                new RunConfig(Map.of(), 5),
+                StageType.CODE_REVIEW,
+                RunStatus.IN_PROGRESS,
+                states,
+                Instant.now(),
+                Instant.now()
+        );
+    }
+
+    private ProjectedContext projectedContext() {
+        return new ProjectedContext(
+                "当前阶段摘要",
+                "上游契约摘要",
+                "权威需求目录",
+                "最近历史",
+                "失败摘要",
+                "修复摘要",
+                "工作集摘要",
+                new TaskMemory(
+                        "目标",
+                        "约束",
+                        "当前阶段摘要",
+                        "上游契约摘要",
+                        "权威需求目录",
+                        "最近历史",
+                        "失败摘要",
+                        "修复摘要",
+                        "工作集摘要",
+                        List.of()
+                )
         );
     }
 }
