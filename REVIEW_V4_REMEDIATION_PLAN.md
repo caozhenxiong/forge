@@ -349,6 +349,7 @@ private static final int WORKING_SET_SUMMARY_MAX_CHARS = 2200;
 - 新增 `RevisionContext`
 - `StageTransitionSupport.rerouteForRevision()` 切到 `RevisionContext`
 - `StageRevisionSupport.rerouteForRevision()` 切到 `RevisionContext`
+- `StageRevisionSupport.buildRevisionNote()` 的调用链改为从 `RevisionContext` 取值，不再透传长参数
 - `FlowDecisionExecutor.apply()` 提取共享 reroute 方法
 - `StageTransitionSupportTests` / `DefaultWorkflowEngineTests` / `ImplementationPlannerTests` 同步改签
 - 新增 `FlowDecisionExecutorTests`
