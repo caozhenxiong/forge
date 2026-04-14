@@ -199,7 +199,9 @@
 
 做法：
 
-1. 当子任务失败时，若当前 subtask 已有确定的 `effectiveChanges` 或等价结构化文件范围，则直接以该范围生成 stage-level continuation `overrideChanges`。
+1. 当子任务失败时，若当前 subtask 已有确定的结构化文件范围，则直接以该范围生成 stage-level continuation `overrideChanges`。允许来源只包括：
+   - 当前 subtask 文件契约
+   - 当前 accepted/effective structured change-set
 2. 该物化动作只使用当前 run 内已有结构化信息：
    - 当前 subtask 文件契约
    - 当前 accepted/effective change-set
