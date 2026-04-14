@@ -20,7 +20,7 @@ import java.util.List;
  * <p>负责把上游 artifact、语言、修订目标、authority corpus 和上一轮草稿
  * 统一整理成稳定的 `DocumentDraftContext`，避免这些步骤散在 composer 内部。
  */
-final class DocumentStageIntake {
+public final class DocumentStageIntake {
 
     private final ArtifactTemplateFactory artifactTemplateFactory;
     private final FileArtifactStore artifactStore;
@@ -28,7 +28,7 @@ final class DocumentStageIntake {
     private final LanguagePolicy languagePolicy;
     private final DocumentDraftAssembler draftAssembler;
 
-    DocumentStageIntake(
+    public DocumentStageIntake(
             ArtifactTemplateFactory artifactTemplateFactory,
             FileArtifactStore artifactStore,
             ContractExtractor contractExtractor,

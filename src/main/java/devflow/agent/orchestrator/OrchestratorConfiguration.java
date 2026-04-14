@@ -35,25 +35,95 @@ class OrchestratorConfiguration {
     }
 
     @Bean
-    StageTransitionSupport stageTransitionSupport(
+    StageStatusSupport stageStatusSupport(
             FileRunRepository runRepository,
             FileArtifactStore artifactStore,
             EventLogStore eventLogStore,
-            DiagnosisAgent diagnosisAgent,
-            RepairAgent repairAgent,
             StageFlowPolicy stageFlowPolicy,
             WorkflowArtifactRenderer workflowArtifactRenderer,
             LanguagePolicy languagePolicy
     ) {
-        return new StageTransitionSupport(
+        return new StageStatusSupport(
                 runRepository,
+                artifactStore,
+                eventLogStore,
+                stageFlowPolicy,
+                workflowArtifactRenderer,
+                languagePolicy
+        );
+    }
+
+    @Bean
+    StageRevisionSupport stageRevisionSupport(
+            FileRunRepository runRepository,
+            FileArtifactStore artifactStore,
+            EventLogStore eventLogStore,
+            StageFlowPolicy stageFlowPolicy,
+            WorkflowArtifactRenderer workflowArtifactRenderer,
+            SupervisorGuidanceRenderer supervisorGuidanceRenderer,
+            StageRevisionRepairSupport stageRevisionRepairSupport,
+            LanguagePolicy languagePolicy
+    ) {
+        return new StageRevisionSupport(
+                runRepository,
+                artifactStore,
+                eventLogStore,
+                stageFlowPolicy,
+                workflowArtifactRenderer,
+                supervisorGuidanceRenderer,
+                stageRevisionRepairSupport,
+                languagePolicy
+        );
+    }
+
+    @Bean
+    SupervisorGuidanceRenderer supervisorGuidanceRenderer() {
+        return new SupervisorGuidanceRenderer();
+    }
+
+    @Bean
+    StageRevisionNoteBuilder stageRevisionNoteBuilder() {
+        return new StageRevisionNoteBuilder();
+    }
+
+    @Bean
+    StageRevisionRepairSupport stageRevisionRepairSupport(
+            FileArtifactStore artifactStore,
+            EventLogStore eventLogStore,
+            DiagnosisAgent diagnosisAgent,
+            RepairAgent repairAgent,
+            StageRevisionNoteBuilder stageRevisionNoteBuilder,
+            LanguagePolicy languagePolicy
+    ) {
+        return new StageRevisionRepairSupport(
                 artifactStore,
                 eventLogStore,
                 diagnosisAgent,
                 repairAgent,
-                stageFlowPolicy,
-                workflowArtifactRenderer,
+                stageRevisionNoteBuilder,
                 languagePolicy
+        );
+    }
+
+    @Bean
+    StageContinuationNoteBuilder stageContinuationNoteBuilder() {
+        return new StageContinuationNoteBuilder();
+    }
+
+    @Bean
+    StageTransitionSupport stageTransitionSupport(
+            FileRunRepository runRepository,
+            EventLogStore eventLogStore,
+            StageStatusSupport stageStatusSupport,
+            StageRevisionSupport stageRevisionSupport,
+            StageContinuationNoteBuilder stageContinuationNoteBuilder
+    ) {
+        return new StageTransitionSupport(
+                runRepository,
+                eventLogStore,
+                stageStatusSupport,
+                stageRevisionSupport,
+                stageContinuationNoteBuilder
         );
     }
 
@@ -124,6 +194,11 @@ class OrchestratorConfiguration {
     }
 
     @Bean
+    ImplementationContinuationSupport implementationContinuationSupport() {
+        return new ImplementationContinuationSupport();
+    }
+
+    @Bean
     StageProgressCoordinator stageProgressCoordinator(
             FileArtifactStore artifactStore,
             DiagnosisAgent diagnosisAgent,
@@ -136,6 +211,7 @@ class OrchestratorConfiguration {
             StageToolResultLoader stageToolResultLoader,
             StageToolResultGuard stageToolResultGuard,
             ImplementationStateArtifactSupport implementationStateArtifactSupport,
+            ImplementationContinuationSupport implementationContinuationSupport,
             LanguagePolicy languagePolicy
     ) {
         return new StageProgressCoordinator(
@@ -150,6 +226,7 @@ class OrchestratorConfiguration {
                 stageToolResultLoader,
                 stageToolResultGuard,
                 implementationStateArtifactSupport,
+                implementationContinuationSupport,
                 languagePolicy
         );
     }

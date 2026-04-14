@@ -73,35 +73,26 @@ public class TestExecutor {
 
     @Autowired
     public TestExecutor(
-            ProjectInspector projectInspector,
-            ValidationStrategyPlanner strategyPlanner,
-            ValidationExecutor validationExecutor,
-            TestCasePlanner testCasePlanner,
-            TestToolSelector testToolSelector,
-            TestRunner testRunner,
-            TestEvidenceCollector testEvidenceCollector,
-            TestArtifactRenderer testArtifactRenderer,
+            TestPlanningComponents planningComponents,
+            TestRunComponents runComponents,
+            TestEvidenceComponents evidenceComponents,
             ContractExtractor contractExtractor,
-            ArchitectIntegrationCheck architectIntegrationCheck,
-            TestEvidenceGate testEvidenceGate,
-            CoverageLedgerBuilder coverageLedgerBuilder,
-            ExperienceFailureDispositionResolver experienceFailureDispositionResolver,
             LanguagePolicy languagePolicy
     ) {
-        this.projectInspector = projectInspector;
-        this.strategyPlanner = strategyPlanner;
-        this.validationExecutor = validationExecutor;
+        this.projectInspector = planningComponents.projectInspector();
+        this.strategyPlanner = planningComponents.strategyPlanner();
+        this.validationExecutor = runComponents.validationExecutor();
         this.languagePolicy = languagePolicy;
-        this.testCasePlanner = testCasePlanner;
-        this.testToolSelector = testToolSelector;
-        this.testRunner = testRunner;
-        this.testEvidenceCollector = testEvidenceCollector;
-        this.testArtifactRenderer = testArtifactRenderer;
+        this.testCasePlanner = planningComponents.testCasePlanner();
+        this.testToolSelector = planningComponents.testToolSelector();
+        this.testRunner = runComponents.testRunner();
+        this.testEvidenceCollector = evidenceComponents.testEvidenceCollector();
+        this.testArtifactRenderer = evidenceComponents.testArtifactRenderer();
         this.contractExtractor = contractExtractor;
-        this.architectIntegrationCheck = architectIntegrationCheck;
-        this.testEvidenceGate = testEvidenceGate;
-        this.coverageLedgerBuilder = coverageLedgerBuilder;
-        this.experienceFailureDispositionResolver = experienceFailureDispositionResolver;
+        this.architectIntegrationCheck = runComponents.architectIntegrationCheck();
+        this.testEvidenceGate = evidenceComponents.testEvidenceGate();
+        this.coverageLedgerBuilder = evidenceComponents.coverageLedgerBuilder();
+        this.experienceFailureDispositionResolver = evidenceComponents.experienceFailureDispositionResolver();
     }
 
     public TestExecutionBundle execute(

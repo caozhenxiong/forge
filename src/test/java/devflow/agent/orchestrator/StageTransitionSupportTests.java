@@ -169,12 +169,15 @@ class StageTransitionSupportTests {
                 tempDir,
                 runRecord,
                 StageType.IMPLEMENTATION,
-                "实现仍处于阶段中间态",
-                "继续完成剩余子任务",
-                "",
-                "",
-                java.util.List.of(new FileChange("index.html", ChangeAction.WRITE, "继续补齐入口")),
-                ImplementationPatchTarget.NONE,
+                new StageContinuationContext(
+                        "实现仍处于阶段中间态",
+                        "继续完成剩余子任务",
+                        "",
+                        "",
+                        java.util.List.of(new FileChange("index.html", ChangeAction.WRITE, "继续补齐入口")),
+                        ImplementationPatchTarget.NONE,
+                        devflow.agent.review.ReviewReasonCode.NONE
+                ),
                 (draft, stageType, runStatus, note) -> {
                     capturedStage.set(stageType);
                     capturedNote.set(note);
@@ -324,14 +327,36 @@ class StageTransitionSupportTests {
                 return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "", "", "");
             }
         };
-        return new StageTransitionSupport(
+        StageStatusSupport stageStatusSupport = new StageStatusSupport(
                 runRepository,
                 artifactStore,
                 eventLogStore,
-                new DiagnosisAgent(provider, artifactStore, new ObjectMapper()),
-                new RepairAgent(),
                 new StageFlowPolicy(),
                 new WorkflowArtifactRenderer()
+        );
+        StageRevisionSupport stageRevisionSupport = new StageRevisionSupport(
+                runRepository,
+                artifactStore,
+                eventLogStore,
+                new StageFlowPolicy(),
+                new WorkflowArtifactRenderer(),
+                new SupervisorGuidanceRenderer(),
+                new StageRevisionRepairSupport(
+                        artifactStore,
+                        eventLogStore,
+                        new DiagnosisAgent(provider, artifactStore, new ObjectMapper()),
+                        new RepairAgent(),
+                        new StageRevisionNoteBuilder(),
+                        new devflow.agent.i18n.LanguagePolicy()
+                ),
+                new devflow.agent.i18n.LanguagePolicy()
+        );
+        return new StageTransitionSupport(
+                runRepository,
+                eventLogStore,
+                stageStatusSupport,
+                stageRevisionSupport,
+                new StageContinuationNoteBuilder()
         );
     }
 

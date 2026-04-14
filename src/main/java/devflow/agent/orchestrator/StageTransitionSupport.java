@@ -6,10 +6,6 @@ import devflow.agent.domain.StageExecution;
 import devflow.agent.domain.StageStatus;
 import devflow.agent.domain.StageType;
 
-import devflow.agent.artifact.FileArtifactStore;
-import devflow.agent.i18n.LanguagePolicy;
-import devflow.agent.protocol.ExecutionDirectiveNarrativeRenderer;
-import devflow.agent.protocol.ExecutionDirectivePayload;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
@@ -34,58 +30,20 @@ public class StageTransitionSupport {
     private final devflow.agent.artifact.EventLogStore eventLogStore;
     private final StageStatusSupport stageStatusSupport;
     private final StageRevisionSupport stageRevisionSupport;
+    private final StageContinuationNoteBuilder stageContinuationNoteBuilder;
 
     public StageTransitionSupport(
             FileRunRepository runRepository,
-            FileArtifactStore artifactStore,
             devflow.agent.artifact.EventLogStore eventLogStore,
-            devflow.agent.repair.DiagnosisAgent diagnosisAgent,
-            devflow.agent.repair.RepairAgent repairAgent,
-            StageFlowPolicy stageFlowPolicy,
-            WorkflowArtifactRenderer workflowArtifactRenderer
-    ) {
-        this(
-                runRepository,
-                artifactStore,
-                eventLogStore,
-                diagnosisAgent,
-                repairAgent,
-                stageFlowPolicy,
-                workflowArtifactRenderer,
-                new LanguagePolicy()
-        );
-    }
-
-    public StageTransitionSupport(
-            FileRunRepository runRepository,
-            FileArtifactStore artifactStore,
-            devflow.agent.artifact.EventLogStore eventLogStore,
-            devflow.agent.repair.DiagnosisAgent diagnosisAgent,
-            devflow.agent.repair.RepairAgent repairAgent,
-            StageFlowPolicy stageFlowPolicy,
-            WorkflowArtifactRenderer workflowArtifactRenderer,
-            LanguagePolicy languagePolicy
+            StageStatusSupport stageStatusSupport,
+            StageRevisionSupport stageRevisionSupport,
+            StageContinuationNoteBuilder stageContinuationNoteBuilder
     ) {
         this.runRepository = runRepository;
         this.eventLogStore = eventLogStore;
-        this.stageStatusSupport = new StageStatusSupport(
-                runRepository,
-                artifactStore,
-                eventLogStore,
-                stageFlowPolicy,
-                workflowArtifactRenderer,
-                languagePolicy
-        );
-        this.stageRevisionSupport = new StageRevisionSupport(
-                runRepository,
-                artifactStore,
-                eventLogStore,
-                diagnosisAgent,
-                repairAgent,
-                stageFlowPolicy,
-                workflowArtifactRenderer,
-                languagePolicy
-        );
+        this.stageStatusSupport = stageStatusSupport;
+        this.stageRevisionSupport = stageRevisionSupport;
+        this.stageContinuationNoteBuilder = stageContinuationNoteBuilder;
     }
 
     public RunRecord approveHumanReview(
@@ -195,18 +153,13 @@ public class StageTransitionSupport {
             Path projectPath,
             RunRecord runRecord,
             StageType stageType,
-            String summary,
-            String changeRequest,
-            String evidence,
-            String actionItems,
-            java.util.List<devflow.agent.executor.FileChange> overrideChanges,
-            ImplementationPatchTarget implementationPatchTarget,
+            StageContinuationContext continuationContext,
             StageEntryAction stageEntryAction
     ) {
         Map<StageType, StageExecution> nextStates = new EnumMap<>(runRecord.stageStates());
-        StageExecution currentExecution = requireStage(nextStates, stageType);
+        StageExecution currentExecution = StageStatusSupport.requireStage(nextStates, stageType);
         StageExecution continuedExecution = currentExecution.withStatus(StageStatus.NEEDS_REVISION)
-                .withReview(null, summary, changeRequest);
+                .withReview(null, continuationContext.summary(), continuationContext.changeRequest());
         nextStates.put(stageType, continuedExecution);
 
         if (currentExecution.attempt() >= runRecord.config().maxAutoRevisions()) {
@@ -221,7 +174,7 @@ public class StageTransitionSupport {
                 draft,
                 stageType,
                 RunStatus.IN_PROGRESS,
-                continuationNote(summary, changeRequest, evidence, actionItems, overrideChanges, implementationPatchTarget)
+                stageContinuationNoteBuilder.build(continuationContext)
         );
     }
 
@@ -232,71 +185,8 @@ public class StageTransitionSupport {
     public String mergeActionItems(String actionItems, SupervisorDecision supervisorDecision) {
         return stageRevisionSupport.mergeActionItems(actionItems, supervisorDecision);
     }
-
-    private String continuationNote(
-            String summary,
-            String changeRequest,
-            String evidence,
-            String actionItems,
-            java.util.List<devflow.agent.executor.FileChange> overrideChanges,
-            ImplementationPatchTarget implementationPatchTarget
-    ) {
-        return ExecutionDirectiveNarrativeRenderer.renderRevisionNote(
-                new ExecutionDirectivePayload(
-                        FixMode.PATCH.name(),
-                        implementationPatchTarget == null ? ImplementationPatchTarget.NONE.name() : implementationPatchTarget.name(),
-                        overrideChanges == null ? java.util.List.of() : overrideChanges.stream().map(change -> new devflow.agent.protocol.FileChangePayload(
-                                change.path(),
-                                change.action() == null ? null : change.action().name(),
-                                change.reason() == null ? "" : change.reason(),
-                                change.effectiveEditScope().name(),
-                                change.runtimeOwnership() == null ? null : change.runtimeOwnership().name(),
-                                change.hostHtmlPatchRequired()
-                        )).toList(),
-                        false,
-                        false,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        java.util.List.of(),
-                        java.util.List.of(),
-                        java.util.List.of(),
-                        java.util.List.of(),
-                        java.util.List.of(),
-                        java.util.List.of(),
-                        summary,
-                        changeRequest,
-                        evidence,
-                        actionItems,
-                        null,
-                        "继续当前 implementation 阶段，收敛未完成的问题。",
-                        java.util.List.of(),
-                        java.util.List.of(),
-                        null,
-                        null,
-                        null,
-                        null
-                ),
-                summary,
-                changeRequest,
-                evidence,
-                actionItems
-        );
-    }
-
     @FunctionalInterface
     public interface StageEntryAction {
         RunRecord enter(RunRecord runRecord, StageType stageType, RunStatus runStatus, String note);
-    }
-
-    private StageExecution requireStage(Map<StageType, StageExecution> stageStates, StageType stageType) {
-        StageExecution stageExecution = stageStates.get(stageType);
-        if (stageExecution == null) {
-            throw new IllegalArgumentException("Missing stage state for " + stageType);
-        }
-        return stageExecution;
     }
 }

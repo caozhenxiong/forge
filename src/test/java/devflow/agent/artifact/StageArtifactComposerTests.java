@@ -65,6 +65,18 @@ class StageArtifactComposerTests {
             WorkspaceSnapshotStore snapshotStore,
             ContractExtractor contractExtractor
     ) {
+        DocumentDraftAssembler draftAssembler = new DocumentDraftAssembler();
+        DocumentStageIntake documentStageIntake = new DocumentStageIntake(
+                artifactTemplateFactory,
+                artifactStore,
+                contractExtractor,
+                new devflow.agent.i18n.LanguagePolicy(),
+                draftAssembler
+        );
+        DocumentPromptAssembler promptAssembler = new DocumentPromptAssembler(
+                new devflow.agent.prompt.PromptTemplateCatalog(),
+                draftAssembler
+        );
         return new StageArtifactComposer(
                 artifactStore,
                 provider,
@@ -73,12 +85,16 @@ class StageArtifactComposerTests {
                 snapshotStore,
                 contractExtractor,
                 new DocumentStageComposer(
-                        artifactTemplateFactory,
-                        artifactStore,
-                        provider,
-                        contractExtractor,
-                        new devflow.agent.prompt.PromptTemplateCatalog(),
-                        new devflow.agent.i18n.LanguagePolicy()
+                        new DocumentCompositionTemplate(
+                                contractExtractor,
+                                documentStageIntake,
+                                draftAssembler,
+                                new DocumentStagePostProcessor(contractExtractor, draftAssembler),
+                                new DocumentGenerationSupport(provider)
+                        ),
+                        new AnalysisDocumentComposition(contractExtractor, promptAssembler),
+                        new PrdDocumentComposition(contractExtractor, documentStageIntake, promptAssembler),
+                        new DesignDocumentComposition(contractExtractor, documentStageIntake, promptAssembler)
                 ),
                 new devflow.agent.i18n.LanguagePolicy(),
                 new ImplementationStateArtifactSupport()

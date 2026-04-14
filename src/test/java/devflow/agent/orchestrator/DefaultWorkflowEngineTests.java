@@ -57,12 +57,46 @@ class DefaultWorkflowEngineTests {
     Path tempDir;
 
     private ContextProjector newContextProjector(FileArtifactStore artifactStore, FileProjectWorkspace workspace) {
+        devflow.agent.i18n.LanguagePolicy languagePolicy = new devflow.agent.i18n.LanguagePolicy();
+        ContractExtractor contractExtractor = new ContractExtractor();
         return new ContextProjector(
+                new devflow.agent.context.ContextProjectionArtifactReader(artifactStore, workspace),
+                new devflow.agent.context.ContextProjectionContractResolver(contractExtractor, languagePolicy),
+                new devflow.agent.context.ContextProjectionSummaryAssembler(new ArtifactSummaryBuilder()),
+                new devflow.agent.context.ContextProjectionAssembler(new devflow.agent.context.ContextLayerAssembler())
+        );
+    }
+
+    private devflow.agent.artifact.DocumentStageComposer newDocumentStageComposer(
+            ArtifactTemplateFactory artifactTemplateFactory,
+            FileArtifactStore artifactStore,
+            LlmProvider provider,
+            ContractExtractor contractExtractor
+    ) {
+        devflow.agent.i18n.LanguagePolicy languagePolicy = new devflow.agent.i18n.LanguagePolicy();
+        devflow.agent.artifact.DocumentDraftAssembler draftAssembler = new devflow.agent.artifact.DocumentDraftAssembler();
+        devflow.agent.artifact.DocumentStageIntake documentStageIntake = new devflow.agent.artifact.DocumentStageIntake(
+                artifactTemplateFactory,
                 artifactStore,
-                workspace,
-                new ArtifactSummaryBuilder(),
-                new ContractExtractor(),
-                new devflow.agent.context.ContextLayerAssembler()
+                contractExtractor,
+                languagePolicy,
+                draftAssembler
+        );
+        devflow.agent.artifact.DocumentPromptAssembler promptAssembler = new devflow.agent.artifact.DocumentPromptAssembler(
+                new devflow.agent.prompt.PromptTemplateCatalog(),
+                draftAssembler
+        );
+        return new devflow.agent.artifact.DocumentStageComposer(
+                new devflow.agent.artifact.DocumentCompositionTemplate(
+                        contractExtractor,
+                        documentStageIntake,
+                        draftAssembler,
+                        new devflow.agent.artifact.DocumentStagePostProcessor(contractExtractor, draftAssembler),
+                        new devflow.agent.artifact.DocumentGenerationSupport(provider)
+                ),
+                new devflow.agent.artifact.AnalysisDocumentComposition(contractExtractor, promptAssembler),
+                new devflow.agent.artifact.PrdDocumentComposition(contractExtractor, documentStageIntake, promptAssembler),
+                new devflow.agent.artifact.DesignDocumentComposition(contractExtractor, documentStageIntake, promptAssembler)
         );
     }
 
@@ -82,26 +116,30 @@ class DefaultWorkflowEngineTests {
                 testExecutor,
                 snapshotStore,
                 contractExtractor,
-                new devflow.agent.artifact.DocumentStageComposer(
-                        artifactTemplateFactory,
-                        artifactStore,
-                        provider,
-                        contractExtractor,
-                        new devflow.agent.prompt.PromptTemplateCatalog(),
-                        new devflow.agent.i18n.LanguagePolicy()
-                ),
+                newDocumentStageComposer(artifactTemplateFactory, artifactStore, provider, contractExtractor),
                 new devflow.agent.i18n.LanguagePolicy(),
                 new ImplementationStateArtifactSupport()
         );
     }
 
     private SupervisorAgent newSupervisorAgent(LlmProvider provider, FileArtifactStore artifactStore, FileProjectWorkspace workspace) {
+        StageFlowPolicy stageFlowPolicy = new StageFlowPolicy();
+        SupervisorFallbackPolicy fallbackPolicy = new SupervisorFallbackPolicy(stageFlowPolicy);
+        devflow.agent.supervisor.SupervisorArtifactRenderer artifactRenderer = new devflow.agent.supervisor.SupervisorArtifactRenderer();
         return new SupervisorAgent(
                 provider,
-                new ObjectMapper(),
                 newContextProjector(artifactStore, workspace),
-                new StageFlowPolicy(),
-                new SupervisorFallbackPolicy(new StageFlowPolicy())
+                stageFlowPolicy,
+                fallbackPolicy,
+                artifactRenderer,
+                new devflow.agent.supervisor.SupervisorDecisionSanitizer(
+                        stageFlowPolicy,
+                        new devflow.agent.supervisor.SupervisorPayloadNormalizer(),
+                        fallbackPolicy
+                ),
+                new devflow.agent.supervisor.SupervisorPromptAssembler(artifactRenderer),
+                new devflow.agent.executor.llm.StructuredPayloadReader(new ObjectMapper()),
+                new devflow.agent.i18n.LanguagePolicy()
         );
     }
 
@@ -123,15 +161,37 @@ class DefaultWorkflowEngineTests {
     ) {
         WorkflowArtifactRenderer workflowArtifactRenderer = new WorkflowArtifactRenderer();
         devflow.agent.i18n.LanguagePolicy languagePolicy = new devflow.agent.i18n.LanguagePolicy();
-        StageTransitionSupport stageTransitionSupport = new StageTransitionSupport(
+        StageStatusSupport stageStatusSupport = new StageStatusSupport(
                 runRepository,
                 artifactStore,
                 eventLogStore,
-                diagnosisAgent,
-                repairAgent,
                 new StageFlowPolicy(),
                 workflowArtifactRenderer,
                 languagePolicy
+        );
+        StageRevisionSupport stageRevisionSupport = new StageRevisionSupport(
+                runRepository,
+                artifactStore,
+                eventLogStore,
+                new StageFlowPolicy(),
+                workflowArtifactRenderer,
+                new SupervisorGuidanceRenderer(),
+                new StageRevisionRepairSupport(
+                        artifactStore,
+                        eventLogStore,
+                        diagnosisAgent,
+                        repairAgent,
+                        new StageRevisionNoteBuilder(),
+                        languagePolicy
+                ),
+                languagePolicy
+        );
+        StageTransitionSupport stageTransitionSupport = new StageTransitionSupport(
+                runRepository,
+                eventLogStore,
+                stageStatusSupport,
+                stageRevisionSupport,
+                new StageContinuationNoteBuilder()
         );
         StageOperationExecutor stageOperationExecutor = new StageOperationExecutor(
                 stageArtifactComposer,
@@ -160,6 +220,7 @@ class DefaultWorkflowEngineTests {
                 new StageToolResultLoader(artifactStore),
                 new StageToolResultGuard(),
                 new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
+                new ImplementationContinuationSupport(),
                 languagePolicy
         );
         return new DefaultWorkflowEngine(new WorkflowRunLifecycleSupport(

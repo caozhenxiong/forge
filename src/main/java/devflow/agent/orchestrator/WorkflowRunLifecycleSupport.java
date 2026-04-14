@@ -109,7 +109,7 @@ public class WorkflowRunLifecycleSupport {
         }
 
         try {
-            StageExecution currentExecution = requireStage(runRecord.stageStates(), runRecord.currentStage());
+            StageExecution currentExecution = StageStatusSupport.requireStage(runRecord.stageStates(), runRecord.currentStage());
             if (currentExecution.status() == StageStatus.PENDING || currentExecution.artifactPath() == null) {
                 runRecord = stageEntryExecutor.enterStage(runRecord, runRecord.currentStage(), RunStatus.IN_PROGRESS, "恢复执行。");
             }
@@ -156,13 +156,5 @@ public class WorkflowRunLifecycleSupport {
 
     private LoopStepResult progressOnce(Path projectPath, devflow.agent.loop.LoopState loopState) {
         return stageProgressCoordinator.progress(projectPath, loopState.runRecord());
-    }
-
-    private StageExecution requireStage(Map<StageType, StageExecution> stageStates, StageType stageType) {
-        StageExecution stageExecution = stageStates.get(stageType);
-        if (stageExecution == null) {
-            throw new IllegalArgumentException("Missing stage state for " + stageType);
-        }
-        return stageExecution;
     }
 }

@@ -110,4 +110,49 @@ class TestExecutionConfiguration {
     ExperienceFailureDispositionResolver experienceFailureDispositionResolver(TestPlanningPolicy testPlanningPolicy) {
         return new ExperienceFailureDispositionResolver(testPlanningPolicy);
     }
+
+    @Bean
+    TestPlanningComponents testPlanningComponents(
+            ProjectInspector projectInspector,
+            ValidationStrategyPlanner validationStrategyPlanner,
+            TestCasePlanner testCasePlanner,
+            TestToolSelector testToolSelector
+    ) {
+        return new TestPlanningComponents(
+                projectInspector,
+                validationStrategyPlanner,
+                testCasePlanner,
+                testToolSelector
+        );
+    }
+
+    @Bean
+    TestRunComponents testRunComponents(
+            ValidationExecutor validationExecutor,
+            TestRunner testRunner,
+            ArchitectIntegrationCheck architectIntegrationCheck
+    ) {
+        return new TestRunComponents(
+                validationExecutor,
+                testRunner,
+                architectIntegrationCheck
+        );
+    }
+
+    @Bean
+    TestEvidenceComponents testEvidenceComponents(
+            TestEvidenceCollector testEvidenceCollector,
+            TestEvidenceGate testEvidenceGate,
+            CoverageLedgerBuilder coverageLedgerBuilder,
+            ExperienceFailureDispositionResolver experienceFailureDispositionResolver,
+            TestArtifactRenderer testArtifactRenderer
+    ) {
+        return new TestEvidenceComponents(
+                testEvidenceCollector,
+                testEvidenceGate,
+                coverageLedgerBuilder,
+                experienceFailureDispositionResolver,
+                testArtifactRenderer
+        );
+    }
 }

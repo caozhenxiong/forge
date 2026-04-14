@@ -11,7 +11,10 @@ import java.util.List;
  *
  * <p>这里统一承担章节提纲提取、缺失章节 merge、顶层 section replace 等确定性拼装逻辑。
  */
-final class DocumentDraftAssembler {
+public final class DocumentDraftAssembler {
+
+    public DocumentDraftAssembler() {
+    }
 
     String mergeDocumentDraft(StageType stageType, String previousDraft, String generated, List<Integer> targetSections) {
         if (previousDraft == null || previousDraft.isBlank()) {

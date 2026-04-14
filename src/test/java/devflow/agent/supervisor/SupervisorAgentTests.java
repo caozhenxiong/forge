@@ -41,18 +41,30 @@ class SupervisorAgentTests {
 
     private SupervisorAgent newSupervisorAgent(LlmProvider provider, FileArtifactStore artifactStore) {
         StageFlowPolicy stageFlowPolicy = new StageFlowPolicy();
+        SupervisorFallbackPolicy fallbackPolicy = new SupervisorFallbackPolicy(stageFlowPolicy);
+        SupervisorArtifactRenderer artifactRenderer = new SupervisorArtifactRenderer();
         return new SupervisorAgent(
                 provider,
-                new ObjectMapper(),
                 new ContextProjector(
-                        artifactStore,
-                        new FileProjectWorkspace(),
-                        new ArtifactSummaryBuilder(),
-                        new ContractExtractor(),
-                        new devflow.agent.context.ContextLayerAssembler()
+                        new devflow.agent.context.ContextProjectionArtifactReader(artifactStore, new FileProjectWorkspace()),
+                        new devflow.agent.context.ContextProjectionContractResolver(
+                                new ContractExtractor(),
+                                new devflow.agent.i18n.LanguagePolicy()
+                        ),
+                        new devflow.agent.context.ContextProjectionSummaryAssembler(new ArtifactSummaryBuilder()),
+                        new devflow.agent.context.ContextProjectionAssembler(new devflow.agent.context.ContextLayerAssembler())
                 ),
                 stageFlowPolicy,
-                new SupervisorFallbackPolicy(stageFlowPolicy)
+                fallbackPolicy,
+                artifactRenderer,
+                new SupervisorDecisionSanitizer(
+                        stageFlowPolicy,
+                        new SupervisorPayloadNormalizer(),
+                        fallbackPolicy
+                ),
+                new SupervisorPromptAssembler(artifactRenderer),
+                new devflow.agent.executor.llm.StructuredPayloadReader(new ObjectMapper()),
+                new devflow.agent.i18n.LanguagePolicy()
         );
     }
 

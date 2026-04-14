@@ -9,13 +9,13 @@ import devflow.agent.prompt.PromptTemplateCatalog;
  * <p>这里专门负责把 stage + draft mode + intake 上下文转成生成 prompt，
  * 避免 `DocumentStageComposer` 继续同时承担编排和 prompt 规划两类职责。
  */
-final class DocumentPromptAssembler {
+public final class DocumentPromptAssembler {
 
     private final AnalysisDocumentPromptBuilder analysisPromptBuilder;
     private final PrdDocumentPromptBuilder prdPromptBuilder;
     private final DesignDocumentPromptBuilder designPromptBuilder;
 
-    DocumentPromptAssembler(PromptTemplateCatalog promptTemplateCatalog, DocumentDraftAssembler draftAssembler) {
+    public DocumentPromptAssembler(PromptTemplateCatalog promptTemplateCatalog, DocumentDraftAssembler draftAssembler) {
         this.analysisPromptBuilder = new AnalysisDocumentPromptBuilder(promptTemplateCatalog, draftAssembler);
         this.prdPromptBuilder = new PrdDocumentPromptBuilder(promptTemplateCatalog, draftAssembler);
         this.designPromptBuilder = new DesignDocumentPromptBuilder(promptTemplateCatalog, draftAssembler);

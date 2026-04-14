@@ -49,7 +49,7 @@ public class StageEntryExecutor {
      */
     public RunRecord enterStage(RunRecord runRecord, StageType stageType, RunStatus runStatus, String note) {
         Map<StageType, StageExecution> nextStates = new EnumMap<>(runRecord.stageStates());
-        StageExecution nextExecution = requireStage(nextStates, stageType).nextAttempt(StageStatus.RUNNING);
+        StageExecution nextExecution = StageStatusSupport.requireStage(nextStates, stageType).nextAttempt(StageStatus.RUNNING);
         nextStates.put(
                 stageType,
                 nextExecution.withArtifactPath(null)
@@ -92,13 +92,5 @@ public class StageEntryExecutor {
             stageTransitionSupport.markFatalFailure(runRecord.projectPath(), runRecord.runId(), stageType, ex);
             throw ex;
         }
-    }
-
-    private StageExecution requireStage(Map<StageType, StageExecution> stageStates, StageType stageType) {
-        StageExecution stageExecution = stageStates.get(stageType);
-        if (stageExecution == null) {
-            throw new IllegalArgumentException("Missing stage state for " + stageType);
-        }
-        return stageExecution;
     }
 }

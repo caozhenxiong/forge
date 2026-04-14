@@ -15,7 +15,7 @@ import java.util.List;
  * 2. guidance 列表去空白；
  * 3. placeholder/null literal 清洗。
  */
-final class SupervisorPayloadNormalizer {
+public final class SupervisorPayloadNormalizer {
 
     List<String> normalizeList(List<String> rawItems) {
         if (rawItems == null || rawItems.isEmpty()) {

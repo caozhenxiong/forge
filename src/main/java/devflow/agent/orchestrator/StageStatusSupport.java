@@ -198,7 +198,7 @@ public class StageStatusSupport {
         return new EnumMap<>(runRecord.stageStates());
     }
 
-    private StageExecution requireStage(Map<StageType, StageExecution> stageStates, StageType stageType) {
+    static StageExecution requireStage(Map<StageType, StageExecution> stageStates, StageType stageType) {
         StageExecution stageExecution = stageStates.get(stageType);
         if (stageExecution == null) {
             throw new IllegalArgumentException("Missing stage state for " + stageType);

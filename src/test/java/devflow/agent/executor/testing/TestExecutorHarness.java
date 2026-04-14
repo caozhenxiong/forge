@@ -21,20 +21,48 @@ public class TestExecutorHarness extends TestExecutor {
             ObjectMapper objectMapper
     ) {
         super(
+                planningComponents(workspace, llmProvider, objectMapper),
+                runComponents(workspace, objectMapper),
+                evidenceComponents(),
+                new ContractExtractor(),
+                new LanguagePolicy()
+        );
+    }
+
+    private static TestPlanningComponents planningComponents(
+            FileProjectWorkspace workspace,
+            LlmProvider llmProvider,
+            ObjectMapper objectMapper
+    ) {
+        TestPlanningPolicy testPlanningPolicy = defaultTestPlanningPolicy();
+        return new TestPlanningComponents(
                 new ProjectInspector(workspace),
                 new ValidationStrategyPlanner(llmProvider, objectMapper),
-                new ValidationExecutor(workspace, defaultPlaywrightExecutionPolicy()),
-                planner(workspace, llmProvider, objectMapper, defaultTestPlanningPolicy()),
-                new TestToolSelector(),
-                new TestRunner(new PlaywrightCaseExecutor(workspace, objectMapper, defaultPlaywrightExecutionPolicy())),
+                planner(workspace, llmProvider, objectMapper, testPlanningPolicy),
+                new TestToolSelector()
+        );
+    }
+
+    private static TestRunComponents runComponents(
+            FileProjectWorkspace workspace,
+            ObjectMapper objectMapper
+    ) {
+        PlaywrightExecutionPolicy playwrightExecutionPolicy = defaultPlaywrightExecutionPolicy();
+        return new TestRunComponents(
+                new ValidationExecutor(workspace, playwrightExecutionPolicy),
+                new TestRunner(new PlaywrightCaseExecutor(workspace, objectMapper, playwrightExecutionPolicy)),
+                new ArchitectIntegrationCheck(workspace, new TreeSitterSupport())
+        );
+    }
+
+    private static TestEvidenceComponents evidenceComponents() {
+        TestPlanningPolicy testPlanningPolicy = defaultTestPlanningPolicy();
+        return new TestEvidenceComponents(
                 new TestEvidenceCollector(),
-                new TestArtifactRenderer(),
-                new ContractExtractor(),
-                new ArchitectIntegrationCheck(workspace, new TreeSitterSupport()),
                 new TestEvidenceGate(),
                 new CoverageLedgerBuilder(),
-                new ExperienceFailureDispositionResolver(defaultTestPlanningPolicy()),
-                new LanguagePolicy()
+                new ExperienceFailureDispositionResolver(testPlanningPolicy),
+                new TestArtifactRenderer()
         );
     }
 

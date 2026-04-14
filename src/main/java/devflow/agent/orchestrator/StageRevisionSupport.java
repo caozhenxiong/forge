@@ -10,8 +10,6 @@ import devflow.agent.artifact.EventLogStore;
 import devflow.agent.artifact.FileArtifactStore;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.LanguagePolicy;
-import devflow.agent.repair.DiagnosisAgent;
-import devflow.agent.repair.RepairAgent;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
@@ -49,31 +47,10 @@ public class StageRevisionSupport {
             FileRunRepository runRepository,
             FileArtifactStore artifactStore,
             EventLogStore eventLogStore,
-            DiagnosisAgent diagnosisAgent,
-            RepairAgent repairAgent,
-            StageFlowPolicy stageFlowPolicy,
-            WorkflowArtifactRenderer workflowArtifactRenderer
-    ) {
-        this(
-                runRepository,
-                artifactStore,
-                eventLogStore,
-                diagnosisAgent,
-                repairAgent,
-                stageFlowPolicy,
-                workflowArtifactRenderer,
-                new LanguagePolicy()
-        );
-    }
-
-    public StageRevisionSupport(
-            FileRunRepository runRepository,
-            FileArtifactStore artifactStore,
-            EventLogStore eventLogStore,
-            DiagnosisAgent diagnosisAgent,
-            RepairAgent repairAgent,
             StageFlowPolicy stageFlowPolicy,
             WorkflowArtifactRenderer workflowArtifactRenderer,
+            SupervisorGuidanceRenderer supervisorGuidanceRenderer,
+            StageRevisionRepairSupport stageRevisionRepairSupport,
             LanguagePolicy languagePolicy
     ) {
         this.runRepository = runRepository;
@@ -81,16 +58,9 @@ public class StageRevisionSupport {
         this.eventLogStore = eventLogStore;
         this.stageFlowPolicy = stageFlowPolicy;
         this.workflowArtifactRenderer = workflowArtifactRenderer;
-        this.supervisorGuidanceRenderer = new SupervisorGuidanceRenderer();
+        this.supervisorGuidanceRenderer = supervisorGuidanceRenderer;
         this.languagePolicy = languagePolicy;
-        this.stageRevisionRepairSupport = new StageRevisionRepairSupport(
-                artifactStore,
-                eventLogStore,
-                diagnosisAgent,
-                repairAgent,
-                new StageRevisionNoteBuilder(),
-                languagePolicy
-        );
+        this.stageRevisionRepairSupport = stageRevisionRepairSupport;
     }
 
     public RunRecord rejectHumanReview(
@@ -101,7 +71,7 @@ public class StageRevisionSupport {
             String reason,
             StageTransitionSupport.StageEntryAction stageEntryAction
     ) {
-        StageExecution currentExecution = requireStage(runRecord.stageStates(), stageType);
+        StageExecution currentExecution = StageStatusSupport.requireStage(runRecord.stageStates(), stageType);
         DocumentLanguage language = languagePolicy.resolve(runRecord.goal(), runRecord.constraints());
         artifactStore.appendReviewHistory(
                 projectPath,
@@ -157,7 +127,7 @@ public class StageRevisionSupport {
             StageTransitionSupport.StageEntryAction stageEntryAction
     ) {
         Map<StageType, StageExecution> nextStates = new EnumMap<>(runRecord.stageStates());
-        StageExecution currentExecution = requireStage(nextStates, stageType);
+        StageExecution currentExecution = StageStatusSupport.requireStage(nextStates, stageType);
         StageExecution reviewedExecution = currentExecution.withStatus(StageStatus.NEEDS_REVISION)
                 .withReview(decision, summary, changeRequest);
         nextStates.put(stageType, reviewedExecution);
@@ -207,13 +177,4 @@ public class StageRevisionSupport {
     public String supervisorGuidance(SupervisorDecision supervisorDecision) {
         return supervisorGuidanceRenderer.renderDirectiveGuidance(supervisorDecision);
     }
-
-    private StageExecution requireStage(Map<StageType, StageExecution> stageStates, StageType stageType) {
-        StageExecution stageExecution = stageStates.get(stageType);
-        if (stageExecution == null) {
-            throw new IllegalArgumentException("Missing stage state for " + stageType);
-        }
-        return stageExecution;
-    }
-
 }

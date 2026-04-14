@@ -22,6 +22,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class FlowController {
+    private static final String TOOL_SUMMARY_SEPARATOR = " | ";
 
     /**
      * 将 supervisor 的流程建议转换成统一的流程动作和流转说明。
@@ -64,28 +65,15 @@ public class FlowController {
     }
 
     private TransitionReason mapReason(WorkflowAction action, StageType stageType) {
-        if (action == WorkflowAction.ADVANCE_STAGE) {
-            return StageType.TEST == stageType ? TransitionReason.RUN_COMPLETED : TransitionReason.STAGE_APPROVED;
-        }
-        if (action == WorkflowAction.REQUEST_HUMAN_REVIEW) {
-            return TransitionReason.HUMAN_REVIEW_REQUIRED;
-        }
-        if (action == WorkflowAction.RETRY_STAGE) {
-            return TransitionReason.STAGE_RETRY;
-        }
-        if (action == WorkflowAction.ROUTE_TO_REPAIR) {
-            return TransitionReason.REPAIR_ROUTE;
-        }
-        if (action == WorkflowAction.ROLLBACK_STAGE) {
-            return TransitionReason.STAGE_ROLLBACK;
-        }
-        if (action == WorkflowAction.COMPLETE_RUN) {
-            return TransitionReason.RUN_COMPLETED;
-        }
-        if (action == WorkflowAction.FAIL_RUN) {
-            return TransitionReason.RUN_FAILED;
-        }
-        throw new IllegalArgumentException("Unsupported flow action: " + action);
+        return switch (action) {
+            case ADVANCE_STAGE -> StageType.TEST == stageType ? TransitionReason.RUN_COMPLETED : TransitionReason.STAGE_APPROVED;
+            case REQUEST_HUMAN_REVIEW -> TransitionReason.HUMAN_REVIEW_REQUIRED;
+            case RETRY_STAGE -> TransitionReason.STAGE_RETRY;
+            case ROUTE_TO_REPAIR -> TransitionReason.REPAIR_ROUTE;
+            case ROLLBACK_STAGE -> TransitionReason.STAGE_ROLLBACK;
+            case COMPLETE_RUN -> TransitionReason.RUN_COMPLETED;
+            case FAIL_RUN -> TransitionReason.RUN_FAILED;
+        };
     }
 
     private boolean shouldRetryCurrentStage(StageType stageType, WorkflowAction action, StageToolResultSummary toolSummary) {
@@ -102,6 +90,6 @@ public class FlowController {
         if (reviewSummary == null || reviewSummary.isBlank()) {
             return toolSummary.summary();
         }
-        return reviewSummary + " | " + toolSummary.summary();
+        return reviewSummary + TOOL_SUMMARY_SEPARATOR + toolSummary.summary();
     }
 }

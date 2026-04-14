@@ -18,7 +18,7 @@ import java.util.EnumSet;
  * <p>负责把模型草稿收束成流程可消费的稳定产物：
  * source metadata、contract metadata、结构化 block 和约束净化都在这里完成。
  */
-final class DocumentStagePostProcessor {
+public final class DocumentStagePostProcessor {
 
     private static final EnumSet<ArtifactSectionKind> TRANSIENT_CANONICAL_SECTIONS =
             EnumSet.of(ArtifactSectionKind.CURRENT_NOTES);
@@ -29,7 +29,7 @@ final class DocumentStagePostProcessor {
     private final PrdLowAuthorityContentCanonicalizer prdLowAuthorityContentCanonicalizer;
     private final PrdQuantitativeConstraintCanonicalizer prdQuantitativeConstraintCanonicalizer;
 
-    DocumentStagePostProcessor(ContractExtractor contractExtractor, DocumentDraftAssembler draftAssembler) {
+    public DocumentStagePostProcessor(ContractExtractor contractExtractor, DocumentDraftAssembler draftAssembler) {
         this.contractExtractor = contractExtractor;
         this.draftAssembler = draftAssembler;
         this.contractMetadataSectionRenderer = new ContractMetadataSectionRenderer();

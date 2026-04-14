@@ -42,14 +42,36 @@ class StageEntryExecutorTests {
         runRepository.initialize(tempDir);
         FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
         EventLogStore eventLogStore = new EventLogStore(runRepository);
-        StageTransitionSupport transitionSupport = new StageTransitionSupport(
+        StageStatusSupport stageStatusSupport = new StageStatusSupport(
                 runRepository,
                 artifactStore,
                 eventLogStore,
-                new DiagnosisAgent(noopProvider(), artifactStore, new ObjectMapper()),
-                new RepairAgent(),
                 new StageFlowPolicy(),
                 new devflow.agent.orchestrator.WorkflowArtifactRenderer()
+        );
+        StageRevisionSupport stageRevisionSupport = new StageRevisionSupport(
+                runRepository,
+                artifactStore,
+                eventLogStore,
+                new StageFlowPolicy(),
+                new devflow.agent.orchestrator.WorkflowArtifactRenderer(),
+                new SupervisorGuidanceRenderer(),
+                new StageRevisionRepairSupport(
+                        artifactStore,
+                        eventLogStore,
+                        new DiagnosisAgent(noopProvider(), artifactStore, new ObjectMapper()),
+                        new RepairAgent(),
+                        new StageRevisionNoteBuilder(),
+                        new devflow.agent.i18n.LanguagePolicy()
+                ),
+                new devflow.agent.i18n.LanguagePolicy()
+        );
+        StageTransitionSupport transitionSupport = new StageTransitionSupport(
+                runRepository,
+                eventLogStore,
+                stageStatusSupport,
+                stageRevisionSupport,
+                new StageContinuationNoteBuilder()
         );
         StageOperationExecutor stageOperationExecutor = new StageOperationExecutor(
                 null,

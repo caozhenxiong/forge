@@ -8,7 +8,6 @@ import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.llm.ModelRole;
 import devflow.agent.executor.llm.StructuredPayloadReader;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.context.ContextProjector;
 import devflow.agent.context.ProjectedContext;
 import devflow.agent.i18n.DocumentLanguage;
@@ -24,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -44,7 +42,6 @@ public class SupervisorAgent {
     private static final Logger log = LoggerFactory.getLogger(SupervisorAgent.class);
 
     private final LlmProvider llmProvider;
-    private final ObjectMapper objectMapper;
     private final ContextProjector contextProjector;
     private final StageFlowPolicy stageFlowPolicy;
     private final SupervisorFallbackPolicy supervisorFallbackPolicy;
@@ -56,32 +53,23 @@ public class SupervisorAgent {
 
     public SupervisorAgent(
             LlmProvider llmProvider,
-            ObjectMapper objectMapper,
-            ContextProjector contextProjector,
-            StageFlowPolicy stageFlowPolicy,
-            SupervisorFallbackPolicy supervisorFallbackPolicy
-    ) {
-        this(llmProvider, objectMapper, contextProjector, stageFlowPolicy, supervisorFallbackPolicy, new LanguagePolicy());
-    }
-
-    @Autowired
-    public SupervisorAgent(
-            LlmProvider llmProvider,
-            ObjectMapper objectMapper,
             ContextProjector contextProjector,
             StageFlowPolicy stageFlowPolicy,
             SupervisorFallbackPolicy supervisorFallbackPolicy,
+            SupervisorArtifactRenderer artifactRenderer,
+            SupervisorDecisionSanitizer decisionSanitizer,
+            SupervisorPromptAssembler promptAssembler,
+            StructuredPayloadReader structuredPayloadReader,
             LanguagePolicy languagePolicy
     ) {
         this.llmProvider = llmProvider;
-        this.objectMapper = objectMapper;
         this.contextProjector = contextProjector;
         this.stageFlowPolicy = stageFlowPolicy;
         this.supervisorFallbackPolicy = supervisorFallbackPolicy;
-        this.artifactRenderer = new SupervisorArtifactRenderer();
-        this.decisionSanitizer = new SupervisorDecisionSanitizer(stageFlowPolicy, supervisorFallbackPolicy);
-        this.promptAssembler = new SupervisorPromptAssembler(artifactRenderer);
-        this.structuredPayloadReader = new StructuredPayloadReader(objectMapper);
+        this.artifactRenderer = artifactRenderer;
+        this.decisionSanitizer = decisionSanitizer;
+        this.promptAssembler = promptAssembler;
+        this.structuredPayloadReader = structuredPayloadReader;
         this.languagePolicy = languagePolicy;
     }
 
@@ -139,8 +127,8 @@ public class SupervisorAgent {
                     fallback,
                     projectedContext
             );
-        } catch (Exception ignored) {
-            log.warn("Supervisor decision failed, using fallback. stage={}", currentStage, ignored);
+        } catch (Exception ex) {
+            log.warn("Supervisor decision failed, using fallback. stage={}", currentStage, ex);
             return fallback;
         }
     }
@@ -190,8 +178,8 @@ public class SupervisorAgent {
             ));
             GenerationRecoveryPayload payload = structuredPayloadReader.readJsonObject(response, GenerationRecoveryPayload.class);
             return decisionSanitizer.sanitizeGenerationRecoveryDecision(payload, fallback, failureReport);
-        } catch (Exception ignored) {
-            log.warn("Generation recovery decision failed, using fallback. attempt={}", subtaskAttempt, ignored);
+        } catch (Exception ex) {
+            log.warn("Generation recovery decision failed, using fallback. attempt={}", subtaskAttempt, ex);
             return fallback;
         }
     }

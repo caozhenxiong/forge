@@ -30,10 +30,11 @@ public class SupervisorDecisionSanitizer {
 
     public SupervisorDecisionSanitizer(
             StageFlowPolicy stageFlowPolicy,
+            SupervisorPayloadNormalizer payloadNormalizer,
             SupervisorFallbackPolicy supervisorFallbackPolicy
     ) {
         this.stageFlowPolicy = stageFlowPolicy;
-        this.payloadNormalizer = new SupervisorPayloadNormalizer();
+        this.payloadNormalizer = payloadNormalizer;
         this.deliveryPolicySanitizer = new DeliveryPolicySanitizer(supervisorFallbackPolicy);
     }
 

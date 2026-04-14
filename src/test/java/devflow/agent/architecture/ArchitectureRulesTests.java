@@ -55,4 +55,12 @@ class ArchitectureRulesTests {
                 .should().dependOnClassesThat().resideInAnyPackage("devflow.agent.executor..");
         rule.check(importedClasses);
     }
+
+    @Test
+    void mainCodeMustNotReadSystemProperties() {
+        ArchRule rule = noClasses()
+                .that().resideInAPackage("devflow.agent..")
+                .should().callMethod(System.class, "getProperty", String.class);
+        rule.check(importedClasses);
+    }
 }

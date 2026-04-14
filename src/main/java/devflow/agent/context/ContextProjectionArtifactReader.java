@@ -10,6 +10,7 @@ import devflow.agent.protocol.ReviewArtifactPayload;
 import devflow.agent.protocol.ReviewHistoryEntryPayload;
 import devflow.agent.protocol.StructuredArtifactBlocks;
 import devflow.agent.util.DevflowPathSupport;
+import devflow.agent.project.FileProjectWorkspace;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -21,12 +22,36 @@ import java.util.List;
  * <p>负责投影阶段需要的 artifact/history/repair brief 读取与裁剪，
  * 让 `ContextProjector` 更专注于四层上下文装配。
  */
-final class ContextProjectionArtifactReader {
+public final class ContextProjectionArtifactReader {
 
     private final FileArtifactStore artifactStore;
+    private final FileProjectWorkspace workspace;
 
-    ContextProjectionArtifactReader(FileArtifactStore artifactStore) {
+    public ContextProjectionArtifactReader(FileArtifactStore artifactStore, FileProjectWorkspace workspace) {
         this.artifactStore = artifactStore;
+        this.workspace = workspace;
+    }
+
+    ContextProjectionArtifacts readArtifacts(Path projectPath, RunRecord runRecord, StageType currentStage) {
+        String analysis = currentStage.ordinal() >= StageType.ANALYSIS.ordinal()
+                ? readCurrentArtifact(projectPath, runRecord, StageType.ANALYSIS)
+                : "";
+        String prd = currentStage.ordinal() >= StageType.PRD.ordinal()
+                ? readCurrentArtifact(projectPath, runRecord, StageType.PRD)
+                : "";
+        String design = currentStage.ordinal() >= StageType.DESIGN.ordinal()
+                ? readCurrentArtifact(projectPath, runRecord, StageType.DESIGN)
+                : "";
+        return new ContextProjectionArtifacts(
+                analysis,
+                prd,
+                design,
+                readCurrentArtifact(projectPath, runRecord, currentStage),
+                readRecentHistory(projectPath, runRecord, currentStage),
+                readRepairBrief(projectPath, runRecord),
+                workspace.collectContext(projectPath, 6, 900, 5000),
+                collectRecentFailures(projectPath, runRecord)
+        );
     }
 
     String readCurrentArtifact(Path projectPath, RunRecord runRecord, StageType stageType) {

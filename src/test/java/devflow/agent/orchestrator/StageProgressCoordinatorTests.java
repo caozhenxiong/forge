@@ -101,11 +101,13 @@ class StageProgressCoordinatorTests {
         DiagnosisAgent diagnosisAgent = diagnosisAgentThatSetsFlag(artifactStore, diagnosisCalled);
         SupervisorAgent supervisorAgent = supervisorAgentThatSetsFlag(artifactStore, supervisorCalled);
         ContextProjector contextProjector = new ContextProjector(
-                artifactStore,
-                new FileProjectWorkspace(),
-                new ArtifactSummaryBuilder(),
-                new ContractExtractor(),
-                new devflow.agent.context.ContextLayerAssembler()
+                new devflow.agent.context.ContextProjectionArtifactReader(artifactStore, new FileProjectWorkspace()),
+                new devflow.agent.context.ContextProjectionContractResolver(
+                        new ContractExtractor(),
+                        new devflow.agent.i18n.LanguagePolicy()
+                ),
+                new devflow.agent.context.ContextProjectionSummaryAssembler(new ArtifactSummaryBuilder()),
+                new devflow.agent.context.ContextProjectionAssembler(new devflow.agent.context.ContextLayerAssembler())
         ) {
             @Override
             public ProjectedContext project(Path projectPath, RunRecord currentRun, StageType currentStage) {
@@ -133,16 +135,11 @@ class StageProgressCoordinatorTests {
                     Path projectPath,
                     RunRecord currentRun,
                     StageType stageType,
-                    String summary,
-                    String changeRequest,
-                    String evidence,
-                    String actionItems,
-                    java.util.List<FileChange> overrideChanges,
-                    ImplementationPatchTarget implementationPatchTarget
+                    StageContinuationContext continuationContext
             ) {
-                continuationSummary.set(summary);
-                continuationChangeRequest.set(changeRequest);
-                continuationOverrideChanges.set(overrideChanges);
+                continuationSummary.set(continuationContext.summary());
+                continuationChangeRequest.set(continuationContext.changeRequest());
+                continuationOverrideChanges.set(continuationContext.overrideChanges());
                 return currentRun;
             }
         };
@@ -158,6 +155,7 @@ class StageProgressCoordinatorTests {
                 new StageToolResultLoader(artifactStore),
                 new StageToolResultGuard(),
                 new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
+                new ImplementationContinuationSupport(),
                 new devflow.agent.i18n.LanguagePolicy()
         );
 
@@ -242,11 +240,13 @@ class StageProgressCoordinatorTests {
         DiagnosisAgent diagnosisAgent = diagnosisAgentThatSetsFlag(artifactStore, diagnosisCalled);
         SupervisorAgent supervisorAgent = supervisorAgentThatSetsFlag(artifactStore, supervisorCalled);
         ContextProjector contextProjector = new ContextProjector(
-                artifactStore,
-                new FileProjectWorkspace(),
-                new ArtifactSummaryBuilder(),
-                new ContractExtractor(),
-                new devflow.agent.context.ContextLayerAssembler()
+                new devflow.agent.context.ContextProjectionArtifactReader(artifactStore, new FileProjectWorkspace()),
+                new devflow.agent.context.ContextProjectionContractResolver(
+                        new ContractExtractor(),
+                        new devflow.agent.i18n.LanguagePolicy()
+                ),
+                new devflow.agent.context.ContextProjectionSummaryAssembler(new ArtifactSummaryBuilder()),
+                new devflow.agent.context.ContextProjectionAssembler(new devflow.agent.context.ContextLayerAssembler())
         ) {
             @Override
             public ProjectedContext project(Path projectPath, RunRecord currentRun, StageType currentStage) {
@@ -260,19 +260,14 @@ class StageProgressCoordinatorTests {
                     Path projectPath,
                     RunRecord currentRun,
                     StageType stageType,
-                    String summary,
-                    String changeRequest,
-                    String evidence,
-                    String actionItems,
-                    java.util.List<FileChange> overrideChanges,
-                    ImplementationPatchTarget implementationPatchTarget
+                    StageContinuationContext continuationContext
             ) {
-                continuationSummary.set(summary);
-                continuationChangeRequest.set(changeRequest);
-                continuationEvidence.set(evidence);
-                continuationActionItems.set(actionItems);
-                continuationOverrideChanges.set(overrideChanges);
-                continuationPatchTarget.set(implementationPatchTarget);
+                continuationSummary.set(continuationContext.summary());
+                continuationChangeRequest.set(continuationContext.changeRequest());
+                continuationEvidence.set(continuationContext.evidence());
+                continuationActionItems.set(continuationContext.actionItems());
+                continuationOverrideChanges.set(continuationContext.overrideChanges());
+                continuationPatchTarget.set(continuationContext.implementationPatchTarget());
                 return currentRun;
             }
         };
@@ -288,6 +283,7 @@ class StageProgressCoordinatorTests {
                 new StageToolResultLoader(artifactStore),
                 new StageToolResultGuard(),
                 new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
+                new ImplementationContinuationSupport(),
                 new devflow.agent.i18n.LanguagePolicy()
         );
 
@@ -354,11 +350,13 @@ class StageProgressCoordinatorTests {
         DiagnosisAgent diagnosisAgent = diagnosisAgentThatSetsFlag(artifactStore, diagnosisCalled);
         SupervisorAgent supervisorAgent = supervisorAgentThatSetsFlag(artifactStore, supervisorCalled);
         ContextProjector contextProjector = new ContextProjector(
-                artifactStore,
-                new FileProjectWorkspace(),
-                new ArtifactSummaryBuilder(),
-                new ContractExtractor(),
-                new devflow.agent.context.ContextLayerAssembler()
+                new devflow.agent.context.ContextProjectionArtifactReader(artifactStore, new FileProjectWorkspace()),
+                new devflow.agent.context.ContextProjectionContractResolver(
+                        new ContractExtractor(),
+                        new devflow.agent.i18n.LanguagePolicy()
+                ),
+                new devflow.agent.context.ContextProjectionSummaryAssembler(new ArtifactSummaryBuilder()),
+                new devflow.agent.context.ContextProjectionAssembler(new devflow.agent.context.ContextLayerAssembler())
         ) {
             @Override
             public ProjectedContext project(Path projectPath, RunRecord currentRun, StageType currentStage) {
@@ -372,12 +370,7 @@ class StageProgressCoordinatorTests {
                     Path projectPath,
                     RunRecord currentRun,
                     StageType stageType,
-                    String summary,
-                    String changeRequest,
-                    String evidence,
-                    String actionItems,
-                    java.util.List<FileChange> overrideChanges,
-                    ImplementationPatchTarget implementationPatchTarget
+                    StageContinuationContext continuationContext
             ) {
                 continueCalled.set(true);
                 throw new AssertionError("blocked implementation should not continue stage");
@@ -406,6 +399,7 @@ class StageProgressCoordinatorTests {
                 new StageToolResultLoader(artifactStore),
                 new StageToolResultGuard(),
                 new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
+                new ImplementationContinuationSupport(),
                 new devflow.agent.i18n.LanguagePolicy()
         );
 
@@ -467,14 +461,9 @@ class StageProgressCoordinatorTests {
                     Path projectPath,
                     RunRecord currentRun,
                     StageType stageType,
-                    String summary,
-                    String changeRequest,
-                    String evidence,
-                    String actionItems,
-                    java.util.List<FileChange> overrideChanges,
-                    ImplementationPatchTarget implementationPatchTarget
+                    StageContinuationContext continuationContext
             ) {
-                continuationSummary.set(summary);
+                continuationSummary.set(continuationContext.summary());
                 return currentRun;
             }
         };
@@ -484,11 +473,13 @@ class StageProgressCoordinatorTests {
                 supervisorAgentThatSetsFlag(artifactStore, new AtomicBoolean(false)),
                 new FlowController(),
                 new ContextProjector(
-                        artifactStore,
-                        new FileProjectWorkspace(),
-                        new ArtifactSummaryBuilder(),
-                        new ContractExtractor(),
-                        new devflow.agent.context.ContextLayerAssembler()
+                        new devflow.agent.context.ContextProjectionArtifactReader(artifactStore, new FileProjectWorkspace()),
+                        new devflow.agent.context.ContextProjectionContractResolver(
+                                new ContractExtractor(),
+                                new devflow.agent.i18n.LanguagePolicy()
+                        ),
+                        new devflow.agent.context.ContextProjectionSummaryAssembler(new ArtifactSummaryBuilder()),
+                        new devflow.agent.context.ContextProjectionAssembler(new devflow.agent.context.ContextLayerAssembler())
                 ),
                 new StageOperationExecutor(
                         null,
@@ -502,6 +493,7 @@ class StageProgressCoordinatorTests {
                 new StageToolResultLoader(artifactStore),
                 new StageToolResultGuard(),
                 new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
+                new ImplementationContinuationSupport(),
                 new devflow.agent.i18n.LanguagePolicy()
         );
 
@@ -545,18 +537,28 @@ class StageProgressCoordinatorTests {
 
     private SupervisorAgent supervisorAgentThatSetsFlag(FileArtifactStore artifactStore, AtomicBoolean supervisorCalled) {
         ContextProjector projector = new ContextProjector(
-                artifactStore,
-                new FileProjectWorkspace(),
-                new ArtifactSummaryBuilder(),
-                new ContractExtractor(),
-                new devflow.agent.context.ContextLayerAssembler()
+                new devflow.agent.context.ContextProjectionArtifactReader(artifactStore, new FileProjectWorkspace()),
+                new devflow.agent.context.ContextProjectionContractResolver(
+                        new ContractExtractor(),
+                        new devflow.agent.i18n.LanguagePolicy()
+                ),
+                new devflow.agent.context.ContextProjectionSummaryAssembler(new ArtifactSummaryBuilder()),
+                new devflow.agent.context.ContextProjectionAssembler(new devflow.agent.context.ContextLayerAssembler())
         );
         return new SupervisorAgent(
                 fakeProvider(),
-                new ObjectMapper(),
                 projector,
                 new StageFlowPolicy(),
-                new SupervisorFallbackPolicy(new StageFlowPolicy())
+                new SupervisorFallbackPolicy(new StageFlowPolicy()),
+                new devflow.agent.supervisor.SupervisorArtifactRenderer(),
+                new devflow.agent.supervisor.SupervisorDecisionSanitizer(
+                        new StageFlowPolicy(),
+                        new devflow.agent.supervisor.SupervisorPayloadNormalizer(),
+                        new SupervisorFallbackPolicy(new StageFlowPolicy())
+                ),
+                new devflow.agent.supervisor.SupervisorPromptAssembler(new devflow.agent.supervisor.SupervisorArtifactRenderer()),
+                new devflow.agent.executor.llm.StructuredPayloadReader(new ObjectMapper()),
+                new devflow.agent.i18n.LanguagePolicy()
         ) {
             @Override
             public devflow.agent.supervisor.SupervisorDecision decide(

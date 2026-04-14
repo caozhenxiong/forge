@@ -9,8 +9,11 @@ import devflow.agent.executor.llm.StructuredPayloadReader;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ValidationStrategyPlanner {
+    private static final Logger log = LoggerFactory.getLogger(ValidationStrategyPlanner.class);
 
     private final LlmProvider llmProvider;
     private final StructuredPayloadReader structuredPayloadReader;
@@ -45,7 +48,8 @@ public class ValidationStrategyPlanner {
             if (planned != null) {
                 return planned;
             }
-        } catch (Exception ignored) {
+        } catch (Exception ex) {
+            log.warn("Validation strategy planning failed, falling back to deterministic plan. projectType={}", fingerprint.projectType(), ex);
         }
 
         return deterministicPlan;

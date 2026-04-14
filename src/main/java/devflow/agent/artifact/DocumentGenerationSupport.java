@@ -13,11 +13,11 @@ import devflow.agent.executor.llm.ModelRole;
  * <p>这样各阶段 composer 只关心 intake / merge / sanitize，
  * 不再各自持有一套相同的预算和 provider 调用逻辑。
  */
-final class DocumentGenerationSupport {
+public final class DocumentGenerationSupport {
 
     private final LlmProvider llmProvider;
 
-    DocumentGenerationSupport(LlmProvider llmProvider) {
+    public DocumentGenerationSupport(LlmProvider llmProvider) {
         this.llmProvider = llmProvider;
     }
 
