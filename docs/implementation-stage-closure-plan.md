@@ -307,3 +307,63 @@
 
 - repair mode 的 tool loop 收敛到局部修补
 - 避免回合继续浪费在重写和无效 shell 读上
+
+## 回归验证矩阵
+
+### R1. skeleton capability boundary
+
+验证点：
+
+- skeleton 子任务只允许交付页面壳体、样式、容器、最小 bootstrapping。
+- skeleton 子任务不得提前实现后续 gameplay capability。
+- 如果 skeleton 产物实现了当前子任务 `deferredCapabilities`，或实现了其他子任务 `ownedCapabilities`，subtask review 必须显式驳回。
+
+期望结果：
+
+- skeleton capability boundary 被 review 和回归测试双重锁死。
+- “页面能打开”不再掩盖 capability 越权实现。
+
+### R2. runtime split package completeness
+
+验证点：
+
+- accepted package 一旦引入新的 runtime root 文件，必须同时携带宿主入口 patch。
+- package completeness gate 只允许使用以下事实来源：
+  - explicit host contract
+  - 当前 accepted scope
+  - 当前 HTML 已观察到的 structured wiring facts
+- 明确禁止目录扫描、root-script 猜测、companion 文件名 fallback 等猜测式来源。
+- coder 不得在执行阶段临时越出 accepted package 去补宿主接线。
+
+期望结果：
+
+- runtime split package 在进入执行前就是完整可运行的。
+- host-entry 接线缺失在 package 层即被拦下，而不是拖到 implementation 末尾。
+
+### R3. CONTINUE_SUBTASKS repair package scope clamp
+
+验证点：
+
+- `CONTINUE_SUBTASKS` 必须携带当前失败子任务的 canonical repair package。
+- repair package 的 canonical scope 上限只能来自当前 subtask 的 accepted/effective structured change-set。
+- material mutations、tool failure diagnostics 只能作为当前 scope 内的证据、优先级与 resume 提示，不能扩张 scope。
+- 下一轮 implementation 必须直接消费该 repair package，而不是重新放宽 execution package。
+
+期望结果：
+
+- continuation repair 保持 patch-only、scope-clamped。
+- 本轮越界路径不会被反向转正成下一轮合法修复范围。
+
+### R4. shell deny pathIntents diagnostics
+
+验证点：
+
+- shell deny 决策必须保留 analyzer 已解析出的 `pathIntents`。
+- diagnostics 应优先落到结构化具体路径，而不是退回 `(tool-loop)` 级别泛化证据。
+- 不新增命令字符串 heuristics；路径信息只能来自 analyzer 已成功解析的结构化 intent。
+- 对无法解析路径的拒绝场景，空路径仍然是合法结果，但不能伪造目标文件。
+
+期望结果：
+
+- shell deny 失败证据可稳定指向具体文件。
+- 排障和后续 repair package 聚合继续基于结构化路径，而不是基于命令文本猜意图。
