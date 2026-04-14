@@ -130,7 +130,7 @@
   - `StageRevisionNoteBuilder`
 - 新增 `OrchestratorConfiguration` 显式装配：
   - `StageStatusSupport`
-  - `StageRevisionSupport`
+  - `StageRevisionSupport`（需同时注入 `StageRevisionRepairSupport` 和 `StageRevisionNoteBuilder`，这两个类从 `StageRevisionSupport` 构造器里移出后必须在此处显式 bean 化，不得遗漏）
   - `StageContinuationNoteBuilder`
   - `ImplementationContinuationSupport`
   - `EventLogStore`
@@ -184,7 +184,11 @@
   - strip machine blocks
   - sanitize constraint escalation
   - upsert machine blocks
-- 用 3 个阶段策略继承模板骨架：
+- 实现方式选择（**必须在动手前确认，二选一，不得混用**）：
+  - **方案 A（继承 / Template Method）**：三个阶段策略类继承 `DocumentCompositionTemplate` 抽象基类，重写差异钩子方法（如 `buildPrompt()`、`resolveUpstreamArtifacts()`）。适合流程步骤固定、差异只在少数钩子的场景。注意：基类禁止积累共享状态，否则会演变为新的上帝类。
+  - **方案 B（组合 / Strategy）**：`DocumentCompositionTemplate` 为普通类，接收 `DocumentCompositionStrategy` 接口实例，三个策略各自实现该接口。适合差异点较多或后续需要动态切换的场景，更符合现有代码风格（`ImplementationExecutorWiring` 等均为组合模式）。
+  - **推荐方案 B**，与现有装配模式一致；如选方案 A 需在 PR 描述中说明理由。
+- 用 3 个阶段策略（根据选定方案实现）：
   - `AnalysisDocumentComposition`
   - `PrdDocumentComposition`
   - `DesignDocumentComposition`
