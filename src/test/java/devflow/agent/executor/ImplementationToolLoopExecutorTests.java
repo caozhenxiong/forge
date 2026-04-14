@@ -409,8 +409,8 @@ class ImplementationToolLoopExecutorTests {
                                         "Edit",
                                         Map.of(
                                                 "file_path", file.toString(),
-                                                "old_string", "export const ready = false;\n",
-                                                "new_string", "export const ready = true;\n"
+                                                "old_string", "ready = false",
+                                                "new_string", "ready = true"
                                         )
                                 )),
                                 null,
@@ -507,6 +507,91 @@ class ImplementationToolLoopExecutorTests {
         assertTrue(exception.report().evidence().contains("currentHash="));
     }
 
+    @Test
+    void toolLoopUsesRepairScopedChangesInsteadOfOriginalSubtaskPackage() throws Exception {
+        Path appFile = tempDir.resolve("app.js");
+        Path otherFile = tempDir.resolve("other.js");
+        Files.writeString(appFile, "export const ready = false;\n");
+        Files.writeString(otherFile, "export const untouched = true;\n");
+
+        ImplementationToolLoopExecutor executor = newToolLoopExecutor(
+                new ScriptedChatProvider(
+                        new LlmChatResponse(
+                                "",
+                                List.of(new LlmToolCall("tool-1", "Read", Map.of("file_path", appFile.toString()))),
+                                null,
+                                ""
+                        ),
+                        new LlmChatResponse(
+                                "",
+                                List.of(new LlmToolCall(
+                                        "tool-2",
+                                        "Edit",
+                                        Map.of(
+                                                "file_path", otherFile.toString(),
+                                                "old_string", "untouched = true",
+                                                "new_string", "untouched = false"
+                                        )
+                                )),
+                                null,
+                                ""
+                        ),
+                        new LlmChatResponse(
+                                "",
+                                List.of(new LlmToolCall(
+                                        "tool-3",
+                                        "Edit",
+                                        Map.of(
+                                                "file_path", appFile.toString(),
+                                                "old_string", "ready = false",
+                                                "new_string", "ready = true"
+                                        )
+                                )),
+                                null,
+                                ""
+                        ),
+                        new LlmChatResponse("done", List.of(), null, "stop")
+                ),
+                6
+        );
+
+        SubtaskExecutionState executionState = new SubtaskExecutionState(DeliveryMode.REWORK, false)
+                .applyRevisionDirective(devflow.agent.executor.subtask.SubtaskRevisionDirective.patch(
+                        List.of(new FileChange("app.js", ChangeAction.WRITE, "只修 app.js"))
+                ));
+        ImplementationToolLoopResult result = executor.execute(
+                tempDir,
+                runRecord(tempDir),
+                new Subtask(
+                        "同时修改 app.js 和 other.js",
+                        "原始子任务覆盖两个文件",
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of("完成当前文件修改"),
+                        false,
+                        DeliveryMode.REWORK,
+                        List.of(
+                                new FileChange("app.js", ChangeAction.WRITE, "更新 app.js"),
+                                new FileChange("other.js", ChangeAction.WRITE, "更新 other.js")
+                        )
+                ),
+                taskPackage("同时修改 app.js 和 other.js", "app.js"),
+                null,
+                QualityPlan.empty(),
+                fingerprint("app.js", "other.js"),
+                "只修当前失败文件，不要扩散到兄弟文件。",
+                "",
+                null,
+                executionState
+        );
+
+        assertEquals("done", result.finalResponse());
+        assertTrue(Files.readString(appFile).contains("ready = true"));
+        assertTrue(Files.readString(otherFile).contains("untouched = true"));
+        assertEquals(List.of(Path.of("app.js")), result.touchedPaths());
+    }
+
     private Subtask subtask(String title, String path) {
         return new Subtask(
                 title,
@@ -539,7 +624,9 @@ class ImplementationToolLoopExecutorTests {
         );
     }
 
-    private ProjectFingerprint fingerprint(String fileName) {
+    private ProjectFingerprint fingerprint(String... fileNames) {
+        List<String> names = fileNames == null ? List.of() : List.of(fileNames);
+        String firstName = names.isEmpty() ? "" : names.getFirst();
         return new ProjectFingerprint(
                 "web",
                 "",
@@ -547,11 +634,11 @@ class ImplementationToolLoopExecutorTests {
                 false,
                 false,
                 true,
-                fileName.endsWith(".html"),
-                fileName.endsWith(".js"),
+                names.stream().anyMatch(name -> name != null && name.endsWith(".html")),
+                names.stream().anyMatch(name -> name != null && name.endsWith(".js")),
                 false,
-                fileName.endsWith(".html") ? fileName : "",
-                java.util.Set.of(fileName),
+                firstName.endsWith(".html") ? firstName : "",
+                java.util.Set.copyOf(names),
                 List.of()
         );
     }

@@ -37,6 +37,8 @@ class ImplementationToolRegistryTests {
         ImplementationToolPermissionContext context = permissionPolicy.build(
                 Path.of("/tmp/project"),
                 Set.of(),
+                DeliveryMode.PATCH,
+                false,
                 registry.toolNames()
         );
 
@@ -58,6 +60,8 @@ class ImplementationToolRegistryTests {
         ImplementationToolPermissionContext context = permissionPolicy.build(
                 Path.of("/tmp/project"),
                 Set.of(Path.of("src/app.js")),
+                DeliveryMode.PATCH,
+                false,
                 registry.toolNames()
         );
 

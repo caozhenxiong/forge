@@ -145,6 +145,16 @@ public final class ShellCommandAnalyzer {
                         List.copyOf(pathIntents)
                 );
             }
+            if (writeSegments == 0 && !context.allowReadOnlyShell()) {
+                return ShellCommandDecision.deny(
+                        summary,
+                        "REPAIR_MODE_READ_ONLY_SHELL_DENIED",
+                        "Read-only Bash exploration is not allowed during repair/resume. Use Read/Grep/Glob instead.",
+                        true,
+                        List.of("repairMode=true"),
+                        List.of()
+                );
+            }
             return writeSegments == 0
                     ? ShellCommandDecision.allowReadOnly(summary, List.copyOf(evidence))
                     : ShellCommandDecision.allowWrite(summary, List.copyOf(evidence), List.copyOf(pathIntents));

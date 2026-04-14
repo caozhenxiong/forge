@@ -142,7 +142,10 @@ class BashToolTests {
         @SuppressWarnings("unchecked")
         Map<String, Object> payload = (Map<String, Object>) result.payload();
         assertEquals("SHELL_COMMAND_DENIED", payload.get("code"));
-        assertEquals("Bash write is only allowed for new files unless the current delivery mode is REWORK. Use Read + Edit for existing files in PATCH.", payload.get("message"));
+        assertEquals(
+                "Bash write is only allowed for new files unless the current execution scope explicitly allows whole-file rewrite. Use Read + Edit for existing files in PATCH.",
+                payload.get("message")
+        );
         assertEquals("export const ready = true;\n", Files.readString(tempDir.resolve("app.js")));
     }
 
@@ -320,7 +323,31 @@ class BashToolTests {
         assertEquals("UNSUPPORTED_SHELL_COMMAND", payload.get("reasonCode"));
     }
 
+    @Test
+    void bashToolRejectsReadOnlyShellExplorationDuringRepairMode() throws Exception {
+        Files.writeString(tempDir.resolve("app.js"), "export const ready = true;\n");
+        BashTool bashTool = new BashTool();
+        ToolInvocationResult result = bashTool.invoke(
+                new LlmToolCall(
+                        "call-repair-read-only",
+                        "Bash",
+                        Map.of("command", "cat app.js")
+                ),
+                newContext(Set.of(Path.of("app.js")), true)
+        );
+
+        assertFalse(result.success());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> payload = (Map<String, Object>) result.payload();
+        assertEquals("SHELL_COMMAND_DENIED", payload.get("code"));
+        assertEquals("REPAIR_MODE_READ_ONLY_SHELL_DENIED", payload.get("reasonCode"));
+    }
+
     private ImplementationToolContext newContext(Set<Path> ownedPaths) {
+        return newContext(ownedPaths, false);
+    }
+
+    private ImplementationToolContext newContext(Set<Path> ownedPaths, boolean repairMode) {
         return new ImplementationToolContext(
                 tempDir,
                 new RunRecord(
@@ -346,7 +373,11 @@ class BashToolTests {
                         ownedPaths,
                         Set.of("Bash"),
                         5_000L,
-                        5_000L
+                        5_000L,
+                        DeliveryMode.PATCH,
+                        repairMode,
+                        !repairMode,
+                        false
                 ),
                 new ImplementationToolPermissionPolicy(
                         new ImplementationToolPermissionProperties(List.of("Bash")),

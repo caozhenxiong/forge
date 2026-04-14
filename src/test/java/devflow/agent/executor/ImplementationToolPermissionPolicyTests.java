@@ -35,6 +35,8 @@ class ImplementationToolPermissionPolicyTests {
         ImplementationToolPermissionContext context = policy.build(
                 Path.of("/tmp/project"),
                 Set.of(Path.of("src/app.js")),
+                DeliveryMode.PATCH,
+                false,
                 ImplementationToolRegistry.defaultRegistry().toolNames()
         );
 
@@ -51,6 +53,8 @@ class ImplementationToolPermissionPolicyTests {
         ImplementationToolPermissionContext context = policy.build(
                 Path.of("/tmp/project"),
                 Set.of(Path.of("src/app.js")),
+                DeliveryMode.PATCH,
+                false,
                 ImplementationToolRegistry.defaultRegistry().toolNames()
         );
 
@@ -58,5 +62,26 @@ class ImplementationToolPermissionPolicyTests {
                 IllegalArgumentException.class,
                 () -> policy.resolveShellTimeout(executionPolicy.maxShellTimeoutMs() + 1L, context)
         );
+    }
+
+    @Test
+    void repairModeDisablesReadOnlyShellAndWholeRewriteEvenForReworkDelivery() {
+        ImplementationExecutionPolicy executionPolicy = new ImplementationExecutionPolicy();
+        ImplementationToolPermissionPolicy policy = new ImplementationToolPermissionPolicy(
+                new ImplementationToolPermissionProperties(List.of()),
+                executionPolicy
+        );
+        ImplementationToolPermissionContext context = policy.build(
+                Path.of("/tmp/project"),
+                Set.of(Path.of("src/app.js")),
+                DeliveryMode.REWORK,
+                true,
+                ImplementationToolRegistry.defaultRegistry().toolNames()
+        );
+
+        assertEquals(DeliveryMode.REWORK, context.deliveryMode());
+        assertEquals(true, context.repairMode());
+        assertEquals(false, context.allowReadOnlyShell());
+        assertEquals(false, context.allowExistingFileWholeRewrite());
     }
 }

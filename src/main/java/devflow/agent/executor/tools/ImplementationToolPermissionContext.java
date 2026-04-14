@@ -3,6 +3,7 @@ package devflow.agent.executor.tools;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
+import devflow.agent.executor.DeliveryMode;
 import java.nio.file.Path;
 import java.util.Set;
 
@@ -16,7 +17,11 @@ public record ImplementationToolPermissionContext(
         Set<Path> ownedPaths,
         Set<String> allowedToolNames,
         long defaultShellTimeoutMs,
-        long maxShellTimeoutMs
+        long maxShellTimeoutMs,
+        DeliveryMode deliveryMode,
+        boolean repairMode,
+        boolean allowReadOnlyShell,
+        boolean allowExistingFileWholeRewrite
 ) {
 
     public ImplementationToolPermissionContext {
@@ -25,6 +30,7 @@ public record ImplementationToolPermissionContext(
         allowedToolNames = allowedToolNames == null ? Set.of() : Set.copyOf(allowedToolNames);
         defaultShellTimeoutMs = Math.max(1L, defaultShellTimeoutMs);
         maxShellTimeoutMs = Math.max(defaultShellTimeoutMs, maxShellTimeoutMs);
+        deliveryMode = deliveryMode == null ? DeliveryMode.PATCH : deliveryMode;
     }
 
     public boolean allowsTool(String toolName) {

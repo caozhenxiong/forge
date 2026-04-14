@@ -45,7 +45,7 @@ class FileWriteToolTests {
     void writeToolRejectsNoOpOverwrite() throws Exception {
         Path file = tempDir.resolve("app.js");
         Files.writeString(file, "export const ready = true;\n");
-        ImplementationToolContext context = newContext(file, DeliveryMode.REWORK);
+        ImplementationToolContext context = newContext(file, DeliveryMode.REWORK, false);
 
         ToolInvocationResult result = new FileWriteTool().invoke(
                 new LlmToolCall(
@@ -70,7 +70,7 @@ class FileWriteToolTests {
     void writeToolRejectsExistingFileOverwriteOutsideRework() throws Exception {
         Path file = tempDir.resolve("app.js");
         Files.writeString(file, "export const ready = true;\n");
-        ImplementationToolContext context = newContext(file, DeliveryMode.PATCH);
+        ImplementationToolContext context = newContext(file, DeliveryMode.PATCH, false);
 
         ToolInvocationResult result = new FileWriteTool().invoke(
                 new LlmToolCall(
@@ -87,11 +87,38 @@ class FileWriteToolTests {
         assertFalse(result.success());
         @SuppressWarnings("unchecked")
         Map<String, Object> payload = (Map<String, Object>) result.payload();
-        assertEquals("Write is only allowed for new files unless the current delivery mode is REWORK. Use Read + Edit for existing files in PATCH.", payload.get("message"));
+        assertEquals("Write is only allowed for new files unless the current execution scope explicitly allows whole-file rewrite. Use Read + Edit for existing files in PATCH.", payload.get("message"));
         assertEquals("export const ready = true;\n", Files.readString(file));
     }
 
-    private ImplementationToolContext newContext(Path file, DeliveryMode deliveryMode) throws Exception {
+    @Test
+    void writeToolRejectsExistingFileOverwriteDuringRepairEvenInReworkMode() throws Exception {
+        Path file = tempDir.resolve("app.js");
+        Files.writeString(file, "export const ready = true;\n");
+        ImplementationToolContext context = newContext(file, DeliveryMode.REWORK, true);
+
+        ToolInvocationResult result = new FileWriteTool().invoke(
+                new LlmToolCall(
+                        "call-repair-overwrite",
+                        "Write",
+                        Map.of(
+                                "file_path", file.toString(),
+                                "content", "export const ready = false;\n"
+                        )
+                ),
+                context
+        );
+
+        assertFalse(result.success());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> payload = (Map<String, Object>) result.payload();
+        assertEquals(
+                "Write is only allowed for new files unless the current execution scope explicitly allows whole-file rewrite. Use Read + Edit for existing files in repair mode.",
+                payload.get("message")
+        );
+    }
+
+    private ImplementationToolContext newContext(Path file, DeliveryMode deliveryMode, boolean repairMode) throws Exception {
         ImplementationToolContext context = new ImplementationToolContext(
                 tempDir,
                 new RunRecord(
@@ -117,7 +144,11 @@ class FileWriteToolTests {
                         Set.of(Path.of("app.js")),
                         Set.of("Read", "Write"),
                         5_000L,
-                        5_000L
+                        5_000L,
+                        deliveryMode,
+                        repairMode,
+                        !repairMode,
+                        !repairMode && deliveryMode == DeliveryMode.REWORK
                 ),
                 new ImplementationToolPermissionPolicy(
                         new ImplementationToolPermissionProperties(List.of("Read", "Write")),

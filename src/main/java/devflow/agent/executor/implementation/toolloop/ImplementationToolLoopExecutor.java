@@ -96,7 +96,12 @@ public final class ImplementationToolLoopExecutor {
             ImplementationEventJournal eventJournal,
             SubtaskExecutionState executionState
     ) {
-        Set<Path> ownedPaths = collectOwnedPaths(subtask);
+        DeliveryMode activeDeliveryMode = activeDeliveryMode(subtask, executionState);
+        List<FileChange> activeChanges = activeChanges(subtask, executionState);
+        boolean repairMode = isRepairMode(subtask, executionState, feedback);
+        Subtask activeSubtask = scopeSubtask(subtask, activeDeliveryMode, activeChanges);
+        TaskPackage activeTaskPackage = taskPackage == null ? null : taskPackage.alignToSubtask(activeSubtask);
+        Set<Path> ownedPaths = collectOwnedPaths(activeSubtask);
         ChatCapableLlmProvider chatCapableLlmProvider = requireChatProvider();
         ImplementationToolSessionState toolSessionState = executionState == null
                 ? new ImplementationToolSessionState()
@@ -104,6 +109,8 @@ public final class ImplementationToolLoopExecutor {
         ImplementationToolPermissionContext permissionContext = permissionPolicy.build(
                 projectPath,
                 ownedPaths,
+                activeDeliveryMode,
+                repairMode,
                 toolRegistry.toolNames()
         );
         ImplementationToolContext toolContext = new ImplementationToolContext(
@@ -117,14 +124,14 @@ public final class ImplementationToolLoopExecutor {
                 toolSessionState,
                 permissionContext,
                 permissionPolicy,
-                subtask == null ? DeliveryMode.PATCH : subtask.deliveryMode(),
-                subtask == null ? List.of() : subtask.changes()
+                activeDeliveryMode,
+                activeChanges
         );
         initializeTranscript(
                 toolSessionState,
                 projectPath,
-                subtask,
-                taskPackage,
+                activeSubtask,
+                activeTaskPackage,
                 contractView,
                 qualityPlan,
                 feedback,
@@ -147,7 +154,7 @@ public final class ImplementationToolLoopExecutor {
                 GenerationFailureType failureType = GENERATION_FAILURE_CLASSIFIER.classify(exception);
                 throw GenerationFailureExceptions.create(
                         subtask.title(),
-                        subtask.deliveryMode().name(),
+                        activeDeliveryMode.name(),
                         "tool-loop",
                         failureType,
                         turn,
@@ -172,7 +179,7 @@ public final class ImplementationToolLoopExecutor {
                 if (response.content().isBlank()) {
                     throw GenerationFailureExceptions.create(
                             subtask.title(),
-                            subtask.deliveryMode().name(),
+                            activeDeliveryMode.name(),
                             "tool-loop",
                             GenerationFailureType.MODEL_OUTPUT_INVALID,
                             turn,
@@ -182,7 +189,7 @@ public final class ImplementationToolLoopExecutor {
                             "请保留当前子任务状态，只补齐当前轮缺失的 assistant 输出或工具调用。"
                     );
                 }
-                assertDeclaredChangesSatisfied(projectPath, subtask, toolContext, turn);
+                assertDeclaredChangesSatisfied(projectPath, activeSubtask, toolContext, turn);
                 toolContext.appendEvent("实现阶段｜tool-loop｜轮次完成｜子任务=%s｜轮次=%d/%d｜触发工具=0"
                         .formatted(subtask.title(), turn, maxToolTurns));
                 return new ImplementationToolLoopResult(
@@ -198,7 +205,7 @@ public final class ImplementationToolLoopExecutor {
             } catch (FatalToolExecutionException exception) {
                 throw GenerationFailureExceptions.create(
                         subtask.title(),
-                        subtask.deliveryMode().name(),
+                        activeDeliveryMode.name(),
                         "tool-loop",
                         GenerationFailureType.VALIDATION_FAILED,
                         turn,
@@ -219,10 +226,10 @@ public final class ImplementationToolLoopExecutor {
             toolContext.appendEvent("实现阶段｜tool-loop｜轮次完成｜子任务=%s｜轮次=%d/%d｜触发工具=%d"
                     .formatted(subtask.title(), turn, maxToolTurns, rawResults.size()));
         }
-        throw GenerationFailureExceptions.create(
-                subtask.title(),
-                subtask.deliveryMode().name(),
-                "tool-loop",
+                throw GenerationFailureExceptions.create(
+                        subtask.title(),
+                        activeDeliveryMode.name(),
+                        "tool-loop",
                 GenerationFailureType.VALIDATION_FAILED,
                 maxToolTurns,
                 true,
@@ -517,6 +524,60 @@ public final class ImplementationToolLoopExecutor {
             paths.add(Path.of(change.path()).normalize());
         }
         return Set.copyOf(paths);
+    }
+
+    private DeliveryMode activeDeliveryMode(Subtask subtask, SubtaskExecutionState executionState) {
+        if (executionState != null && executionState.deliveryMode() != null) {
+            return executionState.deliveryMode();
+        }
+        return subtask == null || subtask.deliveryMode() == null ? DeliveryMode.PATCH : subtask.deliveryMode();
+    }
+
+    private List<FileChange> activeChanges(Subtask subtask, SubtaskExecutionState executionState) {
+        List<FileChange> declaredChanges = subtask == null || subtask.changes() == null ? List.of() : subtask.changes();
+        if (executionState == null) {
+            return List.copyOf(declaredChanges);
+        }
+        return executionState.effectiveChanges(declaredChanges);
+    }
+
+    private boolean isRepairMode(Subtask subtask, SubtaskExecutionState executionState, String feedback) {
+        if (executionState == null) {
+            return false;
+        }
+        if (feedback != null && !feedback.isBlank()) {
+            return true;
+        }
+        if (!executionState.fileEditAttemptStates().isEmpty()) {
+            return true;
+        }
+        if (executionState.toolSessionState() != null && !executionState.toolSessionState().transcript().isEmpty()) {
+            return true;
+        }
+        List<FileChange> declaredChanges = subtask == null || subtask.changes() == null ? List.of() : subtask.changes();
+        return !executionState.effectiveChanges().isEmpty()
+                && !sameChangeSet(executionState.effectiveChanges(declaredChanges), declaredChanges);
+    }
+
+    private boolean sameChangeSet(List<FileChange> left, List<FileChange> right) {
+        return summarizeDeclaredChanges(left).equals(summarizeDeclaredChanges(right));
+    }
+
+    private Subtask scopeSubtask(Subtask subtask, DeliveryMode deliveryMode, List<FileChange> activeChanges) {
+        if (subtask == null) {
+            return null;
+        }
+        return new Subtask(
+                subtask.title(),
+                subtask.goal(),
+                subtask.coverageRefs(),
+                subtask.ownedCapabilities(),
+                subtask.deferredCapabilities(),
+                subtask.acceptanceCriteria(),
+                subtask.runnableMilestone(),
+                deliveryMode,
+                activeChanges
+        );
     }
 
     private record PathMutationSummary(

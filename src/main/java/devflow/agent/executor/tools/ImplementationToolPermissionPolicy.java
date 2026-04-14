@@ -3,6 +3,7 @@ package devflow.agent.executor.tools;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
+import devflow.agent.executor.DeliveryMode;
 import devflow.agent.executor.implementation.ImplementationExecutionPolicy;
 import devflow.agent.executor.shell.ShellCommandAnalyzer;
 import devflow.agent.executor.shell.ShellCommandDecision;
@@ -39,14 +40,21 @@ public final class ImplementationToolPermissionPolicy {
     public ImplementationToolPermissionContext build(
             Path projectPath,
             Set<Path> ownedPaths,
+            DeliveryMode deliveryMode,
+            boolean repairMode,
             Collection<String> registeredToolNames
     ) {
+        DeliveryMode resolvedDeliveryMode = deliveryMode == null ? DeliveryMode.PATCH : deliveryMode;
         return new ImplementationToolPermissionContext(
                 projectPath,
                 ownedPaths,
                 resolveAllowedToolNames(registeredToolNames),
                 implementationExecutionPolicy.defaultShellTimeoutMs(),
-                implementationExecutionPolicy.maxShellTimeoutMs()
+                implementationExecutionPolicy.maxShellTimeoutMs(),
+                resolvedDeliveryMode,
+                repairMode,
+                !repairMode,
+                !repairMode && resolvedDeliveryMode == DeliveryMode.REWORK
         );
     }
 

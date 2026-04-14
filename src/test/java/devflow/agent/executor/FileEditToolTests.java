@@ -46,7 +46,7 @@ class FileEditToolTests {
     void editToolRejectsWholeFileReplacementOutsideRework() throws Exception {
         Path file = tempDir.resolve("app.js");
         Files.writeString(file, "export const ready = true;\n");
-        ImplementationToolContext context = newContext(file, DeliveryMode.PATCH);
+        ImplementationToolContext context = newContext(file, DeliveryMode.PATCH, false);
 
         ToolInvocationResult result = new FileEditTool().invoke(
                 new LlmToolCall(
@@ -65,7 +65,7 @@ class FileEditToolTests {
         @SuppressWarnings("unchecked")
         Map<String, Object> payload = (Map<String, Object>) result.payload();
         assertEquals(
-                "Edit whole-file replacement is only allowed for new files unless the current delivery mode is REWORK. Use Read + Edit for existing files in PATCH.",
+                "Edit whole-file replacement is only allowed for new files unless the current execution scope explicitly allows whole-file rewrite. Use Read + Edit for existing files in PATCH.",
                 payload.get("message")
         );
         assertEquals("export const ready = true;\n", Files.readString(file));
@@ -75,7 +75,7 @@ class FileEditToolTests {
     void editToolAllowsTargetedPatchOutsideRework() throws Exception {
         Path file = tempDir.resolve("app.js");
         Files.writeString(file, "export const ready = true;\n");
-        ImplementationToolContext context = newContext(file, DeliveryMode.PATCH);
+        ImplementationToolContext context = newContext(file, DeliveryMode.PATCH, false);
 
         ToolInvocationResult result = new FileEditTool().invoke(
                 new LlmToolCall(
@@ -100,7 +100,7 @@ class FileEditToolTests {
     void editToolAllowsFirstMaterializationOfExistingEmptyFileInPatchMode() throws Exception {
         Path file = tempDir.resolve("app.js");
         Files.writeString(file, "");
-        ImplementationToolContext context = newContext(file, DeliveryMode.PATCH);
+        ImplementationToolContext context = newContext(file, DeliveryMode.PATCH, false);
 
         ToolInvocationResult result = new FileEditTool().invoke(
                 new LlmToolCall(
@@ -121,7 +121,35 @@ class FileEditToolTests {
         assertEquals(Path.of("app.js"), context.mutationRecords().getFirst().relativePath());
     }
 
-    private ImplementationToolContext newContext(Path file, DeliveryMode deliveryMode) throws Exception {
+    @Test
+    void editToolRejectsWholeFileReplacementDuringRepairEvenInReworkMode() throws Exception {
+        Path file = tempDir.resolve("app.js");
+        Files.writeString(file, "export const ready = true;\n");
+        ImplementationToolContext context = newContext(file, DeliveryMode.REWORK, true);
+
+        ToolInvocationResult result = new FileEditTool().invoke(
+                new LlmToolCall(
+                        "call-edit-repair-rewrite",
+                        "Edit",
+                        Map.of(
+                                "file_path", file.toString(),
+                                "old_string", "export const ready = true;\n",
+                                "new_string", "export const ready = false;\n"
+                        )
+                ),
+                context
+        );
+
+        assertFalse(result.success());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> payload = (Map<String, Object>) result.payload();
+        assertEquals(
+                "Edit whole-file replacement is only allowed for new files unless the current execution scope explicitly allows whole-file rewrite. Use Read + Edit for existing files in repair mode.",
+                payload.get("message")
+        );
+    }
+
+    private ImplementationToolContext newContext(Path file, DeliveryMode deliveryMode, boolean repairMode) throws Exception {
         ImplementationToolContext context = new ImplementationToolContext(
                 tempDir,
                 new RunRecord(
@@ -147,7 +175,11 @@ class FileEditToolTests {
                         Set.of(Path.of("app.js")),
                         Set.of("Read", "Edit"),
                         5_000L,
-                        5_000L
+                        5_000L,
+                        deliveryMode,
+                        repairMode,
+                        !repairMode,
+                        !repairMode && deliveryMode == DeliveryMode.REWORK
                 ),
                 new ImplementationToolPermissionPolicy(
                         new ImplementationToolPermissionProperties(List.of("Read", "Edit")),

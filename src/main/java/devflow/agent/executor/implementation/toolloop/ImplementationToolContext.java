@@ -288,13 +288,14 @@ public final class ImplementationToolContext implements ToolExecutionContext {
         if (absolutePath == null || !exists(absolutePath)) {
             return;
         }
-        if (deliveryMode == DeliveryMode.REWORK) {
+        if (permissionContext.allowExistingFileWholeRewrite()) {
             return;
         }
+        String modeLabel = permissionContext.repairMode() ? "repair mode" : deliveryMode.name();
         throw new IllegalArgumentException(
                 (toolName == null || toolName.isBlank() ? "Whole-file overwrite" : toolName)
-                        + " is only allowed for new files unless the current delivery mode is REWORK. "
-                        + "Use Read + Edit for existing files in " + deliveryMode.name() + "."
+                        + " is only allowed for new files unless the current execution scope explicitly allows whole-file rewrite. "
+                        + "Use Read + Edit for existing files in " + modeLabel + "."
         );
     }
 

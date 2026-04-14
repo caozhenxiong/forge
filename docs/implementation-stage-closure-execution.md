@@ -100,17 +100,17 @@
 
 ### Phase 5. Repair-Mode Permission / Tool Enforcement
 
-- [ ] `T5` `ImplementationToolPermissionPolicy` 接入 repair/resume mode
-- [ ] `T5` `ImplementationToolLoopExecutor` 显式把 repair/resume mode 传给 permission policy
-- [ ] `T5` `ImplementationToolContext` 收紧 whole rewrite / fresh read enforcement
-- [ ] `T5` `ToolExecutionContext` 保持同一组工具级不变量
-- [ ] `T5` `FileEditTool` 对已有文件继续严格执行 full Read / stale Read / whole rewrite 限制
-- [ ] `T5` `FileWriteTool` 对已有文件继续严格执行 full Read / whole rewrite 限制
-- [ ] `T5` `BashTool` 对 deny payload、`pathIntents` diagnostics、pre/post validation 全链同步 patch-first 约束
-- [ ] `T5` `ShellCommandAnalyzer` 与 `BashTool` 行为对齐
-- [ ] Phase 5 `self-test`
-- [ ] Phase 5 `code review`
-- [ ] Phase 5 `docs`
+- [x] `T5` `ImplementationToolPermissionPolicy` 接入 repair/resume mode
+- [x] `T5` `ImplementationToolLoopExecutor` 显式把 repair/resume mode 传给 permission policy
+- [x] `T5` `ImplementationToolContext` 收紧 whole rewrite / fresh read enforcement
+- [x] `T5` `ToolExecutionContext` 保持同一组工具级不变量
+- [x] `T5` `FileEditTool` 对已有文件继续严格执行 full Read / stale Read / whole rewrite 限制
+- [x] `T5` `FileWriteTool` 对已有文件继续严格执行 full Read / whole rewrite 限制
+- [x] `T5` `BashTool` 对 deny payload、`pathIntents` diagnostics、pre/post validation 全链同步 patch-first 约束
+- [x] `T5` `ShellCommandAnalyzer` 与 `BashTool` 行为对齐
+- [x] Phase 5 `self-test`
+- [x] Phase 5 `code review`
+- [x] Phase 5 `docs`
 
 ### Phase 6. Run-State Consistency And Repair Re-entry
 
@@ -145,10 +145,10 @@
 
 ## Current Status
 
-- 当前阶段：`PHASE_4_DONE_PHASE_5_PENDING`
+- 当前阶段：`PHASE_5_DONE_PHASE_6_PENDING`
 - 当前 blocker：`无`
 - 当前约束：`禁止兼容层、禁止 fallback、禁止双轨并存、禁止“后续再清理”`
-- 当前执行入口：`进入 Phase 5：repair-mode permission / tool enforcement`
+- 当前执行入口：`进入 Phase 6：run-state consistency / repair re-entry`
 
 ## Evidence Log
 
@@ -182,10 +182,10 @@
 
 ### Phase 5
 
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`待开始`
+- commit：`implement repair mode permission enforcement`
+- self-test：`mvn -q -Dtest=ImplementationToolPermissionPolicyTests,ImplementationToolRegistryTests,FileEditToolTests,FileWriteToolTests,BashToolTests,BashToolFailureDiagnosticsTests,ImplementationToolLoopExecutorTests test`
+- code review：`已完成自查；确认 repairMode 只由 ImplementationToolLoopExecutor -> ImplementationToolPermissionContext 单链注入；ImplementationToolContext 不再通过 deliveryMode==REWORK 直接放行 whole rewrite；tool loop 的 owned scope、prompt 文件契约、交付校验全部切到 executionState.effectiveChanges`
+- docs：`本文档已更新`
 
 ### Phase 6
 
@@ -214,7 +214,7 @@
 - [x] `T2` accepted package completeness 已前置拦截
 - [x] `T3` subtask structured review typed payload 已落到真实协议边界
 - [x] `T4` canonical repair package 已进入 `implementation_state` 单一真相源并可 round-trip
-- [ ] `T5` patch-first 已锁死在 permission + tool-context + tool implementation
+- [x] `T5` patch-first 已锁死在 permission + tool-context + tool implementation
 - [ ] `T6` repair reroute 的状态、artifact、event、re-entry 已全链一致
 - [ ] `R1 ~ R7` 全部通过
 - [ ] `self-test + code review + docs` 全部补齐

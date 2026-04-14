@@ -190,7 +190,11 @@ class BashToolFailureDiagnosticsTests {
                         ownedPaths,
                         Set.of("Bash"),
                         5_000L,
-                        5_000L
+                        5_000L,
+                        DeliveryMode.PATCH,
+                        false,
+                        true,
+                        false
                 ),
                 new ImplementationToolPermissionPolicy(
                         new ImplementationToolPermissionProperties(List.of("Bash")),
