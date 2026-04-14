@@ -26,6 +26,7 @@ import devflow.agent.executor.implementation.toolloop.ImplementationDiagnosticSo
 import devflow.agent.executor.implementation.toolloop.ImplementationToolSessionState;
 import devflow.agent.executor.implementation.toolloop.ToolLoopDiagnosticStatus;
 import devflow.agent.executor.implementation.toolloop.ToolLoopMutationOperation;
+import devflow.agent.executor.tools.ToolFailureCode;
 import devflow.agent.executor.subtask.Subtask;
 import devflow.agent.executor.subtask.SubtaskExecutionReport;
 class ImplementationSnapshotRestorerTests {
@@ -115,10 +116,11 @@ class ImplementationSnapshotRestorerTests {
                                 )),
                                 List.of(new ImplementationStateSnapshot.DiagnosticState(
                                         "diag-1",
-                                        "src/app.js",
-                                        ToolLoopDiagnosticStatus.SYNTAX_INVALID.name(),
-                                        ImplementationDiagnosticSource.TREE_SITTER_PARSE.name(),
-                                        "unexpected token",
+                                        "",
+                                        ToolLoopDiagnosticStatus.FAILED.name(),
+                                        ImplementationDiagnosticSource.TOOL_FAILURE.name(),
+                                        ToolFailureCode.COMMAND_FAILED.name(),
+                                        "shell command rejected",
                                         123L
                                 ))
                         )
@@ -135,6 +137,8 @@ class ImplementationSnapshotRestorerTests {
         assertEquals("stored://tool-1", sessionState.resultReplacementState().replacement("tool-1"));
         assertEquals(1, sessionState.mutationRecords().size());
         assertEquals(1, sessionState.diagnostics().size());
-        assertEquals(ToolLoopDiagnosticStatus.SYNTAX_INVALID, sessionState.diagnostics().getFirst().status());
+        assertEquals(ToolLoopDiagnosticStatus.FAILED, sessionState.diagnostics().getFirst().status());
+        assertEquals(Path.of(""), sessionState.diagnostics().getFirst().relativePath());
+        assertEquals(ToolFailureCode.COMMAND_FAILED, sessionState.diagnostics().getFirst().failureCode());
     }
 }

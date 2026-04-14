@@ -414,12 +414,14 @@ public final class ImplementationSnapshotRestorer {
             return ledger;
         }
         for (ImplementationStateSnapshot.DiagnosticState diagnostic : diagnostics) {
-            if (diagnostic == null || diagnostic.relativePath() == null || diagnostic.relativePath().isBlank()) {
+            if (diagnostic == null) {
                 continue;
             }
             ledger.restore(new ImplementationDiagnosticRecord(
                     blankIfNull(diagnostic.diagnosticId()),
-                    Path.of(diagnostic.relativePath()).normalize(),
+                    diagnostic.relativePath() == null || diagnostic.relativePath().isBlank()
+                            ? Path.of("")
+                            : Path.of(diagnostic.relativePath()).normalize(),
                     EnumParsers.parseIgnoreCase(
                             ToolLoopDiagnosticStatus.class,
                             diagnostic.status(),
@@ -429,6 +431,11 @@ public final class ImplementationSnapshotRestorer {
                             ImplementationDiagnosticSource.class,
                             diagnostic.source(),
                             ImplementationDiagnosticSource.UNSUPPORTED_LANGUAGE
+                    ),
+                    EnumParsers.parseIgnoreCase(
+                            ToolFailureCode.class,
+                            diagnostic.failureCode(),
+                            null
                     ),
                     blankIfNull(diagnostic.evidence()),
                     diagnostic.timestamp()

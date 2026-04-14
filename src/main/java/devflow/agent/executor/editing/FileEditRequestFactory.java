@@ -34,6 +34,7 @@ public final class FileEditRequestFactory {
     private final FileProjectWorkspace workspace;
     private final FileScopedContextSupport fileScopedContextSupport;
     private final FileStateLedger fileStateLedger;
+    private final HtmlRuntimeContractResolver runtimeContractResolver;
 
     public FileEditRequestFactory(
             FileProjectWorkspace workspace,
@@ -42,6 +43,7 @@ public final class FileEditRequestFactory {
         this.workspace = workspace;
         this.fileScopedContextSupport = fileScopedContextSupport;
         this.fileStateLedger = new FileStateLedger();
+        this.runtimeContractResolver = new HtmlRuntimeContractResolver(workspace);
     }
 
     FileEditRequest create(
@@ -151,38 +153,14 @@ public final class FileEditRequestFactory {
             Path relativePath,
             List<FileChange> activeChanges
     ) {
-        if (relativePath == null || !ProjectPathSupport.isHtml(relativePath)) {
-            return null;
-        }
-        FileChange scopedChange = resolveScopedChange(relativePath, activeChanges);
-        if (scopedChange == null || scopedChange.runtimeOwnership() == null) {
-            return null;
-        }
-        if (scopedChange.runtimeOwnership() == RuntimeOwnershipMode.INLINE_HOST) {
-            return HtmlRuntimeOwnershipContract.inlineHost(relativePath.normalize());
-        }
-        RuntimeScriptGraphInspector runtimeScriptGraphInspector = new RuntimeScriptGraphInspector(workspace);
-        Path htmlParent = relativePath.getParent() == null ? Path.of("") : relativePath.getParent().normalize();
-        List<Path> declaredRuntimeScripts = (activeChanges == null ? List.<FileChange>of() : activeChanges).stream()
-                .filter(change -> change != null
-                        && change.action() != ChangeAction.DELETE
-                        && change.path() != null
-                        && !change.path().isBlank())
-                .map(change -> Path.of(change.path()).normalize())
-                .filter(ProjectPathSupport::isRuntimeScript)
-                .filter(path -> isUnderHtmlEntryTree(path, htmlParent))
-                .toList();
-        List<Path> runtimeRoots = runtimeScriptGraphInspector.selectDeclaredRoots(projectPath, declaredRuntimeScripts);
-        if (runtimeRoots.isEmpty()) {
-            RuntimeScriptGraphInspector.RuntimeScriptGraph graph = runtimeScriptGraphInspector.inspectProject(projectPath, relativePath);
-            runtimeRoots = runtimeScriptGraphInspector.selectRootScripts(graph.runtimeScripts(), graph);
-        }
-        return HtmlRuntimeOwnershipContract.externalCompanion(relativePath.normalize(), runtimeRoots);
-    }
-
-    private boolean isUnderHtmlEntryTree(Path candidate, Path htmlParent) {
-        Path candidateParent = candidate.getParent() == null ? Path.of("") : candidate.getParent().normalize();
-        return htmlParent.toString().isBlank() || candidateParent.equals(htmlParent) || candidateParent.startsWith(htmlParent);
+        return runtimeContractResolver.resolveCanonicalContract(
+                projectPath,
+                relativePath,
+                null,
+                activeChanges,
+                null,
+                List.of()
+        );
     }
 
     private boolean isEmbeddedWorksetProgress(String strategyName) {

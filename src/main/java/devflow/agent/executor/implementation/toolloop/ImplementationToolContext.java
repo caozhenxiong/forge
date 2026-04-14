@@ -7,6 +7,7 @@ import devflow.agent.executor.tools.ImplementationToolPermissionContext;
 import devflow.agent.executor.tools.ImplementationToolPermissionPolicy;
 import devflow.agent.executor.tools.StructuredPatchHunk;
 import devflow.agent.executor.tools.StructuredPatchSupport;
+import devflow.agent.executor.tools.ToolFailureCode;
 import devflow.agent.executor.tools.ToolExecutionContext;
 
 import devflow.agent.executor.shell.ShellCommandAnalyzer;
@@ -335,6 +336,29 @@ public final class ImplementationToolContext implements ToolExecutionContext {
     }
 
     @Override
+    public void recordToolFailure(
+            String toolName,
+            Path relativePath,
+            ToolFailureCode failureCode,
+            String evidence
+    ) {
+        Path normalizedPath = relativePath == null ? Path.of("") : relativePath.normalize();
+        toolSessionState.diagnosticLedger().record(
+                normalizedPath,
+                ToolLoopDiagnosticStatus.FAILED,
+                ImplementationDiagnosticSource.TOOL_FAILURE,
+                failureCode,
+                formatToolFailureEvidence(toolName, failureCode, evidence)
+        );
+        appendEvent("实现阶段｜diagnostic｜工具失败｜工具=%s｜failureCode=%s｜文件=%s"
+                .formatted(
+                        toolName == null || toolName.isBlank() ? "(unknown)" : toolName,
+                        failureCode == null ? "NONE" : failureCode.name(),
+                        normalizedPath.toString().isBlank() ? "(none)" : normalizedPath.toString().replace('\\', '/')
+                ));
+    }
+
+    @Override
     public ToolExecutionContext.ToolReadState readState(Path absolutePath) {
         CoderReadFileState state = readFileStateLedger().get(absolutePath);
         if (state == null) {
@@ -424,6 +448,7 @@ public final class ImplementationToolContext implements ToolExecutionContext {
                 relativePath,
                 diagnostic.status(),
                 diagnostic.source(),
+                null,
                 diagnostic.evidence()
         );
         appendEvent("实现阶段｜mutation｜操作=%s｜文件=%s｜诊断=%s"
@@ -564,6 +589,16 @@ public final class ImplementationToolContext implements ToolExecutionContext {
             ImplementationDiagnosticSource source,
             String evidence
     ) {
+    }
+
+    private String formatToolFailureEvidence(String toolName, ToolFailureCode failureCode, String evidence) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("tool=").append(toolName == null || toolName.isBlank() ? "(unknown)" : toolName);
+        builder.append(", failureCode=").append(failureCode == null ? "NONE" : failureCode.name());
+        if (evidence != null && !evidence.isBlank()) {
+            builder.append(", evidence=").append(evidence.trim());
+        }
+        return builder.toString();
     }
 
     private boolean isOwnedDirectory(Path directoryPath) {

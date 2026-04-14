@@ -166,13 +166,19 @@ public final class ImplementationStateArtifactSupport {
             if (diagnostic == null) {
                 continue;
             }
+            String relativePath = blank(diagnostic.relativePath()).isBlank()
+                    ? "(tool-loop)"
+                    : diagnostic.relativePath();
             builder.append("- ")
-                    .append(valueOrNone(diagnostic.relativePath()))
+                    .append(relativePath)
                     .append(" | ")
                     .append(valueOrNone(diagnostic.status()))
                     .append(" | ")
                     .append(valueOrNone(diagnostic.source()))
                     .append(" | ")
+                    .append(blank(diagnostic.failureCode()).isBlank()
+                            ? ""
+                            : diagnostic.failureCode() + " | ")
                     .append(valueOrNone(diagnostic.evidence()))
                     .append('\n');
         }

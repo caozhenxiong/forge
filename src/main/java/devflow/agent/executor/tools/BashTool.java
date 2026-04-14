@@ -46,6 +46,7 @@ public final class BashTool implements ImplementationTool {
             String command = requireCommand(input.command());
             ShellCommandDecision decision = context.decideShellCommand(command);
             if (!decision.allowsExecution()) {
+                ToolFailureCode failureCode = deniedFailureCode(decision);
                 context.appendEvent("实现阶段｜shell｜拒绝｜原因=%s｜可重试=%s｜命令=%s｜证据=%s"
                         .formatted(
                                 decision.reasonCode(),
@@ -53,16 +54,29 @@ public final class BashTool implements ImplementationTool {
                                 decision.commandSummary(),
                                 decision.evidence()
                 ));
-                return ToolInvocationResult.failure(renderDeniedPayload(decision));
+                context.recordToolFailure(
+                        "Bash",
+                        diagnosticPath(decision),
+                        failureCode,
+                        shellFailureEvidence(decision, decision.message())
+                );
+                return ToolInvocationResult.failure(renderDeniedPayload(decision, failureCode));
             }
             long timeoutMs;
             try {
                 timeoutMs = context.resolveShellTimeout(input.timeout());
                 context.assertShellWriteTargets(decision.pathIntents());
             } catch (IllegalArgumentException validationException) {
+                ToolFailureCode failureCode = ToolFailureCode.COMMAND_FAILED;
                 context.appendEvent("实现阶段｜shell｜执行前校验失败｜命令=%s｜原因=%s"
                         .formatted(decision.commandSummary(), validationException.getMessage()));
-                return ToolInvocationResult.failure(renderPreExecutionDeniedPayload(decision, validationException.getMessage()));
+                context.recordToolFailure(
+                        "Bash",
+                        diagnosticPath(decision),
+                        failureCode,
+                        shellFailureEvidence(decision, validationException.getMessage())
+                );
+                return ToolInvocationResult.failure(renderPreExecutionDeniedPayload(decision, validationException.getMessage(), failureCode));
             }
             context.appendEvent("实现阶段｜shell｜批准｜模式=%s｜命令=%s｜声明路径=%s"
                     .formatted(
@@ -99,8 +113,15 @@ public final class BashTool implements ImplementationTool {
                         decision.readOnly()
                 );
             } catch (IllegalArgumentException validationException) {
+                ToolFailureCode failureCode = ToolFailureCode.COMMAND_FAILED;
                 context.appendEvent("实现阶段｜shell｜后置校验失败｜命令=%s｜原因=%s"
                         .formatted(decision.commandSummary(), validationException.getMessage()));
+                context.recordToolFailure(
+                        "Bash",
+                        diagnosticPath(decision),
+                        failureCode,
+                        shellFailureEvidence(decision, validationException.getMessage())
+                );
                 return ToolInvocationResult.failure(renderPostExecutionValidationPayload(
                         decision,
                         exitCode,
@@ -108,12 +129,23 @@ public final class BashTool implements ImplementationTool {
                         stderr.toString(),
                         timeoutMs,
                         !finished,
-                        validationException.getMessage()
+                        validationException.getMessage(),
+                        failureCode
                 ));
             }
             if (!mutationAccounting.scopeViolationPaths().isEmpty()) {
+                ToolFailureCode failureCode = ToolFailureCode.TARGET_SCOPE_VIOLATION;
                 context.appendEvent("实现阶段｜shell｜越界写入｜命令=%s｜越界路径=%s"
                         .formatted(decision.commandSummary(), mutationAccounting.scopeViolationPaths()));
+                context.recordToolFailure(
+                        "Bash",
+                        mutationAccounting.scopeViolationPaths().getFirst(),
+                        failureCode,
+                        shellFailureEvidence(
+                                decision,
+                                "scopeViolationPaths=" + renderPaths(mutationAccounting.scopeViolationPaths())
+                        )
+                );
                 throw fatalScopeViolation(decision, exitCode, stdout.toString(), stderr.toString(), timeoutMs, !finished, mutationAccounting);
             }
             context.appendEvent("实现阶段｜shell｜完成｜命令=%s｜exitCode=%d｜timedOut=%s｜变更=%s"
@@ -137,14 +169,26 @@ public final class BashTool implements ImplementationTool {
             throw exception;
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
+            context.recordToolFailure("Bash", Path.of(""), ToolFailureCode.COMMAND_FAILED, exception.getMessage());
             return ToolInvocationResult.failure(Map.of(
                     "type", "error",
+                    "failureCode", ToolFailureCode.COMMAND_FAILED.name(),
                     "message", exception.getMessage() == null ? "Shell command was interrupted." : exception.getMessage()
             ));
         } catch (IllegalArgumentException exception) {
-            return ToolInvocationResult.failure(Map.of("type", "error", "message", exception.getMessage()));
+            context.recordToolFailure("Bash", Path.of(""), ToolFailureCode.COMMAND_FAILED, exception.getMessage());
+            return ToolInvocationResult.failure(Map.of(
+                    "type", "error",
+                    "failureCode", ToolFailureCode.COMMAND_FAILED.name(),
+                    "message", exception.getMessage()
+            ));
         } catch (Exception exception) {
-            return ToolInvocationResult.failure(Map.of("type", "error", "message", exception.getMessage()));
+            context.recordToolFailure("Bash", Path.of(""), ToolFailureCode.COMMAND_FAILED, exception.getMessage());
+            return ToolInvocationResult.failure(Map.of(
+                    "type", "error",
+                    "failureCode", ToolFailureCode.COMMAND_FAILED.name(),
+                    "message", exception.getMessage()
+            ));
         }
     }
 
@@ -161,10 +205,11 @@ public final class BashTool implements ImplementationTool {
         return command;
     }
 
-    private Map<String, Object> renderDeniedPayload(ShellCommandDecision decision) {
+    private Map<String, Object> renderDeniedPayload(ShellCommandDecision decision, ToolFailureCode failureCode) {
         LinkedHashMap<String, Object> payload = new LinkedHashMap<>();
         payload.put("type", "error");
         payload.put("code", "SHELL_COMMAND_DENIED");
+        payload.put("failureCode", failureCode == null ? null : failureCode.name());
         payload.put("reasonCode", decision.reasonCode());
         payload.put("message", decision.message());
         payload.put("retryable", decision.retryable());
@@ -178,11 +223,13 @@ public final class BashTool implements ImplementationTool {
 
     private Map<String, Object> renderPreExecutionDeniedPayload(
             ShellCommandDecision decision,
-            String message
+            String message,
+            ToolFailureCode failureCode
     ) {
         LinkedHashMap<String, Object> payload = new LinkedHashMap<>();
         payload.put("type", "error");
         payload.put("code", "SHELL_COMMAND_DENIED");
+        payload.put("failureCode", failureCode == null ? null : failureCode.name());
         payload.put("reasonCode", "PRE_EXEC_VALIDATION_FAILED");
         payload.put("message", message == null ? "Shell command failed pre-execution validation." : message);
         payload.put("retryable", true);
@@ -206,6 +253,7 @@ public final class BashTool implements ImplementationTool {
         LinkedHashMap<String, Object> payload = new LinkedHashMap<>();
         payload.put("type", "error");
         payload.put("code", "SHELL_SCOPE_VIOLATION");
+        payload.put("failureCode", ToolFailureCode.TARGET_SCOPE_VIOLATION.name());
         payload.put("reasonCode", decision.readOnly() ? "UNEXPECTED_SHELL_MUTATION" : "SCOPE_VIOLATION");
         payload.put("message", decision.readOnly()
                 ? "Read-only shell command mutated workspace files."
@@ -284,11 +332,13 @@ public final class BashTool implements ImplementationTool {
             String stderr,
             long timeoutMs,
             boolean timedOut,
-            String message
+            String message,
+            ToolFailureCode failureCode
     ) {
         LinkedHashMap<String, Object> payload = new LinkedHashMap<>();
         payload.put("type", "error");
         payload.put("code", "SHELL_POST_EXEC_VALIDATION_FAILED");
+        payload.put("failureCode", failureCode == null ? null : failureCode.name());
         payload.put("reasonCode", "MUTATION_CONTRACT_VIOLATION");
         payload.put("message", message == null ? "Shell post-execution validation failed." : message);
         payload.put("retryable", true);
@@ -310,6 +360,43 @@ public final class BashTool implements ImplementationTool {
                 .filter(value -> !value.isBlank())
                 .distinct()
                 .toList();
+    }
+
+    private ToolFailureCode deniedFailureCode(ShellCommandDecision decision) {
+        if (decision != null && "SCOPE_VIOLATION".equalsIgnoreCase(decision.reasonCode())) {
+            return ToolFailureCode.TARGET_SCOPE_VIOLATION;
+        }
+        return ToolFailureCode.COMMAND_FAILED;
+    }
+
+    private Path diagnosticPath(ShellCommandDecision decision) {
+        if (decision == null || decision.declaredWritePaths() == null || decision.declaredWritePaths().isEmpty()) {
+            return Path.of("");
+        }
+        return decision.declaredWritePaths().getFirst().normalize();
+    }
+
+    private String shellFailureEvidence(ShellCommandDecision decision, String message) {
+        StringBuilder builder = new StringBuilder();
+        if (decision != null) {
+            builder.append("command=").append(decision.commandSummary());
+            if (decision.reasonCode() != null && !decision.reasonCode().isBlank()) {
+                builder.append(", reasonCode=").append(decision.reasonCode());
+            }
+            if (decision.evidence() != null && !decision.evidence().isEmpty()) {
+                builder.append(", decisionEvidence=").append(decision.evidence());
+            }
+            if (decision.declaredWritePaths() != null && !decision.declaredWritePaths().isEmpty()) {
+                builder.append(", declaredWritePaths=").append(renderPaths(decision.declaredWritePaths()));
+            }
+        }
+        if (message != null && !message.isBlank()) {
+            if (builder.length() > 0) {
+                builder.append(", ");
+            }
+            builder.append("message=").append(message.trim());
+        }
+        return builder.toString();
     }
 
     private Thread startPump(InputStream inputStream, ByteArrayOutputStream buffer) {

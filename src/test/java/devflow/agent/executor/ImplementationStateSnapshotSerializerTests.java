@@ -31,6 +31,7 @@ import devflow.agent.executor.implementation.toolloop.ToolLoopDiagnosticStatus;
 import devflow.agent.executor.implementation.toolloop.ToolLoopMutationOperation;
 import devflow.agent.executor.implementation.toolloop.ToolLoopReadFileStateLedger;
 import devflow.agent.executor.implementation.toolloop.ToolLoopResultReplacementState;
+import devflow.agent.executor.tools.ToolFailureCode;
 import devflow.agent.executor.subtask.Subtask;
 import devflow.agent.executor.subtask.SubtaskExecutionReport;
 import devflow.agent.executor.subtask.SubtaskExecutionState;
@@ -46,10 +47,11 @@ class ImplementationStateSnapshotSerializerTests {
         ImplementationDiagnosticLedger diagnosticLedger = new ImplementationDiagnosticLedger();
         diagnosticLedger.restore(new ImplementationDiagnosticRecord(
                 "diag-1",
-                Path.of("src/app.js"),
-                ToolLoopDiagnosticStatus.SYNTAX_INVALID,
-                ImplementationDiagnosticSource.TREE_SITTER_PARSE,
-                "unexpected token",
+                Path.of(""),
+                ToolLoopDiagnosticStatus.FAILED,
+                ImplementationDiagnosticSource.TOOL_FAILURE,
+                ToolFailureCode.COMMAND_FAILED,
+                "shell command rejected",
                 123L
         ));
         ImplementationToolSessionState sessionState = new ImplementationToolSessionState(
@@ -109,7 +111,9 @@ class ImplementationStateSnapshotSerializerTests {
         assertEquals(1, parsed.reports().size());
         assertNotNull(parsed.reports().getFirst().toolSessionState());
         assertEquals(1, parsed.reports().getFirst().toolSessionState().diagnostics().size());
-        assertEquals("SYNTAX_INVALID", parsed.reports().getFirst().toolSessionState().diagnostics().getFirst().status());
+        assertEquals("FAILED", parsed.reports().getFirst().toolSessionState().diagnostics().getFirst().status());
+        assertEquals("", parsed.reports().getFirst().toolSessionState().diagnostics().getFirst().relativePath());
+        assertEquals("COMMAND_FAILED", parsed.reports().getFirst().toolSessionState().diagnostics().getFirst().failureCode());
 
         ImplementationSnapshotRestorer restorer = new ImplementationSnapshotRestorer();
         List<Subtask> restoredSubtasks = restorer.restoreSubtasks(parsed.subtasks());
@@ -117,8 +121,13 @@ class ImplementationStateSnapshotSerializerTests {
         assertEquals(1, restoredReports.size());
         assertEquals(1, restoredReports.getFirst().executionState().toolSessionState().diagnostics().size());
         assertEquals(
-                ToolLoopDiagnosticStatus.SYNTAX_INVALID,
+                ToolLoopDiagnosticStatus.FAILED,
                 restoredReports.getFirst().executionState().toolSessionState().diagnostics().getFirst().status()
+        );
+        assertEquals(Path.of(""), restoredReports.getFirst().executionState().toolSessionState().diagnostics().getFirst().relativePath());
+        assertEquals(
+                ToolFailureCode.COMMAND_FAILED,
+                restoredReports.getFirst().executionState().toolSessionState().diagnostics().getFirst().failureCode()
         );
         assertTrue(restoredReports.getFirst().executionState().toolSessionState().transcript().isEmpty());
     }

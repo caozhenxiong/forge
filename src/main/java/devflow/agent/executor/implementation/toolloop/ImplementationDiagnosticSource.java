@@ -6,5 +6,6 @@ import devflow.agent.executor.runtime.*;
 public enum ImplementationDiagnosticSource {
     TREE_SITTER_PARSE,
     UNSUPPORTED_LANGUAGE,
-    FILE_DELETED
+    FILE_DELETED,
+    TOOL_FAILURE
 }

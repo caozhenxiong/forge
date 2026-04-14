@@ -219,6 +219,7 @@ public record ImplementationStateSnapshot(
             String relativePath,
             String status,
             String source,
+            String failureCode,
             String evidence,
             long timestamp
     ) {

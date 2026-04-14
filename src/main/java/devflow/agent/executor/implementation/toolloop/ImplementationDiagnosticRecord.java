@@ -2,6 +2,7 @@ package devflow.agent.executor.implementation.toolloop;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
+import devflow.agent.executor.tools.ToolFailureCode;
 
 import java.nio.file.Path;
 
@@ -17,6 +18,7 @@ public record ImplementationDiagnosticRecord(
         Path relativePath,
         ToolLoopDiagnosticStatus status,
         ImplementationDiagnosticSource source,
+        ToolFailureCode failureCode,
         String evidence,
         long timestamp
 ) {

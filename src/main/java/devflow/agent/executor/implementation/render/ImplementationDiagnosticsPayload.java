@@ -25,6 +25,7 @@ record ImplementationDiagnosticsPayload(
             String relativePath,
             String status,
             String source,
+            String failureCode,
             String evidence,
             long timestamp
     ) {

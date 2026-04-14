@@ -5,6 +5,7 @@ import devflow.agent.executor.runtime.*;
 
 import devflow.agent.parsing.HtmlDocumentInspector;
 import devflow.agent.parsing.JavaScriptLiteralScanner;
+import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.util.ProjectPathSupport;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,6 +27,9 @@ import devflow.agent.executor.runtime.RuntimeOwnershipMode;
  * <p>这样 coder 不能再通过“临时发明一个新文件名”“越界失败后回填成单文件 HTML”来绕过当前子任务边界。
  */
 public final class ImplementationMutationContractGuard {
+
+    private final HtmlRuntimeContractResolver runtimeContractResolver =
+            new HtmlRuntimeContractResolver(new FileProjectWorkspace());
 
     public void validate(
             Path projectPath,
@@ -81,20 +85,29 @@ public final class ImplementationMutationContractGuard {
         if (relativePath == null || !ProjectPathSupport.isHtml(relativePath)) {
             return;
         }
-        FileChange htmlChange = findScopedChange(relativePath, scopedChanges);
-        if (htmlChange == null || htmlChange.runtimeOwnership() == null || htmlChange.action() == ChangeAction.DELETE) {
+        HtmlRuntimeOwnershipContract runtimeContract = runtimeContractResolver.resolveCanonicalContract(
+                projectPath,
+                relativePath,
+                null,
+                scopedChanges,
+                content,
+                List.of()
+        );
+        if (runtimeContract == null || !runtimeContract.active() || runtimeContract.runtimeOwnership() == null) {
             return;
         }
         Set<Path> referencedRuntimePaths = collectDeclaredHtmlRuntimeReferences(relativePath, content);
-        Set<Path> declaredRuntimePaths = declaredRuntimePaths(relativePath, scopedChanges);
         boolean keepsNonEmptyInlineScript = HtmlDocumentInspector.inlineScriptBodies(content).stream()
                 .map(body -> body == null ? "" : body.trim())
                 .anyMatch(body -> !body.isBlank());
-        if (htmlChange.runtimeOwnership() == RuntimeOwnershipMode.INLINE_HOST) {
+        if (runtimeContract.inlineHost()) {
             if (!referencedRuntimePaths.isEmpty()) {
                 throw new IllegalArgumentException("宿主 HTML 已声明 INLINE_HOST，不应再接入 local companion runtime script。");
             }
             return;
+        }
+        if (runtimeContract.runtimePaths().isEmpty()) {
+            throw new IllegalArgumentException("宿主 HTML 已声明 EXTERNAL_COMPANION，但当前 canonical runtime contract 没有声明 runtime 根脚本。");
         }
         if (referencedRuntimePaths.isEmpty()) {
             throw new IllegalArgumentException("宿主 HTML 已声明 EXTERNAL_COMPANION，必须接入至少一个 local runtime script。");
@@ -102,18 +115,16 @@ public final class ImplementationMutationContractGuard {
         if (keepsNonEmptyInlineScript) {
             throw new IllegalArgumentException("宿主 HTML 已声明 EXTERNAL_COMPANION，不能继续保留非空内联主脚本。");
         }
-        if (!declaredRuntimePaths.isEmpty()) {
-            Set<Path> undeclaredReferences = referencedRuntimePaths.stream()
-                    .filter(path -> !declaredRuntimePaths.contains(path))
-                    .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-            if (!undeclaredReferences.isEmpty()) {
-                throw new IllegalArgumentException(
-                        "宿主 HTML 已声明 EXTERNAL_COMPANION，但接入了不在当前 accepted change-set 中声明的 runtime script: "
-                                + undeclaredReferences.stream()
-                                .map(path -> path.toString().replace('\\', '/'))
-                                .toList()
-                );
-            }
+        Set<Path> undeclaredReferences = referencedRuntimePaths.stream()
+                .filter(path -> !runtimeContract.runtimePaths().contains(path))
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        if (!undeclaredReferences.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "宿主 HTML 已声明 EXTERNAL_COMPANION，但接入了不在 canonical runtime contract 中声明的 runtime script: "
+                            + undeclaredReferences.stream()
+                            .map(path -> path.toString().replace('\\', '/'))
+                            .toList()
+            );
         }
     }
 
@@ -210,21 +221,6 @@ public final class ImplementationMutationContractGuard {
         return absolutePath.startsWith(projectPath.normalize()) && Files.exists(absolutePath);
     }
 
-    private FileChange findScopedChange(Path relativePath, List<FileChange> scopedChanges) {
-        if (relativePath == null || scopedChanges == null || scopedChanges.isEmpty()) {
-            return null;
-        }
-        for (FileChange change : scopedChanges) {
-            if (change == null || change.path() == null || change.path().isBlank()) {
-                continue;
-            }
-            if (relativePath.equals(Path.of(change.path()).normalize())) {
-                return change;
-            }
-        }
-        return null;
-    }
-
     private Set<Path> collectDeclaredHtmlRuntimeReferences(Path htmlEntryPath, String content) {
         if (htmlEntryPath == null || content == null || content.isBlank()) {
             return Set.of();
@@ -245,34 +241,6 @@ public final class ImplementationMutationContractGuard {
             }
         }
         return Set.copyOf(references);
-    }
-
-    private Set<Path> declaredRuntimePaths(Path htmlEntryPath, List<FileChange> scopedChanges) {
-        if (scopedChanges == null || scopedChanges.isEmpty()) {
-            return Set.of();
-        }
-        LinkedHashSet<Path> runtimePaths = new LinkedHashSet<>();
-        for (FileChange change : scopedChanges) {
-            if (change == null || change.path() == null || change.path().isBlank() || change.action() == ChangeAction.DELETE) {
-                continue;
-            }
-            Path candidatePath = Path.of(change.path()).normalize();
-            if (ProjectPathSupport.isRuntimeScript(candidatePath) && isUnderHtmlEntryTree(htmlEntryPath, candidatePath)) {
-                runtimePaths.add(candidatePath);
-            }
-        }
-        return Set.copyOf(runtimePaths);
-    }
-
-    private boolean isUnderHtmlEntryTree(Path htmlEntryPath, Path candidatePath) {
-        if (htmlEntryPath == null || candidatePath == null) {
-            return false;
-        }
-        Path entryParent = htmlEntryPath.getParent() == null ? Path.of("") : htmlEntryPath.getParent().normalize();
-        Path candidateParent = candidatePath.getParent() == null ? Path.of("") : candidatePath.getParent().normalize();
-        return entryParent.toString().isBlank()
-                || candidateParent.equals(entryParent)
-                || candidateParent.startsWith(entryParent);
     }
 
     private record LocalReference(

@@ -6,12 +6,10 @@ import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
 import devflow.agent.parsing.HtmlDocumentInspector;
-import devflow.agent.parsing.JavaScriptLiteralScanner;
 import devflow.agent.parsing.TreeSitterSupport;
+import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.util.ProjectPathSupport;
 import java.nio.file.Path;
-import java.util.LinkedHashSet;
-import java.util.Set;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -23,9 +21,11 @@ public final class GeneratedHtmlContentValidator {
 
     private final GeneratedJavaScriptContentValidator javaScriptContentValidator;
     private final HtmlEntryRuntimeOwnershipInspector runtimeOwnershipInspector = new HtmlEntryRuntimeOwnershipInspector();
+    private final HtmlRuntimeContractResolver runtimeContractResolver;
 
     public GeneratedHtmlContentValidator(GeneratedJavaScriptContentValidator javaScriptContentValidator) {
         this.javaScriptContentValidator = javaScriptContentValidator;
+        this.runtimeContractResolver = new HtmlRuntimeContractResolver(new FileProjectWorkspace());
     }
 
     GeneratedContentValidationFailure validate(
@@ -111,7 +111,13 @@ public final class GeneratedHtmlContentValidator {
         if (relativePath == null || !ProjectPathSupport.isHtml(relativePath)) {
             return null;
         }
-        HtmlRuntimeOwnershipContract effectiveContract = resolveRuntimeContract(relativePath, content, runtimeContract, relatedPaths);
+        HtmlRuntimeOwnershipContract effectiveContract = resolveRuntimeContract(
+                projectPath,
+                relativePath,
+                content,
+                runtimeContract,
+                relatedPaths
+        );
         if (effectiveContract == null || !effectiveContract.active()) {
             return null;
         }
@@ -136,62 +142,20 @@ public final class GeneratedHtmlContentValidator {
     }
 
     private HtmlRuntimeOwnershipContract resolveRuntimeContract(
+            Path projectPath,
             Path relativePath,
             String content,
             HtmlRuntimeOwnershipContract runtimeContract,
             java.util.List<Path> relatedPaths
     ) {
-        if (runtimeContract != null && runtimeContract.active()) {
-            return runtimeContract;
-        }
-        if (relatedPaths == null || relatedPaths.isEmpty()) {
-            return null;
-        }
-        Set<Path> candidateRuntimePaths = relatedPaths.stream()
-                .filter(path -> path != null && ProjectPathSupport.isRuntimeScript(path))
-                .map(Path::normalize)
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-        Set<Path> runtimePaths = resolveReferencedRuntimePaths(relativePath, content, candidateRuntimePaths);
-        if (runtimePaths.isEmpty()) {
-            return null;
-        }
-        return HtmlRuntimeOwnershipContract.externalCompanion(relativePath.normalize(), runtimePaths.stream().sorted().toList());
-    }
-
-    private Set<Path> resolveReferencedRuntimePaths(
-            Path relativePath,
-            String content,
-            Set<Path> candidateRuntimePaths
-    ) {
-        if (relativePath == null || candidateRuntimePaths == null || candidateRuntimePaths.isEmpty()) {
-            return Set.of();
-        }
-        Path htmlParent = relativePath.getParent() == null ? Path.of("") : relativePath.getParent().normalize();
-        Set<Path> resolved = new LinkedHashSet<>();
-        for (String rawRef : HtmlDocumentInspector.referencedScriptPaths(content)) {
-            addResolvedRuntimePath(resolved, candidateRuntimePaths, htmlParent, rawRef);
-        }
-        for (String inlineScript : HtmlDocumentInspector.inlineScriptBodies(content)) {
-            for (String specifier : JavaScriptLiteralScanner.extractImportSpecifiers(inlineScript)) {
-                addResolvedRuntimePath(resolved, candidateRuntimePaths, htmlParent, specifier);
-            }
-        }
-        return Set.copyOf(resolved);
-    }
-
-    private void addResolvedRuntimePath(
-            Set<Path> resolved,
-            Set<Path> candidateRuntimePaths,
-            Path htmlParent,
-            String rawRef
-    ) {
-        if (rawRef == null || rawRef.isBlank() || ProjectPathSupport.isExternalReference(rawRef)) {
-            return;
-        }
-        Path runtimePath = htmlParent.resolve(rawRef.trim()).normalize();
-        if (candidateRuntimePaths.contains(runtimePath)) {
-            resolved.add(runtimePath);
-        }
+        return runtimeContractResolver.resolveCanonicalContract(
+                projectPath,
+                relativePath,
+                runtimeContract,
+                java.util.List.of(),
+                content,
+                relatedPaths
+        );
     }
 
     private GeneratedContentValidationFailure validateHeadRuntimeScriptWiring(String content) {

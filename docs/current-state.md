@@ -55,6 +55,7 @@
 - accepted change-set 已进入 implementation coder 的确定性边界：新本地依赖只能引用当前 owned files 或项目里已存在资产
 - HTML runtime ownership 仍由执行链与 verifier 校验，但已经不再由 planning detail 预判或填写
 - runtime wiring 续跑 scope 已改成显式携带 `host html + companion runtime roots`，不再只给一个宿主 HTML 让 coder 自己猜 companion 路径
+- implementation 侧 host entry runtime contract 已补成单一 resolver，当前按 `continuation scope > accepted change-set > execution-state facts` 产出 canonical contract；guard / validator 不再各自重建
 - coder prompt 已显式展示 `Current File Contracts`，并且当前 attempt 使用的 task package 会和 `executionState.effectiveChanges()` 对齐，不再出现“writable files 已缩窄，但 Current Subtask 仍展示旧 owned files”的双轨提示
 - PRD 的低权重条目已从正文承诺区收束到 `Source Metadata`；`推断 / 建议 / 设计选择 / 待确认问题` 不再进入 `PRODUCT_CONTRACT` 的 capability / acceptance 投影
 - snapshot / restore 只恢复确定性会话状态，不再跨 attempt 恢复 transcript
@@ -62,6 +63,7 @@
 - completed-plan 的 `PATCH` 续跑会直接回到 owning subtask，以 patch-only 方式继续，不再追加 synthetic continuation subtask
 - `PATCH_EXISTING_IMPLEMENTATION` 的 stage artifact / parser / continuation note / resume 主链已经统一成结构化 `overrideChanges` 协议，不再允许空 scope 静默续跑
 - `implementation_stage_status.md` / `worker_results.md` / `implementation_diagnostics.md` 已降为派生展示物，不再参与 continuation、review intake 或 stage progress 判定
+- unsupported shell write 与其他 Bash 工具失败已开始复用 `ToolFailureCode` 进入 event log / implementation diagnostics / snapshot / review summary，不再只剩一条非结构化日志
 - 子任务级 patch review 若未显式给出 scope，会先归一到当前 subtask 的 effective change-set；如果仍没有安全 scope，会直接阻断到人工，不再伪造 auto-patch
 - implementation verification 遇到 `TEST_PLAN_DEFECT`、`RUNTIME_PROBE_INVALID` 这类非实现问题时，不会再被静默放过；当前会直接阻断到人工，避免带着无效测试证据继续推进实现
 - implementation stage roll-up 已能保留 `ROUTE_TO_REPAIR_TARGET` 的结构化 repair scope，不再把它降级成泛化“未完成子任务”
@@ -98,7 +100,7 @@
 - `Phase 2` 已完成：`executor.llm / executor.context / executor.generation / executor.shell / executor.tools / executor.subtask / executor.implementation / executor.runtime / executor.gate / executor.testing / executor.editing / executor.patch` 已全部落位
 - `executor.subtask` 已收口：subtask execution / verification / recovery / review prompt / retry feedback / self-check review resolver 已整体下沉
 - `executor.implementation.toolloop` 已收口：tool loop executor、prompt、session state、mutation contract、diagnostics、read-file ledger、result replacement state 已整体下沉
-- `executor.runtime` 已收口：`RuntimeOwnershipMode / RuntimeScriptGraphInspector / HtmlRuntimeOwnershipContract / HtmlEntryRuntimeOwnershipInspector / WebRuntimeWiringCheck / UiRuntimeContractResolver` 已归位到运行时支撑包
+- `executor.runtime` 已收口：`RuntimeOwnershipMode / RuntimeScriptGraphInspector / HtmlRuntimeOwnershipContract / HtmlRuntimeContractResolver / HtmlEntryRuntimeOwnershipInspector / WebRuntimeWiringCheck / UiRuntimeContractResolver` 已归位到运行时支撑包
 - `executor.gate` 已收口：`ArchitectIntegrationCheck / ImplementationCompleteness* / ImplementationStageGate / ImplementationGateEngine / TestEvidenceGate / GateReport` 已归位到统一 gate 包
 - `Phase 3` 已完成：generate 主链统一切到 `LlmGenerateRequest`，`ContextCompactor` 与 `ContextBudgetPlanner` 已改为结构化四层上下文预算
 - `Phase 4` 已完成：`StageProgressCoordinator` 已收回纯 orchestration，`ImplementationExecutor` 保持单构造器注入，subtask 执行主链改为 `SubtaskExecutionContext`

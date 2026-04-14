@@ -238,6 +238,7 @@ public final class ImplementationStateSnapshotSerializer {
                                 diagnostic.relativePath() == null ? "" : diagnostic.relativePath().toString(),
                                 diagnostic.status().name(),
                                 diagnostic.source().name(),
+                                diagnostic.failureCode() == null ? null : diagnostic.failureCode().name(),
                                 diagnostic.evidence(),
                                 diagnostic.timestamp()
                         ))

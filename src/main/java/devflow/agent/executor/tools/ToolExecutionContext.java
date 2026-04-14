@@ -5,6 +5,7 @@ import devflow.agent.executor.runtime.*;
 
 import devflow.agent.executor.shell.ShellCommandDecision;
 import devflow.agent.executor.shell.ShellPathIntent;
+import devflow.agent.executor.tools.ToolFailureCode;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Path;
@@ -62,6 +63,13 @@ public interface ToolExecutionContext {
     void recordDeleteMutation(Path absolutePath, String beforeContent);
 
     void appendEvent(String message);
+
+    void recordToolFailure(
+            String toolName,
+            Path relativePath,
+            ToolFailureCode failureCode,
+            String evidence
+    );
 
     long resolveShellTimeout(Long requestedTimeoutMs);
 

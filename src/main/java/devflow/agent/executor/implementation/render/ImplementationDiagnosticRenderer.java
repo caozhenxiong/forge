@@ -39,14 +39,20 @@ final class ImplementationDiagnosticRenderer {
             return builder.toString().trim();
         }
         for (ImplementationDiagnosticsPayload.Entry entry : payload.diagnostics()) {
+            String relativePath = entry.relativePath() == null || entry.relativePath().isBlank()
+                    ? "(tool-loop)"
+                    : entry.relativePath();
             builder.append("- [")
                     .append(entry.status())
                     .append("] `")
-                    .append(entry.relativePath())
+                    .append(relativePath)
                     .append("`")
                     .append(" @ ")
                     .append(entry.subtaskTitle())
                     .append(" :: ")
+                    .append(entry.failureCode() == null || entry.failureCode().isBlank()
+                            ? ""
+                            : entry.failureCode() + " | ")
                     .append(entry.evidence())
                     .append('\n');
         }
@@ -66,10 +72,16 @@ final class ImplementationDiagnosticRenderer {
             return builder.toString().trim();
         }
         for (ImplementationDiagnosticsPayload.Entry entry : payload.diagnostics()) {
-            builder.append("## ").append(entry.subtaskTitle()).append(" / `").append(entry.relativePath()).append("`\n\n");
+            String relativePath = entry.relativePath() == null || entry.relativePath().isBlank()
+                    ? "(tool-loop)"
+                    : entry.relativePath();
+            builder.append("## ").append(entry.subtaskTitle()).append(" / `").append(relativePath).append("`\n\n");
             builder.append("- diagnosticId: ").append(entry.diagnosticId()).append('\n');
             builder.append("- status: ").append(entry.status()).append('\n');
             builder.append("- source: ").append(entry.source()).append('\n');
+            if (entry.failureCode() != null && !entry.failureCode().isBlank()) {
+                builder.append("- failureCode: ").append(entry.failureCode()).append('\n');
+            }
             builder.append("- timestamp: ").append(entry.timestamp()).append('\n');
             builder.append("- evidence: ").append(entry.evidence()).append("\n\n");
         }
@@ -96,6 +108,7 @@ final class ImplementationDiagnosticRenderer {
                         diagnostic.relativePath().toString(),
                         diagnostic.status().name(),
                         diagnostic.source().name(),
+                        diagnostic.failureCode() == null ? null : diagnostic.failureCode().name(),
                         diagnostic.evidence(),
                         diagnostic.timestamp()
                 ));

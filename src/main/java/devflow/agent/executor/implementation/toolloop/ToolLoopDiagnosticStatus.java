@@ -7,5 +7,6 @@ public enum ToolLoopDiagnosticStatus {
     VALID,
     SYNTAX_INVALID,
     UNSUPPORTED,
-    DELETED
+    DELETED,
+    FAILED
 }

@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ImplementationStateArtifactSupportTests {
@@ -69,6 +70,45 @@ class ImplementationStateArtifactSupportTests {
                 "Invalid implementation_state auxiliary artifact: missing field 'continuationMode'.",
                 exception.getMessage()
         );
+    }
+
+    @Test
+    void reviewSummaryRendersToolFailureDiagnosticsWithFailureCodeAndToolLoopPlaceholder() throws Exception {
+        ImplementationStateArtifactSupport support = new ImplementationStateArtifactSupport();
+        LinkedHashMap<String, Object> root = baseState();
+        LinkedHashMap<String, Object> diagnostic = new LinkedHashMap<>();
+        diagnostic.put("diagnosticId", "diag-1");
+        diagnostic.put("relativePath", "");
+        diagnostic.put("status", "FAILED");
+        diagnostic.put("source", "TOOL_FAILURE");
+        diagnostic.put("failureCode", "COMMAND_FAILED");
+        diagnostic.put("evidence", "shell command rejected");
+        diagnostic.put("timestamp", 123L);
+
+        LinkedHashMap<String, Object> toolSessionState = new LinkedHashMap<>();
+        toolSessionState.put("readFileStateMaxEntries", 100L);
+        toolSessionState.put("readFileStateMaxSizeBytes", 1024L);
+        toolSessionState.put("readFileStates", List.of());
+        toolSessionState.put("seenToolResultIds", List.of());
+        toolSessionState.put("toolResultReplacements", List.of());
+        toolSessionState.put("fileMutations", List.of());
+        toolSessionState.put("diagnostics", List.of(diagnostic));
+
+        LinkedHashMap<String, Object> report = new LinkedHashMap<>();
+        report.put("title", "修复 app");
+        report.put("completed", false);
+        report.put("attempts", List.of());
+        report.put("deliveryMode", "PATCH");
+        report.put("preferPreciseEditing", false);
+        report.put("fileEditAttemptStates", List.of());
+        report.put("effectiveChanges", List.of());
+        report.put("toolSessionState", toolSessionState);
+        root.put("reports", List.of(report));
+
+        String summary = support.renderReviewSummary(objectMapper.writeValueAsString(root));
+
+        assertTrue(summary.contains("## Diagnostics"));
+        assertTrue(summary.contains("(tool-loop) | FAILED | TOOL_FAILURE | COMMAND_FAILED | shell command rejected"));
     }
 
     private LinkedHashMap<String, Object> baseState() {

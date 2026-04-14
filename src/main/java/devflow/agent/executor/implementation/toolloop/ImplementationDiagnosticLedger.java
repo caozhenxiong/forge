@@ -2,6 +2,7 @@ package devflow.agent.executor.implementation.toolloop;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
+import devflow.agent.executor.tools.ToolFailureCode;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -35,6 +36,7 @@ public final class ImplementationDiagnosticLedger {
             Path relativePath,
             ToolLoopDiagnosticStatus status,
             ImplementationDiagnosticSource source,
+            ToolFailureCode failureCode,
             String evidence
     ) {
         ImplementationDiagnosticRecord record = new ImplementationDiagnosticRecord(
@@ -42,6 +44,7 @@ public final class ImplementationDiagnosticLedger {
                 relativePath,
                 status,
                 source,
+                failureCode,
                 evidence,
                 System.currentTimeMillis()
         );
