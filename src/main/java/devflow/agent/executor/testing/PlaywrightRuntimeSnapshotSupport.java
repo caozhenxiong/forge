@@ -14,8 +14,12 @@ final class PlaywrightRuntimeSnapshotSupport {
 
     private final PlaywrightProbeRunner probeRunner;
 
-    PlaywrightRuntimeSnapshotSupport(FileProjectWorkspace workspace, ObjectMapper objectMapper) {
-        this.probeRunner = new PlaywrightProbeRunner(workspace, objectMapper);
+    PlaywrightRuntimeSnapshotSupport(
+            FileProjectWorkspace workspace,
+            ObjectMapper objectMapper,
+            PlaywrightExecutionPolicy playwrightExecutionPolicy
+    ) {
+        this.probeRunner = new PlaywrightProbeRunner(workspace, objectMapper, playwrightExecutionPolicy);
     }
 
     RuntimeSnapshot capture(Path projectPath, String entry) {

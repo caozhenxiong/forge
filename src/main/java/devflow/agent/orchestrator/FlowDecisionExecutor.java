@@ -2,6 +2,7 @@ package devflow.agent.orchestrator;
 
 import devflow.agent.domain.RunRecord;
 import devflow.agent.domain.StageType;
+import devflow.agent.domain.WorkflowAction;
 
 import devflow.agent.review.ReviewResult;
 import devflow.agent.supervisor.SupervisorDecision;
@@ -14,7 +15,7 @@ import java.util.List;
  * <p>职责边界：
  * 1. 不判断流程是否应该前进
  * 2. 不重新解释 review / supervisor 语义
- * 3. 只把既定的 FlowAction 映射到对应的阶段迁移动作
+ * 3. 只把既定的 WorkflowAction 映射到对应的阶段迁移动作
  */
 public class FlowDecisionExecutor {
 
@@ -38,8 +39,8 @@ public class FlowDecisionExecutor {
             SupervisorDecision supervisorDecision,
             FlowDecision flowDecision
     ) {
-        FlowAction action = flowDecision.action();
-        if (action == FlowAction.ADVANCE_STAGE) {
+        WorkflowAction action = flowDecision.action();
+        if (action == WorkflowAction.ADVANCE_STAGE) {
             return stageTransitionSupport.onStageApproved(
                     projectPath,
                     runRecord,
@@ -49,13 +50,13 @@ public class FlowDecisionExecutor {
                     stageEntryExecutor::enterStage
             );
         }
-        if (action == FlowAction.REQUEST_HUMAN_REVIEW) {
+        if (action == WorkflowAction.REQUEST_HUMAN_REVIEW) {
             return stageTransitionSupport.blockForHumanReview(runRecord, stageType, reviewResult);
         }
-        if (action == FlowAction.COMPLETE_RUN) {
+        if (action == WorkflowAction.COMPLETE_RUN) {
             return stageTransitionSupport.completeRun(runRecord, stageType, reviewResult);
         }
-        if (action == FlowAction.RETRY_STAGE || action == FlowAction.ROLLBACK_STAGE) {
+        if (action == WorkflowAction.RETRY_STAGE || action == WorkflowAction.ROLLBACK_STAGE) {
             return stageTransitionSupport.rerouteForRevision(
                     projectPath,
                     runRecord,
@@ -75,7 +76,7 @@ public class FlowDecisionExecutor {
                     stageEntryExecutor::enterStage
             );
         }
-        if (action == FlowAction.ROUTE_TO_REPAIR) {
+        if (action == WorkflowAction.ROUTE_TO_REPAIR) {
             return stageTransitionSupport.rerouteForRevision(
                     projectPath,
                     runRecord,

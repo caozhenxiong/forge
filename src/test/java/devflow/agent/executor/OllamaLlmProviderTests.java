@@ -4,6 +4,11 @@ import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
+import devflow.agent.executor.implementation.*;
+import devflow.agent.executor.implementation.planning.*;
+import devflow.agent.executor.implementation.render.*;
+import devflow.agent.executor.implementation.state.*;
+import devflow.agent.executor.implementation.toolloop.*;
 
 import devflow.agent.executor.context.ContextBudgetPlanner;
 import devflow.agent.executor.context.ContextCompactor;
@@ -61,7 +66,7 @@ class OllamaLlmProviderTests {
         server.start();
 
         int port = server.getAddress().getPort();
-        OllamaProperties properties = new OllamaProperties("http://127.0.0.1:" + port, "fake-model", 1, null);
+        OllamaProperties properties = new OllamaProperties("http://127.0.0.1:" + port, "fake-model", 1, 10, 3, null);
         OllamaLlmProvider provider = new OllamaLlmProvider(
                 properties,
                 new ObjectMapper(),
@@ -93,7 +98,7 @@ class OllamaLlmProviderTests {
         server.start();
 
         int port = server.getAddress().getPort();
-        OllamaProperties properties = new OllamaProperties("http://127.0.0.1:" + port, "fake-model", 3, null);
+        OllamaProperties properties = new OllamaProperties("http://127.0.0.1:" + port, "fake-model", 3, 10, 3, null);
         OllamaLlmProvider provider = new OllamaLlmProvider(
                 properties,
                 new ObjectMapper(),
@@ -125,7 +130,7 @@ class OllamaLlmProviderTests {
         server.start();
 
         int port = server.getAddress().getPort();
-        OllamaProperties properties = new OllamaProperties("http://127.0.0.1:" + port, "fake-model", 3, null);
+        OllamaProperties properties = new OllamaProperties("http://127.0.0.1:" + port, "fake-model", 3, 10, 3, null);
         OllamaLlmProvider provider = new OllamaLlmProvider(
                 properties,
                 new ObjectMapper(),
@@ -161,7 +166,7 @@ class OllamaLlmProviderTests {
         server.start();
 
         int port = server.getAddress().getPort();
-        OllamaProperties properties = new OllamaProperties("http://127.0.0.1:" + port, "fake-model", 3, null);
+        OllamaProperties properties = new OllamaProperties("http://127.0.0.1:" + port, "fake-model", 3, 10, 3, null);
         OllamaLlmProvider provider = new OllamaLlmProvider(
                 properties,
                 new ObjectMapper(),
@@ -196,7 +201,7 @@ class OllamaLlmProviderTests {
                 new GenerationBudgetProperties.Defaults(4_096, 1.0d, 0.0625d, 256, 256, 160, 4.0d),
                 Map.of("qwen3-coder", new GenerationBudgetProperties.Override(4_096, 1.0d, 0.0625d, 256, 256, 160, 4.0d))
         );
-        OllamaProperties properties = new OllamaProperties("http://127.0.0.1:" + port, "qwen3-coder:30b", 3, null);
+        OllamaProperties properties = new OllamaProperties("http://127.0.0.1:" + port, "qwen3-coder:30b", 3, 10, 3, null);
         OllamaLlmProvider provider = new OllamaLlmProvider(
                 properties,
                 new ObjectMapper(),
@@ -226,7 +231,7 @@ class OllamaLlmProviderTests {
         server.start();
 
         int port = server.getAddress().getPort();
-        OllamaProperties properties = new OllamaProperties("http://127.0.0.1:" + port, "gemma4:26b", 3, null);
+        OllamaProperties properties = new OllamaProperties("http://127.0.0.1:" + port, "gemma4:26b", 3, 10, 3, null);
         GenerationBudgetProperties budgetProperties = new GenerationBudgetProperties(
                 new GenerationBudgetProperties.Defaults(2_048, 1.0d, 0.125d, 256, 256, 160, 4.0d),
                 Map.of("gemma4", new GenerationBudgetProperties.Override(2_048, 1.0d, 0.125d, 256, 256, 160, 4.0d))
@@ -273,7 +278,7 @@ class OllamaLlmProviderTests {
                 new GenerationBudgetProperties.Defaults(1_024, 1.0d, 0.15625d, 160, 160, 120, 2.0d),
                 Map.of("tiny-model", new GenerationBudgetProperties.Override(1_024, 1.0d, 0.15625d, 160, 160, 120, 2.0d))
         );
-        OllamaProperties properties = new OllamaProperties("http://127.0.0.1:" + port, "tiny-model", 3, null);
+        OllamaProperties properties = new OllamaProperties("http://127.0.0.1:" + port, "tiny-model", 3, 10, 3, null);
         ModelBudgetRegistry modelBudgetRegistry = new ModelBudgetRegistry(budgetProperties);
         PromptTokenEstimator promptTokenEstimator = new PromptTokenEstimator();
         OllamaLlmProvider provider = new OllamaLlmProvider(

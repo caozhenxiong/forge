@@ -117,15 +117,8 @@ class StageOperationExecutorTests {
             }
         };
         WorkspaceSnapshotStore snapshotStore = new WorkspaceSnapshotStore(new FileRunRepository(), new FileProjectWorkspace());
-        TestExecutor testExecutor = new TestExecutor(new FileProjectWorkspace(), provider, new com.fasterxml.jackson.databind.ObjectMapper());
-        return new StageReviewer(
-                provider,
-                snapshotStore,
-                testExecutor,
-                new devflow.agent.prompt.PromptTemplateCatalog(),
-                new devflow.agent.i18n.LanguagePolicy(),
-                new devflow.agent.loop.AgentTurnLoop()
-        ) {
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), provider, new com.fasterxml.jackson.databind.ObjectMapper());
+        return new devflow.agent.review.StageReviewerHarness(provider, snapshotStore, testExecutor) {
             @Override
             public ReviewResult review(Path projectPath, RunRecord runRecord, StageType stageType, String artifactContent) {
                 reviewerCalled.set(true);

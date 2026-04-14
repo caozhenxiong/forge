@@ -22,7 +22,7 @@ public class EditUnitPlanner {
     private final int maxSymbolsPerUnit;
 
     public EditUnitPlanner(TargetLocator targetLocator) {
-        this(targetLocator, EditUnitPlanningPolicy.maxSymbolsPerUnit());
+        this(targetLocator, new EditUnitPlanningPolicy().maxSymbolsPerUnit());
     }
 
     public EditUnitPlanner(TargetLocator targetLocator, int maxSymbolsPerUnit) {

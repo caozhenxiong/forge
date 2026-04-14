@@ -4,6 +4,11 @@ import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
+import devflow.agent.executor.implementation.*;
+import devflow.agent.executor.implementation.planning.*;
+import devflow.agent.executor.implementation.render.*;
+import devflow.agent.executor.implementation.state.*;
+import devflow.agent.executor.implementation.toolloop.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.context.ContractExtractor;
@@ -17,10 +22,13 @@ import devflow.agent.domain.RunRecord;
 import devflow.agent.domain.RunStatus;
 import devflow.agent.protocol.ExecutionDirectivePayload;
 import devflow.agent.protocol.ExecutionDirectiveProtocol;
+import devflow.agent.i18n.LanguagePolicy;
+import devflow.agent.parsing.TreeSitterSupport;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.quality.CapabilityIds;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ImplementationPatchTarget;
+import devflow.agent.testsupport.QualityPlanFactoryTestSupport;
 import devflow.agent.validation.ProjectInspector;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -46,6 +54,7 @@ class ImplementationContextResolverTests {
         Files.writeString(tempDir.resolve("index.html"), "<!doctype html><html><body><div id='app'></div></body></html>");
 
         FileProjectWorkspace workspace = new FileProjectWorkspace();
+        TreeSitterSupport treeSitterSupport = new TreeSitterSupport();
         ImplementationContextResolver resolver = new ImplementationContextResolver(
                 workspace,
                 new ProjectInspector(workspace),
@@ -53,7 +62,9 @@ class ImplementationContextResolverTests {
                 new ContextLayerAssembler(),
                 new ObjectMapper(),
                 2,
-                3
+                3,
+                new LanguagePolicy(),
+                QualityPlanFactoryTestSupport.qualityPlanFactory(workspace, treeSitterSupport)
         );
         ContractView authoritativeContract = new ContractView(
                 ProductContract.projectedFromPrdSections(

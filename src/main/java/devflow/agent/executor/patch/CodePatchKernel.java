@@ -9,10 +9,10 @@ import devflow.agent.executor.tools.ToolFailureCode;
 import devflow.agent.executor.tools.ToolName;
 import devflow.agent.executor.tools.ToolResult;
 
-import devflow.agent.editing.ExactReplaceApplySupport;
-import devflow.agent.editing.ExactReplaceEdit;
-import devflow.agent.editing.PreciseEditException;
-import devflow.agent.editing.PreciseEditFailureReason;
+import devflow.agent.editing.precise.ExactReplaceApplySupport;
+import devflow.agent.editing.precise.ExactReplaceEdit;
+import devflow.agent.editing.precise.PreciseEditException;
+import devflow.agent.editing.precise.PreciseEditFailureReason;
 import java.nio.file.Path;
 
 /**

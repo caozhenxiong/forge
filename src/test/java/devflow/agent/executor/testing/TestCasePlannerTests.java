@@ -1,14 +1,17 @@
 package devflow.agent.executor.testing;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import devflow.agent.context.ContractExtractor;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
-
 import devflow.agent.executor.llm.LlmOptionKeys;
 import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.llm.ModelRole;
-
+import devflow.agent.i18n.LanguagePolicy;
+import devflow.agent.parsing.TreeSitterSupport;
 import devflow.agent.quality.CapabilityIds;
 import devflow.agent.project.FileProjectWorkspace;
+import devflow.agent.testsupport.QualityPlanFactoryTestSupport;
 import devflow.agent.validation.ProjectFingerprint;
 import devflow.agent.validation.ProjectInspector;
 import devflow.agent.review.FixMode;
@@ -45,7 +48,7 @@ class TestCasePlannerTests {
 
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ProjectFingerprint fingerprint = new ProjectInspector(workspace).inspect(tempDir);
-        TestCasePlanner planner = new TestCasePlanner(workspace, null, new com.fasterxml.jackson.databind.ObjectMapper());
+        TestCasePlanner planner = planner(workspace, null);
 
         TestCasePlan plan = planner.plan(
                 tempDir,
@@ -98,7 +101,7 @@ class TestCasePlannerTests {
 
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ProjectFingerprint fingerprint = new ProjectInspector(workspace).inspect(tempDir);
-        TestCasePlanner planner = new TestCasePlanner(workspace, null, new com.fasterxml.jackson.databind.ObjectMapper());
+        TestCasePlanner planner = planner(workspace, null);
 
         TestCasePlan plan = planner.plan(
                 tempDir,
@@ -135,7 +138,7 @@ class TestCasePlannerTests {
 
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ProjectFingerprint fingerprint = new ProjectInspector(workspace).inspect(tempDir);
-        TestCasePlanner planner = new TestCasePlanner(workspace, null, new com.fasterxml.jackson.databind.ObjectMapper());
+        TestCasePlanner planner = planner(workspace, null);
 
         TestCasePlan plan = planner.plan(
                 tempDir,
@@ -211,7 +214,7 @@ class TestCasePlannerTests {
             }
         };
 
-        TestCasePlanner planner = new TestCasePlanner(workspace, provider, new com.fasterxml.jackson.databind.ObjectMapper());
+        TestCasePlanner planner = planner(workspace, provider);
         RuntimeSnapshot snapshot = new RuntimeSnapshot(
                 "index.html",
                 "Tetris",
@@ -303,7 +306,7 @@ class TestCasePlannerTests {
             }
         };
 
-        TestCasePlanner planner = new TestCasePlanner(workspace, provider, new com.fasterxml.jackson.databind.ObjectMapper());
+        TestCasePlanner planner = planner(workspace, provider);
         RuntimeSnapshot snapshot = new RuntimeSnapshot(
                 "index.html",
                 "Tetris",
@@ -349,7 +352,7 @@ class TestCasePlannerTests {
 
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         ProjectFingerprint fingerprint = new ProjectInspector(workspace).inspect(tempDir);
-        TestCasePlanner planner = new TestCasePlanner(workspace, null, new com.fasterxml.jackson.databind.ObjectMapper());
+        TestCasePlanner planner = planner(workspace, null);
 
         RuntimeSnapshot snapshot = new RuntimeSnapshot(
                 "index.html",
@@ -430,7 +433,7 @@ class TestCasePlannerTests {
             }
         };
 
-        TestCasePlanner planner = new TestCasePlanner(workspace, provider, new com.fasterxml.jackson.databind.ObjectMapper());
+        TestCasePlanner planner = planner(workspace, provider);
         planner.plan(
                 tempDir,
                 fingerprint,
@@ -519,7 +522,7 @@ class TestCasePlannerTests {
             }
         };
 
-        TestCasePlanner planner = new TestCasePlanner(workspace, provider, new com.fasterxml.jackson.databind.ObjectMapper());
+        TestCasePlanner planner = planner(workspace, provider);
         RuntimeSnapshot snapshot = new RuntimeSnapshot(
                 "index.html",
                 "Demo",
@@ -584,7 +587,7 @@ class TestCasePlannerTests {
             }
         };
 
-        TestCasePlanner planner = new TestCasePlanner(workspace, provider, new com.fasterxml.jackson.databind.ObjectMapper());
+        TestCasePlanner planner = planner(workspace, provider);
         planner.plan(
                 tempDir,
                 fingerprint,
@@ -633,7 +636,7 @@ class TestCasePlannerTests {
             }
         };
 
-        TestCasePlanner planner = new TestCasePlanner(workspace, provider, new com.fasterxml.jackson.databind.ObjectMapper());
+        TestCasePlanner planner = planner(workspace, provider);
         planner.plan(
                 tempDir,
                 fingerprint,
@@ -648,5 +651,19 @@ class TestCasePlannerTests {
         assertFalse(capturedSystemPrompt.get().contains("如果是网页/小游戏"));
         assertTrue(capturedSystemPrompt.get().contains("required capability surface"));
         assertFalse(capturedSystemPrompt.get().contains("2 到 5"));
+    }
+
+    private TestCasePlanner planner(FileProjectWorkspace workspace, LlmProvider llmProvider) {
+        TreeSitterSupport treeSitterSupport = new TreeSitterSupport();
+        return new TestCasePlanner(
+                workspace,
+                llmProvider,
+                new ObjectMapper(),
+                treeSitterSupport,
+                new ContractExtractor(),
+                new LanguagePolicy(),
+                new TestPlanningPolicy(),
+                QualityPlanFactoryTestSupport.qualityPlanFactory(workspace, treeSitterSupport)
+        );
     }
 }

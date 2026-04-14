@@ -15,8 +15,8 @@ import devflow.agent.executor.shell.ShellPathIntent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.context.ContractView;
-import devflow.agent.editing.FileStateLedger;
-import devflow.agent.editing.FileStateSnapshot;
+import devflow.agent.editing.precise.FileStateLedger;
+import devflow.agent.editing.precise.FileStateSnapshot;
 import devflow.agent.domain.RunRecord;
 import devflow.agent.parsing.TreeSitterParseSummary;
 import devflow.agent.parsing.TreeSitterSupport;
@@ -42,7 +42,7 @@ import java.util.stream.Stream;
 import devflow.agent.executor.implementation.ImplementationEventJournal;
 import devflow.agent.executor.DeliveryMode;
 import devflow.agent.executor.FileChange;
-import devflow.agent.executor.FileMutationRecord;
+import devflow.agent.executor.implementation.toolloop.FileMutationRecord;
 /**
  * coding tool runtime 的共享上下文。
  *
@@ -92,7 +92,7 @@ public final class ImplementationToolContext implements ToolExecutionContext {
         this.eventJournal = eventJournal;
         this.toolSessionState = toolSessionState == null ? new ImplementationToolSessionState() : toolSessionState;
         this.permissionContext = permissionContext;
-        this.permissionPolicy = permissionPolicy == null ? new ImplementationToolPermissionPolicy() : permissionPolicy;
+        this.permissionPolicy = Objects.requireNonNull(permissionPolicy, "permissionPolicy");
         this.deliveryMode = deliveryMode == null ? DeliveryMode.PATCH : deliveryMode;
         this.scopedChanges = scopedChanges == null ? List.of() : List.copyOf(scopedChanges);
     }

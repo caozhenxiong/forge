@@ -3,6 +3,7 @@ package devflow.agent.validation;
 import devflow.agent.executor.tools.ToolName;
 
 import devflow.agent.executor.SelfCheckResult;
+import devflow.agent.executor.testing.PlaywrightExecutionPolicy;
 import devflow.agent.project.FileProjectWorkspace;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,7 +20,10 @@ class ValidationExecutorTests {
     @TempDir
     Path tempDir;
 
-    private final ValidationExecutor executor = new ValidationExecutor(new FileProjectWorkspace());
+    private final ValidationExecutor executor = new ValidationExecutor(
+            new FileProjectWorkspace(),
+            new PlaywrightExecutionPolicy()
+    );
 
     @Test
     void passesResourceAndInlineScriptChecksForValidHtml() throws Exception {

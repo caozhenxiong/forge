@@ -1,6 +1,7 @@
 package devflow.agent.executor.patch;
 import devflow.agent.executor.*;
 import devflow.agent.executor.editing.*;
+import devflow.agent.editing.precise.HtmlEditRegion;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
@@ -8,8 +9,8 @@ import devflow.agent.executor.runtime.*;
 import devflow.agent.executor.generation.GenerationEngine;
 import devflow.agent.executor.llm.LlmProvider;
 
-import devflow.agent.editing.HtmlDocumentAssembler;
-import devflow.agent.editing.HtmlPreciseEditor;
+import devflow.agent.editing.precise.HtmlDocumentAssembler;
+import devflow.agent.editing.precise.HtmlPreciseEditor;
 
 /**
  * 宿主 HTML patch 主链执行器。

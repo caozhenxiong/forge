@@ -15,7 +15,11 @@ import devflow.agent.domain.StageType;
  * 量化/性能类 authority 必须来自稳定的 Contract Metadata.validation.* 字段。
  */
 class DocumentReviewNormalizer {
-    private final ContractExtractor contractExtractor = new ContractExtractor();
+    private final ContractExtractor contractExtractor;
+
+    DocumentReviewNormalizer(ContractExtractor contractExtractor) {
+        this.contractExtractor = contractExtractor;
+    }
 
     ReviewResult normalize(RunRecord runRecord, StageType stageType, String candidateContent, ReviewResult raw) {
         return normalize(runRecord, stageType, candidateContent, raw, ReviewSemantics.empty());

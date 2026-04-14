@@ -5,8 +5,8 @@ import devflow.agent.executor.patch.*;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
-import devflow.agent.editing.CodePreciseEditor;
-import devflow.agent.editing.ExactReplaceEdit;
+import devflow.agent.editing.precise.CodePreciseEditor;
+import devflow.agent.editing.precise.ExactReplaceEdit;
 import devflow.agent.util.ProjectPathSupport;
 import java.nio.file.Path;
 

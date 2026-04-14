@@ -2,6 +2,7 @@ package devflow.agent.context;
 
 import devflow.agent.artifact.FileArtifactStore;
 import devflow.agent.i18n.DocumentLanguage;
+import devflow.agent.i18n.LanguagePolicy;
 import devflow.agent.domain.RunRecord;
 import devflow.agent.domain.StageType;
 import devflow.agent.project.FileProjectWorkspace;
@@ -19,8 +20,8 @@ public class ContextProjector {
     private final ContractExtractor contractExtractor;
     private final ContextLayerAssembler contextLayerAssembler;
     private final ContextProjectionArtifactReader artifactReader;
+    private final LanguagePolicy languagePolicy;
 
-    @Autowired
     public ContextProjector(
             FileArtifactStore artifactStore,
             FileProjectWorkspace workspace,
@@ -28,16 +29,29 @@ public class ContextProjector {
             ContractExtractor contractExtractor,
             ContextLayerAssembler contextLayerAssembler
     ) {
+        this(artifactStore, workspace, summaryBuilder, contractExtractor, contextLayerAssembler, new LanguagePolicy());
+    }
+
+    @Autowired
+    public ContextProjector(
+            FileArtifactStore artifactStore,
+            FileProjectWorkspace workspace,
+            ArtifactSummaryBuilder summaryBuilder,
+            ContractExtractor contractExtractor,
+            ContextLayerAssembler contextLayerAssembler,
+            LanguagePolicy languagePolicy
+    ) {
         this.artifactStore = artifactStore;
         this.workspace = workspace;
         this.summaryBuilder = summaryBuilder;
         this.contractExtractor = contractExtractor;
         this.contextLayerAssembler = contextLayerAssembler;
         this.artifactReader = new ContextProjectionArtifactReader(artifactStore);
+        this.languagePolicy = languagePolicy;
     }
 
     public ProjectedContext project(Path projectPath, RunRecord runRecord, StageType currentStage) {
-        DocumentLanguage language = DocumentLanguage.detect(runRecord.goal(), runRecord.constraints());
+        DocumentLanguage language = languagePolicy.resolve(runRecord.goal(), runRecord.constraints());
         String analysis = currentStage.ordinal() >= StageType.ANALYSIS.ordinal()
                 ? artifactReader.readCurrentArtifact(projectPath, runRecord, StageType.ANALYSIS)
                 : "";

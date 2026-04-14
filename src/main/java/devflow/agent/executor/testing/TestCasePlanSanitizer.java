@@ -3,6 +3,7 @@ package devflow.agent.executor.testing;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
+import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.quality.CapabilityIds;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,19 +19,29 @@ import java.util.List;
 final class TestCasePlanSanitizer {
 
     private final TestCaseStepSanitizer stepSanitizer = new TestCaseStepSanitizer();
-    private final TestCaseBehaviorRepairSupport behaviorRepairSupport = new TestCaseBehaviorRepairSupport();
-    private final ObservedInteractionTestCaseBuilder observedInteractionTestCaseBuilder = new ObservedInteractionTestCaseBuilder();
+    private final TestCaseBehaviorRepairSupport behaviorRepairSupport;
+    private final ObservedInteractionTestCaseBuilder observedInteractionTestCaseBuilder;
     private final TestCaseCapabilityInferencer capabilityInferencer = new TestCaseCapabilityInferencer();
+
+    TestCasePlanSanitizer() {
+        this(new TestPlanningPolicy());
+    }
+
+    TestCasePlanSanitizer(TestPlanningPolicy testPlanningPolicy) {
+        this.behaviorRepairSupport = new TestCaseBehaviorRepairSupport(testPlanningPolicy);
+        this.observedInteractionTestCaseBuilder = new ObservedInteractionTestCaseBuilder(testPlanningPolicy);
+    }
 
     List<TestCaseSpec> sanitize(
             List<PlannedTestCasePayload> rawCases,
             List<TestCaseSpec> baseCases,
             String defaultEntry,
             RuntimeSnapshot runtimeSnapshot,
-            UiRuntimeContract runtimeContract
+            UiRuntimeContract runtimeContract,
+            DocumentLanguage language
     ) {
         if (rawCases == null || rawCases.isEmpty()) {
-            return observedInteractionTestCaseBuilder.strengthenCases(baseCases, runtimeSnapshot, runtimeContract);
+            return observedInteractionTestCaseBuilder.strengthenCases(baseCases, runtimeSnapshot, runtimeContract, language);
         }
         List<TestCaseSpec> result = new ArrayList<>();
         for (PlannedTestCasePayload raw : rawCases) {
@@ -60,7 +71,8 @@ final class TestCasePlanSanitizer {
         List<TestCaseSpec> strengthened = observedInteractionTestCaseBuilder.strengthenCases(
                 inferCapabilities(repaired),
                 runtimeSnapshot,
-                runtimeContract
+                runtimeContract,
+                language
         );
         return behaviorRepairSupport.repairCases(strengthened, runtimeSnapshot, runtimeContract);
     }

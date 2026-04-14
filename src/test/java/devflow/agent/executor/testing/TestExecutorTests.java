@@ -94,7 +94,7 @@ class TestExecutorTests {
                 return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
             }
         };
-        TestExecutor executor = new TestExecutor(new FileProjectWorkspace(), provider, new com.fasterxml.jackson.databind.ObjectMapper());
+        TestExecutor executor = devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), provider, new com.fasterxml.jackson.databind.ObjectMapper());
         SelfCheckResult result = executor.selfCheck(tempDir);
 
         assertTrue(result.passed(), result.details());
@@ -165,7 +165,7 @@ class TestExecutorTests {
             }
         };
 
-        TestExecutor executor = new TestExecutor(new FileProjectWorkspace(), provider, new com.fasterxml.jackson.databind.ObjectMapper());
+        TestExecutor executor = devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), provider, new com.fasterxml.jackson.databind.ObjectMapper());
         SelfCheckResult result = executor.selfCheck(tempDir);
 
         assertTrue(result.passed(), result.details());
@@ -258,7 +258,7 @@ class TestExecutorTests {
             }
         };
 
-        TestExecutor executor = new TestExecutor(new FileProjectWorkspace(), provider, new com.fasterxml.jackson.databind.ObjectMapper());
+        TestExecutor executor = devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), provider, new com.fasterxml.jackson.databind.ObjectMapper());
         TestExecutionBundle bundle = executor.execute(tempDir, "goal", "", "", "", "", "");
 
         assertTrue(bundle.executionMarkdown().contains("未执行"));
@@ -268,7 +268,7 @@ class TestExecutorTests {
 
     @Test
     void implementationVerificationBlocksForHumanWhenTargetedTestEvidenceIsInvalid() {
-        TestExecutor executor = new TestExecutor(new FileProjectWorkspace(), noopProvider(), new com.fasterxml.jackson.databind.ObjectMapper());
+        TestExecutor executor = devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), noopProvider(), new com.fasterxml.jackson.databind.ObjectMapper());
 
         SubtaskVerificationOutcome outcome = executor.toImplementationVerificationOutcome(
                 new ExperienceFailureDisposition(
@@ -296,7 +296,7 @@ class TestExecutorTests {
 
     @Test
     void implementationVerificationKeepsStructuredRepairScopeForImplementationGap() {
-        TestExecutor executor = new TestExecutor(new FileProjectWorkspace(), noopProvider(), new com.fasterxml.jackson.databind.ObjectMapper());
+        TestExecutor executor = devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), noopProvider(), new com.fasterxml.jackson.databind.ObjectMapper());
 
         SubtaskVerificationOutcome outcome = executor.toImplementationVerificationOutcome(
                 new ExperienceFailureDisposition(
@@ -370,7 +370,7 @@ class TestExecutorTests {
             }
         };
 
-        TestExecutor executor = new TestExecutor(new FileProjectWorkspace(), provider, new com.fasterxml.jackson.databind.ObjectMapper());
+        TestExecutor executor = devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), provider, new com.fasterxml.jackson.databind.ObjectMapper());
         TestExecutionBundle bundle = executor.execute(
                 tempDir,
                 "实现一个纯网页版俄罗斯方块",
@@ -542,7 +542,7 @@ class TestExecutorTests {
             }
         };
 
-        TestExecutor executor = new TestExecutor(new FileProjectWorkspace(), provider, new com.fasterxml.jackson.databind.ObjectMapper());
+        TestExecutor executor = devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), provider, new com.fasterxml.jackson.databind.ObjectMapper());
         TestExecutionBundle bundle = executor.execute(
                 tempDir,
                 "实现一个可直接运行的俄罗斯方块",
@@ -625,7 +625,7 @@ class TestExecutorTests {
     void selfCheckRefreshesValidationPlanWhenProjectFingerprintChanges() throws Exception {
         Files.writeString(tempDir.resolve("README.md"), "# bootstrap");
 
-        TestExecutor executor = new TestExecutor(
+        TestExecutor executor = devflow.agent.executor.testing.TestExecutorTestSupport.create(
                 new FileProjectWorkspace(),
                 noopProvider(),
                 new com.fasterxml.jackson.databind.ObjectMapper()

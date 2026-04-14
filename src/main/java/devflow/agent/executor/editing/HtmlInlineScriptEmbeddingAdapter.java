@@ -7,8 +7,8 @@ import devflow.agent.executor.runtime.*;
 
 import devflow.agent.executor.generation.GenerationBudgetProfile;
 
-import devflow.agent.editing.HtmlPreciseEditor;
-import devflow.agent.editing.HtmlPrecisePatch;
+import devflow.agent.editing.precise.HtmlPreciseEditor;
+import devflow.agent.editing.precise.HtmlPrecisePatch;
 import devflow.agent.parsing.TreeSitterSupport;
 import java.nio.file.Path;
 

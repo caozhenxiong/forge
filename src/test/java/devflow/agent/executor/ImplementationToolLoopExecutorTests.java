@@ -4,6 +4,11 @@ import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
+import devflow.agent.executor.implementation.*;
+import devflow.agent.executor.implementation.planning.*;
+import devflow.agent.executor.implementation.render.*;
+import devflow.agent.executor.implementation.state.*;
+import devflow.agent.executor.implementation.toolloop.*;
 
 import devflow.agent.executor.generation.GenerationFailureException;
 import devflow.agent.executor.generation.GenerationFailureType;
@@ -13,6 +18,8 @@ import devflow.agent.executor.llm.LlmChatResponse;
 import devflow.agent.executor.llm.LlmChatRole;
 import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.llm.LlmToolCall;
+import devflow.agent.executor.tools.ImplementationToolPermissionPolicy;
+import devflow.agent.executor.tools.ImplementationToolPermissionProperties;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.domain.RunConfig;
@@ -52,6 +59,10 @@ class ImplementationToolLoopExecutorTests {
                 provider,
                 new ObjectMapper(),
                 maxToolTurns,
+                new ImplementationToolPermissionPolicy(
+                        new ImplementationToolPermissionProperties(List.of()),
+                        new ImplementationExecutionPolicy()
+                ),
                 TestExecutorServices.directExecutorService()
         );
     }

@@ -7,7 +7,7 @@ import devflow.agent.executor.runtime.*;
 
 import devflow.agent.executor.generation.GenerationBudgetProfile;
 
-import devflow.agent.editing.ExactReplaceEdit;
+import devflow.agent.editing.precise.ExactReplaceEdit;
 import devflow.agent.util.ProjectPathSupport;
 import java.nio.file.Path;
 

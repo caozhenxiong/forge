@@ -2,6 +2,7 @@ package devflow.agent.i18n;
 
 import devflow.agent.markdown.MarkdownSectionScanner;
 import devflow.agent.text.TextCanonicalizer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -10,6 +11,17 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class LanguagePolicy {
+
+    private final DocumentLanguageProperties properties;
+
+    public LanguagePolicy() {
+        this(new DocumentLanguageProperties(null));
+    }
+
+    @Autowired
+    public LanguagePolicy(DocumentLanguageProperties properties) {
+        this.properties = properties;
+    }
 
     public DocumentLanguage resolve(String... inputs) {
         if (inputs != null) {
@@ -21,13 +33,13 @@ public class LanguagePolicy {
                 if (!DocumentLanguage.containsHumanLanguage(humanFacingSample)) {
                     continue;
                 }
-                DocumentLanguage detected = DocumentLanguage.detect(humanFacingSample);
-                if (DocumentLanguage.containsHumanLanguage(humanFacingSample)) {
+                DocumentLanguage detected = DocumentLanguage.detectHumanLanguage(humanFacingSample);
+                if (detected != null) {
                     return detected;
                 }
             }
         }
-        return DocumentLanguage.detect(inputs);
+        return properties.defaultLanguage();
     }
 
     private String stripMachineMetadata(String input) {

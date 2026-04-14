@@ -17,9 +17,9 @@ import devflow.agent.executor.llm.LlmOptions;
 import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.llm.ModelRole;
 
-import devflow.agent.editing.ExactReplaceApplySupport;
-import devflow.agent.editing.ExactReplaceEdit;
-import devflow.agent.editing.HtmlPreciseEditor;
+import devflow.agent.editing.precise.ExactReplaceApplySupport;
+import devflow.agent.editing.precise.ExactReplaceEdit;
+import devflow.agent.editing.precise.HtmlPreciseEditor;
 
 /**
  * 精确 HTML patch 执行器。

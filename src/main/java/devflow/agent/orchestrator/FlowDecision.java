@@ -1,5 +1,6 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.domain.WorkflowAction;
 import devflow.agent.domain.StageType;
 
 import devflow.agent.loop.TransitionDecision;
@@ -11,7 +12,7 @@ import devflow.agent.loop.TransitionDecision;
  * 避免 DefaultWorkflowEngine 同时维护两套平行判断逻辑。
  */
 public record FlowDecision(
-        FlowAction action,
+        WorkflowAction action,
         StageType targetStage,
         TransitionDecision transitionDecision
 ) {

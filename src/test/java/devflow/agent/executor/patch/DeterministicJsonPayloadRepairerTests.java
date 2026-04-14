@@ -8,7 +8,7 @@ import devflow.agent.executor.runtime.*;
 import devflow.agent.executor.llm.StructuredPayloadReader;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import devflow.agent.editing.ExactReplaceEdit;
+import devflow.agent.editing.precise.ExactReplaceEdit;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

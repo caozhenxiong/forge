@@ -22,13 +22,11 @@ import devflow.agent.loop.AgentTurnLoop;
 import devflow.agent.domain.RunRecord;
 import devflow.agent.domain.StageType;
 import devflow.agent.prompt.PromptTemplateCatalog;
-import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.StructuredArtifactBlocks;
 import devflow.agent.quality.CoverageLedger;
 import devflow.agent.quality.QualityLedger;
 import devflow.agent.project.WorkspaceSnapshotStore;
-import devflow.agent.parsing.TreeSitterSupport;
 import java.nio.file.Path;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,28 +62,30 @@ public class StageReviewer {
             TestExecutor testExecutor,
             PromptTemplateCatalog promptTemplateCatalog,
             LanguagePolicy languagePolicy,
-            devflow.agent.loop.AgentTurnLoop agentTurnLoop
+            ReviewDecisionArtifactParser reviewDecisionArtifactParser,
+            DocumentStructureGuard documentStructureGuard,
+            DocumentReviewNormalizer documentReviewNormalizer,
+            ImplementationReviewNormalizer implementationReviewNormalizer,
+            ReviewArtifactLoader reviewArtifactLoader,
+            DocumentReviewTurnExecutor documentReviewTurnExecutor,
+            ImplementationReviewTurnExecutor implementationReviewTurnExecutor,
+            ContractExtractor contractExtractor,
+            ArchitectIntegrationCheck architectIntegrationCheck
     ) {
         this.llmProvider = llmProvider;
         this.snapshotStore = snapshotStore;
         this.testExecutor = testExecutor;
         this.promptTemplateCatalog = promptTemplateCatalog;
         this.languagePolicy = languagePolicy;
-        this.reviewDecisionArtifactParser = new ReviewDecisionArtifactParser();
-        this.documentStructureGuard = new DocumentStructureGuard();
-        this.documentReviewNormalizer = new DocumentReviewNormalizer();
-        this.implementationReviewNormalizer = new ImplementationReviewNormalizer();
-        this.reviewArtifactLoader = new ReviewArtifactLoader();
-        this.documentReviewTurnExecutor = new DocumentReviewTurnExecutor(llmProvider, agentTurnLoop, documentReviewNormalizer);
-        this.implementationReviewTurnExecutor = new ImplementationReviewTurnExecutor(
-                llmProvider,
-                agentTurnLoop,
-                implementationReviewNormalizer,
-                reviewArtifactLoader
-        );
-        FileProjectWorkspace workspace = new FileProjectWorkspace();
-        this.contractExtractor = new ContractExtractor();
-        this.architectIntegrationCheck = new ArchitectIntegrationCheck(workspace, new TreeSitterSupport());
+        this.reviewDecisionArtifactParser = reviewDecisionArtifactParser;
+        this.documentStructureGuard = documentStructureGuard;
+        this.documentReviewNormalizer = documentReviewNormalizer;
+        this.implementationReviewNormalizer = implementationReviewNormalizer;
+        this.reviewArtifactLoader = reviewArtifactLoader;
+        this.documentReviewTurnExecutor = documentReviewTurnExecutor;
+        this.implementationReviewTurnExecutor = implementationReviewTurnExecutor;
+        this.contractExtractor = contractExtractor;
+        this.architectIntegrationCheck = architectIntegrationCheck;
     }
 
     public ReviewResult review(Path projectPath, RunRecord runRecord, StageType stageType, String artifactContent) {

@@ -4,6 +4,11 @@ import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
+import devflow.agent.executor.implementation.*;
+import devflow.agent.executor.implementation.planning.*;
+import devflow.agent.executor.implementation.render.*;
+import devflow.agent.executor.implementation.state.*;
+import devflow.agent.executor.implementation.toolloop.*;
 
 import devflow.agent.executor.context.PromptTokenEstimatorSettings;
 
@@ -14,20 +19,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class PromptTokenEstimatorSettingsTests {
 
     @Test
-    void defaultsCanBeOverriddenBySystemProperties() {
-        System.setProperty("devflow.prompt-estimator.min-chars-per-token", "2.2");
-        System.setProperty("devflow.prompt-estimator.max-chars-per-token", "7.5");
-        System.setProperty("devflow.prompt-estimator.learning-rate", "0.5");
-        try {
-            PromptTokenEstimatorSettings settings = PromptTokenEstimatorSettings.defaults();
+    void valuesAreConfiguredThroughTypedPropertiesObject() {
+        PromptTokenEstimatorSettings settings = new PromptTokenEstimatorSettings(2.2d, 7.5d, 0.5d);
 
-            assertEquals(2.2d, settings.minCharsPerToken());
-            assertEquals(7.5d, settings.maxCharsPerToken());
-            assertEquals(0.5d, settings.learningRate());
-        } finally {
-            System.clearProperty("devflow.prompt-estimator.min-chars-per-token");
-            System.clearProperty("devflow.prompt-estimator.max-chars-per-token");
-            System.clearProperty("devflow.prompt-estimator.learning-rate");
-        }
+        assertEquals(2.2d, settings.minCharsPerToken());
+        assertEquals(7.5d, settings.maxCharsPerToken());
+        assertEquals(0.5d, settings.learningRate());
     }
 }

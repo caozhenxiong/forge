@@ -65,6 +65,7 @@ final class SupervisorDecisionPromptBuilder {
 
     String userPrompt(
             RunRecord runRecord,
+            DocumentLanguage language,
             StageType currentStage,
             StageType nextStage,
             GatePolicy gatePolicy,
@@ -74,7 +75,6 @@ final class SupervisorDecisionPromptBuilder {
             ProjectedContext projectedContext,
             SupervisorDecision fallback
     ) {
-        DocumentLanguage language = DocumentLanguage.detect(runRecord.goal(), runRecord.constraints());
         return """
                 任务目标：
                 %s

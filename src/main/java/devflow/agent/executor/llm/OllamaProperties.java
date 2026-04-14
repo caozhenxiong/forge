@@ -3,6 +3,7 @@ package devflow.agent.executor.llm;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
+import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "devflow.ollama")
@@ -10,18 +11,30 @@ public record OllamaProperties(
         String host,
         String model,
         int timeoutSeconds,
+        int connectTimeoutSeconds,
+        int maxEmptyResponseRetries,
         ModelOverrides models
 ) {
 
     private static final String DEFAULT_HOST = "http://127.0.0.1:11434";
     private static final String DEFAULT_MODEL = "qwen3-coder:30b";
     private static final int DEFAULT_TIMEOUT_SECONDS = 300;
+    private static final int DEFAULT_CONNECT_TIMEOUT_SECONDS = 10;
+    private static final int DEFAULT_MAX_EMPTY_RESPONSE_RETRIES = 3;
 
     public OllamaProperties {
         host = host == null || host.isBlank() ? DEFAULT_HOST : host;
         model = model == null || model.isBlank() ? DEFAULT_MODEL : model;
         timeoutSeconds = timeoutSeconds <= 0 ? DEFAULT_TIMEOUT_SECONDS : timeoutSeconds;
+        connectTimeoutSeconds = connectTimeoutSeconds <= 0 ? DEFAULT_CONNECT_TIMEOUT_SECONDS : connectTimeoutSeconds;
+        maxEmptyResponseRetries = maxEmptyResponseRetries <= 0
+                ? DEFAULT_MAX_EMPTY_RESPONSE_RETRIES
+                : maxEmptyResponseRetries;
         models = models == null ? new ModelOverrides(null, null, null, null, null, null, null, null, null, null, null) : models;
+    }
+
+    public Duration connectTimeout() {
+        return Duration.ofSeconds(connectTimeoutSeconds);
     }
 
     public String resolveModel(ModelRole role) {

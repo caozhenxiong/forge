@@ -1,5 +1,6 @@
 package devflow.agent.review;
 
+import devflow.agent.context.ContractExtractor;
 import devflow.agent.executor.ChangeAction;
 import devflow.agent.executor.FileChange;
 import java.util.List;
@@ -10,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ImplementationReviewNormalizerTests {
 
-    private final ImplementationReviewNormalizer normalizer = new ImplementationReviewNormalizer();
+    private final ImplementationReviewNormalizer normalizer = new ImplementationReviewNormalizer(new ContractExtractor());
 
     @Test
     void downgradesUnsupportedPerformanceFailureWithoutMeasurementEvidence() {

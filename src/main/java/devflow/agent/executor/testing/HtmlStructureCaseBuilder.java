@@ -15,7 +15,17 @@ import java.util.Set;
  */
 final class HtmlStructureCaseBuilder {
 
-    private final UiRuntimeObservationPolicy observationPolicy = new UiRuntimeObservationPolicy();
+    private final UiRuntimeObservationPolicy observationPolicy;
+    private final TestPlanningPolicy testPlanningPolicy;
+
+    HtmlStructureCaseBuilder() {
+        this(new TestPlanningPolicy());
+    }
+
+    HtmlStructureCaseBuilder(TestPlanningPolicy testPlanningPolicy) {
+        this.testPlanningPolicy = testPlanningPolicy;
+        this.observationPolicy = new UiRuntimeObservationPolicy(testPlanningPolicy);
+    }
 
     void appendPrimarySurfaceCases(
             List<TestCaseSpec> cases,
@@ -70,7 +80,15 @@ final class HtmlStructureCaseBuilder {
                     List.of(
                             new TestStepSpec(TestStepAction.ASSERT_SELECTOR, selector, null, null, null, null, true, TestStepSemantic.PRIMARY_CONTROL),
                             new TestStepSpec(TestStepAction.CLICK, selector, null, null, null, null, true, TestStepSemantic.PRIMARY_CONTROL),
-                            new TestStepSpec(TestStepAction.WAIT, null, null, null, TestPlanningPolicy.defaultStepWaitMs(), null, false),
+                            new TestStepSpec(
+                                    TestStepAction.WAIT,
+                                    null,
+                                    null,
+                                    null,
+                                    testPlanningPolicy.defaultStepWaitMs(),
+                                    null,
+                                    false
+                            ),
                             new TestStepSpec(TestStepAction.ASSERT_NO_ERRORS, null, null, null, null, null, false)
                     ),
                     List.of(CapabilityIds.PRIMARY_INTERACTION, CapabilityIds.RUNTIME_STABILITY)

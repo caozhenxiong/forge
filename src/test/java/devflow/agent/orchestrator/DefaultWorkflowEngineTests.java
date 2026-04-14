@@ -18,6 +18,7 @@ import devflow.agent.context.ArtifactSummaryBuilder;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ContextProjector;
 import devflow.agent.executor.ImplementationExecutor;
+import devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport;
 import devflow.agent.executor.StructuredDiffTestSupport;
 import devflow.agent.executor.testing.TestExecutor;
 import devflow.agent.loop.AgentLoop;
@@ -89,7 +90,8 @@ class DefaultWorkflowEngineTests {
                         new devflow.agent.prompt.PromptTemplateCatalog(),
                         new devflow.agent.i18n.LanguagePolicy()
                 ),
-                new devflow.agent.i18n.LanguagePolicy()
+                new devflow.agent.i18n.LanguagePolicy(),
+                new ImplementationStateArtifactSupport()
         );
     }
 
@@ -104,14 +106,7 @@ class DefaultWorkflowEngineTests {
     }
 
     private StageReviewer newStageReviewer(LlmProvider provider, WorkspaceSnapshotStore snapshotStore, TestExecutor testExecutor) {
-        return new StageReviewer(
-                provider,
-                snapshotStore,
-                testExecutor,
-                new devflow.agent.prompt.PromptTemplateCatalog(),
-                new devflow.agent.i18n.LanguagePolicy(),
-                new devflow.agent.loop.AgentTurnLoop()
-        );
+        return devflow.agent.review.StageReviewerTestSupport.create(provider, snapshotStore, testExecutor);
     }
 
     private DefaultWorkflowEngine newWorkflowEngine(
@@ -126,21 +121,56 @@ class DefaultWorkflowEngineTests {
             SupervisorAgent supervisorAgent,
             FileProjectWorkspace workspace
     ) {
-        return new DefaultWorkflowEngine(
+        WorkflowArtifactRenderer workflowArtifactRenderer = new WorkflowArtifactRenderer();
+        devflow.agent.i18n.LanguagePolicy languagePolicy = new devflow.agent.i18n.LanguagePolicy();
+        StageTransitionSupport stageTransitionSupport = new StageTransitionSupport(
                 runRepository,
                 artifactStore,
+                eventLogStore,
+                diagnosisAgent,
+                repairAgent,
+                new StageFlowPolicy(),
+                workflowArtifactRenderer,
+                languagePolicy
+        );
+        StageOperationExecutor stageOperationExecutor = new StageOperationExecutor(
                 stageArtifactComposer,
                 stageReviewer,
                 eventLogStore,
-                snapshotStore,
+                new devflow.agent.executor.generation.GenerationEngine(),
+                new StageOperationPolicy()
+        );
+        StageEntryExecutor stageEntryExecutor = new StageEntryExecutor(
+                runRepository,
+                artifactStore,
+                eventLogStore,
+                stageOperationExecutor,
+                stageTransitionSupport
+        );
+        FlowDecisionExecutor flowDecisionExecutor = new FlowDecisionExecutor(stageTransitionSupport, stageEntryExecutor);
+        StageProgressCoordinator stageProgressCoordinator = new StageProgressCoordinator(
+                artifactStore,
                 diagnosisAgent,
-                repairAgent,
                 supervisorAgent,
                 new FlowController(),
-                new StageFlowPolicy(),
                 newContextProjector(artifactStore, workspace),
-                new AgentLoop()
+                stageOperationExecutor,
+                flowDecisionExecutor,
+                new StageProgressArtifactSupport(artifactStore, eventLogStore, workflowArtifactRenderer),
+                new StageToolResultLoader(artifactStore),
+                new StageToolResultGuard(),
+                new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
+                languagePolicy
         );
+        return new DefaultWorkflowEngine(new WorkflowRunLifecycleSupport(
+                runRepository,
+                eventLogStore,
+                snapshotStore,
+                stageTransitionSupport,
+                stageEntryExecutor,
+                stageProgressCoordinator,
+                new AgentLoop()
+        ));
     }
 
     @Test
@@ -150,7 +180,7 @@ class DefaultWorkflowEngineTests {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         WorkspaceSnapshotStore snapshotStore = new WorkspaceSnapshotStore(runRepository, workspace);
         LlmProvider provider = fakeProvider();
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer stageArtifactComposer =
                 newStageArtifactComposer(
                         new ArtifactTemplateFactory(),
@@ -194,7 +224,7 @@ class DefaultWorkflowEngineTests {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         WorkspaceSnapshotStore snapshotStore = new WorkspaceSnapshotStore(runRepository, workspace);
         LlmProvider provider = fakeProvider();
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         EventLogStore eventLogStore = new EventLogStore(runRepository);
         StageArtifactComposer stageArtifactComposer =
                 newStageArtifactComposer(
@@ -246,7 +276,7 @@ class DefaultWorkflowEngineTests {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         WorkspaceSnapshotStore snapshotStore = new WorkspaceSnapshotStore(runRepository, workspace);
         LlmProvider provider = fakeProvider();
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         EventLogStore eventLogStore = new EventLogStore(runRepository);
         StageArtifactComposer stageArtifactComposer =
                 newStageArtifactComposer(
@@ -290,7 +320,7 @@ class DefaultWorkflowEngineTests {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         WorkspaceSnapshotStore snapshotStore = new WorkspaceSnapshotStore(runRepository, workspace);
         LlmProvider provider = fakeProvider();
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         EventLogStore eventLogStore = new EventLogStore(runRepository);
         StageArtifactComposer stageArtifactComposer =
                 newStageArtifactComposer(
@@ -334,7 +364,7 @@ class DefaultWorkflowEngineTests {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         WorkspaceSnapshotStore snapshotStore = new WorkspaceSnapshotStore(runRepository, workspace);
         LlmProvider provider = fakeProvider();
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer stageArtifactComposer =
                 newStageArtifactComposer(
                         new ArtifactTemplateFactory(),
@@ -413,7 +443,7 @@ class DefaultWorkflowEngineTests {
         FileProjectWorkspace workspace = new FileProjectWorkspace();
         WorkspaceSnapshotStore snapshotStore = new WorkspaceSnapshotStore(runRepository, workspace);
         LlmProvider provider = fakeProvider();
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer stageArtifactComposer =
                 newStageArtifactComposer(
                         new ArtifactTemplateFactory(),
@@ -468,15 +498,15 @@ class DefaultWorkflowEngineTests {
                         new ArtifactTemplateFactory(),
                         artifactStore,
                         provider,
-                        devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, new FileProjectWorkspace(), new ObjectMapper(), new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())),
-                        new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()),
+                        devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, new FileProjectWorkspace(), new ObjectMapper(), devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), provider, new ObjectMapper())),
+                        devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), provider, new ObjectMapper()),
                         new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
                         new ContractExtractor()
                 ),
                 newStageReviewer(
                         provider,
                         new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
-                        new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
+                        devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), provider, new ObjectMapper())
                 ),
                 new EventLogStore(runRepository),
                 new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
@@ -527,15 +557,15 @@ class DefaultWorkflowEngineTests {
                         new ArtifactTemplateFactory(),
                         artifactStore,
                         provider,
-                        devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, new FileProjectWorkspace(), new ObjectMapper(), new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())),
-                        new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()),
+                        devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, new FileProjectWorkspace(), new ObjectMapper(), devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), provider, new ObjectMapper())),
+                        devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), provider, new ObjectMapper()),
                         new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
                         new ContractExtractor()
                 ),
                 newStageReviewer(
                         provider,
                         new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
-                        new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
+                        devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), provider, new ObjectMapper())
                 ),
                 new EventLogStore(runRepository),
                 new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
@@ -590,7 +620,7 @@ class DefaultWorkflowEngineTests {
                 return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
             }
         };
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer stageArtifactComposer =
                 newStageArtifactComposer(
                         new ArtifactTemplateFactory(),
@@ -677,15 +707,15 @@ class DefaultWorkflowEngineTests {
                         new ArtifactTemplateFactory(),
                         artifactStore,
                         provider,
-                        devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, new FileProjectWorkspace(), new ObjectMapper(), new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())),
-                        new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()),
+                        devflow.agent.executor.ImplementationExecutorTestSupport.create(provider, new FileProjectWorkspace(), new ObjectMapper(), devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), provider, new ObjectMapper())),
+                        devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), provider, new ObjectMapper()),
                         new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
                         new ContractExtractor()
                 ),
                 newStageReviewer(
                         provider,
                         new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),
-                        new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
+                        devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), provider, new ObjectMapper())
                 ),
                 new EventLogStore(runRepository),
                 new WorkspaceSnapshotStore(runRepository, new FileProjectWorkspace()),

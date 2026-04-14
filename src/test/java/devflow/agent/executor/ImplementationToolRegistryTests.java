@@ -4,13 +4,20 @@ import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
+import devflow.agent.executor.implementation.*;
+import devflow.agent.executor.implementation.planning.*;
+import devflow.agent.executor.implementation.render.*;
+import devflow.agent.executor.implementation.state.*;
+import devflow.agent.executor.implementation.toolloop.*;
 
 import devflow.agent.executor.tools.ImplementationTool;
 import devflow.agent.executor.tools.ImplementationToolPermissionContext;
+import devflow.agent.executor.tools.ImplementationToolPermissionProperties;
 import devflow.agent.executor.tools.ImplementationToolPermissionPolicy;
 import devflow.agent.executor.tools.ImplementationToolRegistry;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -20,7 +27,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ImplementationToolRegistryTests {
 
     private final ImplementationToolRegistry registry = ImplementationToolRegistry.defaultRegistry();
-    private final ImplementationToolPermissionPolicy permissionPolicy = new ImplementationToolPermissionPolicy();
+    private final ImplementationToolPermissionPolicy permissionPolicy = new ImplementationToolPermissionPolicy(
+            new ImplementationToolPermissionProperties(List.of()),
+            new ImplementationExecutionPolicy()
+    );
 
     @Test
     void hidesWorkspaceMutationToolsWhenSubtaskOwnsNoPaths() {

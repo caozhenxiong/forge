@@ -12,6 +12,7 @@ import devflow.agent.domain.StageExecution;
 import devflow.agent.orchestrator.StageFlowPolicy;
 import devflow.agent.domain.StageStatus;
 import devflow.agent.domain.StageType;
+import devflow.agent.domain.WorkflowAction;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
@@ -46,7 +47,7 @@ class SupervisorFallbackPolicyTests {
                 projectedContext()
         );
 
-        assertEquals(SupervisorAction.REQUEST_HUMAN_REVIEW, decision.action());
+        assertEquals(WorkflowAction.REQUEST_HUMAN_REVIEW, decision.action());
         assertEquals(StageType.ANALYSIS, decision.targetStage());
     }
 
@@ -61,7 +62,7 @@ class SupervisorFallbackPolicyTests {
                 projectedContext()
         );
 
-        assertEquals(SupervisorAction.ROUTE_TO_REPAIR, decision.action());
+        assertEquals(WorkflowAction.ROUTE_TO_REPAIR, decision.action());
         assertEquals(StageType.IMPLEMENTATION, decision.targetStage());
     }
 
@@ -76,7 +77,7 @@ class SupervisorFallbackPolicyTests {
                 projectedContext()
         );
 
-        assertEquals(SupervisorAction.RETRY_STAGE, decision.action());
+        assertEquals(WorkflowAction.RETRY_STAGE, decision.action());
         assertEquals(StageType.PRD, decision.targetStage());
         assertFalse(decision.humanRequired());
     }

@@ -5,8 +5,8 @@ import devflow.agent.executor.editing.*;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
-import devflow.agent.editing.FileStateLedger;
-import devflow.agent.editing.FileStateSnapshot;
+import devflow.agent.editing.precise.FileStateLedger;
+import devflow.agent.editing.precise.FileStateSnapshot;
 import devflow.agent.i18n.PlaceholderValues;
 
 /**

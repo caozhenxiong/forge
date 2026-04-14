@@ -19,6 +19,7 @@ import devflow.agent.executor.llm.ModelRole;
 import devflow.agent.context.ContractView;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.loop.AgentTurnLoop;
+import devflow.agent.parsing.TreeSitterSupport;
 import devflow.agent.domain.RunRecord;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.quality.StructureGateEvaluator;
@@ -59,9 +60,10 @@ public final class SubtaskVerificationSupport {
     private final GenerationEngine generationEngine;
     private final ImplementationCompletenessGate implementationCompletenessGate;
     private final AgentTurnLoop agentTurnLoop;
+    private final SubtaskReviewPolicy subtaskReviewPolicy;
+    private final SubtaskPerformanceGuidanceResolver performanceGuidanceResolver;
     private final SubtaskReviewPromptAssembler promptAssembler = new SubtaskReviewPromptAssembler();
     private final SubtaskReviewObserverFactory reviewObserverFactory = new SubtaskReviewObserverFactory();
-    private final SubtaskPerformanceGuidanceResolver performanceGuidanceResolver = new SubtaskPerformanceGuidanceResolver();
     private final SubtaskRunnableMilestoneGuard runnableMilestoneGuard;
     private final SubtaskRuntimeWiringGuard runtimeWiringGuard;
     private final SubtaskRetryFeedbackRenderer retryFeedbackRenderer;
@@ -75,15 +77,20 @@ public final class SubtaskVerificationSupport {
             ImplementationCompletenessGate implementationCompletenessGate,
             ArchitectIntegrationCheck architectIntegrationCheck,
             FileProjectWorkspace workspace,
-            AgentTurnLoop agentTurnLoop
+            AgentTurnLoop agentTurnLoop,
+            SubtaskReviewPolicy subtaskReviewPolicy,
+            SubtaskPerformanceGuidanceResolver performanceGuidanceResolver,
+            TreeSitterSupport treeSitterSupport
     ) {
         this.testExecutor = testExecutor;
         this.llmProvider = llmProvider;
         this.generationEngine = generationEngine;
         this.implementationCompletenessGate = implementationCompletenessGate;
         this.agentTurnLoop = agentTurnLoop;
+        this.subtaskReviewPolicy = subtaskReviewPolicy;
+        this.performanceGuidanceResolver = performanceGuidanceResolver;
         this.runnableMilestoneGuard = new SubtaskRunnableMilestoneGuard(architectIntegrationCheck);
-        this.runtimeWiringGuard = new SubtaskRuntimeWiringGuard(workspace);
+        this.runtimeWiringGuard = new SubtaskRuntimeWiringGuard(workspace, treeSitterSupport);
         this.retryFeedbackRenderer = new SubtaskRetryFeedbackRenderer(promptAssembler);
     }
 
@@ -181,9 +188,9 @@ public final class SubtaskVerificationSupport {
         try {
             return generationEngine.execute(new GenerationSpec<>(
                     "implementation-subtask-review:" + subtask.title(),
-                    SubtaskReviewPolicy.maxAttempts(),
-                    SubtaskReviewPolicy.heartbeatInterval(),
-                    SubtaskReviewPolicy.attemptTimeout(),
+                    subtaskReviewPolicy.maxAttempts(),
+                    subtaskReviewPolicy.heartbeatInterval(),
+                    subtaskReviewPolicy.attemptTimeout(),
                     reviewObserverFactory.create(subtask.title(), eventJournal),
                     (attempt, retryFeedback) -> GenerationAttemptResult.success(
                                     llmProvider.reviewStructured(
@@ -201,7 +208,7 @@ public final class SubtaskVerificationSupport {
                             subtask.deliveryMode().name(),
                             "subtask-review",
                             failureType,
-                            SubtaskReviewPolicy.maxAttempts(),
+                            subtaskReviewPolicy.maxAttempts(),
                             false,
                             "子任务验证调用失败",
                             evidence,

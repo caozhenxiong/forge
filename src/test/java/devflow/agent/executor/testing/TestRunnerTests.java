@@ -26,7 +26,11 @@ class TestRunnerTests {
 
     @Test
     void returnsBlockedCasesWhenSelectionIsUnavailable() {
-        TestRunner runner = new TestRunner(new PlaywrightCaseExecutor(new FileProjectWorkspace(), new ObjectMapper()));
+        TestRunner runner = new TestRunner(new PlaywrightCaseExecutor(
+                new FileProjectWorkspace(),
+                new ObjectMapper(),
+                new PlaywrightExecutionPolicy()
+        ));
 
         TestRunReport report = runner.executeDetailed(
                 tempDir,
@@ -60,7 +64,11 @@ class TestRunnerTests {
 
     @Test
     void missingCasesAreReportedAsStructuredToolFailure() {
-        TestRunner runner = new TestRunner(new PlaywrightCaseExecutor(new FileProjectWorkspace(), new ObjectMapper()));
+        TestRunner runner = new TestRunner(new PlaywrightCaseExecutor(
+                new FileProjectWorkspace(),
+                new ObjectMapper(),
+                new PlaywrightExecutionPolicy()
+        ));
 
         TestRunReport report = runner.executeDetailed(
                 tempDir,
@@ -81,7 +89,11 @@ class TestRunnerTests {
 
     @Test
     void runtimeSnapshotReturnsNullWhenSelectionDoesNotSupportIt() {
-        TestRunner runner = new TestRunner(new PlaywrightCaseExecutor(new FileProjectWorkspace(), new ObjectMapper()));
+        TestRunner runner = new TestRunner(new PlaywrightCaseExecutor(
+                new FileProjectWorkspace(),
+                new ObjectMapper(),
+                new PlaywrightExecutionPolicy()
+        ));
 
         RuntimeSnapshotCaptureResult captureResult = runner.captureRuntimeSnapshotDetailed(
                 tempDir,
@@ -124,7 +136,7 @@ class TestRunnerTests {
     private static final class FailingPlaywrightCaseExecutor extends PlaywrightCaseExecutor {
 
         FailingPlaywrightCaseExecutor() {
-            super(new FileProjectWorkspace(), new ObjectMapper());
+            super(new FileProjectWorkspace(), new ObjectMapper(), new PlaywrightExecutionPolicy());
         }
 
         @Override

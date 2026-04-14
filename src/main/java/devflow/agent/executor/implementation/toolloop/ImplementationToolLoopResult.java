@@ -6,7 +6,7 @@ import devflow.agent.executor.runtime.*;
 import java.nio.file.Path;
 import java.util.List;
 
-import devflow.agent.executor.FileMutationRecord;
+import devflow.agent.executor.implementation.toolloop.FileMutationRecord;
 public record ImplementationToolLoopResult(
         String finalResponse,
         List<Path> touchedPaths,

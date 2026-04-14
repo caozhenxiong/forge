@@ -9,7 +9,7 @@ import devflow.agent.domain.StageType;
 import devflow.agent.loop.TransitionDecision;
 import devflow.agent.loop.TransitionReason;
 import devflow.agent.review.ReviewResult;
-import devflow.agent.supervisor.SupervisorAction;
+import devflow.agent.domain.WorkflowAction;
 import devflow.agent.supervisor.SupervisorDecision;
 import org.springframework.stereotype.Component;
 
@@ -33,11 +33,11 @@ public class FlowController {
             SupervisorDecision supervisorDecision,
             StageToolResultSummary toolSummary
     ) {
-        FlowAction action = mapAction(supervisorDecision.action());
+        WorkflowAction action = supervisorDecision.action();
         StageType targetStage = supervisorDecision.targetStage();
         String transitionSummary = reviewResult.summary() == null ? "" : reviewResult.summary();
         if (shouldRetryCurrentStage(stageType, action, toolSummary)) {
-            action = FlowAction.RETRY_STAGE;
+            action = WorkflowAction.RETRY_STAGE;
             targetStage = stageType;
             transitionSummary = appendToolSummary(transitionSummary, toolSummary);
         }
@@ -63,61 +63,36 @@ public class FlowController {
                 && currentStage.status() == StageStatus.RUNNING;
     }
 
-    private FlowAction mapAction(SupervisorAction action) {
-        if (action == SupervisorAction.ADVANCE_STAGE) {
-            return FlowAction.ADVANCE_STAGE;
-        }
-        if (action == SupervisorAction.REQUEST_HUMAN_REVIEW) {
-            return FlowAction.REQUEST_HUMAN_REVIEW;
-        }
-        if (action == SupervisorAction.RETRY_STAGE) {
-            return FlowAction.RETRY_STAGE;
-        }
-        if (action == SupervisorAction.ROUTE_TO_REPAIR) {
-            return FlowAction.ROUTE_TO_REPAIR;
-        }
-        if (action == SupervisorAction.ROLLBACK_STAGE) {
-            return FlowAction.ROLLBACK_STAGE;
-        }
-        if (action == SupervisorAction.COMPLETE_RUN) {
-            return FlowAction.COMPLETE_RUN;
-        }
-        if (action == SupervisorAction.FAIL_RUN) {
-            return FlowAction.FAIL_RUN;
-        }
-        throw new IllegalArgumentException("Unsupported supervisor action: " + action);
-    }
-
-    private TransitionReason mapReason(FlowAction action, StageType stageType) {
-        if (action == FlowAction.ADVANCE_STAGE) {
+    private TransitionReason mapReason(WorkflowAction action, StageType stageType) {
+        if (action == WorkflowAction.ADVANCE_STAGE) {
             return StageType.TEST == stageType ? TransitionReason.RUN_COMPLETED : TransitionReason.STAGE_APPROVED;
         }
-        if (action == FlowAction.REQUEST_HUMAN_REVIEW) {
+        if (action == WorkflowAction.REQUEST_HUMAN_REVIEW) {
             return TransitionReason.HUMAN_REVIEW_REQUIRED;
         }
-        if (action == FlowAction.RETRY_STAGE) {
+        if (action == WorkflowAction.RETRY_STAGE) {
             return TransitionReason.STAGE_RETRY;
         }
-        if (action == FlowAction.ROUTE_TO_REPAIR) {
+        if (action == WorkflowAction.ROUTE_TO_REPAIR) {
             return TransitionReason.REPAIR_ROUTE;
         }
-        if (action == FlowAction.ROLLBACK_STAGE) {
+        if (action == WorkflowAction.ROLLBACK_STAGE) {
             return TransitionReason.STAGE_ROLLBACK;
         }
-        if (action == FlowAction.COMPLETE_RUN) {
+        if (action == WorkflowAction.COMPLETE_RUN) {
             return TransitionReason.RUN_COMPLETED;
         }
-        if (action == FlowAction.FAIL_RUN) {
+        if (action == WorkflowAction.FAIL_RUN) {
             return TransitionReason.RUN_FAILED;
         }
         throw new IllegalArgumentException("Unsupported flow action: " + action);
     }
 
-    private boolean shouldRetryCurrentStage(StageType stageType, FlowAction action, StageToolResultSummary toolSummary) {
+    private boolean shouldRetryCurrentStage(StageType stageType, WorkflowAction action, StageToolResultSummary toolSummary) {
         if (toolSummary == null || !toolSummary.blockingFailure()) {
             return false;
         }
-        return action == FlowAction.ADVANCE_STAGE || action == FlowAction.COMPLETE_RUN;
+        return action == WorkflowAction.ADVANCE_STAGE || action == WorkflowAction.COMPLETE_RUN;
     }
 
     private String appendToolSummary(String reviewSummary, StageToolResultSummary toolSummary) {

@@ -18,7 +18,11 @@ import java.nio.file.Path;
  */
 public final class SubtaskPerformanceGuidanceResolver {
 
-    private final ContractExtractor contractExtractor = new ContractExtractor();
+    private final ContractExtractor contractExtractor;
+
+    public SubtaskPerformanceGuidanceResolver(ContractExtractor contractExtractor) {
+        this.contractExtractor = contractExtractor;
+    }
 
     String resolve(RunRecord runRecord) {
         String design = designFromRun(runRecord);

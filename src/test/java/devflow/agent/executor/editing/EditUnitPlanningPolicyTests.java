@@ -12,18 +12,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class EditUnitPlanningPolicyTests {
 
     @Test
-    void valuesCanBeOverriddenBySystemProperties() {
-        System.setProperty("devflow.edit-unit.max-symbols-per-unit", "3");
-        System.setProperty("devflow.edit-unit.inline-append-symbol-budget", "1");
-        System.setProperty("devflow.edit-unit.max-preflight-unit-ratio", "0.55");
-        try {
-            assertEquals(3, EditUnitPlanningPolicy.maxSymbolsPerUnit());
-            assertEquals(1, EditUnitPlanningPolicy.inlineAppendSymbolBudget());
-            assertEquals(0.55d, EditUnitPlanningPolicy.maxPreFlightUnitRatio());
-        } finally {
-            System.clearProperty("devflow.edit-unit.max-symbols-per-unit");
-            System.clearProperty("devflow.edit-unit.inline-append-symbol-budget");
-            System.clearProperty("devflow.edit-unit.max-preflight-unit-ratio");
-        }
+    void valuesAreConfiguredThroughTypedPropertiesObject() {
+        EditUnitPlanningPolicy policy = new EditUnitPlanningPolicy(3, 1, 0.55d);
+
+        assertEquals(3, policy.maxSymbolsPerUnit());
+        assertEquals(1, policy.inlineAppendSymbolBudget());
+        assertEquals(0.55d, policy.maxPreFlightUnitRatio());
     }
 }

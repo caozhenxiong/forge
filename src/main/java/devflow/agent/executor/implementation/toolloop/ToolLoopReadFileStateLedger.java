@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import devflow.agent.executor.ImplementationStateSnapshot;
+import devflow.agent.executor.implementation.state.ImplementationStateSnapshot;
 /**
  * implementation tool loop 的 read file state 单一状态源。
  *

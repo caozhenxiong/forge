@@ -3,6 +3,7 @@ package devflow.agent.executor.testing;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
+import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.quality.CapabilityIds;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TestCasePlanSanitizerTests {
 
     private final TestCasePlanSanitizer sanitizer = new TestCasePlanSanitizer();
+
+    private List<TestCaseSpec> sanitize(
+            List<PlannedTestCasePayload> rawCases,
+            List<TestCaseSpec> baseCases,
+            String defaultEntry,
+            RuntimeSnapshot runtimeSnapshot,
+            UiRuntimeContract runtimeContract
+    ) {
+        return sanitizer.sanitize(
+                rawCases,
+                baseCases,
+                defaultEntry,
+                runtimeSnapshot,
+                runtimeContract,
+                DocumentLanguage.ZH
+        );
+    }
 
     @Test
     void sanitizeRepairsPauseCaseByInjectingStartAndMovingSnapshotsBeforeInteractions() {
@@ -61,7 +79,7 @@ class TestCasePlanSanitizerTests {
                 )
         );
 
-        List<TestCaseSpec> cases = sanitizer.sanitize(
+        List<TestCaseSpec> cases = sanitize(
                 List.of(startGuide, raw),
                 List.of(),
                 "index.html",
@@ -129,7 +147,7 @@ class TestCasePlanSanitizerTests {
                 )
         );
 
-        List<TestCaseSpec> cases = sanitizer.sanitize(
+        List<TestCaseSpec> cases = sanitize(
                 List.of(startGuide, raw),
                 List.of(),
                 "index.html",
@@ -191,7 +209,7 @@ class TestCasePlanSanitizerTests {
                 )
         );
 
-        List<TestCaseSpec> cases = sanitizer.sanitize(
+        List<TestCaseSpec> cases = sanitize(
                 List.of(startGuide, raw),
                 List.of(),
                 "index.html",
@@ -233,7 +251,7 @@ class TestCasePlanSanitizerTests {
                 )
         );
 
-        List<TestCaseSpec> cases = sanitizer.sanitize(
+        List<TestCaseSpec> cases = sanitize(
                 List.of(raw),
                 List.of(),
                 "index.html",
@@ -283,7 +301,7 @@ class TestCasePlanSanitizerTests {
                 )
         );
 
-        List<TestCaseSpec> cases = sanitizer.sanitize(
+        List<TestCaseSpec> cases = sanitize(
                 List.of(raw),
                 List.of(),
                 "index.html",
@@ -330,7 +348,7 @@ class TestCasePlanSanitizerTests {
                 )
         );
 
-        List<TestCaseSpec> cases = sanitizer.sanitize(
+        List<TestCaseSpec> cases = sanitize(
                 List.of(raw),
                 List.of(),
                 "index.html",
@@ -384,7 +402,7 @@ class TestCasePlanSanitizerTests {
                 )
         );
 
-        List<TestCaseSpec> cases = sanitizer.sanitize(
+        List<TestCaseSpec> cases = sanitize(
                 List.of(raw),
                 List.of(),
                 "index.html",
@@ -432,7 +450,7 @@ class TestCasePlanSanitizerTests {
                 )
         );
 
-        List<TestCaseSpec> cases = sanitizer.sanitize(
+        List<TestCaseSpec> cases = sanitize(
                 List.of(raw),
                 List.of(),
                 "index.html",
@@ -492,7 +510,7 @@ class TestCasePlanSanitizerTests {
                 )
         );
 
-        List<TestCaseSpec> cases = sanitizer.sanitize(
+        List<TestCaseSpec> cases = sanitize(
                 List.of(raw),
                 List.of(),
                 "index.html",
@@ -544,7 +562,7 @@ class TestCasePlanSanitizerTests {
                 )
         ));
 
-        List<TestCaseSpec> cases = sanitizer.sanitize(
+        List<TestCaseSpec> cases = sanitize(
                 List.of(),
                 baseCases,
                 "index.html",
@@ -589,7 +607,7 @@ class TestCasePlanSanitizerTests {
                 )
         );
 
-        List<TestCaseSpec> cases = sanitizer.sanitize(
+        List<TestCaseSpec> cases = sanitize(
                 List.of(raw),
                 List.of(),
                 "index.html",
@@ -637,7 +655,7 @@ class TestCasePlanSanitizerTests {
                 )
         );
 
-        List<TestCaseSpec> cases = sanitizer.sanitize(
+        List<TestCaseSpec> cases = sanitize(
                 List.of(raw),
                 List.of(),
                 "index.html",
@@ -654,7 +672,7 @@ class TestCasePlanSanitizerTests {
         assertTrue(clickIndex < snapshotIndex);
         assertTrue(snapshotIndex < waitIndex);
         assertTrue(waitIndex < changedIndex);
-        assertEquals(TestPlanningPolicy.delayedObservationWaitMs(), steps.get(waitIndex).ms());
+        assertEquals(new TestPlanningPolicy().delayedObservationWaitMs(), steps.get(waitIndex).ms());
     }
 
     private int indexOf(List<TestStepSpec> steps, TestStepAction action, String selector, int start) {

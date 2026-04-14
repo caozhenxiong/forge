@@ -15,8 +15,8 @@ import devflow.agent.executor.llm.ModelRole;
 import devflow.agent.executor.llm.StructuredPayloadReader;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import devflow.agent.editing.ExactReplaceEdit;
-import devflow.agent.editing.FileStateLedger;
+import devflow.agent.editing.precise.ExactReplaceEdit;
+import devflow.agent.editing.precise.FileStateLedger;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -128,11 +128,11 @@ class PatchPayloadRepairSupportTests {
                 new PatchExecutionSupport(new FileGenerationFailureFactory(), new ImplementationGenerationObserverFactory())
         );
 
-        devflow.agent.editing.HtmlPrecisePatch patch = repairSupport.readStructuredPayload(
+        devflow.agent.editing.precise.HtmlPrecisePatch patch = repairSupport.readStructuredPayload(
                 Path.of("index.html"),
                 FileEditStrategyNames.PRECISE_HTML,
                 "{ invalid json",
-                devflow.agent.editing.HtmlPrecisePatch.class,
+                devflow.agent.editing.precise.HtmlPrecisePatch.class,
                 null
         );
 

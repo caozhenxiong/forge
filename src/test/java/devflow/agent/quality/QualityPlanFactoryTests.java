@@ -9,7 +9,8 @@ import devflow.agent.context.EntryPackagingMode;
 import devflow.agent.context.ExecutionContract;
 import devflow.agent.context.RequirementReference;
 import devflow.agent.context.ValidationMetadata;
-import devflow.agent.executor.testing.RuntimeSnapshot;
+import devflow.agent.executor.runtime.RuntimeSnapshot;
+import devflow.agent.testsupport.QualityPlanFactoryTestSupport;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -69,7 +70,7 @@ class QualityPlanFactoryTests {
         );
         ValidationMetadata metadata = new ValidationMetadata(true, 2000, 120);
 
-        QualityPlan plan = new QualityPlanFactory().build(fingerprint, contractView, metadata, snapshot, List.of());
+        QualityPlan plan = QualityPlanFactoryTestSupport.qualityPlanFactory().build(fingerprint, contractView, metadata, snapshot, List.of());
 
         assertTrue(plan.structureRiskReport().embeddedLogicRisk().atLeast(StructureRiskLevel.HIGH));
         assertFalse(plan.qualityIntent().structureIntent().preferLogicExternalization());
@@ -87,7 +88,7 @@ class QualityPlanFactoryTests {
 
     @Test
     void emptyFactoryInputsProduceEmptyQualityPlan() {
-        QualityPlan plan = new QualityPlanFactory().build(null, null, null, null, List.of());
+        QualityPlan plan = QualityPlanFactoryTestSupport.qualityPlanFactory().build(null, null, null, null, List.of());
 
         assertTrue(plan.capabilityMatrix().isEmpty());
         assertTrue(plan.qualityIntent().requiredCapabilityIds().isEmpty());
@@ -104,7 +105,7 @@ class QualityPlanFactoryTests {
                 ConstraintSourceMetadata.empty()
         );
 
-        QualityPlan plan = new QualityPlanFactory().build(
+        QualityPlan plan = QualityPlanFactoryTestSupport.qualityPlanFactory().build(
                 null,
                 contractView,
                 ValidationMetadata.empty(),
@@ -138,7 +139,7 @@ class QualityPlanFactoryTests {
                 ConstraintSourceMetadata.empty()
         );
 
-        QualityPlan plan = new QualityPlanFactory().build(
+        QualityPlan plan = QualityPlanFactoryTestSupport.qualityPlanFactory().build(
                 null,
                 contractView,
                 ValidationMetadata.empty(),
@@ -171,7 +172,7 @@ class QualityPlanFactoryTests {
                 ConstraintSourceMetadata.empty()
         );
 
-        QualityPlan plan = new QualityPlanFactory().build(
+        QualityPlan plan = QualityPlanFactoryTestSupport.qualityPlanFactory().build(
                 tempDir,
                 null,
                 contractView,
@@ -232,7 +233,7 @@ class QualityPlanFactoryTests {
                 ConstraintSourceMetadata.empty()
         );
 
-        QualityPlan plan = new QualityPlanFactory().build(
+        QualityPlan plan = QualityPlanFactoryTestSupport.qualityPlanFactory().build(
                 tempDir,
                 fingerprint,
                 contractView,

@@ -43,6 +43,11 @@
             <artifactId>spring-boot-starter-json</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
             <groupId>io.github.bonede</groupId>
             <artifactId>tree-sitter</artifactId>
             <version>${tree.sitter.version}</version>
@@ -105,6 +110,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <version>1.4.1</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

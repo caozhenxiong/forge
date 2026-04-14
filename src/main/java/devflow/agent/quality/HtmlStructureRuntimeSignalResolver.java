@@ -1,8 +1,8 @@
 package devflow.agent.quality;
 
-import devflow.agent.executor.testing.RuntimeSnapshot;
-import devflow.agent.executor.testing.RuntimeSnapshotCaptureStatus;
-import devflow.agent.executor.testing.RuntimeSnapshotFailureCode;
+import devflow.agent.executor.runtime.RuntimeSnapshot;
+import devflow.agent.executor.runtime.RuntimeSnapshotCaptureStatus;
+import devflow.agent.executor.runtime.RuntimeSnapshotFailureCode;
 import devflow.agent.parsing.HtmlStructureSnapshot;
 import devflow.agent.parsing.TreeSitterSupport;
 import devflow.agent.project.FileProjectWorkspace;
@@ -19,10 +19,18 @@ import java.util.Set;
  * <p>implementation / review 在浏览器快照缺席时，仍然需要看到宿主入口里的
  * canvas / button 等结构事实；否则会把明显的高风险内联页面误判为普通静态页。
  */
-final class HtmlStructureRuntimeSignalResolver {
+public final class HtmlStructureRuntimeSignalResolver {
 
-    private final FileProjectWorkspace workspace = new FileProjectWorkspace();
-    private final TreeSitterSupport treeSitterSupport = new TreeSitterSupport();
+    private final FileProjectWorkspace workspace;
+    private final TreeSitterSupport treeSitterSupport;
+
+    public HtmlStructureRuntimeSignalResolver(
+            FileProjectWorkspace workspace,
+            TreeSitterSupport treeSitterSupport
+    ) {
+        this.workspace = workspace;
+        this.treeSitterSupport = treeSitterSupport;
+    }
 
     RuntimeSnapshot resolve(Path projectPath, ProjectFingerprint fingerprint, RuntimeSnapshot runtimeSnapshot) {
         if (projectPath == null || fingerprint == null || !fingerprint.hasResolvedHtmlEntry()) {

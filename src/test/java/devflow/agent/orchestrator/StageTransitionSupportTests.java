@@ -34,7 +34,7 @@ import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.supervisor.DeliveryPolicy;
 import devflow.agent.supervisor.DeliveryPolicyMode;
-import devflow.agent.supervisor.SupervisorAction;
+import devflow.agent.domain.WorkflowAction;
 import devflow.agent.supervisor.SupervisorDecision;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -67,7 +67,7 @@ class StageTransitionSupportTests {
         RunRecord runRecord = runRepository.save(newRunRecord(tempDir));
         ReviewResult reviewResult = new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "", "", "");
         SupervisorDecision supervisorDecision = new SupervisorDecision(
-                SupervisorAction.ADVANCE_STAGE,
+                WorkflowAction.ADVANCE_STAGE,
                 StageType.PRD,
                 FixMode.NONE,
                 "next",
@@ -198,7 +198,7 @@ class StageTransitionSupportTests {
         StageTransitionSupport support = newSupport(runRepository);
         RunRecord runRecord = runRepository.save(newRunRecord(tempDir));
         SupervisorDecision supervisorDecision = new SupervisorDecision(
-                SupervisorAction.RETRY_STAGE,
+                WorkflowAction.RETRY_STAGE,
                 StageType.IMPLEMENTATION,
                 FixMode.PATCH,
                 "继续补齐当前实现阶段的缺口",

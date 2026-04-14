@@ -7,6 +7,7 @@ import devflow.agent.artifact.AuxiliaryArtifactNames;
 import devflow.agent.artifact.EventLogStore;
 import devflow.agent.artifact.FileArtifactStore;
 import devflow.agent.i18n.DocumentLanguage;
+import devflow.agent.i18n.LanguagePolicy;
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.StructuredArtifactBlocks;
 import devflow.agent.quality.QualityLedger;
@@ -33,19 +34,22 @@ final class StageRevisionRepairSupport {
     private final DiagnosisAgent diagnosisAgent;
     private final RepairAgent repairAgent;
     private final StageRevisionNoteBuilder stageRevisionNoteBuilder;
+    private final LanguagePolicy languagePolicy;
 
     StageRevisionRepairSupport(
             FileArtifactStore artifactStore,
             EventLogStore eventLogStore,
             DiagnosisAgent diagnosisAgent,
             RepairAgent repairAgent,
-            StageRevisionNoteBuilder stageRevisionNoteBuilder
+            StageRevisionNoteBuilder stageRevisionNoteBuilder,
+            LanguagePolicy languagePolicy
     ) {
         this.artifactStore = artifactStore;
         this.eventLogStore = eventLogStore;
         this.diagnosisAgent = diagnosisAgent;
         this.repairAgent = repairAgent;
         this.stageRevisionNoteBuilder = stageRevisionNoteBuilder;
+        this.languagePolicy = languagePolicy;
     }
 
     String buildRevisionNote(
@@ -87,7 +91,7 @@ final class StageRevisionRepairSupport {
                 summary,
                 changeRequest
         );
-        DocumentLanguage language = DocumentLanguage.detect(runRecord.goal(), runRecord.constraints());
+        DocumentLanguage language = languagePolicy.resolve(runRecord.goal(), runRecord.constraints());
         artifactStore.writeAuxiliaryArtifact(
                 projectPath,
                 runRecord.runId(),

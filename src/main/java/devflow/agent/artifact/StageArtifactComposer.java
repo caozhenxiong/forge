@@ -5,6 +5,7 @@ import devflow.agent.executor.llm.LlmProvider;
 
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.executor.ImplementationExecutor;
+import devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport;
 import devflow.agent.executor.testing.TestExecutor;
 import devflow.agent.i18n.LanguagePolicy;
 import devflow.agent.domain.RunRecord;
@@ -39,7 +40,8 @@ public class StageArtifactComposer {
             WorkspaceSnapshotStore snapshotStore,
             ContractExtractor contractExtractor,
             DocumentStageComposer documentStageComposer,
-            LanguagePolicy languagePolicy
+            LanguagePolicy languagePolicy,
+            ImplementationStateArtifactSupport implementationStateArtifactSupport
     ) {
         this.llmProvider = llmProvider;
         this.documentStageComposer = documentStageComposer;
@@ -60,7 +62,8 @@ public class StageArtifactComposer {
                 artifactStore,
                 snapshotStore,
                 contractExtractor,
-                inputResolver
+                inputResolver,
+                implementationStateArtifactSupport
         );
         this.testStageComposer = new TestStageComposer(
                 artifactStore,

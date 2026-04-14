@@ -30,6 +30,7 @@ public class SupervisorPromptAssembler {
 
     public String decisionUserPrompt(
             RunRecord runRecord,
+            DocumentLanguage language,
             StageType currentStage,
             StageType nextStage,
             GatePolicy gatePolicy,
@@ -41,6 +42,7 @@ public class SupervisorPromptAssembler {
     ) {
         return decisionPromptBuilder.userPrompt(
                 runRecord,
+                language,
                 currentStage,
                 nextStage,
                 gatePolicy,

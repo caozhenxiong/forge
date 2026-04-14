@@ -6,8 +6,8 @@ import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
 import devflow.agent.context.ContractView;
-import devflow.agent.editing.FileStateLedger;
-import devflow.agent.editing.FileStateSnapshot;
+import devflow.agent.editing.precise.FileStateLedger;
+import devflow.agent.editing.precise.FileStateSnapshot;
 import devflow.agent.protocol.StructuredArtifactBlocks;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.util.ProjectPathSupport;

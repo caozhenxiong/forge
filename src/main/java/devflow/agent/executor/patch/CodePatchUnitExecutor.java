@@ -19,7 +19,7 @@ import devflow.agent.executor.llm.LlmOptions;
 import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.llm.ModelRole;
 
-import devflow.agent.editing.ExactReplaceEdit;
+import devflow.agent.editing.precise.ExactReplaceEdit;
 
 /**
  * 负责 `precise-code` 的单个 patch 单元执行。

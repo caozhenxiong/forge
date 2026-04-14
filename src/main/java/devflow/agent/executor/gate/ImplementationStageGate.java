@@ -1,6 +1,7 @@
 package devflow.agent.executor.gate;
 
 import devflow.agent.executor.*;
+import devflow.agent.executor.implementation.planning.ImplementationPlan;
 import devflow.agent.executor.runtime.*;
 
 import devflow.agent.protocol.ImplementationContinuationMode;

@@ -6,7 +6,7 @@ import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
 import devflow.agent.context.ContractView;
-import devflow.agent.editing.FileStateSnapshot;
+import devflow.agent.editing.precise.FileStateSnapshot;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Path;
 

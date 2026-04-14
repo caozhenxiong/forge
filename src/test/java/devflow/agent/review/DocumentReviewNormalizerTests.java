@@ -1,5 +1,6 @@
 package devflow.agent.review;
 
+import devflow.agent.context.ContractExtractor;
 import devflow.agent.domain.RunConfig;
 import devflow.agent.domain.RunRecord;
 import devflow.agent.domain.RunStatus;
@@ -18,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DocumentReviewNormalizerTests {
 
-    private final DocumentReviewNormalizer normalizer = new DocumentReviewNormalizer();
+    private final DocumentReviewNormalizer normalizer = new DocumentReviewNormalizer(new ContractExtractor());
 
     @Test
     void approvesLowAuthorityClarificationFalsePositive() {

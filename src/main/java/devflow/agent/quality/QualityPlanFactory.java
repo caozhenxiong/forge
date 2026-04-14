@@ -2,7 +2,7 @@ package devflow.agent.quality;
 
 import devflow.agent.context.ContractView;
 import devflow.agent.context.ValidationMetadata;
-import devflow.agent.executor.testing.RuntimeSnapshot;
+import devflow.agent.executor.runtime.RuntimeSnapshot;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Path;
 import java.util.Collection;
@@ -14,12 +14,25 @@ import java.util.Collection;
  */
 public final class QualityPlanFactory {
 
-    private final QualityRulesLoader qualityRulesLoader = new QualityRulesLoader();
-    private final FeatureProfiler featureProfiler = new FeatureProfiler();
-    private final QualityIntentResolver qualityIntentResolver = new QualityIntentResolver();
-    private final QualityPolicyResolver qualityPolicyResolver = new QualityPolicyResolver();
-    private final HtmlStructureRuntimeSignalResolver htmlStructureRuntimeSignalResolver =
-            new HtmlStructureRuntimeSignalResolver();
+    private final QualityRulesLoader qualityRulesLoader;
+    private final FeatureProfiler featureProfiler;
+    private final QualityIntentResolver qualityIntentResolver;
+    private final QualityPolicyResolver qualityPolicyResolver;
+    private final HtmlStructureRuntimeSignalResolver htmlStructureRuntimeSignalResolver;
+
+    public QualityPlanFactory(
+            QualityRulesLoader qualityRulesLoader,
+            FeatureProfiler featureProfiler,
+            QualityIntentResolver qualityIntentResolver,
+            QualityPolicyResolver qualityPolicyResolver,
+            HtmlStructureRuntimeSignalResolver htmlStructureRuntimeSignalResolver
+    ) {
+        this.qualityRulesLoader = qualityRulesLoader;
+        this.featureProfiler = featureProfiler;
+        this.qualityIntentResolver = qualityIntentResolver;
+        this.qualityPolicyResolver = qualityPolicyResolver;
+        this.htmlStructureRuntimeSignalResolver = htmlStructureRuntimeSignalResolver;
+    }
 
     public QualityPlan build(
             Path projectPath,

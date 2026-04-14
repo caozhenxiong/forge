@@ -5,6 +5,10 @@ public enum DocumentLanguage {
     EN;
 
     public static DocumentLanguage detect(String... inputs) {
+        return detectHumanLanguage(inputs);
+    }
+
+    public static DocumentLanguage detectHumanLanguage(String... inputs) {
         int cjkCount = 0;
         int latinCount = 0;
         if (inputs != null) {
@@ -23,7 +27,7 @@ public enum DocumentLanguage {
             }
         }
         if (cjkCount == 0 && latinCount == 0) {
-            return ZH;
+            return null;
         }
         return cjkCount >= latinCount ? ZH : EN;
     }

@@ -23,7 +23,11 @@ final class TestCaseBasePlanBuilder {
     private final PerformanceCaseBuilder performanceCaseBuilder;
 
     TestCaseBasePlanBuilder() {
-        this.htmlStructureCaseBuilder = new HtmlStructureCaseBuilder();
+        this(new TestPlanningPolicy());
+    }
+
+    TestCaseBasePlanBuilder(TestPlanningPolicy testPlanningPolicy) {
+        this.htmlStructureCaseBuilder = new HtmlStructureCaseBuilder(testPlanningPolicy);
         this.performanceCaseBuilder = new PerformanceCaseBuilder();
     }
 

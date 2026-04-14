@@ -9,6 +9,7 @@ import devflow.agent.domain.StageType;
 import devflow.agent.artifact.EventLogStore;
 import devflow.agent.artifact.FileArtifactStore;
 import devflow.agent.i18n.DocumentLanguage;
+import devflow.agent.i18n.LanguagePolicy;
 import devflow.agent.repair.DiagnosisAgent;
 import devflow.agent.repair.RepairAgent;
 import devflow.agent.review.FixMode;
@@ -42,6 +43,7 @@ public class StageRevisionSupport {
     private final WorkflowArtifactRenderer workflowArtifactRenderer;
     private final SupervisorGuidanceRenderer supervisorGuidanceRenderer;
     private final StageRevisionRepairSupport stageRevisionRepairSupport;
+    private final LanguagePolicy languagePolicy;
 
     public StageRevisionSupport(
             FileRunRepository runRepository,
@@ -52,18 +54,42 @@ public class StageRevisionSupport {
             StageFlowPolicy stageFlowPolicy,
             WorkflowArtifactRenderer workflowArtifactRenderer
     ) {
+        this(
+                runRepository,
+                artifactStore,
+                eventLogStore,
+                diagnosisAgent,
+                repairAgent,
+                stageFlowPolicy,
+                workflowArtifactRenderer,
+                new LanguagePolicy()
+        );
+    }
+
+    public StageRevisionSupport(
+            FileRunRepository runRepository,
+            FileArtifactStore artifactStore,
+            EventLogStore eventLogStore,
+            DiagnosisAgent diagnosisAgent,
+            RepairAgent repairAgent,
+            StageFlowPolicy stageFlowPolicy,
+            WorkflowArtifactRenderer workflowArtifactRenderer,
+            LanguagePolicy languagePolicy
+    ) {
         this.runRepository = runRepository;
         this.artifactStore = artifactStore;
         this.eventLogStore = eventLogStore;
         this.stageFlowPolicy = stageFlowPolicy;
         this.workflowArtifactRenderer = workflowArtifactRenderer;
         this.supervisorGuidanceRenderer = new SupervisorGuidanceRenderer();
+        this.languagePolicy = languagePolicy;
         this.stageRevisionRepairSupport = new StageRevisionRepairSupport(
                 artifactStore,
                 eventLogStore,
                 diagnosisAgent,
                 repairAgent,
-                new StageRevisionNoteBuilder()
+                new StageRevisionNoteBuilder(),
+                languagePolicy
         );
     }
 
@@ -76,7 +102,7 @@ public class StageRevisionSupport {
             StageTransitionSupport.StageEntryAction stageEntryAction
     ) {
         StageExecution currentExecution = requireStage(runRecord.stageStates(), stageType);
-        DocumentLanguage language = DocumentLanguage.detect(runRecord.goal(), runRecord.constraints());
+        DocumentLanguage language = languagePolicy.resolve(runRecord.goal(), runRecord.constraints());
         artifactStore.appendReviewHistory(
                 projectPath,
                 runRecord.runId(),

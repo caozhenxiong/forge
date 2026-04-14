@@ -5,7 +5,7 @@ import devflow.agent.executor.editing.*;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
-import devflow.agent.editing.ExactReplaceEdit;
+import devflow.agent.editing.precise.ExactReplaceEdit;
 import java.nio.file.Path;
 
 /**

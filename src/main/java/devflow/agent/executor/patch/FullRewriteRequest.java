@@ -5,7 +5,7 @@ import devflow.agent.executor.editing.*;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
-import devflow.agent.editing.FileStateSnapshot;
+import devflow.agent.editing.precise.FileStateSnapshot;
 import java.nio.file.Path;
 
 import devflow.agent.executor.implementation.ImplementationEventJournal;

@@ -4,6 +4,11 @@ import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
+import devflow.agent.executor.implementation.*;
+import devflow.agent.executor.implementation.planning.*;
+import devflow.agent.executor.implementation.render.*;
+import devflow.agent.executor.implementation.state.*;
+import devflow.agent.executor.implementation.toolloop.*;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -11,6 +16,9 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import devflow.agent.executor.implementation.planning.ImplementationOutline;
+import devflow.agent.executor.implementation.planning.ImplementationOutlineSubtask;
+import devflow.agent.executor.implementation.planning.ImplementationPlanningUnitKind;
 class ImplementationPlanningFeedbackRouterTests {
 
     @Test

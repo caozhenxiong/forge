@@ -6,6 +6,7 @@ import devflow.agent.executor.runtime.*;
 import devflow.agent.context.AuthoritativeCoverageCatalog;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ContractView;
+import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.quality.CapabilityIds;
@@ -46,7 +47,8 @@ final class TestCasePromptAssembler {
             String implementationReport,
             RuntimeSnapshot runtimeSnapshot,
             QualityPlan qualityPlan,
-            UiRuntimeContract runtimeContract
+            UiRuntimeContract runtimeContract,
+            DocumentLanguage language
     ) {
         ContractView contractView = contractExtractor.extractContractView(goal, constraints, "", prd, design);
         AuthoritativeCoverageCatalog authoritativeCoverageCatalog = AuthoritativeCoverageCatalog.from(
@@ -173,18 +175,18 @@ final class TestCasePromptAssembler {
                 String.join("\n", fingerprint.evidence()),
                 shrink(prd),
                 shrink(design),
-                contractView == null ? "" : shrink(contractView.toMarkdown(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints))),
+                contractView == null ? "" : shrink(contractView.toMarkdown(language)),
                 authoritativeCoverageCatalog == null
-                        ? PlaceholderValues.none(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints))
-                        : shrink(authoritativeCoverageCatalog.toMarkdown(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints))),
-                qualityPlan == null ? "" : shrink(qualityPlan.toMarkdown(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints))),
+                        ? PlaceholderValues.none(language)
+                        : shrink(authoritativeCoverageCatalog.toMarkdown(language)),
+                qualityPlan == null ? "" : shrink(qualityPlan.toMarkdown(language)),
                 requiredCapabilitySurfaceCatalog(qualityPlan),
                 capabilityCatalog(qualityPlan),
                 builtinObservationTargetCatalog(),
                 TestStepSemantic.wireCatalog(),
                 shrink(implementationReport),
-                runtimeSnapshot == null ? "" : runtimeSnapshot.toMarkdown(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints)),
-                runtimeContract == null ? "" : runtimeContract.toMarkdown(devflow.agent.i18n.DocumentLanguage.detect(goal, constraints)),
+                runtimeSnapshot == null ? "" : runtimeSnapshot.toMarkdown(language),
+                runtimeContract == null ? "" : runtimeContract.toMarkdown(language),
                 context
         );
         return new TestCaseGenerationPrompt(systemPrompt, userPrompt);

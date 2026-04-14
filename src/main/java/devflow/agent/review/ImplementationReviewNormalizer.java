@@ -10,7 +10,11 @@ import devflow.agent.context.ContractExtractor;
  * `Contract Metadata.validation.*` 这类稳定机器字段。
  */
 class ImplementationReviewNormalizer {
-    private final ContractExtractor contractExtractor = new ContractExtractor();
+    private final ContractExtractor contractExtractor;
+
+    ImplementationReviewNormalizer(ContractExtractor contractExtractor) {
+        this.contractExtractor = contractExtractor;
+    }
 
     ReviewResult normalize(ReviewResult raw, String designArtifact) {
         return normalize(raw, designArtifact, ReviewSemantics.empty());

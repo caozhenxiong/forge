@@ -17,8 +17,8 @@ import devflow.agent.executor.llm.LlmOptions;
 import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.llm.ModelRole;
 
-import devflow.agent.editing.HtmlDocumentAssembler;
-import devflow.agent.editing.HtmlDocumentDraft;
+import devflow.agent.editing.precise.HtmlDocumentAssembler;
+import devflow.agent.editing.precise.HtmlDocumentDraft;
 import java.nio.file.Path;
 import java.util.List;
 

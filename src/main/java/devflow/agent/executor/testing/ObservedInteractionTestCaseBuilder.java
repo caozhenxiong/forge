@@ -16,9 +16,24 @@ import java.util.List;
  */
 final class ObservedInteractionTestCaseBuilder {
 
-    private final UiRuntimeObservationPolicy observationPolicy = new UiRuntimeObservationPolicy();
+    private final UiRuntimeObservationPolicy observationPolicy;
+    private final TestPlanningPolicy testPlanningPolicy;
 
-    List<TestCaseSpec> strengthenCases(List<TestCaseSpec> cases, RuntimeSnapshot runtimeSnapshot, UiRuntimeContract runtimeContract) {
+    ObservedInteractionTestCaseBuilder() {
+        this(new TestPlanningPolicy());
+    }
+
+    ObservedInteractionTestCaseBuilder(TestPlanningPolicy testPlanningPolicy) {
+        this.testPlanningPolicy = testPlanningPolicy;
+        this.observationPolicy = new UiRuntimeObservationPolicy(testPlanningPolicy);
+    }
+
+    List<TestCaseSpec> strengthenCases(
+            List<TestCaseSpec> cases,
+            RuntimeSnapshot runtimeSnapshot,
+            UiRuntimeContract runtimeContract,
+            DocumentLanguage language
+    ) {
         if (cases == null || cases.isEmpty()) {
             return List.of();
         }
@@ -58,7 +73,7 @@ final class ObservedInteractionTestCaseBuilder {
                         cases.getFirst().entry(),
                         selector,
                         runtimeContract,
-                        DocumentLanguage.detect(cases.getFirst().title(), cases.getFirst().expected())
+                        language
                 );
                 if (observedCase != null) {
                     strengthened.add(observedCase);
@@ -102,7 +117,7 @@ final class ObservedInteractionTestCaseBuilder {
         strengthened.add(firstInteractionIndex, observationPolicy.snapshotStep(target, snapshotKey, false));
         if (strengthened.stream().noneMatch(step -> step.action() == TestStepAction.WAIT
                 && step.ms() != null
-                && step.ms() >= TestPlanningPolicy.defaultStepWaitMs())) {
+                && step.ms() >= testPlanningPolicy.defaultStepWaitMs())) {
             strengthened.add(new TestStepSpec(
                     TestStepAction.WAIT,
                     null,

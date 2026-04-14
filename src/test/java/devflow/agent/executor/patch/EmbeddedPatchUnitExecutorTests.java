@@ -11,8 +11,8 @@ import devflow.agent.executor.llm.ModelRole;
 import devflow.agent.executor.llm.StructuredPayloadReader;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import devflow.agent.editing.CodePreciseEditor;
-import devflow.agent.editing.FileStateLedger;
+import devflow.agent.editing.precise.CodePreciseEditor;
+import devflow.agent.editing.precise.FileStateLedger;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.util.ProjectPathSupport;
 import java.nio.file.Path;

@@ -6,7 +6,7 @@ import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
 import devflow.agent.util.ProjectPathSupport;
-import devflow.agent.editing.FileStateSnapshot;
+import devflow.agent.editing.precise.FileStateSnapshot;
 import java.nio.file.Path;
 
 /**

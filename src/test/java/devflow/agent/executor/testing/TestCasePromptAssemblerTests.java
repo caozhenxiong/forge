@@ -6,12 +6,14 @@ import devflow.agent.executor.runtime.*;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ContractView;
 import devflow.agent.context.ValidationMetadata;
+import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.StructuredArtifactBlocks;
 import devflow.agent.quality.CapabilityIds;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.quality.QualityPlanFactory;
+import devflow.agent.testsupport.QualityPlanFactoryTestSupport;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -85,7 +87,7 @@ class TestCasePromptAssemblerTests {
                 Set.of("index.html"),
                 List.of("resolved html entry: index.html")
         );
-        QualityPlan qualityPlan = new QualityPlanFactory().build(
+        QualityPlan qualityPlan = QualityPlanFactoryTestSupport.qualityPlanFactory().build(
                 tempDir,
                 fingerprint,
                 contractView,
@@ -107,7 +109,8 @@ class TestCasePromptAssemblerTests {
                 "implementation report",
                 null,
                 qualityPlan,
-                UiRuntimeContract.empty()
+                UiRuntimeContract.empty(),
+                DocumentLanguage.ZH
         );
 
         assertTrue(prompt.userPrompt().contains("权威覆盖引用目录"));

@@ -1,5 +1,6 @@
 package devflow.agent.executor;
 import devflow.agent.executor.editing.*;
+import devflow.agent.executor.implementation.state.ImplementationRuntimeSnapshot;
 import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;

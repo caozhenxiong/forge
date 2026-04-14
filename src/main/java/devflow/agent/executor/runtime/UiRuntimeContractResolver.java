@@ -1,7 +1,7 @@
 package devflow.agent.executor.runtime;
 
-import devflow.agent.executor.testing.RuntimeSnapshot;
-import devflow.agent.executor.testing.RuntimeSurfaceCandidate;
+import devflow.agent.executor.runtime.RuntimeSnapshot;
+import devflow.agent.executor.runtime.RuntimeSurfaceCandidate;
 import devflow.agent.executor.testing.TestCaseSpec;
 import devflow.agent.executor.testing.TestStepSemantic;
 import devflow.agent.executor.testing.TestStepSpec;

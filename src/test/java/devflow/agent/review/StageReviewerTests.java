@@ -60,7 +60,7 @@ class StageReviewerTests {
         return newStageReviewer(
                 provider,
                 new WorkspaceSnapshotStore(new devflow.agent.orchestrator.FileRunRepository(), new FileProjectWorkspace()),
-                new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper())
+                new devflow.agent.executor.testing.TestExecutorHarness(new FileProjectWorkspace(), provider, new ObjectMapper())
         );
     }
 
@@ -77,14 +77,7 @@ class StageReviewerTests {
             WorkspaceSnapshotStore snapshotStore,
             TestExecutor testExecutor
     ) {
-        return new StageReviewer(
-                provider,
-                snapshotStore,
-                testExecutor,
-                new devflow.agent.prompt.PromptTemplateCatalog(),
-                new devflow.agent.i18n.LanguagePolicy(),
-                new devflow.agent.loop.AgentTurnLoop()
-        );
+        return devflow.agent.review.StageReviewerTestSupport.create(provider, snapshotStore, testExecutor);
     }
 
     @Test
@@ -1791,7 +1784,7 @@ class StageReviewerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()) {
+        TestExecutor testExecutor = new devflow.agent.executor.testing.TestExecutorHarness(new FileProjectWorkspace(), provider, new ObjectMapper()) {
             @Override
             public devflow.agent.executor.SelfCheckResult selfCheck(Path projectPath) {
                 return new devflow.agent.executor.SelfCheckResult(true, "项目自测通过。", "未包含性能测量数据。");
@@ -1847,7 +1840,7 @@ class StageReviewerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()) {
+        TestExecutor testExecutor = new devflow.agent.executor.testing.TestExecutorHarness(new FileProjectWorkspace(), provider, new ObjectMapper()) {
             @Override
             public devflow.agent.executor.SelfCheckResult selfCheck(Path projectPath) {
                 return new devflow.agent.executor.SelfCheckResult(true, "项目自测通过。", "未包含性能测量数据。");
@@ -1906,7 +1899,7 @@ class StageReviewerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()) {
+        TestExecutor testExecutor = new devflow.agent.executor.testing.TestExecutorHarness(new FileProjectWorkspace(), provider, new ObjectMapper()) {
             @Override
             public devflow.agent.executor.SelfCheckResult selfCheck(Path projectPath) {
                 return new devflow.agent.executor.SelfCheckResult(true, "项目自测通过。", "未包含性能测量数据。");
@@ -1965,7 +1958,7 @@ class StageReviewerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()) {
+        TestExecutor testExecutor = new devflow.agent.executor.testing.TestExecutorHarness(new FileProjectWorkspace(), provider, new ObjectMapper()) {
             @Override
             public devflow.agent.executor.SelfCheckResult selfCheck(Path projectPath) {
                 return new devflow.agent.executor.SelfCheckResult(true, "项目自测通过。", "基础自检通过。");
@@ -2008,7 +2001,7 @@ class StageReviewerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()) {
+        TestExecutor testExecutor = new devflow.agent.executor.testing.TestExecutorHarness(new FileProjectWorkspace(), provider, new ObjectMapper()) {
             @Override
             public devflow.agent.executor.SelfCheckResult selfCheck(Path projectPath) {
                 return new devflow.agent.executor.SelfCheckResult(true, "项目自测通过。", "基础自检通过。");
@@ -2059,7 +2052,7 @@ class StageReviewerTests {
                 return structured(new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", ""), ReviewSemantics.empty());
             }
         };
-        TestExecutor testExecutor = new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()) {
+        TestExecutor testExecutor = new devflow.agent.executor.testing.TestExecutorHarness(new FileProjectWorkspace(), provider, new ObjectMapper()) {
             @Override
             public devflow.agent.executor.SelfCheckResult selfCheck(Path projectPath) {
                 return new devflow.agent.executor.SelfCheckResult(true, "项目自测通过。", "基础自检通过。");
@@ -2139,7 +2132,7 @@ class StageReviewerTests {
                 return structured(new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", ""), ReviewSemantics.empty());
             }
         };
-        TestExecutor testExecutor = new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()) {
+        TestExecutor testExecutor = new devflow.agent.executor.testing.TestExecutorHarness(new FileProjectWorkspace(), provider, new ObjectMapper()) {
             @Override
             public devflow.agent.executor.SelfCheckResult selfCheck(Path projectPath) {
                 return new devflow.agent.executor.SelfCheckResult(true, "项目自测通过。", "基础自检通过。");
@@ -2358,7 +2351,7 @@ class StageReviewerTests {
     @Test
     void implementationReviewShortCircuitsOnFailedSelfCheck() {
         LlmProvider provider = new NoopReviewProvider();
-        TestExecutor testExecutor = new TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()) {
+        TestExecutor testExecutor = new devflow.agent.executor.testing.TestExecutorHarness(new FileProjectWorkspace(), provider, new ObjectMapper()) {
             @Override
             public devflow.agent.executor.SelfCheckResult selfCheck(Path projectPath) {
                 return new devflow.agent.executor.SelfCheckResult(false, "项目自测失败。", "存在语法错误。");

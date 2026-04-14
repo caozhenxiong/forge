@@ -67,7 +67,7 @@ final class OllamaGenerationExecutor {
         payload.put("stream", false);
         payload.put("options", effectiveOptions);
         OllamaGenerateResponse lastResponse = null;
-        for (int attempt = 1; attempt <= OllamaClientPolicy.maxEmptyResponseRetries(); attempt++) {
+        for (int attempt = 1; attempt <= properties.maxEmptyResponseRetries(); attempt++) {
             OllamaGenerateResponse response = transportClient.post("/api/generate", payload, OllamaGenerateResponse.class);
             lastResponse = response;
             outputBudgetCalculator.observePromptUsage(
@@ -103,7 +103,7 @@ final class OllamaGenerationExecutor {
                 "Ollama returned unusable content for model %s after %d attempts (done=%s, done_reason=%s, eval_count=%s)"
                         .formatted(
                                 model,
-                                OllamaClientPolicy.maxEmptyResponseRetries(),
+                                properties.maxEmptyResponseRetries(),
                                 lastResponse == null ? "unknown" : lastResponse.done(),
                                 lastResponse == null ? "unknown" : lastResponse.doneReason(),
                                 lastResponse == null ? "unknown" : lastResponse.evalCount()

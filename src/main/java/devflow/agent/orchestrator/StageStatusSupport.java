@@ -9,6 +9,7 @@ import devflow.agent.domain.StageType;
 import devflow.agent.artifact.EventLogStore;
 import devflow.agent.artifact.FileArtifactStore;
 import devflow.agent.i18n.DocumentLanguage;
+import devflow.agent.i18n.LanguagePolicy;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
@@ -38,6 +39,7 @@ public class StageStatusSupport {
     private final EventLogStore eventLogStore;
     private final StageFlowPolicy stageFlowPolicy;
     private final WorkflowArtifactRenderer workflowArtifactRenderer;
+    private final LanguagePolicy languagePolicy;
 
     public StageStatusSupport(
             FileRunRepository runRepository,
@@ -46,11 +48,23 @@ public class StageStatusSupport {
             StageFlowPolicy stageFlowPolicy,
             WorkflowArtifactRenderer workflowArtifactRenderer
     ) {
+        this(runRepository, artifactStore, eventLogStore, stageFlowPolicy, workflowArtifactRenderer, new LanguagePolicy());
+    }
+
+    public StageStatusSupport(
+            FileRunRepository runRepository,
+            FileArtifactStore artifactStore,
+            EventLogStore eventLogStore,
+            StageFlowPolicy stageFlowPolicy,
+            WorkflowArtifactRenderer workflowArtifactRenderer,
+            LanguagePolicy languagePolicy
+    ) {
         this.runRepository = runRepository;
         this.artifactStore = artifactStore;
         this.eventLogStore = eventLogStore;
         this.stageFlowPolicy = stageFlowPolicy;
         this.workflowArtifactRenderer = workflowArtifactRenderer;
+        this.languagePolicy = languagePolicy;
     }
 
     public RunRecord approveHumanReview(
@@ -71,7 +85,7 @@ public class StageStatusSupport {
                 currentExecution.withStatus(StageStatus.APPROVED)
                         .withReview(ReviewDecision.APPROVED, "Approved by " + reviewer, "")
         );
-        DocumentLanguage language = DocumentLanguage.detect(runRecord.goal(), runRecord.constraints());
+        DocumentLanguage language = languagePolicy.resolve(runRecord.goal(), runRecord.constraints());
         artifactStore.appendReviewHistory(
                 projectPath,
                 runRecord.runId(),

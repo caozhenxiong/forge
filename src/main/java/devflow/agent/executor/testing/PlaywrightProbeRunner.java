@@ -25,11 +25,17 @@ public final class PlaywrightProbeRunner {
     private final FileProjectWorkspace workspace;
     private final ObjectMapper objectMapper;
     private final PlaywrightSupport support;
+    private final PlaywrightExecutionPolicy playwrightExecutionPolicy;
 
-    public PlaywrightProbeRunner(FileProjectWorkspace workspace, ObjectMapper objectMapper) {
+    public PlaywrightProbeRunner(
+            FileProjectWorkspace workspace,
+            ObjectMapper objectMapper,
+            PlaywrightExecutionPolicy playwrightExecutionPolicy
+    ) {
         this.workspace = workspace;
         this.objectMapper = objectMapper;
         this.support = new PlaywrightSupport();
+        this.playwrightExecutionPolicy = playwrightExecutionPolicy;
     }
 
     public ProbeOutcome probe(Path projectPath, String entry) {
@@ -46,7 +52,7 @@ public final class PlaywrightProbeRunner {
                             tempFile.toString(),
                             projectPath.toString()
                     ),
-                    PlaywrightExecutionPolicy.snapshotTimeout()
+                    playwrightExecutionPolicy.snapshotTimeout()
             );
             String rawPayload = support.nonBlank(result.stdout(), result.stderr());
             if (rawPayload == null || rawPayload.isBlank()) {

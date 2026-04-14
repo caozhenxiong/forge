@@ -5,7 +5,7 @@ import devflow.agent.executor.editing.*;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
-import devflow.agent.editing.CodePreciseEditor;
+import devflow.agent.editing.precise.CodePreciseEditor;
 import devflow.agent.parsing.TreeSitterSupport;
 import devflow.agent.project.FileProjectWorkspace;
 import java.nio.file.Path;

@@ -7,7 +7,7 @@ import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.llm.ModelRole;
 
 import devflow.agent.context.ContractExtractor;
-import devflow.agent.executor.ImplementationStateArtifactSupport;
+import devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.domain.RunRecord;
 import devflow.agent.domain.StageType;
@@ -36,7 +36,8 @@ final class CodeReviewStageComposer {
             FileArtifactStore artifactStore,
             WorkspaceSnapshotStore snapshotStore,
             ContractExtractor contractExtractor,
-            StageArtifactInputResolver inputResolver
+            StageArtifactInputResolver inputResolver,
+            ImplementationStateArtifactSupport implementationStateSupport
     ) {
         this.llmProvider = llmProvider;
         this.artifactStore = artifactStore;
@@ -44,7 +45,7 @@ final class CodeReviewStageComposer {
         this.contractExtractor = contractExtractor;
         this.inputResolver = inputResolver;
         this.promptAssembler = new CodeReviewPromptAssembler();
-        this.implementationStateSupport = new ImplementationStateArtifactSupport();
+        this.implementationStateSupport = implementationStateSupport;
     }
 
     String compose(Path projectPath, RunRecord runRecord, String note) {

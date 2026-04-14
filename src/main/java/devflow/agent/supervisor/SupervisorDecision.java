@@ -1,11 +1,12 @@
 package devflow.agent.supervisor;
 
 import devflow.agent.domain.StageType;
+import devflow.agent.domain.WorkflowAction;
 import devflow.agent.review.FixMode;
 import java.util.List;
 
 public record SupervisorDecision(
-        SupervisorAction action,
+        WorkflowAction action,
         StageType targetStage,
         FixMode mode,
         String reason,

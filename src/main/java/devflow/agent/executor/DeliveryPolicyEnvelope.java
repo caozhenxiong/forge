@@ -1,5 +1,6 @@
 package devflow.agent.executor;
 import devflow.agent.executor.editing.*;
+import devflow.agent.executor.implementation.ImplementationExecutionPolicy;
 import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
@@ -21,10 +22,12 @@ public record DeliveryPolicyEnvelope(
         List<String> requiredEvidence
 ) {
     public static DeliveryPolicyEnvelope defaultPolicy() {
+        ImplementationExecutionPolicy executionPolicy = new ImplementationExecutionPolicy();
+        EditUnitPlanningPolicy editUnitPlanningPolicy = new EditUnitPlanningPolicy();
         return new DeliveryPolicyEnvelope(
                 DeliveryMode.PATCH,
-                ImplementationExecutionPolicy.maxFilesPerSubtask(),
-                EditUnitPlanningPolicy.maxSymbolsPerUnit(),
+                executionPolicy.maxFilesPerSubtask(),
+                editUnitPlanningPolicy.maxSymbolsPerUnit(),
                 true,
                 false,
                 true,

@@ -3,13 +3,14 @@ package devflow.agent.executor.tools;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
-import devflow.agent.executor.ImplementationExecutionPolicy;
+import devflow.agent.executor.implementation.ImplementationExecutionPolicy;
 import devflow.agent.executor.shell.ShellCommandAnalyzer;
 import devflow.agent.executor.shell.ShellCommandDecision;
 
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -24,9 +25,15 @@ import java.util.Set;
  */
 public final class ImplementationToolPermissionPolicy {
 
-    private static final String ALLOWED_TOOLS_KEY = "devflow.implementation.allowed-tools";
+    private final ImplementationToolPermissionProperties properties;
+    private final ImplementationExecutionPolicy implementationExecutionPolicy;
 
-    public ImplementationToolPermissionPolicy() {
+    public ImplementationToolPermissionPolicy(
+            ImplementationToolPermissionProperties properties,
+            ImplementationExecutionPolicy implementationExecutionPolicy
+    ) {
+        this.properties = properties;
+        this.implementationExecutionPolicy = implementationExecutionPolicy;
     }
 
     public ImplementationToolPermissionContext build(
@@ -38,8 +45,8 @@ public final class ImplementationToolPermissionPolicy {
                 projectPath,
                 ownedPaths,
                 resolveAllowedToolNames(registeredToolNames),
-                ImplementationExecutionPolicy.defaultShellTimeoutMs(),
-                ImplementationExecutionPolicy.maxShellTimeoutMs()
+                implementationExecutionPolicy.defaultShellTimeoutMs(),
+                implementationExecutionPolicy.maxShellTimeoutMs()
         );
     }
 
@@ -100,12 +107,12 @@ public final class ImplementationToolPermissionPolicy {
                 }
             }
         }
-        String configured = System.getProperty(ALLOWED_TOOLS_KEY);
-        if (configured == null || configured.isBlank()) {
+        List<String> configured = properties.allowedTools();
+        if (configured == null || configured.isEmpty()) {
             return Set.copyOf(defaults);
         }
         LinkedHashSet<String> requested = new LinkedHashSet<>();
-        for (String raw : configured.split(",")) {
+        for (String raw : configured) {
             String candidate = raw == null ? "" : raw.trim();
             if (!candidate.isBlank() && defaults.contains(candidate)) {
                 requested.add(candidate);

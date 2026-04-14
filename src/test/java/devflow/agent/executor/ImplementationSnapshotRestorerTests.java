@@ -4,6 +4,11 @@ import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
+import devflow.agent.executor.implementation.*;
+import devflow.agent.executor.implementation.planning.*;
+import devflow.agent.executor.implementation.render.*;
+import devflow.agent.executor.implementation.state.*;
+import devflow.agent.executor.implementation.toolloop.*;
 
 import devflow.agent.review.ImplementationPatchTarget;
 import java.nio.file.Path;
@@ -15,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import devflow.agent.executor.implementation.state.ImplementationSnapshotRestorer;
+import devflow.agent.executor.implementation.state.ImplementationStateSnapshot;
 import devflow.agent.executor.implementation.toolloop.ImplementationDiagnosticSource;
 import devflow.agent.executor.implementation.toolloop.ImplementationToolSessionState;
 import devflow.agent.executor.implementation.toolloop.ToolLoopDiagnosticStatus;

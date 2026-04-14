@@ -4,8 +4,13 @@ import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
+import devflow.agent.executor.implementation.*;
+import devflow.agent.executor.implementation.planning.*;
+import devflow.agent.executor.implementation.render.*;
+import devflow.agent.executor.implementation.state.*;
+import devflow.agent.executor.implementation.toolloop.*;
 
-import devflow.agent.executor.llm.OllamaClientPolicy;
+import devflow.agent.executor.llm.OllamaProperties;
 
 import org.junit.jupiter.api.Test;
 
@@ -14,15 +19,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class OllamaClientPolicyTests {
 
     @Test
-    void valuesCanBeOverriddenBySystemProperties() {
-        System.setProperty("devflow.ollama.connect-timeout-seconds", "12");
-        System.setProperty("devflow.ollama.max-empty-response-retries", "5");
-        try {
-            assertEquals(12, OllamaClientPolicy.connectTimeout().toSeconds());
-            assertEquals(5, OllamaClientPolicy.maxEmptyResponseRetries());
-        } finally {
-            System.clearProperty("devflow.ollama.connect-timeout-seconds");
-            System.clearProperty("devflow.ollama.max-empty-response-retries");
-        }
+    void clientValuesAreConfiguredThroughOllamaProperties() {
+        OllamaProperties properties = new OllamaProperties(
+                "http://127.0.0.1:11434",
+                "qwen3-coder:30b",
+                300,
+                12,
+                5,
+                null
+        );
+
+        assertEquals(12, properties.connectTimeout().toSeconds());
+        assertEquals(5, properties.maxEmptyResponseRetries());
     }
 }

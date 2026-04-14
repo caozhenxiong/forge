@@ -7,6 +7,7 @@ import devflow.agent.executor.llm.ModelBudgetProfile;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -22,9 +23,10 @@ public class PromptTokenEstimator {
     private final Map<String, Double> calibratedCharsPerToken = new ConcurrentHashMap<>();
 
     public PromptTokenEstimator() {
-        this(PromptTokenEstimatorSettings.defaults());
+        this(new PromptTokenEstimatorSettings());
     }
 
+    @Autowired
     public PromptTokenEstimator(PromptTokenEstimatorSettings settings) {
         this.settings = settings;
     }

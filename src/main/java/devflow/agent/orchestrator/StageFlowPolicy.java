@@ -18,22 +18,14 @@ public class StageFlowPolicy {
      * 返回当前阶段在正常推进时的下一阶段；测试阶段之后不再有后继阶段。
      */
     public StageType nextStage(StageType stageType) {
-        if (stageType == StageType.ANALYSIS) {
-            return StageType.PRD;
-        }
-        if (stageType == StageType.PRD) {
-            return StageType.DESIGN;
-        }
-        if (stageType == StageType.DESIGN) {
-            return StageType.IMPLEMENTATION;
-        }
-        if (stageType == StageType.IMPLEMENTATION) {
-            return StageType.CODE_REVIEW;
-        }
-        if (stageType == StageType.CODE_REVIEW) {
-            return StageType.TEST;
-        }
-        return null;
+        return switch (stageType) {
+            case ANALYSIS -> StageType.PRD;
+            case PRD -> StageType.DESIGN;
+            case DESIGN -> StageType.IMPLEMENTATION;
+            case IMPLEMENTATION -> StageType.CODE_REVIEW;
+            case CODE_REVIEW -> StageType.TEST;
+            case TEST -> null;
+        };
     }
 
     /**
@@ -55,12 +47,10 @@ public class StageFlowPolicy {
      * 的伪修复链路。
      */
     public StageType repairTarget(StageType stageType) {
-        if (stageType == StageType.IMPLEMENTATION
-                || stageType == StageType.CODE_REVIEW
-                || stageType == StageType.TEST) {
-            return StageType.IMPLEMENTATION;
-        }
-        return null;
+        return switch (stageType) {
+            case IMPLEMENTATION, CODE_REVIEW, TEST -> StageType.IMPLEMENTATION;
+            case ANALYSIS, PRD, DESIGN -> null;
+        };
     }
 
     public boolean supportsRepairRoute(StageType stageType) {

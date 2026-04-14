@@ -8,8 +8,8 @@ import devflow.agent.executor.runtime.*;
 import devflow.agent.executor.tools.ToolFailureCode;
 import devflow.agent.executor.tools.ToolName;
 
-import devflow.agent.editing.FileStateLedger;
-import devflow.agent.editing.ExactReplaceEdit;
+import devflow.agent.editing.precise.FileStateLedger;
+import devflow.agent.editing.precise.ExactReplaceEdit;
 import devflow.agent.parsing.TreeSitterSupport;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.util.ProjectPathSupport;

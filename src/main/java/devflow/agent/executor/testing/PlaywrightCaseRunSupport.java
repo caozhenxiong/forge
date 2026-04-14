@@ -20,11 +20,18 @@ final class PlaywrightCaseRunSupport {
     private final FileProjectWorkspace workspace;
     private final ObjectMapper objectMapper;
     private final PlaywrightSupport support;
+    private final PlaywrightExecutionPolicy playwrightExecutionPolicy;
 
-    PlaywrightCaseRunSupport(FileProjectWorkspace workspace, ObjectMapper objectMapper, PlaywrightSupport support) {
+    PlaywrightCaseRunSupport(
+            FileProjectWorkspace workspace,
+            ObjectMapper objectMapper,
+            PlaywrightSupport support,
+            PlaywrightExecutionPolicy playwrightExecutionPolicy
+    ) {
         this.workspace = workspace;
         this.objectMapper = objectMapper;
         this.support = support;
+        this.playwrightExecutionPolicy = playwrightExecutionPolicy;
     }
 
     List<TestCaseResult> execute(Path projectPath, TestCasePlan plan) {
@@ -40,7 +47,7 @@ final class PlaywrightCaseRunSupport {
                             tempFile.toString(),
                             projectPath.toString()
                     ),
-                    PlaywrightExecutionPolicy.caseExecutionTimeout()
+                    playwrightExecutionPolicy.caseExecutionTimeout()
             );
             if (result.exitCode() != 0 && (result.stdout() == null || result.stdout().isBlank())) {
                 return List.of(blockedExecutorResult(support.trim(result.stderr()), "executor-failure"));

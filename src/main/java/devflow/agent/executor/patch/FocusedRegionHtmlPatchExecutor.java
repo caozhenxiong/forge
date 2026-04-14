@@ -1,6 +1,7 @@
 package devflow.agent.executor.patch;
 import devflow.agent.executor.*;
 import devflow.agent.executor.editing.*;
+import devflow.agent.editing.precise.HtmlEditRegion;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
@@ -17,9 +18,9 @@ import devflow.agent.executor.llm.LlmOptions;
 import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.llm.ModelRole;
 
-import devflow.agent.editing.ExactReplaceApplySupport;
-import devflow.agent.editing.ExactReplaceEdit;
-import devflow.agent.editing.HtmlPreciseEditor;
+import devflow.agent.editing.precise.ExactReplaceApplySupport;
+import devflow.agent.editing.precise.ExactReplaceEdit;
+import devflow.agent.editing.precise.HtmlPreciseEditor;
 import java.util.Locale;
 
 /**

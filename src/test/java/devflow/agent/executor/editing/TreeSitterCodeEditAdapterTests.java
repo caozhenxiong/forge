@@ -5,8 +5,8 @@ import devflow.agent.executor.patch.*;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
-import devflow.agent.editing.CodePreciseEditor;
-import devflow.agent.editing.HtmlPreciseEditor;
+import devflow.agent.editing.precise.CodePreciseEditor;
+import devflow.agent.editing.precise.HtmlPreciseEditor;
 import devflow.agent.parsing.TreeSitterSupport;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;

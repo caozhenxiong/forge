@@ -4,6 +4,11 @@ import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
+import devflow.agent.executor.implementation.*;
+import devflow.agent.executor.implementation.planning.*;
+import devflow.agent.executor.implementation.render.*;
+import devflow.agent.executor.implementation.state.*;
+import devflow.agent.executor.implementation.toolloop.*;
 
 import devflow.agent.executor.generation.GenerationFailureClassifier;
 import devflow.agent.executor.generation.GenerationFailureType;
@@ -12,8 +17,8 @@ import devflow.agent.executor.llm.LlmInvocationException;
 import devflow.agent.executor.llm.StructuredPayloadException;
 import devflow.agent.executor.llm.StructuredPayloadFailureReason;
 
-import devflow.agent.editing.PreciseEditException;
-import devflow.agent.editing.PreciseEditFailureReason;
+import devflow.agent.editing.precise.PreciseEditException;
+import devflow.agent.editing.precise.PreciseEditFailureReason;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

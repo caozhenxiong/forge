@@ -3,6 +3,7 @@ package devflow.agent.validation;
 import devflow.agent.executor.tools.ToolResult;
 
 import devflow.agent.executor.SelfCheckResult;
+import devflow.agent.executor.testing.PlaywrightExecutionPolicy;
 import devflow.agent.i18n.PlaceholderValues;
 import devflow.agent.project.FileProjectWorkspace;
 import java.nio.file.Path;
@@ -17,12 +18,12 @@ public class ValidationExecutor {
     private final JavaScriptSyntaxValidationSupport javaScriptSyntaxValidationSupport;
     private final PlaywrightSmokeValidationSupport playwrightSmokeValidationSupport;
 
-    public ValidationExecutor(FileProjectWorkspace workspace) {
+    public ValidationExecutor(FileProjectWorkspace workspace, PlaywrightExecutionPolicy playwrightExecutionPolicy) {
         this.commandSupport = new ValidationCommandSupport(workspace);
         this.resourceValidationSupport = new WebResourceValidationSupport(workspace);
         this.runtimeWiringValidationSupport = new WebRuntimeWiringValidationSupport(workspace);
         this.javaScriptSyntaxValidationSupport = new JavaScriptSyntaxValidationSupport(workspace);
-        this.playwrightSmokeValidationSupport = new PlaywrightSmokeValidationSupport(workspace);
+        this.playwrightSmokeValidationSupport = new PlaywrightSmokeValidationSupport(workspace, playwrightExecutionPolicy);
     }
 
     public SelfCheckResult execute(Path projectPath, ProjectFingerprint fingerprint, ValidationPlan plan) {

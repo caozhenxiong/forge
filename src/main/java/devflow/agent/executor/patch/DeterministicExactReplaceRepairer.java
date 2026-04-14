@@ -7,8 +7,8 @@ import devflow.agent.executor.runtime.*;
 
 import devflow.agent.executor.tools.ToolFailureCode;
 
-import devflow.agent.editing.ExactReplaceEdit;
-import devflow.agent.editing.FileStateSnapshot;
+import devflow.agent.editing.precise.ExactReplaceEdit;
+import devflow.agent.editing.precise.FileStateSnapshot;
 import java.nio.file.Path;
 
 /**

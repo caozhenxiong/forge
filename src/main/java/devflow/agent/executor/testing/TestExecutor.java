@@ -4,15 +4,14 @@ import devflow.agent.executor.FileChange;
 import devflow.agent.executor.SelfCheckResult;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
+import devflow.agent.executor.runtime.RuntimeSnapshotCaptureResult;
 import devflow.agent.executor.tools.ToolResult;
 import devflow.agent.executor.llm.LlmProvider;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ContractView;
 import devflow.agent.context.ExecutionContract;
 import devflow.agent.i18n.DocumentLanguage;
-import devflow.agent.parsing.TreeSitterSupport;
-import devflow.agent.project.FileProjectWorkspace;
+import devflow.agent.i18n.LanguagePolicy;
 import devflow.agent.quality.CapabilityMatrix;
 import devflow.agent.quality.CapabilityMatrixEntry;
 import devflow.agent.quality.CapabilityIds;
@@ -32,6 +31,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import devflow.agent.executor.subtask.Subtask;
@@ -69,23 +69,39 @@ public class TestExecutor {
     private final CoverageLedgerBuilder coverageLedgerBuilder;
     private final ExperienceFailureDispositionResolver experienceFailureDispositionResolver;
     private final Map<ValidationPlanCacheKey, ValidationPlan> cachedPlans = new ConcurrentHashMap<>();
+    private final LanguagePolicy languagePolicy;
 
-    public TestExecutor(FileProjectWorkspace workspace, LlmProvider llmProvider, ObjectMapper objectMapper) {
-        TreeSitterSupport treeSitterSupport = new TreeSitterSupport();
-        this.projectInspector = new ProjectInspector(workspace);
-        this.strategyPlanner = new ValidationStrategyPlanner(llmProvider, objectMapper);
-        this.validationExecutor = new ValidationExecutor(workspace);
-        this.testCasePlanner = new TestCasePlanner(workspace, llmProvider, objectMapper, treeSitterSupport, new ContractExtractor());
-        PlaywrightCaseExecutor playwrightCaseExecutor = new PlaywrightCaseExecutor(workspace, objectMapper);
-        this.testToolSelector = new TestToolSelector();
-        this.testRunner = new TestRunner(playwrightCaseExecutor);
-        this.testEvidenceCollector = new TestEvidenceCollector();
-        this.testArtifactRenderer = new TestArtifactRenderer();
-        this.contractExtractor = new ContractExtractor();
-        this.architectIntegrationCheck = new ArchitectIntegrationCheck(workspace, treeSitterSupport);
-        this.testEvidenceGate = new TestEvidenceGate();
-        this.coverageLedgerBuilder = new CoverageLedgerBuilder();
-        this.experienceFailureDispositionResolver = new ExperienceFailureDispositionResolver();
+    @Autowired
+    public TestExecutor(
+            ProjectInspector projectInspector,
+            ValidationStrategyPlanner strategyPlanner,
+            ValidationExecutor validationExecutor,
+            TestCasePlanner testCasePlanner,
+            TestToolSelector testToolSelector,
+            TestRunner testRunner,
+            TestEvidenceCollector testEvidenceCollector,
+            TestArtifactRenderer testArtifactRenderer,
+            ContractExtractor contractExtractor,
+            ArchitectIntegrationCheck architectIntegrationCheck,
+            TestEvidenceGate testEvidenceGate,
+            CoverageLedgerBuilder coverageLedgerBuilder,
+            ExperienceFailureDispositionResolver experienceFailureDispositionResolver,
+            LanguagePolicy languagePolicy
+    ) {
+        this.projectInspector = projectInspector;
+        this.strategyPlanner = strategyPlanner;
+        this.validationExecutor = validationExecutor;
+        this.languagePolicy = languagePolicy;
+        this.testCasePlanner = testCasePlanner;
+        this.testToolSelector = testToolSelector;
+        this.testRunner = testRunner;
+        this.testEvidenceCollector = testEvidenceCollector;
+        this.testArtifactRenderer = testArtifactRenderer;
+        this.contractExtractor = contractExtractor;
+        this.architectIntegrationCheck = architectIntegrationCheck;
+        this.testEvidenceGate = testEvidenceGate;
+        this.coverageLedgerBuilder = coverageLedgerBuilder;
+        this.experienceFailureDispositionResolver = experienceFailureDispositionResolver;
     }
 
     public TestExecutionBundle execute(
@@ -97,7 +113,7 @@ public class TestExecutor {
             String implementationReport,
             String note
     ) {
-        DocumentLanguage language = DocumentLanguage.detect(goal, constraints, note);
+        DocumentLanguage language = languagePolicy.resolve(goal, constraints, note);
         TestExecutionSnapshot snapshot = buildExecutionSnapshot(
                 projectPath,
                 goal,
@@ -158,7 +174,7 @@ public class TestExecutor {
             return null;
         }
         DocumentLanguage resolvedLanguage = language == null
-                ? DocumentLanguage.detect(goal, constraints, implementationReport)
+                ? languagePolicy.resolve(goal, constraints, implementationReport)
                 : language;
         TestExecutionSnapshot snapshot = buildExecutionSnapshot(
                 projectPath,

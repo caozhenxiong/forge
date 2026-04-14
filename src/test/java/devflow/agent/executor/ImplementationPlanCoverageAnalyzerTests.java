@@ -4,6 +4,11 @@ import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
+import devflow.agent.executor.implementation.*;
+import devflow.agent.executor.implementation.planning.*;
+import devflow.agent.executor.implementation.render.*;
+import devflow.agent.executor.implementation.state.*;
+import devflow.agent.executor.implementation.toolloop.*;
 
 import devflow.agent.context.ContractView;
 import devflow.agent.context.CoverageObligation;
@@ -12,6 +17,7 @@ import devflow.agent.quality.CapabilityIds;
 import devflow.agent.quality.QualityCoverageRefCatalog;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.quality.QualityPlanFactory;
+import devflow.agent.testsupport.QualityPlanFactoryTestSupport;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -241,7 +247,7 @@ class ImplementationPlanCoverageAnalyzerTests {
                 new ExecutionContract(true, "html-entry", true, true, List.of("page-opens", "surface-renders")),
                 null
         );
-        QualityPlan qualityPlan = new QualityPlanFactory().build(
+        QualityPlan qualityPlan = QualityPlanFactoryTestSupport.qualityPlanFactory().build(
                 null,
                 contractView,
                 null,
@@ -279,7 +285,7 @@ class ImplementationPlanCoverageAnalyzerTests {
                 new ExecutionContract(true, "html-entry", true, true, List.of("page-opens", "surface-renders")),
                 null
         );
-        QualityPlan qualityPlan = new QualityPlanFactory().build(
+        QualityPlan qualityPlan = QualityPlanFactoryTestSupport.qualityPlanFactory().build(
                 null,
                 contractView,
                 null,

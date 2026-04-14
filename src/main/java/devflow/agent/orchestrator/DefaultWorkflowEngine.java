@@ -1,20 +1,7 @@
 package devflow.agent.orchestrator;
 
-import devflow.agent.executor.generation.GenerationEngine;
-
 import devflow.agent.domain.RunRecord;
 import devflow.agent.domain.StageType;
-
-import devflow.agent.artifact.EventLogStore;
-import devflow.agent.artifact.FileArtifactStore;
-import devflow.agent.artifact.StageArtifactComposer;
-import devflow.agent.context.ContextProjector;
-import devflow.agent.loop.AgentLoop;
-import devflow.agent.project.WorkspaceSnapshotStore;
-import devflow.agent.repair.DiagnosisAgent;
-import devflow.agent.repair.RepairAgent;
-import devflow.agent.review.StageReviewer;
-import devflow.agent.supervisor.SupervisorAgent;
 import java.nio.file.Path;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -25,75 +12,9 @@ public class DefaultWorkflowEngine implements WorkflowEngine {
     private final WorkflowRunLifecycleSupport runLifecycleSupport;
 
     public DefaultWorkflowEngine(
-            FileRunRepository runRepository,
-            FileArtifactStore artifactStore,
-            StageArtifactComposer stageArtifactComposer,
-            StageReviewer stageReviewer,
-            EventLogStore eventLogStore,
-            WorkspaceSnapshotStore snapshotStore,
-            DiagnosisAgent diagnosisAgent,
-            RepairAgent repairAgent,
-            SupervisorAgent supervisorAgent,
-            FlowController flowController,
-            StageFlowPolicy stageFlowPolicy,
-            ContextProjector contextProjector,
-            AgentLoop agentLoop
+            WorkflowRunLifecycleSupport runLifecycleSupport
     ) {
-        WorkflowArtifactRenderer workflowArtifactRenderer = new WorkflowArtifactRenderer();
-        StageTransitionSupport stageTransitionSupport = new StageTransitionSupport(
-                runRepository,
-                artifactStore,
-                eventLogStore,
-                diagnosisAgent,
-                repairAgent,
-                stageFlowPolicy,
-                workflowArtifactRenderer
-        );
-        GenerationEngine reviewExecutionEngine = new GenerationEngine();
-        StageOperationExecutor stageOperationExecutor = new StageOperationExecutor(
-                stageArtifactComposer,
-                stageReviewer,
-                eventLogStore,
-                reviewExecutionEngine,
-                new StageOperationPolicy()
-        );
-        StageEntryExecutor stageEntryExecutor = new StageEntryExecutor(
-                runRepository,
-                artifactStore,
-                eventLogStore,
-                stageOperationExecutor,
-                stageTransitionSupport
-        );
-        FlowDecisionExecutor flowDecisionExecutor = new FlowDecisionExecutor(
-                stageTransitionSupport,
-                stageEntryExecutor
-        );
-        StageProgressArtifactSupport stageProgressArtifactSupport = new StageProgressArtifactSupport(
-                artifactStore,
-                eventLogStore,
-                workflowArtifactRenderer
-        );
-        StageProgressCoordinator stageProgressCoordinator = new StageProgressCoordinator(
-                artifactStore,
-                diagnosisAgent,
-                supervisorAgent,
-                flowController,
-                contextProjector,
-                stageOperationExecutor,
-                flowDecisionExecutor,
-                stageProgressArtifactSupport,
-                new StageToolResultLoader(artifactStore),
-                new StageToolResultGuard()
-        );
-        this.runLifecycleSupport = new WorkflowRunLifecycleSupport(
-                runRepository,
-                eventLogStore,
-                snapshotStore,
-                stageTransitionSupport,
-                stageEntryExecutor,
-                stageProgressCoordinator,
-                agentLoop
-        );
+        this.runLifecycleSupport = runLifecycleSupport;
     }
 
     @Override

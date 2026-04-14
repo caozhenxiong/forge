@@ -11,6 +11,16 @@ import devflow.agent.executor.runtime.*;
  */
 final class UiRuntimeObservationPolicy {
 
+    private final TestPlanningPolicy testPlanningPolicy;
+
+    UiRuntimeObservationPolicy() {
+        this(new TestPlanningPolicy());
+    }
+
+    UiRuntimeObservationPolicy(TestPlanningPolicy testPlanningPolicy) {
+        this.testPlanningPolicy = testPlanningPolicy;
+    }
+
     UiObservationTarget requiredTarget(UiRuntimeContract contract, String capabilityId) {
         if (contract == null) {
             return null;
@@ -178,6 +188,6 @@ final class UiRuntimeObservationPolicy {
     }
 
     int observationWaitMs(TestObservationTrigger trigger) {
-        return TestPlanningPolicy.observationWaitMs(trigger);
+        return testPlanningPolicy.observationWaitMs(trigger);
     }
 }

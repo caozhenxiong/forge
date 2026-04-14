@@ -5,6 +5,8 @@ import devflow.agent.executor.editing.*;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
 /**
  * patch 预算相关的集中设置。
  *
@@ -16,25 +18,26 @@ import devflow.agent.executor.runtime.*;
  * <p>当前先支持通过系统属性覆写，避免继续在协调器和策略类里写死魔法数字。
  * 后续如果接 Spring properties，可以直接把这一层作为最终配置载体。
  */
+@ConfigurationProperties(prefix = "devflow.patch.budget")
 public record PatchBudgetSettings(
         double unitBudgetRatioPerTarget,
         double maxPreFlightUnitRatio
 ) {
 
     private static final double DEFAULT_UNIT_BUDGET_RATIO_PER_TARGET = 0.25d;
-    private static final String UNIT_BUDGET_RATIO_PER_TARGET_KEY = "devflow.patch.unit-budget-ratio-per-target";
-    private static final String MAX_PREFLIGHT_UNIT_RATIO_KEY = "devflow.patch.max-preflight-unit-ratio";
+    private static final double DEFAULT_MAX_PREFLIGHT_UNIT_RATIO = 0.75d;
 
-    public PatchBudgetSettings {
-        unitBudgetRatioPerTarget = normalizeRatio(unitBudgetRatioPerTarget, DEFAULT_UNIT_BUDGET_RATIO_PER_TARGET);
-        maxPreFlightUnitRatio = normalizeRatio(maxPreFlightUnitRatio, EditUnitPlanningPolicy.maxPreFlightUnitRatio());
+    public PatchBudgetSettings() {
+        this(DEFAULT_UNIT_BUDGET_RATIO_PER_TARGET, DEFAULT_MAX_PREFLIGHT_UNIT_RATIO);
     }
 
     public static PatchBudgetSettings defaults() {
-        return new PatchBudgetSettings(
-                readPositiveDouble(UNIT_BUDGET_RATIO_PER_TARGET_KEY, DEFAULT_UNIT_BUDGET_RATIO_PER_TARGET),
-                readPositiveDouble(MAX_PREFLIGHT_UNIT_RATIO_KEY, EditUnitPlanningPolicy.maxPreFlightUnitRatio())
-        );
+        return new PatchBudgetSettings();
+    }
+
+    public PatchBudgetSettings {
+        unitBudgetRatioPerTarget = normalizeRatio(unitBudgetRatioPerTarget, DEFAULT_UNIT_BUDGET_RATIO_PER_TARGET);
+        maxPreFlightUnitRatio = normalizeRatio(maxPreFlightUnitRatio, DEFAULT_MAX_PREFLIGHT_UNIT_RATIO);
     }
 
     private static double normalizeRatio(double value, double fallback) {
@@ -42,18 +45,5 @@ public record PatchBudgetSettings(
             return fallback;
         }
         return Math.min(1.0d, value);
-    }
-
-    private static double readPositiveDouble(String key, double fallback) {
-        String configured = System.getProperty(key);
-        if (configured == null || configured.isBlank()) {
-            return fallback;
-        }
-        try {
-            double value = Double.parseDouble(configured.trim());
-            return value > 0 ? value : fallback;
-        } catch (NumberFormatException ignored) {
-            return fallback;
-        }
     }
 }

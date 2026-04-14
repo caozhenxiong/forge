@@ -1,0 +1,322 @@
+package devflow.agent.executor.implementation.state;
+import devflow.agent.executor.*;
+import devflow.agent.executor.implementation.*;
+import devflow.agent.executor.implementation.planning.*;
+import devflow.agent.executor.implementation.render.*;
+import devflow.agent.executor.implementation.toolloop.*;
+import devflow.agent.executor.editing.*;
+import devflow.agent.executor.patch.*;
+
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.executor.tools.StructuredPatchHunk;
+
+import java.util.List;
+
+public record ImplementationStateSnapshot(
+        String summary,
+        List<PlannedSubtaskState> subtasks,
+        List<SubtaskExecutionStateSnapshot> reports,
+        List<EventState> events,
+        String currentSubtaskTitle,
+        boolean planCompleted,
+        boolean stageReady,
+        ContractGateState contractGate,
+        String continuationMode,
+        String continuationSummary,
+        String continuationChangeRequest,
+        String continuationEvidence,
+        String continuationActionItems,
+        List<FileChangeState> continuationOverrideChanges,
+        String continuationPatchTarget,
+        String continuationReasonCode,
+        List<String> incompleteSubtasks
+) {
+
+    public ImplementationStateSnapshot {
+        summary = summary == null ? "" : summary;
+        subtasks = subtasks == null ? List.of() : List.copyOf(subtasks);
+        reports = reports == null ? List.of() : List.copyOf(reports);
+        events = events == null ? List.of() : List.copyOf(events);
+        currentSubtaskTitle = currentSubtaskTitle == null ? "" : currentSubtaskTitle;
+        continuationMode = continuationMode == null ? "" : continuationMode;
+        continuationSummary = continuationSummary == null ? "" : continuationSummary;
+        continuationChangeRequest = continuationChangeRequest == null ? "" : continuationChangeRequest;
+        continuationEvidence = continuationEvidence == null ? "" : continuationEvidence;
+        continuationActionItems = continuationActionItems == null ? "" : continuationActionItems;
+        continuationOverrideChanges = continuationOverrideChanges == null ? List.of() : List.copyOf(continuationOverrideChanges);
+        continuationPatchTarget = continuationPatchTarget == null ? "" : continuationPatchTarget;
+        continuationReasonCode = continuationReasonCode == null ? "" : continuationReasonCode;
+        incompleteSubtasks = incompleteSubtasks == null ? List.of() : List.copyOf(incompleteSubtasks);
+    }
+
+    public ImplementationStateSnapshot(
+            String summary,
+            List<PlannedSubtaskState> subtasks,
+            List<SubtaskExecutionStateSnapshot> reports,
+            List<EventState> events,
+            String currentSubtaskTitle,
+            boolean planCompleted,
+            boolean stageReady,
+            List<String> incompleteSubtasks
+    ) {
+        this(
+                summary,
+                subtasks,
+                reports,
+                events,
+                currentSubtaskTitle,
+                planCompleted,
+                stageReady,
+                null,
+                "",
+                "",
+                "",
+                "",
+                "",
+                List.of(),
+                "",
+                "",
+                incompleteSubtasks
+        );
+    }
+
+    public record PlannedSubtaskState(
+            String title,
+            String goal,
+            List<String> coverageRefs,
+            List<String> ownedCapabilities,
+            List<String> deferredCapabilities,
+            List<String> acceptanceCriteria,
+            boolean runnableMilestone,
+            String deliveryMode,
+            List<FileChangeState> changes
+    ) {
+    }
+
+    public record FileChangeState(
+            String path,
+            String action,
+            String reason,
+            String editScope,
+            String runtimeOwnership,
+            boolean hostHtmlPatchRequired
+    ) {
+        public FileChangeState(String path, String action, String reason) {
+            this(path, action, reason, FileEditScope.AUTO.name(), null, false);
+        }
+
+        public FileChangeState(String path, String action, String reason, String editScope) {
+            this(path, action, reason, editScope, null, false);
+        }
+
+        public FileChangeState(String path, String action, String reason, String editScope, String runtimeOwnership) {
+            this(path, action, reason, editScope, runtimeOwnership, false);
+        }
+    }
+
+    public record RuntimeContractState(
+            String htmlEntryPath,
+            String runtimeOwnership,
+            List<String> runtimePaths
+    ) {
+    }
+
+    public record ContractGateState(
+            String scope,
+            boolean passed,
+            String failureReason,
+            String details,
+            String implementationPatchTarget,
+            RuntimeContractState runtimeContract
+    ) {
+    }
+
+    public record SubtaskExecutionStateSnapshot(
+            String title,
+            boolean completed,
+            List<SubtaskAttemptState> attempts,
+            String deliveryMode,
+            boolean preferPreciseEditing,
+            List<FileEditAttemptStateSnapshot> fileEditAttemptStates,
+            List<FileChangeState> effectiveChanges,
+            ToolSessionStateSnapshot toolSessionState
+    ) {
+        public SubtaskExecutionStateSnapshot(
+                String title,
+                boolean completed,
+                List<SubtaskAttemptState> attempts
+        ) {
+            this(title, completed, attempts, null, false, List.of(), List.of(), null);
+        }
+
+        public SubtaskExecutionStateSnapshot(
+                String title,
+                boolean completed,
+                List<SubtaskAttemptState> attempts,
+                String deliveryMode,
+                boolean preferPreciseEditing,
+                List<FileEditAttemptStateSnapshot> fileEditAttemptStates
+        ) {
+            this(title, completed, attempts, deliveryMode, preferPreciseEditing, fileEditAttemptStates, List.of(), null);
+        }
+
+        public SubtaskExecutionStateSnapshot(
+                String title,
+                boolean completed,
+                List<SubtaskAttemptState> attempts,
+                String deliveryMode,
+                boolean preferPreciseEditing,
+                List<FileEditAttemptStateSnapshot> fileEditAttemptStates,
+                List<FileChangeState> effectiveChanges
+        ) {
+            this(title, completed, attempts, deliveryMode, preferPreciseEditing, fileEditAttemptStates, effectiveChanges, null);
+        }
+    }
+
+    public record ToolSessionStateSnapshot(
+            long readFileStateMaxEntries,
+            long readFileStateMaxSizeBytes,
+            List<ReadFileStateEntry> readFileStates,
+            List<String> seenToolResultIds,
+            List<ToolResultReplacementEntry> toolResultReplacements,
+            List<FileMutationState> fileMutations,
+            List<DiagnosticState> diagnostics
+    ) {
+    }
+
+    public record ReadFileStateEntry(
+            String absolutePath,
+            String content,
+            long timestamp,
+            Integer offset,
+            Integer limit,
+            boolean partialView
+    ) {
+    }
+
+    public record ToolResultReplacementEntry(
+            String toolUseId,
+            String replacement
+    ) {
+    }
+
+    public record FileMutationState(
+            String operation,
+            String relativePath,
+            boolean beforeExists,
+            String beforeHash,
+            boolean afterExists,
+            String afterHash,
+            List<StructuredPatchHunk> structuredPatch,
+            long timestamp
+    ) {
+    }
+
+    public record DiagnosticState(
+            String diagnosticId,
+            String relativePath,
+            String status,
+            String source,
+            String evidence,
+            long timestamp
+    ) {
+    }
+
+    public record FileEditAttemptStateSnapshot(
+            String relativePath,
+            String protocolName,
+            String strategyName,
+            String workingContent,
+            String plannedFromHash,
+            List<String> completedTargetLabels,
+            String currentTargetLabel
+    ) {
+    }
+
+    public record SubtaskAttemptState(
+            int attempt,
+            boolean selfCheckPassed,
+            String selfCheckSummary,
+            String selfCheckDetails,
+            List<ToolResultState> selfCheckToolResults,
+            String reviewDecision,
+            String reviewFixMode,
+            String reviewSummary,
+            String reviewChangeRequest,
+            String reviewEvidence,
+            String reviewActionItems,
+            String reviewImplementationPatchTarget,
+            GenerationFailureState generationFailure,
+            RecoveryDecisionState recoveryDecision
+    ) {
+        public SubtaskAttemptState(
+                int attempt,
+                boolean selfCheckPassed,
+                String selfCheckSummary,
+                String selfCheckDetails,
+                String reviewDecision,
+                String reviewFixMode,
+                String reviewSummary,
+                String reviewChangeRequest,
+                String reviewEvidence,
+                String reviewActionItems,
+                String reviewImplementationPatchTarget,
+                GenerationFailureState generationFailure,
+                RecoveryDecisionState recoveryDecision
+        ) {
+            this(
+                    attempt,
+                    selfCheckPassed,
+                    selfCheckSummary,
+                    selfCheckDetails,
+                    List.of(),
+                    reviewDecision,
+                    reviewFixMode,
+                    reviewSummary,
+                    reviewChangeRequest,
+                    reviewEvidence,
+                    reviewActionItems,
+                    reviewImplementationPatchTarget,
+                    generationFailure,
+                    recoveryDecision
+            );
+        }
+    }
+
+    public record ToolResultState(
+            String toolName,
+            String status,
+            String failureCode,
+            String evidence,
+            String recommendedNextAction
+    ) {
+    }
+
+    public record GenerationFailureState(
+            String failureType,
+            String summary,
+            String evidence,
+            String retryHint
+    ) {
+    }
+
+    public record RecoveryDecisionState(
+            String action,
+            String mode,
+            Integer maxFiles,
+            Integer maxSymbols,
+            boolean preferPreciseEditing,
+            boolean forceBacklogSplit,
+            boolean requireVerificationBeforeReview,
+            String reason
+    ) {
+    }
+
+    public record EventState(
+            String timestamp,
+            String message
+    ) {
+    }
+}

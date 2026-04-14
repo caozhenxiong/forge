@@ -25,7 +25,7 @@ import devflow.agent.executor.llm.LlmToolDefinition;
 import devflow.agent.executor.llm.ModelRole;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import devflow.agent.editing.FileStateSnapshot;
+import devflow.agent.editing.precise.FileStateSnapshot;
 import devflow.agent.context.ContractView;
 import devflow.agent.domain.RunRecord;
 import devflow.agent.quality.QualityPlan;
@@ -47,7 +47,7 @@ import devflow.agent.executor.subtask.SubtaskExecutionState;
 import devflow.agent.executor.subtask.TaskPackage;
 import devflow.agent.executor.DeliveryMode;
 import devflow.agent.executor.FileChange;
-import devflow.agent.executor.FileMutationRecord;
+import devflow.agent.executor.implementation.toolloop.FileMutationRecord;
 /**
  * Claude-style implementation tool loop。
  *
@@ -72,13 +72,14 @@ public final class ImplementationToolLoopExecutor {
             LlmProvider llmProvider,
             ObjectMapper objectMapper,
             int maxToolTurns,
+            ImplementationToolPermissionPolicy permissionPolicy,
             ExecutorService toolExecutor
     ) {
         this.llmProvider = llmProvider;
         this.objectMapper = objectMapper;
         this.maxToolTurns = Math.max(1, maxToolTurns);
         this.toolRegistry = ImplementationToolRegistry.defaultRegistry();
-        this.permissionPolicy = new ImplementationToolPermissionPolicy();
+        this.permissionPolicy = permissionPolicy;
         this.toolExecutor = toolExecutor;
     }
 

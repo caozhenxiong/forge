@@ -8,8 +8,8 @@ import devflow.agent.executor.runtime.*;
 import devflow.agent.executor.generation.GenerationFailureReport;
 import devflow.agent.executor.generation.GenerationFailureType;
 
-import devflow.agent.editing.HtmlPreciseEditor;
-import devflow.agent.editing.HtmlPrecisePatch;
+import devflow.agent.editing.precise.HtmlPreciseEditor;
+import devflow.agent.editing.precise.HtmlPrecisePatch;
 import devflow.agent.util.ProjectPathSupport;
 import java.nio.file.Path;
 import java.util.List;

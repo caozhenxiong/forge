@@ -10,7 +10,7 @@ import devflow.agent.executor.generation.GenerationFailureException;
 import devflow.agent.executor.generation.GenerationFailureType;
 import devflow.agent.executor.llm.LlmProvider;
 
-import devflow.agent.editing.FileStateLedger;
+import devflow.agent.editing.precise.FileStateLedger;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;

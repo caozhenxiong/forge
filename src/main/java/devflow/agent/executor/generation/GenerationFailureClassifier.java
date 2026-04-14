@@ -5,8 +5,8 @@ import devflow.agent.executor.runtime.*;
 
 import devflow.agent.executor.llm.LlmFailureReason;
 import devflow.agent.executor.llm.LlmInvocationException;
-import devflow.agent.editing.PreciseEditException;
-import devflow.agent.editing.PreciseEditFailureReason;
+import devflow.agent.editing.precise.PreciseEditException;
+import devflow.agent.editing.precise.PreciseEditFailureReason;
 import devflow.agent.executor.llm.StructuredPayloadException;
 
 /**

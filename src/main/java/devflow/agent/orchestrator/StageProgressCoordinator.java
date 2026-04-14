@@ -10,8 +10,9 @@ import devflow.agent.artifact.AuxiliaryArtifactNames;
 import devflow.agent.context.ContextProjector;
 import devflow.agent.context.ProjectedContext;
 import devflow.agent.executor.FileChange;
-import devflow.agent.executor.ImplementationStateArtifactSupport;
+import devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport;
 import devflow.agent.i18n.DocumentLanguage;
+import devflow.agent.i18n.LanguagePolicy;
 import devflow.agent.loop.LoopStepResult;
 import devflow.agent.loop.TransitionDecision;
 import devflow.agent.loop.TransitionReason;
@@ -52,6 +53,7 @@ public class StageProgressCoordinator {
     private final StageToolResultLoader toolResultLoader;
     private final StageToolResultGuard toolResultGuard;
     private final ImplementationStateArtifactSupport implementationStateSupport;
+    private final LanguagePolicy languagePolicy;
 
     public StageProgressCoordinator(
             FileArtifactStore artifactStore,
@@ -63,7 +65,9 @@ public class StageProgressCoordinator {
             FlowDecisionExecutor flowDecisionExecutor,
             StageProgressArtifactSupport artifactSupport,
             StageToolResultLoader toolResultLoader,
-            StageToolResultGuard toolResultGuard
+            StageToolResultGuard toolResultGuard,
+            ImplementationStateArtifactSupport implementationStateSupport,
+            LanguagePolicy languagePolicy
     ) {
         this.artifactStore = artifactStore;
         this.diagnosisAgent = diagnosisAgent;
@@ -75,7 +79,8 @@ public class StageProgressCoordinator {
         this.artifactSupport = artifactSupport;
         this.toolResultLoader = toolResultLoader;
         this.toolResultGuard = toolResultGuard;
-        this.implementationStateSupport = new ImplementationStateArtifactSupport();
+        this.implementationStateSupport = implementationStateSupport;
+        this.languagePolicy = languagePolicy;
     }
 
     public LoopStepResult progress(Path projectPath, RunRecord current) {
@@ -85,7 +90,7 @@ public class StageProgressCoordinator {
             return new LoopStepResult(current, null, false);
         }
 
-        DocumentLanguage language = DocumentLanguage.detect(current.goal(), current.constraints());
+        DocumentLanguage language = languagePolicy.resolve(current.goal(), current.constraints());
         String artifactContent;
         if (stageType == StageType.IMPLEMENTATION) {
             String implementationStateJson = readImplementationStateArtifact(projectPath, current);

@@ -25,7 +25,11 @@ class PlaywrightCaseExecutorTests {
     @Test
     void executeCleansUpTempFileWhenExecutorThrows() throws Exception {
         ThrowingWorkspace workspace = new ThrowingWorkspace();
-        PlaywrightCaseExecutor executor = new PlaywrightCaseExecutor(workspace, new ObjectMapper());
+        PlaywrightCaseExecutor executor = new PlaywrightCaseExecutor(
+                workspace,
+                new ObjectMapper(),
+                new PlaywrightExecutionPolicy()
+        );
 
         executor.execute(tempDir, new TestCasePlan(
                 "summary",
@@ -48,7 +52,11 @@ class PlaywrightCaseExecutorTests {
     @Test
     void captureRuntimeSnapshotCleansUpTempFileWhenExecutorThrows() throws Exception {
         ThrowingWorkspace workspace = new ThrowingWorkspace();
-        PlaywrightCaseExecutor executor = new PlaywrightCaseExecutor(workspace, new ObjectMapper());
+        PlaywrightCaseExecutor executor = new PlaywrightCaseExecutor(
+                workspace,
+                new ObjectMapper(),
+                new PlaywrightExecutionPolicy()
+        );
 
         executor.captureRuntimeSnapshot(tempDir, "index.html");
 
@@ -59,7 +67,11 @@ class PlaywrightCaseExecutorTests {
     @Test
     void executeUsesForgeAbsoluteScriptPathInsteadOfProjectRelativePath() {
         CapturingWorkspace workspace = new CapturingWorkspace();
-        PlaywrightCaseExecutor executor = new PlaywrightCaseExecutor(workspace, new ObjectMapper());
+        PlaywrightCaseExecutor executor = new PlaywrightCaseExecutor(
+                workspace,
+                new ObjectMapper(),
+                new PlaywrightExecutionPolicy()
+        );
 
         executor.execute(tempDir, new TestCasePlan(
                 "summary",

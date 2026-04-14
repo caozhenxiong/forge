@@ -6,8 +6,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import devflow.agent.context.ProjectedContext;
 import devflow.agent.domain.GatePolicy;
 import devflow.agent.domain.RunRecord;
-import devflow.agent.orchestrator.StageFlowPolicy;
 import devflow.agent.domain.StageType;
+import devflow.agent.domain.WorkflowAction;
+import devflow.agent.orchestrator.StageFlowPolicy;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
@@ -50,7 +51,7 @@ public class SupervisorDecisionSanitizer {
         if (payload == null || payload.action() == null || payload.action().isBlank()) {
             return fallback;
         }
-        SupervisorAction action = EnumParsers.parseIgnoreCase(SupervisorAction.class, payload.action(), null);
+        WorkflowAction action = EnumParsers.parseIgnoreCase(WorkflowAction.class, payload.action(), null);
         if (action == null) {
             return fallback;
         }
@@ -58,52 +59,52 @@ public class SupervisorDecisionSanitizer {
         FixMode mode = payloadNormalizer.parseFixMode(payload.mode(), reviewResult.fixMode());
 
         if (reviewResult.decision() == ReviewDecision.APPROVED) {
-            if (gatePolicy == GatePolicy.AGENT_PLUS_HUMAN && action != SupervisorAction.REQUEST_HUMAN_REVIEW) {
+            if (gatePolicy == GatePolicy.AGENT_PLUS_HUMAN && action != WorkflowAction.REQUEST_HUMAN_REVIEW) {
                 return fallback;
             }
-            if (!(action == SupervisorAction.ADVANCE_STAGE
-                    || action == SupervisorAction.REQUEST_HUMAN_REVIEW
-                    || action == SupervisorAction.COMPLETE_RUN)) {
+            if (!(action == WorkflowAction.ADVANCE_STAGE
+                    || action == WorkflowAction.REQUEST_HUMAN_REVIEW
+                    || action == WorkflowAction.COMPLETE_RUN)) {
                 return fallback;
             }
-            if (action == SupervisorAction.REQUEST_HUMAN_REVIEW && gatePolicy != GatePolicy.AGENT_PLUS_HUMAN) {
+            if (action == WorkflowAction.REQUEST_HUMAN_REVIEW && gatePolicy != GatePolicy.AGENT_PLUS_HUMAN) {
                 return fallback;
             }
-            if (action == SupervisorAction.ADVANCE_STAGE && nextStage == null) {
+            if (action == WorkflowAction.ADVANCE_STAGE && nextStage == null) {
                 return fallback;
             }
-            if (action == SupervisorAction.COMPLETE_RUN && nextStage != null) {
+            if (action == WorkflowAction.COMPLETE_RUN && nextStage != null) {
                 return fallback;
             }
-            if (action == SupervisorAction.ADVANCE_STAGE) {
+            if (action == WorkflowAction.ADVANCE_STAGE) {
                 targetStage = nextStage;
             } else {
                 targetStage = currentStage;
             }
         } else {
-            if (!(action == SupervisorAction.RETRY_STAGE
-                    || action == SupervisorAction.ROUTE_TO_REPAIR
-                    || action == SupervisorAction.ROLLBACK_STAGE
-                    || action == SupervisorAction.FAIL_RUN
-                    || action == SupervisorAction.REQUEST_HUMAN_REVIEW)) {
+            if (!(action == WorkflowAction.RETRY_STAGE
+                    || action == WorkflowAction.ROUTE_TO_REPAIR
+                    || action == WorkflowAction.ROLLBACK_STAGE
+                    || action == WorkflowAction.FAIL_RUN
+                    || action == WorkflowAction.REQUEST_HUMAN_REVIEW)) {
                 return fallback;
             }
-            if (action == SupervisorAction.ROUTE_TO_REPAIR) {
+            if (action == WorkflowAction.ROUTE_TO_REPAIR) {
                 StageType repairTarget = stageFlowPolicy.repairTarget(currentStage);
                 if (!repeatedIssue || repairTarget == null) {
                     return fallback;
                 }
                 targetStage = repairTarget;
             }
-            if (action == SupervisorAction.RETRY_STAGE && targetStage == null) {
+            if (action == WorkflowAction.RETRY_STAGE && targetStage == null) {
                 targetStage = fallback.targetStage();
             }
-            if (action == SupervisorAction.ROLLBACK_STAGE) {
+            if (action == WorkflowAction.ROLLBACK_STAGE) {
                 if (targetStage == null || targetStage.ordinal() >= currentStage.ordinal()) {
                     return fallback;
                 }
             }
-            if (action == SupervisorAction.REQUEST_HUMAN_REVIEW) {
+            if (action == WorkflowAction.REQUEST_HUMAN_REVIEW) {
                 if (gatePolicy != GatePolicy.AGENT_PLUS_HUMAN) {
                     return fallback;
                 }

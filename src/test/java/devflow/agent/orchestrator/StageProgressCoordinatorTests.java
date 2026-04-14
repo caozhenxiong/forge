@@ -156,7 +156,9 @@ class StageProgressCoordinatorTests {
                 flowDecisionExecutor,
                 new StageProgressArtifactSupport(artifactStore, eventLogStore, workflowArtifactRenderer),
                 new StageToolResultLoader(artifactStore),
-                new StageToolResultGuard()
+                new StageToolResultGuard(),
+                new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
+                new devflow.agent.i18n.LanguagePolicy()
         );
 
         var result = coordinator.progress(tempDir, runRecord);
@@ -284,7 +286,9 @@ class StageProgressCoordinatorTests {
                 flowDecisionExecutor,
                 new StageProgressArtifactSupport(artifactStore, eventLogStore, workflowArtifactRenderer),
                 new StageToolResultLoader(artifactStore),
-                new StageToolResultGuard()
+                new StageToolResultGuard(),
+                new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
+                new devflow.agent.i18n.LanguagePolicy()
         );
 
         var result = coordinator.progress(tempDir, runRecord);
@@ -400,7 +404,9 @@ class StageProgressCoordinatorTests {
                 flowDecisionExecutor,
                 new StageProgressArtifactSupport(artifactStore, eventLogStore, workflowArtifactRenderer),
                 new StageToolResultLoader(artifactStore),
-                new StageToolResultGuard()
+                new StageToolResultGuard(),
+                new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
+                new devflow.agent.i18n.LanguagePolicy()
         );
 
         var result = coordinator.progress(tempDir, runRecord);
@@ -494,7 +500,9 @@ class StageProgressCoordinatorTests {
                 flowDecisionExecutor,
                 new StageProgressArtifactSupport(artifactStore, eventLogStore, workflowArtifactRenderer),
                 new StageToolResultLoader(artifactStore),
-                new StageToolResultGuard()
+                new StageToolResultGuard(),
+                new devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport(),
+                new devflow.agent.i18n.LanguagePolicy()
         );
 
         coordinator.progress(tempDir, runRecord);
@@ -505,13 +513,10 @@ class StageProgressCoordinatorTests {
 
     private StageReviewer reviewerThatSetsFlag(AtomicBoolean reviewerCalled) {
         LlmProvider provider = fakeProvider();
-        return new StageReviewer(
+        return new devflow.agent.review.StageReviewerHarness(
                 provider,
                 new devflow.agent.project.WorkspaceSnapshotStore(new FileRunRepository(), new FileProjectWorkspace()),
-                new devflow.agent.executor.testing.TestExecutor(new FileProjectWorkspace(), provider, new ObjectMapper()),
-                new devflow.agent.prompt.PromptTemplateCatalog(),
-                new devflow.agent.i18n.LanguagePolicy(),
-                new devflow.agent.loop.AgentTurnLoop()
+                devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), provider, new ObjectMapper())
         ) {
             @Override
             public ReviewResult review(Path projectPath, RunRecord runRecord, StageType stageType, String artifactContent) {

@@ -12,7 +12,7 @@ import devflow.agent.review.FixMode;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.supervisor.DeliveryPolicy;
-import devflow.agent.supervisor.SupervisorAction;
+import devflow.agent.domain.WorkflowAction;
 import devflow.agent.supervisor.SupervisorDecision;
 import java.time.Instant;
 import java.util.EnumMap;
@@ -31,7 +31,7 @@ class FlowControllerTests {
         FlowController controller = new FlowController();
         ReviewResult reviewResult = new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
         SupervisorDecision supervisorDecision = new SupervisorDecision(
-                SupervisorAction.ADVANCE_STAGE,
+                WorkflowAction.ADVANCE_STAGE,
                 StageType.PRD,
                 FixMode.NONE,
                 "继续下一阶段",
@@ -50,7 +50,7 @@ class FlowControllerTests {
                 StageToolResultSummary.none()
         );
 
-        assertEquals(FlowAction.ADVANCE_STAGE, flowDecision.action());
+        assertEquals(WorkflowAction.ADVANCE_STAGE, flowDecision.action());
         assertEquals(StageType.PRD, flowDecision.targetStage());
         assertEquals(TransitionReason.STAGE_APPROVED, flowDecision.transitionDecision().reason());
         assertEquals(StageType.ANALYSIS, flowDecision.transitionDecision().fromStage());
@@ -88,7 +88,7 @@ class FlowControllerTests {
         FlowController controller = new FlowController();
         ReviewResult reviewResult = new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
         SupervisorDecision supervisorDecision = new SupervisorDecision(
-                SupervisorAction.COMPLETE_RUN,
+                WorkflowAction.COMPLETE_RUN,
                 null,
                 FixMode.NONE,
                 "全部完成",
@@ -115,7 +115,7 @@ class FlowControllerTests {
                 )
         );
 
-        assertEquals(FlowAction.RETRY_STAGE, flowDecision.action());
+        assertEquals(WorkflowAction.RETRY_STAGE, flowDecision.action());
         assertEquals(StageType.TEST, flowDecision.targetStage());
         assertEquals(TransitionReason.STAGE_RETRY, flowDecision.transitionDecision().reason());
     }

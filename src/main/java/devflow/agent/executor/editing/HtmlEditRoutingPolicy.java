@@ -1,4 +1,5 @@
 package devflow.agent.executor.editing;
+import devflow.agent.editing.precise.HtmlEditRegion;
 import devflow.agent.executor.*;
 import devflow.agent.executor.patch.*;
 

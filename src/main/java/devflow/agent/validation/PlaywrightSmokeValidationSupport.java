@@ -6,8 +6,8 @@ import devflow.agent.executor.tools.ToolResult;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.executor.testing.PlaywrightProbeRunner;
-import devflow.agent.executor.testing.RuntimeSnapshot;
-import devflow.agent.executor.testing.RuntimeSnapshotCaptureStatus;
+import devflow.agent.executor.runtime.RuntimeSnapshot;
+import devflow.agent.executor.runtime.RuntimeSnapshotCaptureStatus;
 import devflow.agent.i18n.PlaceholderValues;
 import devflow.agent.project.FileProjectWorkspace;
 import java.nio.file.Files;
@@ -20,8 +20,11 @@ final class PlaywrightSmokeValidationSupport {
 
     private final PlaywrightProbeRunner probeRunner;
 
-    PlaywrightSmokeValidationSupport(FileProjectWorkspace workspace) {
-        this.probeRunner = new PlaywrightProbeRunner(workspace, new ObjectMapper());
+    PlaywrightSmokeValidationSupport(
+            FileProjectWorkspace workspace,
+            devflow.agent.executor.testing.PlaywrightExecutionPolicy playwrightExecutionPolicy
+    ) {
+        this.probeRunner = new PlaywrightProbeRunner(workspace, new ObjectMapper(), playwrightExecutionPolicy);
     }
 
     ValidationStepExecution run(Path projectPath, ProjectFingerprint fingerprint, String reason) {

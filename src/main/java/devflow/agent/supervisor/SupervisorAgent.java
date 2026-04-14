@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.context.ContextProjector;
 import devflow.agent.context.ProjectedContext;
 import devflow.agent.i18n.DocumentLanguage;
+import devflow.agent.i18n.LanguagePolicy;
 import devflow.agent.domain.GatePolicy;
 import devflow.agent.domain.RunRecord;
 import devflow.agent.orchestrator.StageFlowPolicy;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -50,6 +52,7 @@ public class SupervisorAgent {
     private final SupervisorDecisionSanitizer decisionSanitizer;
     private final SupervisorPromptAssembler promptAssembler;
     private final StructuredPayloadReader structuredPayloadReader;
+    private final LanguagePolicy languagePolicy;
 
     public SupervisorAgent(
             LlmProvider llmProvider,
@@ -57,6 +60,18 @@ public class SupervisorAgent {
             ContextProjector contextProjector,
             StageFlowPolicy stageFlowPolicy,
             SupervisorFallbackPolicy supervisorFallbackPolicy
+    ) {
+        this(llmProvider, objectMapper, contextProjector, stageFlowPolicy, supervisorFallbackPolicy, new LanguagePolicy());
+    }
+
+    @Autowired
+    public SupervisorAgent(
+            LlmProvider llmProvider,
+            ObjectMapper objectMapper,
+            ContextProjector contextProjector,
+            StageFlowPolicy stageFlowPolicy,
+            SupervisorFallbackPolicy supervisorFallbackPolicy,
+            LanguagePolicy languagePolicy
     ) {
         this.llmProvider = llmProvider;
         this.objectMapper = objectMapper;
@@ -67,6 +82,7 @@ public class SupervisorAgent {
         this.decisionSanitizer = new SupervisorDecisionSanitizer(stageFlowPolicy, supervisorFallbackPolicy);
         this.promptAssembler = new SupervisorPromptAssembler(artifactRenderer);
         this.structuredPayloadReader = new StructuredPayloadReader(objectMapper);
+        this.languagePolicy = languagePolicy;
     }
 
     public SupervisorDecision decide(
@@ -80,6 +96,7 @@ public class SupervisorAgent {
         StageType nextStage = stageFlowPolicy.nextStage(currentStage);
         GatePolicy gatePolicy = runRecord.config().gatePolicies().getOrDefault(currentStage, GatePolicy.AGENT_ONLY);
         ProjectedContext projectedContext = contextProjector.project(projectPath, runRecord, currentStage);
+        DocumentLanguage language = languagePolicy.resolve(runRecord.goal(), runRecord.constraints());
         SupervisorDecision fallback = supervisorFallbackPolicy.decideStageFallback(
                 runRecord,
                 currentStage,
@@ -97,6 +114,7 @@ public class SupervisorAgent {
                     promptAssembler.decisionSystemPrompt(),
                     promptAssembler.decisionUserPrompt(
                             runRecord,
+                            language,
                             currentStage,
                             nextStage,
                             gatePolicy,
@@ -138,7 +156,7 @@ public class SupervisorAgent {
             DeliveryPolicy currentPolicy
     ) {
         ProjectedContext projectedContext = contextProjector.project(projectPath, runRecord, StageType.IMPLEMENTATION);
-        DocumentLanguage language = DocumentLanguage.detect(
+        DocumentLanguage language = languagePolicy.resolve(
                 runRecord.goal(),
                 runRecord.constraints(),
                 feedback,

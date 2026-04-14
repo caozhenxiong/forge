@@ -1,0 +1,78 @@
+package devflow.agent.executor.implementation.render;
+import devflow.agent.executor.*;
+import devflow.agent.executor.implementation.*;
+import devflow.agent.executor.implementation.planning.*;
+import devflow.agent.executor.implementation.state.*;
+import devflow.agent.executor.editing.*;
+import devflow.agent.executor.patch.*;
+
+import devflow.agent.executor.gate.*;
+import devflow.agent.executor.runtime.*;
+
+import devflow.agent.context.ContractView;
+import devflow.agent.context.SharedContextBundle;
+import devflow.agent.validation.ProjectFingerprint;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.TaskPackage;
+/**
+ * 负责从 implementation plan 派生 task package。
+ *
+ * <p>这层只关心“子任务对 worker 暴露什么上下文”，避免快照装配器同时承担
+ * task package 投影和 runtime snapshot 组装两类职责。
+ */
+public final class TaskPackageAssembler {
+
+    private final TargetedFileContextRenderer targetedFileContextRenderer;
+
+    public TaskPackageAssembler(TargetedFileContextRenderer targetedFileContextRenderer) {
+        this.targetedFileContextRenderer = targetedFileContextRenderer;
+    }
+
+    public List<TaskPackage> buildTaskPackages(
+            Path projectPath,
+            ImplementationPlan plan,
+            SharedContextBundle sharedContextBundle,
+            ContractView contractView,
+            ProjectFingerprint fingerprint
+    ) {
+        List<TaskPackage> packages = new ArrayList<>();
+        for (Subtask subtask : plan.subtasks()) {
+            packages.add(new TaskPackage(
+                    subtask.title(),
+                    subtask.goal(),
+                    subtask.deliveryMode().name(),
+                    subtask.runnableMilestone(),
+                    subtask.changes().stream().map(FileChange::path).toList(),
+                    safeList(subtask.coverageRefs()),
+                    safeList(subtask.ownedCapabilities()),
+                    safeList(subtask.deferredCapabilities()),
+                    safeList(subtask.acceptanceCriteria()),
+                    sharedContextBundle.mustFixFirst(),
+                    sharedContextBundle.forbiddenDirections(),
+                    renderTargetedContext(projectPath, subtask.changes(), contractView, fingerprint),
+                    sharedContextBundle
+            ));
+        }
+        return packages;
+    }
+
+    private String renderTargetedContext(
+            Path projectPath,
+            List<FileChange> changes,
+            ContractView contractView,
+            ProjectFingerprint fingerprint
+    ) {
+        if (targetedFileContextRenderer == null) {
+            return "";
+        }
+        return targetedFileContextRenderer.render(projectPath, changes, null, contractView, fingerprint);
+    }
+
+    private List<String> safeList(List<String> values) {
+        return values == null ? List.of() : values;
+    }
+}

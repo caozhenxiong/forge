@@ -22,7 +22,17 @@ import java.util.Set;
  */
 final class TestCaseBehaviorRepairSupport {
 
-    private final UiRuntimeObservationPolicy observationPolicy = new UiRuntimeObservationPolicy();
+    private final UiRuntimeObservationPolicy observationPolicy;
+    private final TestPlanningPolicy testPlanningPolicy;
+
+    TestCaseBehaviorRepairSupport() {
+        this(new TestPlanningPolicy());
+    }
+
+    TestCaseBehaviorRepairSupport(TestPlanningPolicy testPlanningPolicy) {
+        this.testPlanningPolicy = testPlanningPolicy;
+        this.observationPolicy = new UiRuntimeObservationPolicy(testPlanningPolicy);
+    }
 
     List<TestCaseSpec> repairCases(List<TestCaseSpec> cases, RuntimeSnapshot runtimeSnapshot, UiRuntimeContract runtimeContract) {
         if (cases == null || cases.isEmpty()) {
@@ -207,7 +217,7 @@ final class TestCaseBehaviorRepairSupport {
                 null,
                 null,
                 null,
-                TestPlanningPolicy.strengthenedInteractionWaitMs(),
+                testPlanningPolicy.strengthenedInteractionWaitMs(),
                 null,
                 false
         ));

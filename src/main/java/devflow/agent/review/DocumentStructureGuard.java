@@ -31,7 +31,11 @@ class DocumentStructureGuard {
     private final RequiredDocumentSectionPolicy sectionPolicy = new RequiredDocumentSectionPolicy();
     private final DocumentIntegrityGuardSupport documentIntegrityGuardSupport = new DocumentIntegrityGuardSupport();
     private final ContractMetadataConsistencyGuard contractMetadataConsistencyGuard = new ContractMetadataConsistencyGuard();
-    private final ContractExtractor contractExtractor = new ContractExtractor();
+    private final ContractExtractor contractExtractor;
+
+    DocumentStructureGuard(ContractExtractor contractExtractor) {
+        this.contractExtractor = contractExtractor;
+    }
 
     ReviewResult enforce(
             RunRecord runRecord,

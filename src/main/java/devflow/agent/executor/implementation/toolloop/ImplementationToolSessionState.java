@@ -8,7 +8,7 @@ import devflow.agent.executor.llm.LlmChatMessage;
 import java.util.ArrayList;
 import java.util.List;
 
-import devflow.agent.executor.FileMutationRecord;
+import devflow.agent.executor.implementation.toolloop.FileMutationRecord;
 /**
  * 子任务级 implementation tool session 唯一状态源。
  *

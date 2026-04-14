@@ -16,6 +16,16 @@ import java.util.Set;
 
 public class RuntimeWorkingSetResolver {
 
+    private final RuntimeWorkingSetPolicy runtimeWorkingSetPolicy;
+
+    public RuntimeWorkingSetResolver() {
+        this(new RuntimeWorkingSetPolicy());
+    }
+
+    public RuntimeWorkingSetResolver(RuntimeWorkingSetPolicy runtimeWorkingSetPolicy) {
+        this.runtimeWorkingSetPolicy = runtimeWorkingSetPolicy;
+    }
+
     public List<Path> resolveSupplementalPaths(
             ProjectFingerprint fingerprint,
             ExecutionContract executionContract,
@@ -71,7 +81,7 @@ public class RuntimeWorkingSetResolver {
                 .filter(path -> sameParent(path, parent))
                 .filter(path -> ProjectPathSupport.isRuntimeScript(path) || ProjectPathSupport.isStyle(path))
                 .sorted(Comparator.comparing(Path::toString))
-                .limit(RuntimeWorkingSetPolicy.maxAdjacentRuntimeFiles())
+                .limit(runtimeWorkingSetPolicy.maxAdjacentRuntimeFiles())
                 .toList();
     }
 

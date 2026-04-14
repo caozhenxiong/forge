@@ -4,6 +4,11 @@ import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
+import devflow.agent.executor.implementation.*;
+import devflow.agent.executor.implementation.planning.*;
+import devflow.agent.executor.implementation.render.*;
+import devflow.agent.executor.implementation.state.*;
+import devflow.agent.executor.implementation.toolloop.*;
 
 import devflow.agent.executor.generation.GenerationTelemetry;
 import devflow.agent.executor.llm.LlmProvider;
@@ -34,6 +39,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import devflow.agent.executor.implementation.ImplementationEventJournal;
+import devflow.agent.executor.implementation.planning.ImplementationContinuationConstraints;
+import devflow.agent.executor.implementation.planning.ImplementationPlanCoverageAnalyzer;
+import devflow.agent.executor.implementation.planning.ImplementationPlanner;
 class ImplementationPlannerTests {
 
     @TempDir

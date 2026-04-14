@@ -3,6 +3,7 @@ package devflow.agent.orchestrator;
 import devflow.agent.domain.StageType;
 
 import java.time.Duration;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * 集中维护阶段级长调用的 heartbeat 与超时策略。
@@ -10,26 +11,53 @@ import java.time.Duration;
  * <p>文档阶段的生成通常是单次较短调用；实现、代码审阅和测试阶段则可能
  * 包含多轮子任务、局部编辑和校验，不能再沿用同一条绝对超时。
  */
-public final class StageOperationPolicy {
+@ConfigurationProperties(prefix = "devflow.stage")
+public record StageOperationPolicy(
+        int heartbeatSeconds,
+        int documentGenerationTimeoutSeconds,
+        int executionGenerationTimeoutSeconds,
+        int documentReviewTimeoutSeconds,
+        int executionReviewTimeoutSeconds
+) {
 
-    private static final Duration DEFAULT_STAGE_HEARTBEAT_INTERVAL = Duration.ofSeconds(20);
-    private static final Duration DEFAULT_DOCUMENT_STAGE_GENERATION_TIMEOUT = Duration.ofMinutes(5);
-    private static final Duration DEFAULT_EXECUTION_STAGE_GENERATION_TIMEOUT = Duration.ofMinutes(30);
-    private static final Duration DEFAULT_DOCUMENT_STAGE_REVIEW_TIMEOUT = Duration.ofMinutes(3);
-    private static final Duration DEFAULT_EXECUTION_STAGE_REVIEW_TIMEOUT = Duration.ofMinutes(5);
+    private static final int DEFAULT_STAGE_HEARTBEAT_SECONDS = 20;
+    private static final int DEFAULT_DOCUMENT_STAGE_GENERATION_TIMEOUT_SECONDS = 300;
+    private static final int DEFAULT_EXECUTION_STAGE_GENERATION_TIMEOUT_SECONDS = 1_800;
+    private static final int DEFAULT_DOCUMENT_STAGE_REVIEW_TIMEOUT_SECONDS = 180;
+    private static final int DEFAULT_EXECUTION_STAGE_REVIEW_TIMEOUT_SECONDS = 300;
 
-    private static final String STAGE_HEARTBEAT_INTERVAL_SECONDS_KEY = "devflow.stage.heartbeat-seconds";
-    private static final String DOCUMENT_STAGE_GENERATION_TIMEOUT_SECONDS_KEY =
-            "devflow.stage.document-generation-timeout-seconds";
-    private static final String EXECUTION_STAGE_GENERATION_TIMEOUT_SECONDS_KEY =
-            "devflow.stage.execution-generation-timeout-seconds";
-    private static final String DOCUMENT_STAGE_REVIEW_TIMEOUT_SECONDS_KEY =
-            "devflow.stage.document-review-timeout-seconds";
-    private static final String EXECUTION_STAGE_REVIEW_TIMEOUT_SECONDS_KEY =
-            "devflow.stage.execution-review-timeout-seconds";
+    public StageOperationPolicy() {
+        this(
+                DEFAULT_STAGE_HEARTBEAT_SECONDS,
+                DEFAULT_DOCUMENT_STAGE_GENERATION_TIMEOUT_SECONDS,
+                DEFAULT_EXECUTION_STAGE_GENERATION_TIMEOUT_SECONDS,
+                DEFAULT_DOCUMENT_STAGE_REVIEW_TIMEOUT_SECONDS,
+                DEFAULT_EXECUTION_STAGE_REVIEW_TIMEOUT_SECONDS
+        );
+    }
+
+    public StageOperationPolicy {
+        heartbeatSeconds = normalizePositive(heartbeatSeconds, DEFAULT_STAGE_HEARTBEAT_SECONDS);
+        documentGenerationTimeoutSeconds = normalizePositive(
+                documentGenerationTimeoutSeconds,
+                DEFAULT_DOCUMENT_STAGE_GENERATION_TIMEOUT_SECONDS
+        );
+        executionGenerationTimeoutSeconds = normalizePositive(
+                executionGenerationTimeoutSeconds,
+                DEFAULT_EXECUTION_STAGE_GENERATION_TIMEOUT_SECONDS
+        );
+        documentReviewTimeoutSeconds = normalizePositive(
+                documentReviewTimeoutSeconds,
+                DEFAULT_DOCUMENT_STAGE_REVIEW_TIMEOUT_SECONDS
+        );
+        executionReviewTimeoutSeconds = normalizePositive(
+                executionReviewTimeoutSeconds,
+                DEFAULT_EXECUTION_STAGE_REVIEW_TIMEOUT_SECONDS
+        );
+    }
 
     public Duration generationHeartbeatInterval(StageType stageType) {
-        return readDuration(STAGE_HEARTBEAT_INTERVAL_SECONDS_KEY, DEFAULT_STAGE_HEARTBEAT_INTERVAL);
+        return Duration.ofSeconds(heartbeatSeconds);
     }
 
     public Duration generationTimeout(StageType stageType) {
@@ -37,13 +65,11 @@ public final class StageOperationPolicy {
                 || stageType == StageType.CODE_REVIEW
                 || stageType == StageType.TEST) {
             return readDuration(
-                    EXECUTION_STAGE_GENERATION_TIMEOUT_SECONDS_KEY,
-                    DEFAULT_EXECUTION_STAGE_GENERATION_TIMEOUT
+                    executionGenerationTimeoutSeconds
             );
         }
         return readDuration(
-                DOCUMENT_STAGE_GENERATION_TIMEOUT_SECONDS_KEY,
-                DEFAULT_DOCUMENT_STAGE_GENERATION_TIMEOUT
+                documentGenerationTimeoutSeconds
         );
     }
 
@@ -56,26 +82,19 @@ public final class StageOperationPolicy {
                 || stageType == StageType.CODE_REVIEW
                 || stageType == StageType.TEST) {
             return readDuration(
-                    EXECUTION_STAGE_REVIEW_TIMEOUT_SECONDS_KEY,
-                    DEFAULT_EXECUTION_STAGE_REVIEW_TIMEOUT
+                    executionReviewTimeoutSeconds
             );
         }
         return readDuration(
-                DOCUMENT_STAGE_REVIEW_TIMEOUT_SECONDS_KEY,
-                DEFAULT_DOCUMENT_STAGE_REVIEW_TIMEOUT
+                documentReviewTimeoutSeconds
         );
     }
 
-    private Duration readDuration(String key, Duration fallback) {
-        String raw = System.getProperty(key);
-        if (raw == null || raw.isBlank()) {
-            return fallback;
-        }
-        try {
-            long seconds = Long.parseLong(raw.trim());
-            return seconds > 0 ? Duration.ofSeconds(seconds) : fallback;
-        } catch (NumberFormatException ignored) {
-            return fallback;
-        }
+    private Duration readDuration(int seconds) {
+        return Duration.ofSeconds(seconds);
+    }
+
+    private static int normalizePositive(int value, int fallback) {
+        return value > 0 ? value : fallback;
     }
 }

@@ -21,6 +21,15 @@ final class ExperienceFailureDispositionResolver {
 
     private static final String MISSING_RUNTIME_ELEMENT_REASON = "missing-runtime-element";
     private static final String SETUP_FAILURE_REASON = "setup-failure";
+    private final TestPlanningPolicy testPlanningPolicy;
+
+    ExperienceFailureDispositionResolver() {
+        this(new TestPlanningPolicy());
+    }
+
+    ExperienceFailureDispositionResolver(TestPlanningPolicy testPlanningPolicy) {
+        this.testPlanningPolicy = testPlanningPolicy;
+    }
 
     ExperienceFailureDisposition resolve(
             UiRuntimeContract contract,
@@ -373,7 +382,7 @@ final class ExperienceFailureDispositionResolver {
             );
         }
         TestStepSpec waitStep = testCase.steps().get(waitIndex);
-        int expectedWait = TestPlanningPolicy.observationWaitMs(testCase.observationTrigger());
+        int expectedWait = testPlanningPolicy.observationWaitMs(testCase.observationTrigger());
         if (waitStep.ms() == null || waitStep.ms() != expectedWait) {
             return new RequiredCasePlanDefect(
                     safeCaseId(testCase),
@@ -421,7 +430,7 @@ final class ExperienceFailureDispositionResolver {
             );
         }
         TestStepSpec waitStep = testCase.steps().get(waitIndex);
-        int expectedWait = TestPlanningPolicy.observationWaitMs(testCase.observationTrigger());
+        int expectedWait = testPlanningPolicy.observationWaitMs(testCase.observationTrigger());
         if (waitStep.ms() == null || waitStep.ms() != expectedWait) {
             return new RequiredCasePlanDefect(
                     safeCaseId(testCase),

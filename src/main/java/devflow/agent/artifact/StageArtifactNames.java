@@ -13,59 +13,35 @@ public final class StageArtifactNames {
     }
 
     public static String artifact(StageType stageType) {
-        if (stageType == StageType.ANALYSIS) {
-            return "analysis.md";
-        }
-        if (stageType == StageType.PRD) {
-            return "prd.md";
-        }
-        if (stageType == StageType.DESIGN) {
-            return "design.md";
-        }
-        if (stageType == StageType.IMPLEMENTATION) {
-            return "implementation.md";
-        }
-        if (stageType == StageType.CODE_REVIEW) {
-            return "code_review.md";
-        }
-        return "test_report.md";
+        return switch (stageType) {
+            case ANALYSIS -> "analysis.md";
+            case PRD -> "prd.md";
+            case DESIGN -> "design.md";
+            case IMPLEMENTATION -> "implementation.md";
+            case CODE_REVIEW -> "code_review.md";
+            case TEST -> "test_report.md";
+        };
     }
 
     public static String review(StageType stageType) {
-        if (stageType == StageType.ANALYSIS) {
-            return "analysis_review.md";
-        }
-        if (stageType == StageType.PRD) {
-            return "prd_review.md";
-        }
-        if (stageType == StageType.DESIGN) {
-            return "design_review.md";
-        }
-        if (stageType == StageType.IMPLEMENTATION) {
-            return "implementation_review.md";
-        }
-        if (stageType == StageType.CODE_REVIEW) {
-            return "code_review_review.md";
-        }
-        return "test_review.md";
+        return switch (stageType) {
+            case ANALYSIS -> "analysis_review.md";
+            case PRD -> "prd_review.md";
+            case DESIGN -> "design_review.md";
+            case IMPLEMENTATION -> "implementation_review.md";
+            case CODE_REVIEW -> "code_review_feedback.md";
+            case TEST -> "test_review.md";
+        };
     }
 
     public static String reviewHistory(StageType stageType) {
-        if (stageType == StageType.ANALYSIS) {
-            return "analysis_review_history.md";
-        }
-        if (stageType == StageType.PRD) {
-            return "prd_review_history.md";
-        }
-        if (stageType == StageType.DESIGN) {
-            return "design_review_history.md";
-        }
-        if (stageType == StageType.IMPLEMENTATION) {
-            return "implementation_review_history.md";
-        }
-        if (stageType == StageType.CODE_REVIEW) {
-            return "code_review_review_history.md";
-        }
-        return "test_review_history.md";
+        return switch (stageType) {
+            case ANALYSIS -> "analysis_review_history.md";
+            case PRD -> "prd_review_history.md";
+            case DESIGN -> "design_review_history.md";
+            case IMPLEMENTATION -> "implementation_review_history.md";
+            case CODE_REVIEW -> "code_review_feedback_history.md";
+            case TEST -> "test_review_history.md";
+        };
     }
 }

@@ -34,10 +34,10 @@ public final class SubtaskRuntimeWiringGuard {
     private final TreeSitterSupport treeSitterSupport;
     private final WebRuntimeWiringCheck webRuntimeWiringCheck;
 
-    SubtaskRuntimeWiringGuard(FileProjectWorkspace workspace) {
+    SubtaskRuntimeWiringGuard(FileProjectWorkspace workspace, TreeSitterSupport treeSitterSupport) {
         this.workspace = workspace;
         this.projectInspector = new ProjectInspector(workspace);
-        this.treeSitterSupport = new TreeSitterSupport();
+        this.treeSitterSupport = treeSitterSupport;
         this.webRuntimeWiringCheck = new WebRuntimeWiringCheck(workspace);
     }
 

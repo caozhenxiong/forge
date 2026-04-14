@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import devflow.agent.executor.ImplementationStateSnapshot;
+import devflow.agent.executor.implementation.state.ImplementationStateSnapshot;
 /**
  * tool result replacement 的线程级状态。
  *

@@ -6,10 +6,10 @@ import devflow.agent.executor.llm.OllamaProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
 @SpringBootApplication
-@EnableConfigurationProperties({OllamaProperties.class, GenerationBudgetProperties.class})
+@ConfigurationPropertiesScan
 public class DevflowAgentApplication {
 
     public static void main(String[] args) {

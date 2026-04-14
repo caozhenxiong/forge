@@ -5,6 +5,8 @@ import devflow.agent.executor.editing.*;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
 /**
  * patch 失败硬路由的集中设置。
  *
@@ -12,24 +14,22 @@ import devflow.agent.executor.runtime.*;
  * 不可再拆分单元允许在本单元内重试几次。
  * 这样后续继续配置化时，不需要再回头挖 `PatchFailureRouter` 里的字面量。
  */
+@ConfigurationProperties(prefix = "devflow.patch.routing")
 public record PatchFailureRoutingSettings(
         int unsplittableUnitMaxAttempts
 ) {
 
-    private static final String UNSPLITTABLE_UNIT_MAX_ATTEMPTS_KEY = "devflow.patch.unsplittable-max-attempts";
+    private static final int DEFAULT_UNSPLITTABLE_UNIT_MAX_ATTEMPTS = 2;
 
-    public PatchFailureRoutingSettings {
-        unsplittableUnitMaxAttempts = Math.max(1, unsplittableUnitMaxAttempts);
+    public PatchFailureRoutingSettings() {
+        this(DEFAULT_UNSPLITTABLE_UNIT_MAX_ATTEMPTS);
     }
 
     public static PatchFailureRoutingSettings defaults() {
-        return new PatchFailureRoutingSettings(
-                readPositiveInt(UNSPLITTABLE_UNIT_MAX_ATTEMPTS_KEY, 2)
-        );
+        return new PatchFailureRoutingSettings();
     }
 
-    private static int readPositiveInt(String key, int fallback) {
-        Integer configured = Integer.getInteger(key);
-        return configured == null || configured <= 0 ? fallback : configured;
+    public PatchFailureRoutingSettings {
+        unsplittableUnitMaxAttempts = Math.max(DEFAULT_UNSPLITTABLE_UNIT_MAX_ATTEMPTS, unsplittableUnitMaxAttempts);
     }
 }

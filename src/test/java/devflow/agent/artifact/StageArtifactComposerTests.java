@@ -15,6 +15,7 @@ import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ProductContract;
 import devflow.agent.context.ValidationMetadata;
 import devflow.agent.executor.ImplementationExecutor;
+import devflow.agent.executor.implementation.state.ImplementationStateArtifactSupport;
 import devflow.agent.executor.testing.TestExecutor;
 import devflow.agent.orchestrator.FileRunRepository;
 import devflow.agent.domain.RunConfig;
@@ -79,7 +80,8 @@ class StageArtifactComposerTests {
                         new devflow.agent.prompt.PromptTemplateCatalog(),
                         new devflow.agent.i18n.LanguagePolicy()
                 ),
-                new devflow.agent.i18n.LanguagePolicy()
+                new devflow.agent.i18n.LanguagePolicy(),
+                new ImplementationStateArtifactSupport()
         );
     }
 
@@ -130,7 +132,7 @@ class StageArtifactComposerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer composer = newStageArtifactComposer(
                 new ArtifactTemplateFactory(),
                 artifactStore,
@@ -255,7 +257,7 @@ class StageArtifactComposerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer composer = newStageArtifactComposer(
                 new ArtifactTemplateFactory(),
                 artifactStore,
@@ -373,7 +375,7 @@ class StageArtifactComposerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer composer = newStageArtifactComposer(
                 new ArtifactTemplateFactory(),
                 artifactStore,
@@ -486,7 +488,7 @@ class StageArtifactComposerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer composer = newStageArtifactComposer(
                 new ArtifactTemplateFactory(),
                 artifactStore,
@@ -603,7 +605,7 @@ class StageArtifactComposerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer composer = newStageArtifactComposer(
                 new ArtifactTemplateFactory(),
                 artifactStore,
@@ -698,7 +700,7 @@ class StageArtifactComposerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer composer = newStageArtifactComposer(
                 new ArtifactTemplateFactory(),
                 artifactStore,
@@ -807,7 +809,7 @@ class StageArtifactComposerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer composer = newStageArtifactComposer(
                 new ArtifactTemplateFactory(),
                 artifactStore,
@@ -922,7 +924,7 @@ class StageArtifactComposerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer composer = newStageArtifactComposer(
                 new ArtifactTemplateFactory(),
                 artifactStore,
@@ -1040,7 +1042,7 @@ class StageArtifactComposerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer composer = newStageArtifactComposer(
                 new ArtifactTemplateFactory(),
                 artifactStore,
@@ -1129,7 +1131,7 @@ class StageArtifactComposerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer composer = newStageArtifactComposer(
                 new ArtifactTemplateFactory(),
                 artifactStore,
@@ -1341,7 +1343,7 @@ class StageArtifactComposerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer composer = newStageArtifactComposer(
                 new ArtifactTemplateFactory(),
                 artifactStore,
@@ -1417,7 +1419,7 @@ class StageArtifactComposerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer composer = newStageArtifactComposer(
                 new ArtifactTemplateFactory(),
                 artifactStore,
@@ -1613,7 +1615,7 @@ class StageArtifactComposerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer composer = newStageArtifactComposer(
                 new ArtifactTemplateFactory(),
                 artifactStore,
@@ -1717,7 +1719,7 @@ class StageArtifactComposerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer composer = newStageArtifactComposer(
                 new ArtifactTemplateFactory(),
                 artifactStore,
@@ -1822,7 +1824,7 @@ class StageArtifactComposerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer composer = newStageArtifactComposer(
                 new ArtifactTemplateFactory(),
                 artifactStore,
@@ -1941,7 +1943,7 @@ class StageArtifactComposerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, new ObjectMapper());
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, new ObjectMapper());
         StageArtifactComposer composer = newStageArtifactComposer(
                 new ArtifactTemplateFactory(),
                 artifactStore,
@@ -2071,7 +2073,7 @@ class StageArtifactComposerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, objectMapper);
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, objectMapper);
         StageArtifactComposer composer = newStageArtifactComposer(
                 new ArtifactTemplateFactory(),
                 artifactStore,
@@ -2242,7 +2244,7 @@ class StageArtifactComposerTests {
             }
         };
 
-        TestExecutor testExecutor = new TestExecutor(workspace, provider, objectMapper);
+        TestExecutor testExecutor = devflow.agent.executor.testing.TestExecutorTestSupport.create(workspace, provider, objectMapper);
         StageArtifactComposer composer = newStageArtifactComposer(
                 new ArtifactTemplateFactory(),
                 artifactStore,

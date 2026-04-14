@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DocumentStructureGuardTests {
 
-    private final DocumentStructureGuard guard = new DocumentStructureGuard();
+    private final DocumentStructureGuard guard = new DocumentStructureGuard(new ContractExtractor());
     private final ContractExtractor contractExtractor = new ContractExtractor();
 
     @Test

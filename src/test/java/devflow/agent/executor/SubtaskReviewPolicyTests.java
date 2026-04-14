@@ -4,6 +4,11 @@ import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
+import devflow.agent.executor.implementation.*;
+import devflow.agent.executor.implementation.planning.*;
+import devflow.agent.executor.implementation.render.*;
+import devflow.agent.executor.implementation.state.*;
+import devflow.agent.executor.implementation.toolloop.*;
 
 import org.junit.jupiter.api.Test;
 
@@ -13,18 +18,11 @@ import devflow.agent.executor.subtask.SubtaskReviewPolicy;
 class SubtaskReviewPolicyTests {
 
     @Test
-    void valuesCanBeOverriddenBySystemProperties() {
-        System.setProperty("devflow.subtask-review.max-attempts", "3");
-        System.setProperty("devflow.subtask-review.heartbeat-seconds", "15");
-        System.setProperty("devflow.subtask-review.attempt-timeout-seconds", "75");
-        try {
-            assertEquals(3, SubtaskReviewPolicy.maxAttempts());
-            assertEquals(15, SubtaskReviewPolicy.heartbeatInterval().toSeconds());
-            assertEquals(75, SubtaskReviewPolicy.attemptTimeout().toSeconds());
-        } finally {
-            System.clearProperty("devflow.subtask-review.max-attempts");
-            System.clearProperty("devflow.subtask-review.heartbeat-seconds");
-            System.clearProperty("devflow.subtask-review.attempt-timeout-seconds");
-        }
+    void valuesAreConfiguredThroughTypedPropertiesObject() {
+        SubtaskReviewPolicy policy = new SubtaskReviewPolicy(3, 15, 75);
+
+        assertEquals(3, policy.maxAttempts());
+        assertEquals(15, policy.heartbeatInterval().toSeconds());
+        assertEquals(75, policy.attemptTimeout().toSeconds());
     }
 }

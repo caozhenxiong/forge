@@ -4,7 +4,12 @@ import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
-import devflow.agent.executor.testing.RuntimeSnapshot;
+import devflow.agent.executor.implementation.*;
+import devflow.agent.executor.implementation.planning.*;
+import devflow.agent.executor.implementation.render.*;
+import devflow.agent.executor.implementation.state.*;
+import devflow.agent.executor.implementation.toolloop.*;
+import devflow.agent.executor.runtime.RuntimeSnapshot;
 
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.parsing.TreeSitterSupport;
@@ -15,6 +20,7 @@ import devflow.agent.context.ConstraintSourceMetadata;
 import devflow.agent.context.ContractView;
 import devflow.agent.context.ExecutionContract;
 import devflow.agent.context.ValidationMetadata;
+import devflow.agent.testsupport.QualityPlanFactoryTestSupport;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -213,7 +219,7 @@ class ImplementationCompletenessGateTests {
                 new FileProjectWorkspace(),
                 new TreeSitterSupport()
         ));
-        QualityPlan qualityPlan = new QualityPlanFactory().build(
+        QualityPlan qualityPlan = QualityPlanFactoryTestSupport.qualityPlanFactory().build(
                 new devflow.agent.validation.ProjectFingerprint(
                         "static-web",
                         "none",

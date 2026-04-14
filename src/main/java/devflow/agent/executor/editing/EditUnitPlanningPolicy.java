@@ -5,13 +5,20 @@ import devflow.agent.executor.patch.*;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
 /**
  * 收敛 EditUnit 切分策略的稳定默认值。
  *
  * <p>这类阈值直接决定防截断内核的执行粒度，应集中到同一处维护，
  * 避免 file coordinator、delivery policy 和 edit-unit planner 各写各的。
  */
-public final class EditUnitPlanningPolicy {
+@ConfigurationProperties(prefix = "devflow.edit-unit")
+public record EditUnitPlanningPolicy(
+        int maxSymbolsPerUnit,
+        int inlineAppendSymbolBudget,
+        double maxPreFlightUnitRatio
+) {
 
     private static final int DEFAULT_MAX_SYMBOLS_PER_UNIT = 4;
     private static final int DEFAULT_INLINE_APPEND_SYMBOL_BUDGET = 2;
@@ -22,48 +29,31 @@ public final class EditUnitPlanningPolicy {
      * 把大部分可用输出空间全部砍掉。
      */
     private static final double DEFAULT_MAX_PRE_FLIGHT_UNIT_RATIO = 0.75d;
-    private static final String MAX_SYMBOLS_PER_UNIT_KEY = "devflow.edit-unit.max-symbols-per-unit";
-    private static final String INLINE_APPEND_SYMBOL_BUDGET_KEY = "devflow.edit-unit.inline-append-symbol-budget";
-    private static final String MAX_PRE_FLIGHT_UNIT_RATIO_KEY = "devflow.edit-unit.max-preflight-unit-ratio";
-
-    private EditUnitPlanningPolicy() {
+    public EditUnitPlanningPolicy() {
+        this(
+                DEFAULT_MAX_SYMBOLS_PER_UNIT,
+                DEFAULT_INLINE_APPEND_SYMBOL_BUDGET,
+                DEFAULT_MAX_PRE_FLIGHT_UNIT_RATIO
+        );
     }
 
-    public static int maxSymbolsPerUnit() {
-        return readPositiveInt(MAX_SYMBOLS_PER_UNIT_KEY, DEFAULT_MAX_SYMBOLS_PER_UNIT);
+    public EditUnitPlanningPolicy {
+        maxSymbolsPerUnit = normalizePositive(maxSymbolsPerUnit, DEFAULT_MAX_SYMBOLS_PER_UNIT);
+        inlineAppendSymbolBudget = normalizePositive(
+                inlineAppendSymbolBudget,
+                DEFAULT_INLINE_APPEND_SYMBOL_BUDGET
+        );
+        maxPreFlightUnitRatio = normalizePositiveRatio(maxPreFlightUnitRatio, DEFAULT_MAX_PRE_FLIGHT_UNIT_RATIO);
     }
 
-    public static int inlineAppendSymbolBudget() {
-        return readPositiveInt(INLINE_APPEND_SYMBOL_BUDGET_KEY, DEFAULT_INLINE_APPEND_SYMBOL_BUDGET);
+    private static int normalizePositive(int value, int fallback) {
+        return value > 0 ? value : fallback;
     }
 
-    public static double maxPreFlightUnitRatio() {
-        return readPositiveDouble(MAX_PRE_FLIGHT_UNIT_RATIO_KEY, DEFAULT_MAX_PRE_FLIGHT_UNIT_RATIO);
-    }
-
-    private static int readPositiveInt(String key, int fallback) {
-        String raw = System.getProperty(key);
-        if (raw == null || raw.isBlank()) {
+    private static double normalizePositiveRatio(double value, double fallback) {
+        if (value <= 0) {
             return fallback;
         }
-        try {
-            int value = Integer.parseInt(raw.trim());
-            return value > 0 ? value : fallback;
-        } catch (NumberFormatException ignored) {
-            return fallback;
-        }
-    }
-
-    private static double readPositiveDouble(String key, double fallback) {
-        String raw = System.getProperty(key);
-        if (raw == null || raw.isBlank()) {
-            return fallback;
-        }
-        try {
-            double value = Double.parseDouble(raw.trim());
-            return value > 0 ? value : fallback;
-        } catch (NumberFormatException ignored) {
-            return fallback;
-        }
+        return Math.min(1.0d, value);
     }
 }

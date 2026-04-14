@@ -14,6 +14,7 @@ import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ContractView;
 import devflow.agent.context.ValidationMetadata;
 import devflow.agent.i18n.DocumentLanguage;
+import devflow.agent.i18n.LanguagePolicy;
 import devflow.agent.parsing.TreeSitterSupport;
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.quality.QualityPlan;
@@ -45,27 +46,30 @@ public class TestCasePlanner {
     private final CapabilityCoverageBackfillSupport coverageBackfillSupport;
     private final QualityPlanFactory qualityPlanFactory;
     private final UiRuntimeContractResolver uiRuntimeContractResolver;
+    private final LanguagePolicy languagePolicy;
+    private final TestPlanningPolicy testPlanningPolicy;
 
-    public TestCasePlanner(FileProjectWorkspace workspace, LlmProvider llmProvider, ObjectMapper objectMapper) {
-        this(workspace, llmProvider, objectMapper, new TreeSitterSupport(), new ContractExtractor());
-    }
-
-    TestCasePlanner(
+    public TestCasePlanner(
             FileProjectWorkspace workspace,
             LlmProvider llmProvider,
             ObjectMapper objectMapper,
             TreeSitterSupport treeSitterSupport,
-            ContractExtractor contractExtractor
+            ContractExtractor contractExtractor,
+            LanguagePolicy languagePolicy,
+            TestPlanningPolicy testPlanningPolicy,
+            QualityPlanFactory qualityPlanFactory
     ) {
         this.llmProvider = llmProvider;
         this.contractExtractor = contractExtractor;
         this.structuredPayloadReader = new StructuredPayloadReader(objectMapper);
         this.promptAssembler = new TestCasePromptAssembler(workspace, contractExtractor);
-        this.basePlanBuilder = new TestCaseBasePlanBuilder();
-        this.planSanitizer = new TestCasePlanSanitizer();
+        this.basePlanBuilder = new TestCaseBasePlanBuilder(testPlanningPolicy);
+        this.planSanitizer = new TestCasePlanSanitizer(testPlanningPolicy);
         this.coverageBackfillSupport = new CapabilityCoverageBackfillSupport();
-        this.qualityPlanFactory = new QualityPlanFactory();
+        this.qualityPlanFactory = qualityPlanFactory;
         this.uiRuntimeContractResolver = new UiRuntimeContractResolver(workspace, treeSitterSupport);
+        this.languagePolicy = languagePolicy;
+        this.testPlanningPolicy = testPlanningPolicy;
     }
 
     public TestCasePlan plan(
@@ -78,7 +82,7 @@ public class TestCasePlanner {
             String implementationReport,
             RuntimeSnapshot runtimeSnapshot
     ) {
-        DocumentLanguage language = DocumentLanguage.detect(goal, constraints);
+        DocumentLanguage language = languagePolicy.resolve(goal, constraints);
         String detectedEntry = resolveEntry(fingerprint);
         ContractView contractView = contractExtractor.extractContractView(goal, constraints, "", prd, design);
         ValidationMetadata validationMetadata = contractExtractor.extractValidationMetadata(prd, design);
@@ -134,12 +138,13 @@ public class TestCasePlanner {
                     implementationReport,
                     runtimeSnapshot,
                     qualityPlan,
-                    initialRuntimeContract
+                    initialRuntimeContract,
+                    language
             );
             String response = llmProvider.generate(LlmGenerateRequest.workingPrompt(
                     prompt.systemPrompt(),
                     prompt.userPrompt(),
-                    LlmOptions.outputBudgetRatio(TestPlanningPolicy.casePlanOutputRatio()),
+                    LlmOptions.outputBudgetRatio(testPlanningPolicy.casePlanOutputRatio()),
                     ModelRole.TEST_CASE_DESIGN
             ));
             PlannedTestCasesPayload payload = structuredPayloadReader.readJsonObject(response, PlannedTestCasesPayload.class);
@@ -148,7 +153,8 @@ public class TestCasePlanner {
                     baseCases,
                     detectedEntry,
                     runtimeSnapshot,
-                    initialRuntimeContract
+                    initialRuntimeContract,
+                    language
             );
             planned = coverageBackfillSupport.backfill(planned, baseCases, qualityPlan);
             if (!planned.isEmpty()) {

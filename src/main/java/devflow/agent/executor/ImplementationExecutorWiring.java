@@ -1,5 +1,9 @@
 package devflow.agent.executor;
 import devflow.agent.executor.editing.*;
+import devflow.agent.executor.implementation.*;
+import devflow.agent.executor.implementation.planning.*;
+import devflow.agent.executor.implementation.render.*;
+import devflow.agent.executor.implementation.state.*;
 import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
@@ -7,15 +11,19 @@ import devflow.agent.executor.runtime.*;
 import devflow.agent.executor.generation.GenerationEngine;
 import devflow.agent.executor.llm.LlmProvider;
 import devflow.agent.executor.testing.TestExecutor;
+import devflow.agent.executor.tools.ImplementationToolPermissionPolicy;
+import devflow.agent.executor.tools.ImplementationToolPermissionProperties;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.artifact.EventLogStore;
 import devflow.agent.artifact.FileArtifactStore;
 import devflow.agent.context.ContractExtractor;
 import devflow.agent.context.ContextLayerAssembler;
+import devflow.agent.i18n.LanguagePolicy;
 import devflow.agent.loop.AgentTurnLoop;
 import devflow.agent.parsing.TreeSitterSupport;
 import devflow.agent.project.FileProjectWorkspace;
+import devflow.agent.quality.QualityPlanFactory;
 import devflow.agent.supervisor.SupervisorAgent;
 import devflow.agent.validation.ProjectInspector;
 import java.util.concurrent.ExecutorService;
@@ -24,7 +32,9 @@ import devflow.agent.executor.implementation.toolloop.ImplementationToolLoopExec
 import devflow.agent.executor.subtask.SubtaskAttemptRunner;
 import devflow.agent.executor.subtask.SubtaskAttemptStepExecutor;
 import devflow.agent.executor.subtask.SubtaskExecutor;
+import devflow.agent.executor.subtask.SubtaskPerformanceGuidanceResolver;
 import devflow.agent.executor.subtask.SubtaskRecoverySupport;
+import devflow.agent.executor.subtask.SubtaskReviewPolicy;
 import devflow.agent.executor.subtask.SubtaskVerificationSupport;
 /**
  * implementation 子系统的唯一 wiring 入口。
@@ -47,21 +57,26 @@ final class ImplementationExecutorWiring {
             ContractExtractor contractExtractor,
             EventLogStore eventLogStore,
             FileArtifactStore fileArtifactStore,
-            ExecutorService toolExecutor
+            ExecutorService toolExecutor,
+            LanguagePolicy languagePolicy,
+            ImplementationExecutionPolicy implementationExecutionPolicy,
+            RuntimeWorkingSetPolicy runtimeWorkingSetPolicy,
+            SubtaskReviewPolicy subtaskReviewPolicy,
+            ImplementationToolPermissionProperties implementationToolPermissionProperties,
+            QualityPlanFactory qualityPlanFactory
     ) {
-        TreeSitterSupport effectiveTreeSitterSupport = treeSitterSupport == null ? new TreeSitterSupport() : treeSitterSupport;
-        ContractExtractor effectiveContractExtractor = contractExtractor == null ? new ContractExtractor() : contractExtractor;
-
         ProjectInspector projectInspector = new ProjectInspector(workspace);
         ImplementationPlanCoverageAnalyzer coverageAnalyzer = new ImplementationPlanCoverageAnalyzer();
         ImplementationCompletenessCheck implementationCompletenessCheck =
-                new ImplementationCompletenessCheck(workspace, effectiveTreeSitterSupport);
+                new ImplementationCompletenessCheck(workspace, treeSitterSupport);
         ArchitectIntegrationCheck architectIntegrationCheck =
-                new ArchitectIntegrationCheck(workspace, effectiveTreeSitterSupport);
+                new ArchitectIntegrationCheck(workspace, treeSitterSupport);
         GenerationEngine generationEngine = new GenerationEngine();
-        RuntimeWorkingSetResolver runtimeWorkingSetResolver = new RuntimeWorkingSetResolver();
+        RuntimeWorkingSetResolver runtimeWorkingSetResolver = new RuntimeWorkingSetResolver(runtimeWorkingSetPolicy);
         TargetedFileContextRenderer targetedFileContextRenderer =
                 new TargetedFileContextRenderer(workspace, runtimeWorkingSetResolver);
+        ImplementationToolPermissionPolicy implementationToolPermissionPolicy =
+                new ImplementationToolPermissionPolicy(implementationToolPermissionProperties, implementationExecutionPolicy);
 
         AgentTurnLoop planningTurnLoop = new AgentTurnLoop();
         AgentTurnLoop subtaskTurnLoop = new AgentTurnLoop();
@@ -71,10 +86,10 @@ final class ImplementationExecutorWiring {
                 objectMapper,
                 coverageAnalyzer,
                 planningTurnLoop,
-                ImplementationExecutionPolicy.planningPayloadRepairAttempts(),
-                ImplementationExecutionPolicy.planningUnitAttempts(),
-                ImplementationExecutionPolicy.maxFilesPerSubtask(),
-                ImplementationExecutionPolicy.maxDeliveryPolicyFiles()
+                implementationExecutionPolicy.planningPayloadRepairAttempts(),
+                implementationExecutionPolicy.planningUnitAttempts(),
+                implementationExecutionPolicy.maxFilesPerSubtask(),
+                implementationExecutionPolicy.maxDeliveryPolicyFiles()
         );
         ImplementationStageGate implementationStageGate = new ImplementationStageGate();
         ImplementationGateEngine implementationGateEngine =
@@ -84,7 +99,8 @@ final class ImplementationExecutorWiring {
         ImplementationToolLoopExecutor implementationToolLoopExecutor = new ImplementationToolLoopExecutor(
                 llmProvider,
                 objectMapper,
-                ImplementationExecutionPolicy.toolLoopTurns(),
+                implementationExecutionPolicy.toolLoopTurns(),
+                implementationToolPermissionPolicy,
                 toolExecutor
         );
         ImplementationSnapshotAssembler implementationSnapshotAssembler = new ImplementationSnapshotAssembler(
@@ -94,12 +110,16 @@ final class ImplementationExecutorWiring {
         ImplementationContextResolver implementationContextResolver = new ImplementationContextResolver(
                 workspace,
                 projectInspector,
-                effectiveContractExtractor,
+                contractExtractor,
                 new ContextLayerAssembler(),
                 objectMapper,
-                ImplementationExecutionPolicy.maxFilesPerSubtask(),
-                ImplementationExecutionPolicy.maxDeliveryPolicyFiles()
+                implementationExecutionPolicy.maxFilesPerSubtask(),
+                implementationExecutionPolicy.maxDeliveryPolicyFiles(),
+                languagePolicy,
+                qualityPlanFactory
         );
+        SubtaskPerformanceGuidanceResolver subtaskPerformanceGuidanceResolver =
+                new SubtaskPerformanceGuidanceResolver(contractExtractor);
         ImplementationCompletenessGate implementationCompletenessGate =
                 new ImplementationCompletenessGate(implementationCompletenessCheck);
         SubtaskVerificationSupport subtaskVerificationSupport = new SubtaskVerificationSupport(
@@ -109,7 +129,10 @@ final class ImplementationExecutorWiring {
                 implementationCompletenessGate,
                 architectIntegrationCheck,
                 workspace,
-                subtaskTurnLoop
+                subtaskTurnLoop,
+                subtaskReviewPolicy,
+                subtaskPerformanceGuidanceResolver,
+                treeSitterSupport
         );
         SubtaskAttemptStepExecutor subtaskAttemptStepExecutor = new SubtaskAttemptStepExecutor(
                 testExecutor,
@@ -127,7 +150,7 @@ final class ImplementationExecutorWiring {
                 subtaskVerificationSupport,
                 subtaskRecoverySupport,
                 subtaskAttemptRunner,
-                ImplementationExecutionPolicy.subtaskAttempts()
+                implementationExecutionPolicy.subtaskAttempts()
         );
         ImplementationPlanRunner implementationPlanRunner = new ImplementationPlanRunner(subtaskExecutor);
         CoderTurnCoordinator coderTurnCoordinator = new CoderTurnCoordinator(

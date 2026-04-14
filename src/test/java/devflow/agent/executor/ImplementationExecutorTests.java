@@ -4,6 +4,11 @@ import devflow.agent.executor.patch.*;
 
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
+import devflow.agent.executor.implementation.*;
+import devflow.agent.executor.implementation.planning.*;
+import devflow.agent.executor.implementation.render.*;
+import devflow.agent.executor.implementation.state.*;
+import devflow.agent.executor.implementation.toolloop.*;
 
 import devflow.agent.executor.llm.ChatCapableLlmProvider;
 import devflow.agent.executor.llm.LlmChatRequest;
@@ -589,7 +594,7 @@ class ImplementationExecutorTests {
         }
     }
 
-    private static final class StubTestExecutor extends TestExecutor {
+    private static final class StubTestExecutor extends devflow.agent.executor.testing.TestExecutorHarness {
 
         private StubTestExecutor(
                 FileProjectWorkspace workspace,

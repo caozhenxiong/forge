@@ -7,6 +7,7 @@ import devflow.agent.domain.StageStatus;
 import devflow.agent.domain.StageType;
 
 import devflow.agent.artifact.FileArtifactStore;
+import devflow.agent.i18n.LanguagePolicy;
 import devflow.agent.protocol.ExecutionDirectiveNarrativeRenderer;
 import devflow.agent.protocol.ExecutionDirectivePayload;
 import devflow.agent.review.FixMode;
@@ -43,6 +44,28 @@ public class StageTransitionSupport {
             StageFlowPolicy stageFlowPolicy,
             WorkflowArtifactRenderer workflowArtifactRenderer
     ) {
+        this(
+                runRepository,
+                artifactStore,
+                eventLogStore,
+                diagnosisAgent,
+                repairAgent,
+                stageFlowPolicy,
+                workflowArtifactRenderer,
+                new LanguagePolicy()
+        );
+    }
+
+    public StageTransitionSupport(
+            FileRunRepository runRepository,
+            FileArtifactStore artifactStore,
+            devflow.agent.artifact.EventLogStore eventLogStore,
+            devflow.agent.repair.DiagnosisAgent diagnosisAgent,
+            devflow.agent.repair.RepairAgent repairAgent,
+            StageFlowPolicy stageFlowPolicy,
+            WorkflowArtifactRenderer workflowArtifactRenderer,
+            LanguagePolicy languagePolicy
+    ) {
         this.runRepository = runRepository;
         this.eventLogStore = eventLogStore;
         this.stageStatusSupport = new StageStatusSupport(
@@ -50,7 +73,8 @@ public class StageTransitionSupport {
                 artifactStore,
                 eventLogStore,
                 stageFlowPolicy,
-                workflowArtifactRenderer
+                workflowArtifactRenderer,
+                languagePolicy
         );
         this.stageRevisionSupport = new StageRevisionSupport(
                 runRepository,
@@ -59,7 +83,8 @@ public class StageTransitionSupport {
                 diagnosisAgent,
                 repairAgent,
                 stageFlowPolicy,
-                workflowArtifactRenderer
+                workflowArtifactRenderer,
+                languagePolicy
         );
     }
 

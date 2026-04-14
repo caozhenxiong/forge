@@ -33,7 +33,7 @@ final class OllamaTransportClient {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(OllamaClientPolicy.connectTimeout())
+                .connectTimeout(properties.connectTimeout())
                 .build();
     }
 
