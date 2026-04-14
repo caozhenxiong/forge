@@ -93,14 +93,39 @@ class ImplementationGateEngineTests {
     }
 
     @Test
-    void preservesStructuredContinuationWhenLatestFailedSubtaskRequiresRuntimePatch() {
+    void preservesStructuredContinuationWhenLatestFailedSubtaskRequiresRuntimePatch() throws Exception {
         ImplementationGateEngine gateEngine = new ImplementationGateEngine(
                 new ImplementationStageGate(),
                 new ArchitectIntegrationCheck(new FileProjectWorkspace(), new TreeSitterSupport())
         );
 
+        java.nio.file.Files.writeString(
+                tempDir.resolve("index.html"),
+                """
+                        <!DOCTYPE html>
+                        <html lang="zh-CN">
+                        <head>
+                          <meta charset="UTF-8">
+                          <title>Tetris</title>
+                        </head>
+                        <body>
+                          <main id="app-root">
+                            <canvas id="game-canvas"></canvas>
+                          </main>
+                        </body>
+                        </html>
+                        """
+        );
+        java.nio.file.Files.writeString(
+                tempDir.resolve("index.app.js"),
+                """
+                        const canvas = document.getElementById('game-canvas');
+                        console.log(canvas);
+                        """
+        );
+
         Subtask first = subtask("搭入口", true, "index.html");
-        Subtask second = subtask("修接线", false, "index.html");
+        Subtask second = subtask("修接线", true, "index.html");
         ImplementationPlan plan = new ImplementationPlan("summary", List.of(first, second));
         List<SubtaskExecutionReport> reports = List.of(
                 completedReport(first),
@@ -132,6 +157,9 @@ class ImplementationGateEngineTests {
         assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, outcome.stageStatus().continuationPatchTarget());
         assertEquals("运行时接线未完成", outcome.stageStatus().continuationSummary());
         assertTrue(outcome.stageStatus().continuationEvidence().contains("continuationSubtask=修接线"));
+        assertEquals(2, outcome.stageStatus().continuationOverrideChanges().size());
+        assertEquals("index.html", outcome.stageStatus().continuationOverrideChanges().getFirst().path());
+        assertEquals("index.app.js", outcome.stageStatus().continuationOverrideChanges().get(1).path());
         assertTrue(outcome.stageStatus().hasContinuationDirective());
     }
 
@@ -258,6 +286,41 @@ class ImplementationGateEngineTests {
         assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, outcome.stageStatus().continuationPatchTarget());
         assertTrue(outcome.stageStatus().continuationOverrideChanges().isEmpty());
         assertTrue(outcome.stageStatus().continuationSummary().contains("结构化文件范围"));
+    }
+
+    @Test
+    void blocksWhenRuntimeWiringReviewHasNoResolvedRuntimeContract() {
+        ImplementationGateEngine gateEngine = new ImplementationGateEngine(
+                new ImplementationStageGate(),
+                new ArchitectIntegrationCheck(new FileProjectWorkspace(), new TreeSitterSupport())
+        );
+
+        Subtask subtask = subtask("修接线", false, "index.html");
+        ReviewResult review = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.PATCH,
+                "运行时接线未完成",
+                "把 companion runtime 接入宿主 HTML。",
+                "index.app.js exists but index.html does not reference it",
+                "1. 仅修复当前入口接线。 2. 保持当前实现结构不变。",
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                List.of(),
+                ReviewRevisionRoute.PATCH_CURRENT_STAGE,
+                devflow.agent.review.ReviewReasonCode.RUNTIME_WIRING_GAP
+        );
+
+        ImplementationGateOutcome outcome = gateEngine.evaluate(
+                tempDir,
+                new ImplementationPlan("summary", List.of(subtask)),
+                List.of(failedReport(subtask, review)),
+                new ExecutionContract(true, "html-entry", true, true, List.of()),
+                DocumentLanguage.ZH
+        );
+
+        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, outcome.stageStatus().continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, outcome.stageStatus().continuationPatchTarget());
+        assertTrue(outcome.stageStatus().continuationOverrideChanges().isEmpty());
+        assertTrue(outcome.stageStatus().continuationSummary().contains("runtime contract"));
     }
 
     private Subtask subtask(String title, boolean runnableMilestone, String path) {

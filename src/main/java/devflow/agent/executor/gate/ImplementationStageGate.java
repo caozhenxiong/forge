@@ -96,7 +96,7 @@ public class ImplementationStageGate {
             List<String> incompleteSubtasks,
             ArchitectIntegrationCheckResult contractGateResult
     ) {
-        ContinuationDisposition reportDisposition = latestReportContinuationDisposition(reports);
+        ContinuationDisposition reportDisposition = latestReportContinuationDisposition(reports, contractGateResult);
         if (reportDisposition != null) {
             return reportDisposition;
         }
@@ -109,7 +109,10 @@ public class ImplementationStageGate {
         return contractGateContinuation(contractGateResult, incompleteSubtasks);
     }
 
-    private ContinuationDisposition latestReportContinuationDisposition(List<SubtaskExecutionReport> reports) {
+    private ContinuationDisposition latestReportContinuationDisposition(
+            List<SubtaskExecutionReport> reports,
+            ArchitectIntegrationCheckResult contractGateResult
+    ) {
         if (reports == null || reports.isEmpty()) {
             return null;
         }
@@ -119,7 +122,7 @@ public class ImplementationStageGate {
                 continue;
             }
             SubtaskAttemptReport latest = report.attempts().get(report.attempts().size() - 1);
-            ReviewResult review = canonicalizeContinuationReview(report, latest.review());
+            ReviewResult review = canonicalizeContinuationReview(report, latest.review(), contractGateResult);
             if (review == null) {
                 continue;
             }
@@ -129,6 +132,14 @@ public class ImplementationStageGate {
                         missingScopeReview(review),
                         ImplementationContinuationMode.BLOCK_STAGE,
                         "当前实现需要继续 patch，但阶段汇总没有拿到结构化文件范围，不能自动续跑。"
+                );
+            }
+            if (requiresResolvedRuntimeContract(review) && !hasResolvedRuntimeContract(contractGateResult)) {
+                return continuationDisposition(
+                        report,
+                        missingRuntimeContractReview(review),
+                        ImplementationContinuationMode.BLOCK_STAGE,
+                        "当前实现需要继续修复 runtime wiring，但阶段汇总没有拿到有效的 runtime contract，不能自动续跑。"
                 );
             }
             if (review.revisionRoute() == devflow.agent.review.ReviewRevisionRoute.REQUEST_HUMAN) {
@@ -169,8 +180,12 @@ public class ImplementationStageGate {
 
     private ReviewResult canonicalizeContinuationReview(
             SubtaskExecutionReport report,
-            ReviewResult review
+            ReviewResult review,
+            ArchitectIntegrationCheckResult contractGateResult
     ) {
+        if (requiresResolvedRuntimeContract(review) && hasResolvedRuntimeContract(contractGateResult)) {
+            return withOverrideChanges(review, runtimeWiringRetryChangeFactory.build(contractGateResult.runtimeContract()));
+        }
         if (!requiresCanonicalRepairPackage(review)) {
             return review;
         }
@@ -236,8 +251,26 @@ public class ImplementationStageGate {
                 || review.revisionRoute() == ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET;
     }
 
+    private boolean requiresResolvedRuntimeContract(ReviewResult review) {
+        if (review == null || review.fixMode() != FixMode.PATCH) {
+            return false;
+        }
+        if (review.implementationPatchTarget() != ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
+            return false;
+        }
+        return review.revisionRoute() == ReviewRevisionRoute.PATCH_CURRENT_STAGE
+                || review.revisionRoute() == ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET;
+    }
+
     private boolean hasSafeRepairPackage(SubtaskExecutionReport report) {
         return !structuredRepairScope(report).isEmpty();
+    }
+
+    private boolean hasResolvedRuntimeContract(ArchitectIntegrationCheckResult contractGateResult) {
+        HtmlRuntimeOwnershipContract runtimeContract = contractGateResult == null ? null : contractGateResult.runtimeContract();
+        return runtimeContract != null
+                && runtimeContract.active()
+                && runtimeContract.htmlEntryPath() != null;
     }
 
     private List<FileChange> structuredRepairScope(SubtaskExecutionReport report) {
@@ -377,6 +410,21 @@ public class ImplementationStageGate {
                 List.of(),
                 ReviewRevisionRoute.REQUEST_HUMAN,
                 review.reasonCode() == null ? ReviewReasonCode.IMPLEMENTATION_GAP : review.reasonCode()
+        );
+    }
+
+    private ReviewResult missingRuntimeContractReview(ReviewResult review) {
+        return new ReviewResult(
+                review.decision(),
+                review.fixMode(),
+                "当前实现需要继续修复 runtime wiring，但没有 resolved runtime contract，不能自动续跑。",
+                "请先确认宿主 HTML、runtime ownership 与 companion runtime 根脚本，再恢复 implementation 续跑。",
+                blank(review.evidence()),
+                "1. 明确当前宿主 HTML 入口。 2. 明确当前 runtime ownership。 3. 明确 companion runtime 根脚本集合。 4. 结构化 contract 落盘后再恢复自动续跑。",
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                List.of(),
+                ReviewRevisionRoute.REQUEST_HUMAN,
+                review.reasonCode() == null ? ReviewReasonCode.RUNTIME_WIRING_GAP : review.reasonCode()
         );
     }
 

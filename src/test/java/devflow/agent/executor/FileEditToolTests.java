@@ -96,6 +96,31 @@ class FileEditToolTests {
         assertEquals(Path.of("app.js"), context.mutationRecords().getFirst().relativePath());
     }
 
+    @Test
+    void editToolAllowsFirstMaterializationOfExistingEmptyFileInPatchMode() throws Exception {
+        Path file = tempDir.resolve("app.js");
+        Files.writeString(file, "");
+        ImplementationToolContext context = newContext(file, DeliveryMode.PATCH);
+
+        ToolInvocationResult result = new FileEditTool().invoke(
+                new LlmToolCall(
+                        "call-edit-empty-file",
+                        "Edit",
+                        Map.of(
+                                "file_path", file.toString(),
+                                "old_string", "",
+                                "new_string", "export const ready = true;\n"
+                        )
+                ),
+                context
+        );
+
+        assertTrue(result.success());
+        assertEquals("export const ready = true;\n", Files.readString(file));
+        assertEquals(1, context.mutationRecords().size());
+        assertEquals(Path.of("app.js"), context.mutationRecords().getFirst().relativePath());
+    }
+
     private ImplementationToolContext newContext(Path file, DeliveryMode deliveryMode) throws Exception {
         ImplementationToolContext context = new ImplementationToolContext(
                 tempDir,

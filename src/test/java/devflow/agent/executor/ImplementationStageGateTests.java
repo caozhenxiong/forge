@@ -15,6 +15,7 @@ import devflow.agent.review.FixMode;
 import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewReasonCode;
+import devflow.agent.review.ReviewRevisionRoute;
 import devflow.agent.review.ReviewResult;
 import java.nio.file.Path;
 import java.util.List;
@@ -146,6 +147,95 @@ class ImplementationStageGateTests {
         assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, stageStatus.continuationPatchTarget());
         assertTrue(stageStatus.continuationSummary().contains("结构化文件范围"));
         assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
+    }
+
+    @Test
+    void blocksWhenRuntimeWiringReviewHasNoResolvedRuntimeContract() {
+        ImplementationStageGate gate = new ImplementationStageGate();
+        Subtask subtask = subtask("修接线", false, "index.html");
+        ReviewResult runtimeReview = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.PATCH,
+                "运行时接线未完成",
+                "把 companion runtime 接入宿主 HTML。",
+                "index.app.js exists but index.html does not reference it",
+                "1. 仅修复当前入口接线。 2. 保持当前实现结构不变。",
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                List.of(),
+                ReviewRevisionRoute.PATCH_CURRENT_STAGE,
+                devflow.agent.review.ReviewReasonCode.RUNTIME_WIRING_GAP
+        );
+
+        ImplementationStageStatus stageStatus = gate.summarizeStageStatus(
+                new ImplementationPlan("summary", List.of(subtask)),
+                List.of(new SubtaskExecutionReport(
+                        subtask,
+                        false,
+                        List.of(SubtaskAttemptReport.fromVerification(
+                                1,
+                                new SelfCheckResult(false, "failed", ""),
+                                List.of(),
+                                runtimeReview
+                        )),
+                        new SubtaskExecutionState(DeliveryMode.PATCH, true)
+                )),
+                null
+        );
+
+        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
+        assertTrue(stageStatus.continuationSummary().contains("runtime wiring"));
+        assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
+    }
+
+    @Test
+    void derivesRuntimeWiringContinuationFromResolvedRuntimeContract() {
+        ImplementationStageGate gate = new ImplementationStageGate();
+        Subtask subtask = subtask("修接线", true, "index.html");
+        ReviewResult runtimeReview = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.PATCH,
+                "运行时接线未完成",
+                "把 companion runtime 接入宿主 HTML。",
+                "index.app.js exists but index.html does not reference it",
+                "1. 仅修复当前入口接线。 2. 保持当前实现结构不变。",
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                List.of(),
+                ReviewRevisionRoute.PATCH_CURRENT_STAGE,
+                devflow.agent.review.ReviewReasonCode.RUNTIME_WIRING_GAP
+        );
+        HtmlRuntimeOwnershipContract runtimeContract = HtmlRuntimeOwnershipContract.externalCompanion(
+                Path.of("index.html"),
+                List.of(Path.of("index.app.js"))
+        );
+
+        ImplementationStageStatus stageStatus = gate.summarizeStageStatus(
+                new ImplementationPlan("summary", List.of(subtask)),
+                List.of(new SubtaskExecutionReport(
+                        subtask,
+                        false,
+                        List.of(SubtaskAttemptReport.fromVerification(
+                                1,
+                                new SelfCheckResult(false, "failed", ""),
+                                List.of(),
+                                runtimeReview
+                        )),
+                        new SubtaskExecutionState(DeliveryMode.PATCH, true)
+                )),
+                ArchitectIntegrationCheckResult.failure(
+                        ArchitectIntegrationCheckScope.RUNNABLE_MILESTONE,
+                        ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID,
+                        "index.app.js exists but index.html does not reference it",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                        runtimeContract
+                )
+        );
+
+        assertEquals(ImplementationContinuationMode.CONTINUE_SUBTASKS, stageStatus.continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
+        assertEquals(2, stageStatus.continuationOverrideChanges().size());
+        assertEquals("index.html", stageStatus.continuationOverrideChanges().getFirst().path());
+        assertEquals("index.app.js", stageStatus.continuationOverrideChanges().get(1).path());
     }
 
     @Test

@@ -133,7 +133,7 @@ public final class FileEditTool implements ImplementationTool {
     private boolean replacesEntireExistingBody(String source, String oldString) {
         String normalizedSource = source == null ? "" : source;
         String normalizedOldString = oldString == null ? "" : oldString;
-        return normalizedOldString.equals(normalizedSource);
+        return !normalizedSource.isEmpty() && normalizedOldString.equals(normalizedSource);
     }
 
     private boolean stale(ToolExecutionContext.ToolReadState readState, long currentTimestamp, String currentContent) {
