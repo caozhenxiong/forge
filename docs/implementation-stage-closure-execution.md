@@ -114,27 +114,27 @@
 
 ### Phase 6. Run-State Consistency And Repair Re-entry
 
-- [ ] `T6` `FlowDecisionExecutor` / `StageTransitionSupport` / `StageStatusSupport` 对 repair route 保持同一最终状态
-- [ ] `T6` `StageRevisionSupport` / `StageRevisionRepairSupport` 对 review history、event、revision note、repair brief 口径一致
-- [ ] `T6` `StageProgressArtifactSupport` 对 transition artifact 与 event 口径一致
-- [ ] `T6` `StageEntryExecutor` 对 stage re-entry、attempt 推进、artifactPath 持久化口径一致
-- [ ] `T6` `run.json`、artifact、`events.log` 最终一致
-- [ ] Phase 6 `self-test`
-- [ ] Phase 6 `code review`
-- [ ] Phase 6 `docs`
+- [x] `T6` `FlowDecisionExecutor` / `StageTransitionSupport` / `StageStatusSupport` 对 repair route 保持同一最终状态
+- [x] `T6` `StageRevisionSupport` / `StageRevisionRepairSupport` 对 review history、event、revision note、repair brief 口径一致
+- [x] `T6` `StageProgressArtifactSupport` 对 transition artifact 与 event 口径一致
+- [x] `T6` `StageEntryExecutor` 对 stage re-entry、attempt 推进、artifactPath 持久化口径一致
+- [x] `T6` `run.json`、artifact、`events.log` 最终一致
+- [x] Phase 6 `self-test`
+- [x] Phase 6 `code review`
+- [x] Phase 6 `docs`
 
 ### Phase 7. Regression Matrix
 
-- [ ] `R1` skeleton capability boundary
-- [ ] `R2` runtime split package completeness
-- [ ] `R3` CONTINUE_SUBTASKS repair package scope clamp
-- [ ] `R4` shell deny pathIntents diagnostics
-- [ ] `R5` tool-level full Read / stale Read invariants
-- [ ] `R6` typed payload round-trip
-- [ ] `R7` run-state consistency
-- [ ] Phase 7 `self-test`
-- [ ] Phase 7 `code review`
-- [ ] Phase 7 `docs`
+- [x] `R1` skeleton capability boundary
+- [x] `R2` runtime split package completeness
+- [x] `R3` CONTINUE_SUBTASKS repair package scope clamp
+- [x] `R4` shell deny pathIntents diagnostics
+- [x] `R5` tool-level full Read / stale Read invariants
+- [x] `R6` typed payload round-trip
+- [x] `R7` run-state consistency
+- [x] Phase 7 `self-test`
+- [x] Phase 7 `code review`
+- [x] Phase 7 `docs`
 
 ### Phase 8. Golden Path Integration
 
@@ -145,10 +145,10 @@
 
 ## Current Status
 
-- 当前阶段：`PHASE_5_DONE_PHASE_6_PENDING`
+- 当前阶段：`PHASE_7_DONE_PHASE_8_PENDING`
 - 当前 blocker：`无`
 - 当前约束：`禁止兼容层、禁止 fallback、禁止双轨并存、禁止“后续再清理”`
-- 当前执行入口：`进入 Phase 6：run-state consistency / repair re-entry`
+- 当前执行入口：`进入 Phase 8：golden path integration`
 
 ## Evidence Log
 
@@ -189,17 +189,17 @@
 
 ### Phase 6
 
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`待开始`
+- commit：`lock repair reroute consistency regressions`
+- self-test：`mvn -q -Dtest=StageTransitionSupportTests,StageProgressCoordinatorTests,FlowDecisionExecutorTests,StageEntryExecutorTests,StageStatusSupportTests test`
+- code review：`已完成自查；确认 repair route 的 transition artifact、reroute event、repair brief、stage directive、run.json 在 CODE_REVIEW/TEST -> IMPLEMENTATION repair 路径上由单链收尾；StageProgressCoordinator 级回归同时锁死“重入 implementation 第 2 次尝试”的真实状态`
+- docs：`本文档已更新`
 
 ### Phase 7
 
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`待开始`
+- commit：`lock repair reroute consistency regressions`
+- self-test：`mvn -q -Dtest=ImplementationPlanNormalizationSupportTests,ImplementationPlanGateTests,ImplementationSubtaskDetailGateTests,ImplementationPlannerTests,ImplementationToolPromptBuilderTests,CoderTurnCoordinatorTests,PlanningRuntimeFactsResolverTests,SubtaskBoundaryGateTests,OllamaLlmProviderTests,SubtaskRuntimeWiringGuardTests,ImplementationResumePolicyTests,ImplementationStateArtifactSupportTests,ImplementationContinuationSupportTests,ImplementationStageGateTests,ImplementationToolPermissionPolicyTests,ImplementationToolRegistryTests,FileEditToolTests,FileWriteToolTests,BashToolTests,BashToolFailureDiagnosticsTests,ImplementationToolLoopExecutorTests,StageTransitionSupportTests,StageProgressCoordinatorTests,FlowDecisionExecutorTests,StageEntryExecutorTests,StageStatusSupportTests test`
+- code review：`已完成自查；确认 R1-R7 回归仍只消费各 phase 已收口的 canonical owner，没有回灌旧 fallback、旧 capability 边界或 support 层临时 repair package`
+- docs：`本文档已更新`
 
 ### Phase 8
 
@@ -215,9 +215,9 @@
 - [x] `T3` subtask structured review typed payload 已落到真实协议边界
 - [x] `T4` canonical repair package 已进入 `implementation_state` 单一真相源并可 round-trip
 - [x] `T5` patch-first 已锁死在 permission + tool-context + tool implementation
-- [ ] `T6` repair reroute 的状态、artifact、event、re-entry 已全链一致
-- [ ] `R1 ~ R7` 全部通过
-- [ ] `self-test + code review + docs` 全部补齐
+- [x] `T6` repair reroute 的状态、artifact、event、re-entry 已全链一致
+- [x] `R1 ~ R7` 全部通过
+- [x] `self-test + code review + docs` 全部补齐
 - [ ] 黄金路径集成测试已执行
 
-结果：`PENDING_REVIEW`
+结果：`READY_FOR_PHASE_8`

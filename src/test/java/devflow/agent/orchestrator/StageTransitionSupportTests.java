@@ -11,10 +11,12 @@ import devflow.agent.domain.StageStatus;
 import devflow.agent.domain.StageType;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import devflow.agent.artifact.AuxiliaryArtifactNames;
 import devflow.agent.artifact.EventLogStore;
 import devflow.agent.artifact.FileArtifactStore;
 import devflow.agent.executor.ChangeAction;
 import devflow.agent.executor.FileChange;
+import devflow.agent.executor.generation.GenerationEngine;
 import devflow.agent.protocol.ArtifactBlockKind;
 import devflow.agent.protocol.ExecutionDirectivePayload;
 import devflow.agent.protocol.ExecutionDirectiveProtocol;
@@ -143,6 +145,151 @@ class StageTransitionSupportTests {
 
         assertEquals(RunStatus.FAILED, failed.status());
         assertEquals(StageStatus.FAILED, failed.stageStates().get(StageType.IMPLEMENTATION).status());
+    }
+
+    @Test
+    void rerouteForRevisionRepairRouteKeepsRunStateEventsAndReentryAligned() {
+        FileRunRepository runRepository = new FileRunRepository();
+        runRepository.initialize(tempDir);
+        FileArtifactStore artifactStore = new FileArtifactStore(runRepository);
+        EventLogStore eventLogStore = new EventLogStore(runRepository);
+        LlmProvider provider = noopProvider();
+        StageStatusSupport stageStatusSupport = new StageStatusSupport(
+                runRepository,
+                artifactStore,
+                eventLogStore,
+                new StageFlowPolicy(),
+                new WorkflowArtifactRenderer()
+        );
+        StageRevisionSupport stageRevisionSupport = new StageRevisionSupport(
+                artifactStore,
+                eventLogStore,
+                new StageFlowPolicy(),
+                new WorkflowArtifactRenderer(),
+                new SupervisorGuidanceRenderer(),
+                new StageRevisionRepairSupport(
+                        artifactStore,
+                        eventLogStore,
+                        new DiagnosisAgent(provider, artifactStore, new ObjectMapper()),
+                        new RepairAgent(),
+                        new StageRevisionNoteBuilder(),
+                        new devflow.agent.i18n.LanguagePolicy()
+                ),
+                stageStatusSupport,
+                new devflow.agent.i18n.LanguagePolicy()
+        );
+        StageTransitionSupport support = new StageTransitionSupport(
+                stageStatusSupport,
+                stageRevisionSupport,
+                new StageContinuationNoteBuilder()
+        );
+        StageOperationExecutor stageOperationExecutor = new StageOperationExecutor(
+                null,
+                null,
+                eventLogStore,
+                new GenerationEngine(),
+                new StageOperationPolicy()
+        ) {
+            @Override
+            public String composeStageArtifact(
+                    Path projectPath,
+                    RunRecord runRecord,
+                    StageType stageType,
+                    StageExecution stageExecution,
+                    String note
+            ) {
+                return "# Repair Artifact\n\n已重新进入 implementation。";
+            }
+        };
+        StageEntryExecutor stageEntryExecutor = new StageEntryExecutor(
+                runRepository,
+                artifactStore,
+                eventLogStore,
+                stageOperationExecutor,
+                support
+        );
+        RunRecord runRecord = runRepository.save(
+                new RunRecord(
+                        UUID.randomUUID(),
+                        tempDir,
+                        "goal",
+                        "",
+                        RunConfig.defaultConfig(),
+                        StageType.TEST,
+                        RunStatus.IN_PROGRESS,
+                        stageStates(StageExecutionStatus.running(StageType.TEST, 1)),
+                        Instant.now(),
+                        Instant.now()
+                )
+        );
+        SupervisorDecision supervisorDecision = new SupervisorDecision(
+                WorkflowAction.ROUTE_TO_REPAIR,
+                StageType.IMPLEMENTATION,
+                FixMode.REWORK,
+                "回 implementation 修复",
+                java.util.List.of("只修当前失败缺口"),
+                java.util.List.of("不要重写其他阶段产物"),
+                java.util.List.of("补齐可验证实现证据"),
+                DeliveryPolicy.patchSafe(),
+                false
+        );
+
+        support.rerouteForRevision(
+                tempDir,
+                runRecord,
+                StageType.TEST,
+                new RevisionContext(
+                        ReviewDecision.REJECTED,
+                        FixMode.REWORK,
+                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                        "测试阶段拒绝当前实现",
+                        "回 implementation 修复当前缺口",
+                        "缺少可运行证据",
+                        "1. 只修当前实现缺口。 2. 修完重新测试。",
+                        patchExistingOverrideChanges(),
+                        supervisorDecision,
+                        StageType.IMPLEMENTATION,
+                        true,
+                        false
+                ),
+                stageEntryExecutor::enterStage
+        );
+
+        RunRecord reloaded = runRepository.findById(tempDir, runRecord.runId()).orElseThrow();
+        StageExecution testExecution = reloaded.stageStates().get(StageType.TEST);
+        StageExecution implementationExecution = reloaded.stageStates().get(StageType.IMPLEMENTATION);
+        assertEquals(RunStatus.IN_PROGRESS, reloaded.status());
+        assertEquals(StageType.IMPLEMENTATION, reloaded.currentStage());
+        assertEquals(StageStatus.NEEDS_REVISION, testExecution.status());
+        assertEquals(ReviewDecision.REJECTED, testExecution.reviewDecision());
+        assertEquals("测试阶段拒绝当前实现", testExecution.reviewSummary());
+        assertEquals("回 implementation 修复当前缺口", testExecution.changeRequest());
+        assertEquals(StageStatus.RUNNING, implementationExecution.status());
+        assertEquals(1, implementationExecution.attempt());
+        assertNotNull(implementationExecution.artifactPath());
+
+        String eventLog = eventLogStore.read(tempDir, runRecord.runId());
+        assertTrue(eventLog.contains("阶段｜回流｜来源阶段=TEST｜目标阶段=IMPLEMENTATION｜修复模式=REWORK"));
+        assertTrue(eventLog.contains("诊断｜已触发｜来源阶段=TEST｜产物=repair_brief.md"));
+        assertTrue(eventLog.contains("阶段｜进入开始｜阶段=IMPLEMENTATION｜尝试=1"));
+        assertTrue(eventLog.contains("阶段｜已进入｜阶段=IMPLEMENTATION｜尝试=1"));
+        assertTrue(eventLog.contains("阶段｜产物生成完成｜阶段=IMPLEMENTATION｜尝试=1"));
+
+        String repairBrief = artifactStore.readAuxiliaryArtifact(
+                tempDir,
+                runRecord.runId(),
+                AuxiliaryArtifactNames.REPAIR_BRIEF
+        );
+        assertTrue(repairBrief.contains("修复摘要") || repairBrief.contains("Repair Brief"));
+
+        String directive = artifactStore.readAuxiliaryArtifact(
+                tempDir,
+                runRecord.runId(),
+                AuxiliaryArtifactNames.stageDirective(StageType.IMPLEMENTATION)
+        );
+        assertTrue(directive.contains("DEVFLOW:EXECUTION_DIRECTIVES:BEGIN"));
+        assertTrue(directive.contains("回 implementation 修复当前缺口"));
+        assertTrue(artifactStore.readArtifact(tempDir, runRecord.runId(), StageType.IMPLEMENTATION).contains("Repair Artifact"));
     }
 
     @Test
@@ -395,5 +542,36 @@ class StageTransitionSupportTests {
         private static StageExecution running(StageType stageType, int attempt) {
             return new StageExecution(stageType, StageStatus.RUNNING, attempt, null, null, null, null);
         }
+    }
+
+    private LlmProvider noopProvider() {
+        return new devflow.agent.testsupport.RequestBackedLlmProvider() {
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
+                if (systemPrompt != null && systemPrompt.contains("DiagnosisAgent")) {
+                    return """
+                            {
+                              "failureCluster": "repair-route",
+                              "repeatedErrors": [],
+                              "rootCauseHypothesis": "需要回 implementation 修复当前缺口",
+                              "affectedFiles": ["index.html"],
+                              "evidence": ["route-to-repair"],
+                              "recommendedMode": "REWORK",
+                              "mustFixFirst": ["只修当前实现缺口"],
+                              "forbiddenDirections": ["不要重写其他阶段产物"],
+                              "doNotChange": [],
+                              "acceptanceTarget": ["恢复可运行实现"],
+                              "acceptanceChecks": ["重新验证当前阶段"]
+                            }
+                            """;
+                }
+                return "{}";
+            }
+
+            @Override
+            public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
+                return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "", "", "");
+            }
+        };
     }
 }
