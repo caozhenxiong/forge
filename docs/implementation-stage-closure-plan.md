@@ -298,7 +298,7 @@
 - 第 3 步必须落到真实结构化 payload owner，不能只改 prompt prose。
 - 第 4 步必须复用现有 `RuntimeWiringRetryChangeFactory`，禁止子任务级再造一套 builder。
 - 第 5 步必须把 repair/resume mode 送进 permission policy，不能只改 analyzer 名单。
-- 第 6 步必须连同 `FlowDecisionExecutor / StageTransitionSupport` 一起收，不能只改展示层或 coordinator。
+- 第 6 步必须连同 `FlowDecisionExecutor / StageTransitionSupport / StageRevisionSupport / StageRevisionRepairSupport / StageStatusSupport` 一起收，不能只改展示层、coordinator 或状态表层落盘。
 
 ## Problem-to-Solution Mapping
 
@@ -484,7 +484,8 @@
 验证点：
 
 - `TEST` 或 `CODE_REVIEW` 产物为 `REJECTED` 且 supervisor 动作为 `ROUTE_TO_REPAIR` 时，`run.json` 不得再被写成 `COMPLETED + APPROVED`。
-- `FlowDecisionExecutor`、`StageTransitionSupport`、`StageStatusSupport` 必须对同一份 repair 决策达成一致。
+- `FlowDecisionExecutor`、`StageTransitionSupport`、`StageRevisionSupport`、`StageRevisionRepairSupport`、`StageStatusSupport` 必须对同一份 repair 决策达成一致。
+- reroute event、revision note、repair brief 与最终 stage re-entry 必须来自同一条 repair reroute 链，不允许一部分已进入 repair、一部分仍落成 approved/completed。
 - `events.log`、阶段 artifact、`run.json` 三者必须指向同一最终状态。
 
 期望结果：
