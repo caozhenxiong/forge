@@ -148,11 +148,13 @@
 
 1. skeleton 子任务不再默认拥有后续 gameplay capability，也不能在 task package 中吞掉全部业务能力。
 2. 当子任务要引入新的 runtime root 文件，而当前宿主入口尚未接线时，同一 accepted package 必须同步携带宿主入口 patch；不完整 package 在 planning 阶段即被打回。
-3. subtask review 必须把“越权实现 deferred capability”作为硬性驳回条件，而不是只看 smoke / syntax / wiring。
-4. `CONTINUE_SUBTASKS` 不再只保留“未完成子任务列表”，还必须保留当前失败子任务的 canonical repair package。
-5. implementation 第 2 次阶段尝试必须从 repair package 恢复，而不是重新给同一子任务一个宽泛 execution package。
-6. repair mode 只允许在当前 canonical file contract 内做 patch-first 编辑，不再继续对已有文件做 fresh `Write`，也不再浪费回合做 `cat/head` 这类 shell 只读读取。
-7. 本轮不引入兼容层、fallback、heuristic patch，也不新增第二套 planning/runtime 协议。
+3. subtask review 不再只返回被取平的 `ReviewResult`；子任务级 boundary finding 必须先保留在结构化 review payload 中，再由 deterministic gate 消费，并最终映射回 `ReviewResult`。不得把 implementation-subtask 专属 boundary 语义直接散入全局 review 主协议。
+4. `TaskPackage.alignToSubtask()` 不再把旧 task package 中的 capability fallback 重新灌回当前 subtask；planning 收紧后的 capability partition 必须原样流到 coder / reviewer 输入。
+5. `CONTINUE_SUBTASKS` 不再只保留“未完成子任务列表”，还必须保留当前失败子任务的 canonical repair package。
+6. implementation 第 2 次阶段尝试必须从 repair package 恢复，而不是重新给同一子任务一个宽泛 execution package。
+7. repair/resume 模式下的 tool permission 由单一 permission policy 决定：Bash 不再承担只读探索，repair mode 只允许在当前 canonical file contract 内做 patch-first 编辑，不再继续对已有文件做 fresh `Write`，也不再浪费回合做 `cat/head` 这类 shell 只读读取。
+8. `events.log`、阶段 artifact、`run.json` 的最终状态必须一致；`REJECTED + ROUTE_TO_REPAIR` 不得再被后续收尾链覆写成 `APPROVED / COMPLETED`。
+9. 本轮不引入兼容层、fallback、heuristic patch，也不新增第二套 planning/runtime 协议。
 
 ## Removal Plan
 
@@ -160,37 +162,101 @@
 
 1. skeleton 子任务默认吞掉全部 `ownedCapabilities` 的旧规划路径。
 2. “新增 runtime 文件，但宿主接线后面再说”的不完整 accepted package 路径。
-3. 只看 smoke / syntax、忽略 deferred capability 越权的旧 subtask approval 路径。
-4. `CONTINUE_SUBTASKS` 只保留未完成列表、不保留当前 subtask repair package 的旧续跑路径。
-5. repair mode 下对已有文件继续走 fresh `Write` 的旧执行路径。
-6. repair mode 下继续使用 `cat/head` 这类 shell 只读命令的旧执行路径。
+3. subtask structured review 在 `.result()` 处被取平、boundary 语义直接丢失的旧路径。
+4. `TaskPackage.alignToSubtask()` 通过 `emptyAware(...)` 把旧 capability 灌回当前 subtask 的旧 fallback 路径。
+5. 只看 smoke / syntax、忽略 deferred capability 越权的旧 subtask approval 路径。
+6. `CONTINUE_SUBTASKS` 只保留未完成列表、不保留当前 subtask repair package 的旧续跑路径。
+7. repair mode 下对已有文件继续走 fresh `Write` 的旧执行路径。
+8. repair mode 下继续使用 `cat/head` 这类 shell 只读命令的旧执行路径。
+9. `REJECTED + ROUTE_TO_REPAIR` 之后仍可能把 run/stage 状态落成 `APPROVED / COMPLETED` 的旧收尾路径。
 
 ## Joint-Change Scope
 
 这轮如果进入实现，必须一起改以下联动面，否则一定会留下半成品：
 
-### 1. planning / task package 链
+### 1. planning input / wiring / gate 链
 
-- capability partition
-- accepted package completeness gate
-- task package rendering
+- `ImplementationPlanNormalizationSupport`
+- `ImplementationPlanGateInput`
+- `PlanningRequest`
+- `ImplementationPlanningWiring`
+- `ImplementationOutlineGate`
+- `ImplementationPlanCoverageAnalyzer`
+- `ImplementationPlanChangeGate`
+- `ImplementationSubtaskDetailGate`
 
-### 2. subtask review 链
+要求：
 
-- deferred capability 越权判定
-- skeleton runnable milestone 的审批边界
+- capability partition 的 canonical owner 只允许在 planning 链产生
+- accepted package completeness gate 必须复用单一 planning runtime facts 输入
+- planning gate 不得自行新增目录扫描、root-script 猜测或 companion 文件名 fallback
 
-### 3. stage continuation 链
+### 2. task package / coder 输入链
 
+- `TaskPackage`
+- `TaskPackageAssembler`
+- `TaskPackageMarkdownRenderer`
+- `ImplementationToolPromptBuilder`
+
+要求：
+
+- planning 已收紧的 capability partition 必须原样透传
+- `TaskPackage.alignToSubtask()` 不得再把旧 capability 灌回当前 subtask
+- coder prompt、task package、subtask review 输入必须消费同一份 canonical capability partition
+
+### 3. subtask structured review / boundary gate 链
+
+- `SubtaskReviewPromptAssembler`
+- `SubtaskVerificationSupport`
+- `OllamaStructuredReviewExecutor`
+
+要求：
+
+- boundary finding 必须先保留在子任务级结构化 review payload 中
+- deterministic gate 直接消费结构化 boundary finding
+- 最终再映射回 `ReviewResult`
+- 不直接把 implementation-subtask 专属 boundary 字段散入全局 `ReviewResult` 主协议
+
+### 4. runtime repair package / resume 链
+
+- `SubtaskRuntimeWiringGuard`
+- `RuntimeWiringRetryChangeFactory`
+- `SubtaskRevisionDirective`
+- `ImplementationResumePolicy`
 - `implementation_stage_status.md` 对应的数据生成
-- current subtask repair package 落盘
-- implementation resume 入口
 
-### 4. repair tool loop 链
+要求：
 
-- patch-first prompt / directive
-- 已有文件禁止 fresh rewrite
-- unsupported shell read 收敛
+- 子任务级 `PATCH_RUNTIME_WIRING` 必须直接复用 `RuntimeWiringRetryChangeFactory`
+- 不允许在 `SubtaskRuntimeWiringGuard` 自己再拼第二套 runtime repair package
+- current subtask canonical repair package 必须落盘，并被 resume 主链直接消费
+
+### 5. repair-mode permission / tool loop 链
+
+- `ImplementationToolPermissionPolicy`
+- `ImplementationToolPermissionContext`
+- `ImplementationToolLoopExecutor`
+- `ShellCommandAnalyzer`
+
+要求：
+
+- repair/resume 模式必须进入 permission policy 的单一 owner
+- tool loop 不得再靠 prompt 文案约束 Bash 只读探索
+- 已有文件禁止 fresh rewrite 与 shell read 收敛必须由 permission / policy 层执行
+
+### 6. run-state consistency 链
+
+- `StageProgressCoordinator`
+- `FlowController`
+- `FlowDecisionExecutor`
+- `StageTransitionSupport`
+- `StageStatusSupport`
+
+要求：
+
+- review reject、supervisor repair route、最终 run/stage 落盘必须走同一条收尾链
+- 不允许上层已进入 repair，而底层仍把 run/stage 收成 approved/completed
+- `events.log`、artifact、`run.json` 必须保持一致
 
 ## Closure Decision
 
@@ -203,6 +269,27 @@
 
 如果把范围再扩到 token 预算、旧 continuation routing 基础收口、runtime metadata 规划协议等已收口项，就会再次偏离主线。
 
+## Implementation Order
+
+实现顺序固定为：
+
+1. planning input / wiring / gate 链
+2. task package / coder 输入链
+3. subtask structured review / boundary gate 链
+4. runtime repair package / resume 链
+5. repair-mode permission / tool loop 链
+6. run-state consistency 链
+7. `self-test + code review`
+8. 黄金路径集成测试
+
+说明：
+
+- 第 1 步和第 2 步必须一起完成，否则 planning 收紧会被旧 task package fallback 重新污染。
+- 第 3 步必须落到真实结构化 payload owner，不能只改 prompt prose。
+- 第 4 步必须复用现有 `RuntimeWiringRetryChangeFactory`，禁止子任务级再造一套 builder。
+- 第 5 步必须把 repair/resume mode 送进 permission policy，不能只改 analyzer 名单。
+- 第 6 步必须连同 `FlowDecisionExecutor / StageTransitionSupport` 一起收，不能只改展示层或 coordinator。
+
 ## Problem-to-Solution Mapping
 
 ### P1 对应方案：把 skeleton 子任务的能力边界收回到壳体级，不再吞后续业务能力
@@ -211,12 +298,14 @@
 
 1. `SKELETON` 子任务不再允许默认拥有后续子任务的业务能力。
 2. 对于“只搭入口页和基础样式”的 runnable milestone，`ownedCapabilities` 允许为空，或仅保留与当前文件契约完全一致的最小能力。
-3. `task_packages.md`、coder prompt、subtask review 必须消费同一份 capability partition，不能一处说是壳体任务，一处又让它负责全部 gameplay capability。
-4. 第一子任务只负责：
+3. `ImplementationPlanNormalizationSupport` 不再把空 `ownedCapabilities` 回退成 `acceptanceCriteria`。
+4. `TaskPackage.alignToSubtask()` 不再通过 `emptyAware(...)` 把旧 task package 里的 capability 重新灌回当前 subtask。
+5. `task_packages.md`、coder prompt、subtask review 必须消费同一份 capability partition，不能一处说是壳体任务，一处又让它负责全部 gameplay capability。
+6. 第一子任务只负责：
    - 页面壳体
    - 基础样式
    - 最小 bootstrapping
-5. `CAP-1 ~ CAP-5` 这类 gameplay capability 必须继续留给后续子任务按计划落地。
+7. `CAP-1 ~ CAP-5` 这类 gameplay capability 必须继续留给后续子任务按计划落地。
 
 目标：
 
@@ -229,16 +318,18 @@
 
 1. 新增 package completeness gate：
    - 如果某个子任务引入新的 runtime root 文件，而当前宿主入口并未接入它，那么同一子任务必须同时拥有宿主 HTML patch。
-2. 这条判断只依赖：
+2. planning 链必须先拿到单一 `PlanningRuntimeFacts` 等价输入，不能让每个 gate 各自读取 workspace 或各自重建 HTML 事实。
+3. 这份 planning runtime facts 的装配 owner 只允许在 planning wiring 层，不允许散落到各个 gate。
+4. 这条判断只依赖：
    - 当前 accepted change-set
    - 当前项目已有宿主入口事实
    - 且这些 facts 的合法来源只能是：
      - explicit host contract
      - 当前 accepted scope
      - 当前 HTML 已观察到的 structured wiring facts
-3. 不允许把“新增 `src/engine.js` / `src/board.js`”和“接线 `index.html`”拆到不同 execution package。
-4. 显式禁止把目录扫描、root-script 猜测、基于 companion 文件名的 fallback 推断作为 package completeness gate 的事实来源。
-5. 这条规则不回灌 planning detail 的 runtime metadata，只在 accepted package 完整性层判断。
+5. 不允许把“新增 `src/engine.js` / `src/board.js`”和“接线 `index.html`”拆到不同 execution package。
+6. 显式禁止把目录扫描、root-script 猜测、基于 companion 文件名的 fallback 推断作为 package completeness gate 的事实来源。
+7. 这条规则不回灌 planning detail 的 runtime metadata，只在 accepted package 完整性层判断。
 
 目标：
 
@@ -253,10 +344,12 @@
    - 如果产物实现了当前子任务 `deferredCapabilities`
    - 或实现了其他子任务 `ownedCapabilities`
    - 必须驳回
-2. 对 skeleton 子任务的通过标准收紧为：
+2. 当前子任务 review 不再在 `SubtaskVerificationSupport` 中直接取平 `.result()`；必须先保留结构化 payload，再由 deterministic boundary gate 消费。
+3. 结构化 boundary finding 的 owner 只在子任务 review payload 内，不直接扩散到全局 `ReviewResult` 主协议。
+4. 对 skeleton 子任务的通过标准收紧为：
    - 页面壳体、样式、容器、最小 bootstrapping 可通过
    - 完整游戏状态机、输入处理、计分/消行、游戏结束逻辑属于越权实现，必须打回
-3. smoke / syntax / wiring 仍保留，但不再能覆盖 capability 越权问题。
+5. smoke / syntax / wiring 仍保留，但不再能覆盖 capability 越权问题。
 
 目标：
 
@@ -274,15 +367,16 @@
    - material mutations
    - tool failure diagnostics
    - 下一轮必须遵守的 patch-only boundary
-3. repair package 的 canonical scope 硬上限只能来自当前 subtask 的 accepted/effective structured change-set。
-4. material mutations、tool failure diagnostics 只能作为：
+3. 子任务级 `PATCH_RUNTIME_WIRING` 直接复用 `RuntimeWiringRetryChangeFactory` 生成 canonical change-set，不允许在 `SubtaskRuntimeWiringGuard` 再造第二套 builder。
+4. repair package 的 canonical scope 硬上限只能来自当前 subtask 的 accepted/effective structured change-set。
+5. material mutations、tool failure diagnostics 只能作为：
    - 当前 scope 内的失败证据
    - 当前 scope 内的修复优先级信号
    - 当前 scope 内的 resume 提示
    它们不能扩张 scope，更不能把本轮越界触达路径反向转正成下一轮 repair package 的合法范围。
-5. 如果当前 subtask 无法从 accepted/effective structured change-set 合成安全的 canonical repair package，必须直接 `BLOCK_STAGE`，不能退化成只携带 unfinished subtasks 的半结构化 `CONTINUE_SUBTASKS`。
-6. 第二轮 implementation 尝试直接从这份 repair package 恢复，而不是重新给同一子任务宽泛 execution package。
-7. 该 package 的 owner 单一化：
+6. 如果当前 subtask 无法从 accepted/effective structured change-set 合成安全的 canonical repair package，必须直接 `BLOCK_STAGE`，不能退化成只携带 unfinished subtasks 的半结构化 `CONTINUE_SUBTASKS`。
+7. 第二轮 implementation 尝试直接从这份 repair package 恢复，而不是重新给同一子任务宽泛 execution package。
+8. 该 package 的 owner 单一化：
    - stage roll-up 负责落盘
    - implementation resume 只消费，不得重新猜当前修复范围
 
@@ -298,12 +392,14 @@
 1. 当前子任务进入 repair/resume 模式后，已有文件优先：
    - `Read`
    - 精确 `Edit`
-2. 不允许继续把已有文件当成 fresh `Write`。
-3. 对已有文件的整文件 body replace 也视为 rewrite，即使调用形式是 `Edit` 而不是 `Write`；repair/resume 只能做 scope 内的局部 patch。
-4. deny 决策必须保留 analyzer 已解析出的 `pathIntents`，diagnostics 尽量落到具体路径，而不是退回 `(tool-loop)` 级别的泛化证据。
-5. shell 只读读取统一收敛到结构化文件工具，不再依赖命令字符串 heuristics 去猜用户意图。
-6. `UNSUPPORTED_SHELL_COMMAND` 一旦出现，续跑提示必须直接把等价动作转成结构化文件工具，不再继续消耗回合试 shell。
-7. patch-first 约束只在 repair/resume 生效，不影响真正的新文件创建场景。
+2. repair/resume 模式必须进入 `ImplementationToolPermissionPolicy` 的单一 owner，不允许只靠 prompt prose 约束。
+3. `ImplementationToolLoopExecutor` 必须把 repair/resume mode 显式传入 permission policy；不能继续只传 owned paths。
+4. 不允许继续把已有文件当成 fresh `Write`。
+5. 对已有文件的整文件 body replace 也视为 rewrite，即使调用形式是 `Edit` 而不是 `Write`；repair/resume 只能做 scope 内的局部 patch。
+6. deny 决策必须保留 analyzer 已解析出的 `pathIntents`，diagnostics 尽量落到具体路径，而不是退回 `(tool-loop)` 级别的泛化证据。
+7. shell 只读读取统一收敛到结构化文件工具，不再依赖命令字符串 heuristics 去猜用户意图。
+8. `UNSUPPORTED_SHELL_COMMAND` 一旦出现，续跑提示必须直接把等价动作转成结构化文件工具，不再继续消耗回合试 shell。
+9. patch-first 约束只在 repair/resume 生效，不影响真正的新文件创建场景。
 
 目标：
 
@@ -347,6 +443,7 @@
 验证点：
 
 - `CONTINUE_SUBTASKS` 必须携带当前失败子任务的 canonical repair package。
+- 子任务级 `PATCH_RUNTIME_WIRING` 必须复用 `RuntimeWiringRetryChangeFactory`，不能再单独拼 package。
 - repair package 的 canonical scope 上限只能来自当前 subtask 的 accepted/effective structured change-set。
 - material mutations、tool failure diagnostics 只能作为当前 scope 内的证据、优先级与 resume 提示，不能扩张 scope。
 - 如果无法从 accepted/effective structured change-set 合成安全 repair package，必须 `BLOCK_STAGE`，不能退化成半结构化 `CONTINUE_SUBTASKS`。
@@ -371,3 +468,16 @@
 
 - shell deny 失败证据可稳定指向具体文件。
 - 排障和后续 repair package 聚合继续基于结构化路径，而不是基于命令文本猜意图。
+
+### R5. run-state consistency
+
+验证点：
+
+- `TEST` 或 `CODE_REVIEW` 产物为 `REJECTED` 且 supervisor 动作为 `ROUTE_TO_REPAIR` 时，`run.json` 不得再被写成 `COMPLETED + APPROVED`。
+- `FlowDecisionExecutor`、`StageTransitionSupport`、`StageStatusSupport` 必须对同一份 repair 决策达成一致。
+- `events.log`、阶段 artifact、`run.json` 三者必须指向同一最终状态。
+
+期望结果：
+
+- repair route 的结构化决策不会在状态落盘链上丢失或被覆写。
+- run/stage 最终状态重新成为可信真相源。
