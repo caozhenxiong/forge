@@ -280,8 +280,9 @@
    - 当前 scope 内的修复优先级信号
    - 当前 scope 内的 resume 提示
    它们不能扩张 scope，更不能把本轮越界触达路径反向转正成下一轮 repair package 的合法范围。
-5. 第二轮 implementation 尝试直接从这份 repair package 恢复，而不是重新给同一子任务宽泛 execution package。
-6. 该 package 的 owner 单一化：
+5. 如果当前 subtask 无法从 accepted/effective structured change-set 合成安全的 canonical repair package，必须直接 `BLOCK_STAGE`，不能退化成只携带 unfinished subtasks 的半结构化 `CONTINUE_SUBTASKS`。
+6. 第二轮 implementation 尝试直接从这份 repair package 恢复，而不是重新给同一子任务宽泛 execution package。
+7. 该 package 的 owner 单一化：
    - stage roll-up 负责落盘
    - implementation resume 只消费，不得重新猜当前修复范围
 
@@ -298,10 +299,11 @@
    - `Read`
    - 精确 `Edit`
 2. 不允许继续把已有文件当成 fresh `Write`。
-3. deny 决策必须保留 analyzer 已解析出的 `pathIntents`，diagnostics 尽量落到具体路径，而不是退回 `(tool-loop)` 级别的泛化证据。
-4. shell 只读读取统一收敛到结构化文件工具，不再依赖命令字符串 heuristics 去猜用户意图。
-5. `UNSUPPORTED_SHELL_COMMAND` 一旦出现，续跑提示必须直接把等价动作转成结构化文件工具，不再继续消耗回合试 shell。
-6. patch-first 约束只在 repair/resume 生效，不影响真正的新文件创建场景。
+3. 对已有文件的整文件 body replace 也视为 rewrite，即使调用形式是 `Edit` 而不是 `Write`；repair/resume 只能做 scope 内的局部 patch。
+4. deny 决策必须保留 analyzer 已解析出的 `pathIntents`，diagnostics 尽量落到具体路径，而不是退回 `(tool-loop)` 级别的泛化证据。
+5. shell 只读读取统一收敛到结构化文件工具，不再依赖命令字符串 heuristics 去猜用户意图。
+6. `UNSUPPORTED_SHELL_COMMAND` 一旦出现，续跑提示必须直接把等价动作转成结构化文件工具，不再继续消耗回合试 shell。
+7. patch-first 约束只在 repair/resume 生效，不影响真正的新文件创建场景。
 
 目标：
 
@@ -347,6 +349,7 @@
 - `CONTINUE_SUBTASKS` 必须携带当前失败子任务的 canonical repair package。
 - repair package 的 canonical scope 上限只能来自当前 subtask 的 accepted/effective structured change-set。
 - material mutations、tool failure diagnostics 只能作为当前 scope 内的证据、优先级与 resume 提示，不能扩张 scope。
+- 如果无法从 accepted/effective structured change-set 合成安全 repair package，必须 `BLOCK_STAGE`，不能退化成半结构化 `CONTINUE_SUBTASKS`。
 - 下一轮 implementation 必须直接消费该 repair package，而不是重新放宽 execution package。
 
 期望结果：
@@ -361,6 +364,7 @@
 - shell deny 决策必须保留 analyzer 已解析出的 `pathIntents`。
 - diagnostics 应优先落到结构化具体路径，而不是退回 `(tool-loop)` 级别泛化证据。
 - 不新增命令字符串 heuristics；路径信息只能来自 analyzer 已成功解析的结构化 intent。
+- repair/resume 下对已有文件的整文件替换同样视为 rewrite，不因使用 `Edit` 形式而放行。
 - 对无法解析路径的拒绝场景，空路径仍然是合法结果，但不能伪造目标文件。
 
 期望结果：
