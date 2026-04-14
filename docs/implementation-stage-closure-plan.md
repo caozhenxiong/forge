@@ -84,10 +84,12 @@
 ### 2. accepted / continuation scope 可以承载 runtime contract
 
 - `FileChange`、`effectiveChanges()`、结构化 `overrideChanges` 可以携带 runtime contract
-- 这些 contract 只能来自**结构化来源**：
-  - accepted change-set
+- host entry 的最终 runtime contract 只允许由单一 resolver 产出；下游只消费 resolver 输出，不得在 guard、validator、review 中各自重建
+- resolver 的裁决优先级固定为：
   - continuation scope
-  - 当前运行态已有的 runtime wiring 事实
+  - accepted change-set
+  - 当前运行态已有的 runtime wiring facts
+- 这些 contract 只能来自上述**结构化来源**
 - 不允许通过模型 prose、文件名猜测、场景黑名单回灌这些语义
 
 ### 3. REWORK 继续合法
@@ -186,16 +188,17 @@
 
 1. 定义 host entry HTML 的 runtime contract 只在 accepted / continuation scope 物化时进入结构化变更集。
 2. 该 contract 只能来自结构化来源：
-   - 当前 accepted change-set
    - 当前 continuation scope
-   - 当前执行状态中已知的 runtime wiring 事实
+   - 当前 accepted change-set
+   - 当前执行状态中已知的 runtime wiring facts
 3. 如果某个 host entry HTML 已经进入 accepted / continuation scope，且当前闭环要求 companion wiring，但结构化来源无法提供 runtime contract，则在进入 coder 前直接阻断。
-4. mutation guard、verification、review 继续消费同一份 accepted scope contract，不新增第二套 runtime metadata 来源。
+4. 由单一 runtime contract resolver 按固定优先级产出 canonical contract；mutation guard、verification、review 只消费该 resolver 输出，不新增第二套 runtime metadata 来源。
 
 完成标志：
 
 - planning detail 仍最小化。
 - accepted / continuation scope 的 runtime contract 要求单点定义。
+- host entry runtime contract 的 canonical owner 与优先级已固定。
 - `runtimeOwnership=null` 不再作为 host entry HTML 的可接受 accepted scope 状态。
 
 ### Phase 3. 收口 unsupported shell write 的证据闭环
