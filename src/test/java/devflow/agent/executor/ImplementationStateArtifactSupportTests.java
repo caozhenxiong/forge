@@ -73,6 +73,24 @@ class ImplementationStateArtifactSupportTests {
     }
 
     @Test
+    void readStageStatusRejectsConcreteContinuationPatchWithoutOverrideChanges() throws Exception {
+        ImplementationStateArtifactSupport support = new ImplementationStateArtifactSupport();
+        LinkedHashMap<String, Object> root = baseState();
+        root.put("continuationPatchTarget", ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name());
+        root.put("continuationOverrideChanges", List.of());
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> support.readStageStatus(objectMapper.writeValueAsString(root))
+        );
+
+        assertEquals(
+                "Invalid implementation_state auxiliary artifact: concrete continuation patch requires continuationOverrideChanges.",
+                exception.getMessage()
+        );
+    }
+
+    @Test
     void reviewSummaryRendersToolFailureDiagnosticsWithFailureCodeAndToolLoopPlaceholder() throws Exception {
         ImplementationStateArtifactSupport support = new ImplementationStateArtifactSupport();
         LinkedHashMap<String, Object> root = baseState();

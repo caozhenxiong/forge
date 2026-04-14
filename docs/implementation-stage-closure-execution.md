@@ -87,16 +87,16 @@
 
 ### Phase 4. Runtime Repair Package / Resume Round-Trip
 
-- [ ] `T4` canonical repair package 从 `ImplementationStageStatus` 开始形成
-- [ ] `T4` `ImplementationStateSnapshotSerializer` 把 canonical repair package 写入 `implementation_state`
-- [ ] `T4` `ImplementationStateSnapshot` / `ImplementationStateCodec` 完整承载并校验 required fields
-- [ ] `T4` `ImplementationArtifactPersister` 先写 `implementation_state`，再写派生展示物
-- [ ] `T4` `ImplementationStateArtifactSupport` / `ImplementationContinuationSupport` 从结构化 payload 恢复 continuation
-- [ ] `T4` `SubtaskRuntimeWiringGuard` 复用 `RuntimeWiringRetryChangeFactory`
-- [ ] `T4` `ImplementationResumePolicy` 只消费 canonical repair package，不再自行重建
-- [ ] Phase 4 `self-test`
-- [ ] Phase 4 `code review`
-- [ ] Phase 4 `docs`
+- [x] `T4` canonical repair package 从 `ImplementationStageStatus` 开始形成
+- [x] `T4` `ImplementationStateSnapshotSerializer` 把 canonical repair package 写入 `implementation_state`
+- [x] `T4` `ImplementationStateSnapshot` / `ImplementationStateCodec` 完整承载并校验 required fields
+- [x] `T4` `ImplementationArtifactPersister` 先写 `implementation_state`，再写派生展示物
+- [x] `T4` `ImplementationStateArtifactSupport` / `ImplementationContinuationSupport` 从结构化 payload 恢复 continuation
+- [x] `T4` `SubtaskRuntimeWiringGuard` 复用 `RuntimeWiringRetryChangeFactory`
+- [x] `T4` `ImplementationResumePolicy` 只消费 canonical repair package，不再自行重建
+- [x] Phase 4 `self-test`
+- [x] Phase 4 `code review`
+- [x] Phase 4 `docs`
 
 ### Phase 5. Repair-Mode Permission / Tool Enforcement
 
@@ -145,10 +145,10 @@
 
 ## Current Status
 
-- 当前阶段：`PHASE_1_3_DONE_PHASE_4_PENDING`
+- 当前阶段：`PHASE_4_DONE_PHASE_5_PENDING`
 - 当前 blocker：`无`
 - 当前约束：`禁止兼容层、禁止 fallback、禁止双轨并存、禁止“后续再清理”`
-- 当前执行入口：`进入 Phase 4：runtime repair package / resume round-trip`
+- 当前执行入口：`进入 Phase 5：repair-mode permission / tool enforcement`
 
 ## Evidence Log
 
@@ -175,10 +175,10 @@
 
 ### Phase 4
 
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`待开始`
+- commit：`implement runtime repair package round-trip`
+- self-test：`mvn -q -Dtest=SubtaskRuntimeWiringGuardTests,ImplementationResumePolicyTests,ImplementationStateArtifactSupportTests,ImplementationContinuationSupportTests,ImplementationStageGateTests,StageProgressCoordinatorTests test`
+- code review：`已完成自查；确认 SubtaskRuntimeWiringGuard 直接复用 RuntimeWiringRetryChangeFactory；ImplementationResumePolicy 只消费 continuation overrideChanges，不再从 contract gate 反推 runtime wiring scope；ImplementationStateCodec / ImplementationContinuationSupport 对“具体 patch 但无 canonical overrideChanges”的状态直接判无效`
+- docs：`本文档已更新`
 
 ### Phase 5
 
@@ -210,10 +210,10 @@
 
 ## Completion Gate
 
-- [ ] `T1` capability partition 与 task package fallback 已收口
-- [ ] `T2` accepted package completeness 已前置拦截
-- [ ] `T3` subtask structured review typed payload 已落到真实协议边界
-- [ ] `T4` canonical repair package 已进入 `implementation_state` 单一真相源并可 round-trip
+- [x] `T1` capability partition 与 task package fallback 已收口
+- [x] `T2` accepted package completeness 已前置拦截
+- [x] `T3` subtask structured review typed payload 已落到真实协议边界
+- [x] `T4` canonical repair package 已进入 `implementation_state` 单一真相源并可 round-trip
 - [ ] `T5` patch-first 已锁死在 permission + tool-context + tool implementation
 - [ ] `T6` repair reroute 的状态、artifact、event、re-entry 已全链一致
 - [ ] `R1 ~ R7` 全部通过

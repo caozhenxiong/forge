@@ -33,12 +33,14 @@ public final class SubtaskRuntimeWiringGuard {
     private final ProjectInspector projectInspector;
     private final TreeSitterSupport treeSitterSupport;
     private final WebRuntimeWiringCheck webRuntimeWiringCheck;
+    private final RuntimeWiringRetryChangeFactory runtimeWiringRetryChangeFactory;
 
     SubtaskRuntimeWiringGuard(FileProjectWorkspace workspace, TreeSitterSupport treeSitterSupport) {
         this.workspace = workspace;
         this.projectInspector = new ProjectInspector(workspace);
         this.treeSitterSupport = treeSitterSupport;
         this.webRuntimeWiringCheck = new WebRuntimeWiringCheck(workspace);
+        this.runtimeWiringRetryChangeFactory = new RuntimeWiringRetryChangeFactory();
     }
 
     SubtaskVerificationOutcome check(Path projectPath, Subtask subtask, DocumentLanguage language) {
@@ -62,6 +64,8 @@ public final class SubtaskRuntimeWiringGuard {
             changeRequest = changeRequest + "\n" + evidence;
         }
         RuntimeWiringPatchDecision patchDecision = result.patchDecision();
+        HtmlRuntimeOwnershipContract runtimeContract = patchDecision == null ? null : patchDecision.runtimeContract();
+        boolean resolvedRepairScope = runtimeContract != null && runtimeContract.hasResolvedWiringRepairScope();
         ReviewResult review = new ReviewResult(
                 ReviewDecision.REVISION_REQUIRED,
                 FixMode.PATCH,
@@ -69,11 +73,16 @@ public final class SubtaskRuntimeWiringGuard {
                 changeRequest.trim(),
                 evidence,
                 language.choose("只修复当前入口与 companion runtime 的接线/所有权问题，不要重开整轮实现。", "Only repair the current entry/companion runtime wiring and ownership issue; do not reopen the whole implementation."),
-                patchDecision == null ? ImplementationPatchTarget.PATCH_RUNTIME_WIRING : patchDecision.patchTarget()
+                patchDecision == null ? ImplementationPatchTarget.PATCH_RUNTIME_WIRING : patchDecision.patchTarget(),
+                java.util.List.of(),
+                resolvedRepairScope
+                        ? devflow.agent.review.ReviewRevisionRoute.PATCH_CURRENT_STAGE
+                        : devflow.agent.review.ReviewRevisionRoute.REQUEST_HUMAN,
+                devflow.agent.review.ReviewReasonCode.RUNTIME_WIRING_GAP
         );
-        SubtaskRevisionDirective revisionDirective = patchDecision == null || patchDecision.htmlEntryOverride() == null
-                ? SubtaskRevisionDirective.patch(java.util.List.of())
-                : SubtaskRevisionDirective.patch(java.util.List.of(patchDecision.htmlEntryOverride()));
+        SubtaskRevisionDirective revisionDirective = resolvedRepairScope
+                ? SubtaskRevisionDirective.patch(runtimeWiringRetryChangeFactory.build(runtimeContract))
+                : SubtaskRevisionDirective.patch(java.util.List.of());
         return SubtaskVerificationOutcome.of(review, revisionDirective);
     }
 

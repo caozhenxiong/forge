@@ -12,6 +12,8 @@ import devflow.agent.executor.runtime.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import devflow.agent.protocol.ImplementationContinuationMode;
+import devflow.agent.review.ImplementationPatchTarget;
 import java.util.List;
 
 /**
@@ -75,6 +77,50 @@ final class ImplementationStateCodec {
                         "Invalid implementation_state auxiliary artifact: missing field '" + fieldName + "'."
                 );
             }
+        }
+        validateCanonicalRepairPackage(root);
+    }
+
+    private void validateCanonicalRepairPackage(JsonNode root) {
+        JsonNode modeNode = root.get("continuationMode");
+        JsonNode patchTargetNode = root.get("continuationPatchTarget");
+        JsonNode overrideChangesNode = root.get("continuationOverrideChanges");
+        if (modeNode == null || patchTargetNode == null) {
+            return;
+        }
+        ImplementationContinuationMode continuationMode = parseEnum(
+                ImplementationContinuationMode.class,
+                modeNode.asText(),
+                "continuationMode"
+        );
+        ImplementationPatchTarget patchTarget = parseEnum(
+                ImplementationPatchTarget.class,
+                patchTargetNode.asText(),
+                "continuationPatchTarget"
+        );
+        if (continuationMode != ImplementationContinuationMode.CONTINUE_SUBTASKS || !patchTarget.concretePatch()) {
+            return;
+        }
+        if (overrideChangesNode == null || !overrideChangesNode.isArray() || overrideChangesNode.isEmpty()) {
+            throw new IllegalStateException(
+                    "Invalid implementation_state auxiliary artifact: concrete continuation patch requires continuationOverrideChanges."
+            );
+        }
+    }
+
+    private <T extends Enum<T>> T parseEnum(Class<T> enumType, String rawValue, String fieldName) {
+        if (rawValue == null || rawValue.isBlank()) {
+            throw new IllegalStateException(
+                    "Invalid implementation_state auxiliary artifact: missing field '" + fieldName + "'."
+            );
+        }
+        try {
+            return Enum.valueOf(enumType, rawValue.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalStateException(
+                    "Invalid implementation_state auxiliary artifact: unknown " + fieldName + " '" + rawValue + "'.",
+                    exception
+            );
         }
     }
 }

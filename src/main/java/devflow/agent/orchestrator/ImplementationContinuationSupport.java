@@ -24,6 +24,7 @@ final class ImplementationContinuationSupport {
         if (payload == null) {
             throw new IllegalStateException("Invalid implementation continuation payload: payload is missing.");
         }
+        requireCanonicalRepairPackage(payload);
         return new StageContinuationContext(
                 requiredField("continuationSummary", payload.continuationSummary()),
                 requiredField("continuationChangeRequest", payload.continuationChangeRequest()),
@@ -48,6 +49,20 @@ final class ImplementationContinuationSupport {
                 ReviewRevisionRoute.REQUEST_HUMAN,
                 context.reasonCode()
         );
+    }
+
+    private void requireCanonicalRepairPackage(ImplementationStageStatusPayload payload) {
+        if (payload.continuationMode() != devflow.agent.protocol.ImplementationContinuationMode.CONTINUE_SUBTASKS) {
+            return;
+        }
+        if (payload.continuationPatchTarget() == null || !payload.continuationPatchTarget().concretePatch()) {
+            return;
+        }
+        if (payload.continuationOverrideChanges() == null || payload.continuationOverrideChanges().isEmpty()) {
+            throw new IllegalStateException(
+                    "Invalid implementation continuation payload: concrete continuation patch requires continuationOverrideChanges."
+            );
+        }
     }
 
     private List<FileChange> overrideChanges(List<FileChangePayload> payloads) {

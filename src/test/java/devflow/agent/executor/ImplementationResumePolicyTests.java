@@ -24,6 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ImplementationResumePolicyTests {
 
+    private static final RuntimeWiringRetryChangeFactory RUNTIME_WIRING_RETRY_CHANGE_FACTORY =
+            new RuntimeWiringRetryChangeFactory();
+
     @Test
     void restoresIncompleteSubtaskExecutionStateWithFilePatchProgress() throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
@@ -167,7 +170,10 @@ class ImplementationResumePolicyTests {
                 previousStateJson,
                 FixMode.PATCH,
                 ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
-                List.of(),
+                RUNTIME_WIRING_RETRY_CHANGE_FACTORY.build(HtmlRuntimeOwnershipContract.externalCompanion(
+                        Path.of("index.html"),
+                        List.of(Path.of("index.app.js"))
+                )),
                 DocumentLanguage.ZH
         );
 
@@ -245,7 +251,10 @@ class ImplementationResumePolicyTests {
                 previousStateJson,
                 FixMode.PATCH,
                 ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
-                List.of(),
+                RUNTIME_WIRING_RETRY_CHANGE_FACTORY.build(HtmlRuntimeOwnershipContract.externalCompanion(
+                        Path.of("index.html"),
+                        List.of(Path.of("index.app.js"))
+                )),
                 DocumentLanguage.ZH
         );
 
@@ -305,6 +314,76 @@ class ImplementationResumePolicyTests {
                                 "index.html",
                                 RuntimeOwnershipMode.EXTERNAL_COMPANION.name(),
                                 List.of()
+                        )
+                ),
+                "",
+                "",
+                "",
+                "",
+                "",
+                List.of(),
+                "",
+                "",
+                List.of()
+        ));
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> policy.loadReusableImplementationState(
+                        previousStateJson,
+                        FixMode.PATCH,
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                        List.of(),
+                        DocumentLanguage.ZH
+                )
+        );
+    }
+
+    @Test
+    void runtimeWiringPatchRequiresCanonicalOverrideChangesEvenWhenContractGateExists() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        ImplementationResumePolicy policy = new ImplementationResumePolicy(objectMapper);
+        String previousStateJson = objectMapper.writeValueAsString(new ImplementationStateSnapshot(
+                "修复 runtime wiring",
+                List.of(new ImplementationStateSnapshot.PlannedSubtaskState(
+                        "建立入口",
+                        "创建入口",
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of("入口可运行"),
+                        true,
+                        "PATCH",
+                        List.of(
+                                new ImplementationStateSnapshot.FileChangeState(
+                                        "index.html",
+                                        "WRITE",
+                                        "补齐宿主接线",
+                                        FileEditScope.HOST_HTML_PATCH.name(),
+                                        RuntimeOwnershipMode.EXTERNAL_COMPANION.name()
+                                ),
+                                new ImplementationStateSnapshot.FileChangeState("index.app.js", "WRITE", "补齐 companion runtime")
+                        )
+                )),
+                List.of(new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot(
+                        "建立入口",
+                        true,
+                        List.of()
+                )),
+                List.of(),
+                null,
+                true,
+                false,
+                new ImplementationStateSnapshot.ContractGateState(
+                        ArchitectIntegrationCheckScope.STAGE_COMPLETION.name(),
+                        false,
+                        ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID.name(),
+                        "index.app.js 存在，但 index.html 未接线",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                        new ImplementationStateSnapshot.RuntimeContractState(
+                                "index.html",
+                                RuntimeOwnershipMode.EXTERNAL_COMPANION.name(),
+                                List.of("index.app.js")
                         )
                 ),
                 "",

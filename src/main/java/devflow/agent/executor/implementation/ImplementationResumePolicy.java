@@ -33,12 +33,10 @@ public class ImplementationResumePolicy {
 
     private final ObjectMapper objectMapper;
     private final ImplementationSnapshotRestorer snapshotRestorer;
-    private final RuntimeWiringRetryChangeFactory runtimeWiringRetryChangeFactory;
 
     public ImplementationResumePolicy(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
         this.snapshotRestorer = new ImplementationSnapshotRestorer();
-        this.runtimeWiringRetryChangeFactory = new RuntimeWiringRetryChangeFactory();
     }
 
     /**
@@ -72,8 +70,7 @@ public class ImplementationResumePolicy {
                         subtasks,
                         previousReports,
                         implementationPatchTarget,
-                        overrideChanges,
-                        contractGateResult
+                        overrideChanges
                 );
             }
             List<SubtaskExecutionReport> completedPrefix = snapshotRestorer.takeCompletedPrefix(previousReports);
@@ -86,10 +83,8 @@ public class ImplementationResumePolicy {
             if (resumedExecutionState != null) {
                 resumedExecutionState = resumedExecutionState.applyRevisionDirective(
                         buildRetryDirective(
-                                resolveIncompletePlanPatchTarget(implementationPatchTarget, contractGateResult),
-                                overrideChanges,
-                                contractGateResult,
-                                subtasks.get(completedPrefix.size())
+                                resolveIncompletePlanPatchTarget(implementationPatchTarget),
+                                overrideChanges
                         )
                 );
                 resumedExecutionState.resetToolLoopTranscript();
@@ -111,11 +106,10 @@ public class ImplementationResumePolicy {
             List<Subtask> subtasks,
             List<SubtaskExecutionReport> previousReports,
             ImplementationPatchTarget requestedPatchTarget,
-            List<FileChange> overrideChanges,
-            ArchitectIntegrationCheckResult contractGateResult
+            List<FileChange> overrideChanges
     ) {
-        ImplementationPatchTarget effectivePatchTarget = resolveCompletedPlanPatchTarget(contractGateResult, requestedPatchTarget);
-        int targetIndex = resolveCompletedPlanTargetIndex(subtasks, previousReports, overrideChanges, contractGateResult);
+        ImplementationPatchTarget effectivePatchTarget = resolveCompletedPlanPatchTarget(requestedPatchTarget);
+        int targetIndex = resolveCompletedPlanTargetIndex(subtasks, previousReports, overrideChanges);
         List<SubtaskExecutionReport> completedPrefix = targetIndex <= 0
                 ? List.of()
                 : List.copyOf(previousReports.subList(0, targetIndex));
@@ -126,7 +120,7 @@ public class ImplementationResumePolicy {
             resumedExecutionState = new SubtaskExecutionState(DeliveryMode.PATCH, true);
         }
         resumedExecutionState = resumedExecutionState.applyRevisionDirective(
-                buildRetryDirective(effectivePatchTarget, overrideChanges, contractGateResult, subtasks.get(targetIndex))
+                buildRetryDirective(effectivePatchTarget, overrideChanges)
         );
         resumedExecutionState.resetToolLoopTranscript();
         return new ReusableImplementationState(
@@ -137,31 +131,19 @@ public class ImplementationResumePolicy {
     }
 
     private ImplementationPatchTarget resolveCompletedPlanPatchTarget(
-            ArchitectIntegrationCheckResult contractGateResult,
             ImplementationPatchTarget requestedPatchTarget
     ) {
         if (requestedPatchTarget != null && requestedPatchTarget.concretePatch()) {
             return requestedPatchTarget;
         }
-        if (contractGateResult != null && contractGateResult.implementationPatchTarget() != null
-                && contractGateResult.implementationPatchTarget().concretePatch()) {
-            return contractGateResult.implementationPatchTarget();
-        }
         throw new IllegalStateException("Completed implementation PATCH requires implementationPatchTarget.");
     }
 
     private ImplementationPatchTarget resolveIncompletePlanPatchTarget(
-            ImplementationPatchTarget requestedPatchTarget,
-            ArchitectIntegrationCheckResult contractGateResult
+            ImplementationPatchTarget requestedPatchTarget
     ) {
         if (requestedPatchTarget != null && requestedPatchTarget.concretePatch()) {
             return requestedPatchTarget;
-        }
-        if (contractGateResult != null
-                && contractGateResult.scope() == ArchitectIntegrationCheckScope.RUNNABLE_MILESTONE
-                && contractGateResult.implementationPatchTarget() != null
-                && contractGateResult.implementationPatchTarget().concretePatch()) {
-            return contractGateResult.implementationPatchTarget();
         }
         return ImplementationPatchTarget.NONE;
     }
@@ -169,10 +151,9 @@ public class ImplementationResumePolicy {
     private int resolveCompletedPlanTargetIndex(
             List<Subtask> subtasks,
             List<SubtaskExecutionReport> previousReports,
-            List<FileChange> overrideChanges,
-            ArchitectIntegrationCheckResult contractGateResult
+            List<FileChange> overrideChanges
     ) {
-        Set<Path> targetPaths = targetPaths(overrideChanges, contractGateResult);
+        Set<Path> targetPaths = targetPaths(overrideChanges);
         if (targetPaths.isEmpty()) {
             throw new IllegalStateException("Completed implementation PATCH requires deterministic target paths.");
         }
@@ -198,8 +179,7 @@ public class ImplementationResumePolicy {
     }
 
     private Set<Path> targetPaths(
-            List<FileChange> overrideChanges,
-            ArchitectIntegrationCheckResult contractGateResult
+            List<FileChange> overrideChanges
     ) {
         LinkedHashSet<Path> targetPaths = new LinkedHashSet<>();
         if (overrideChanges != null) {
@@ -210,40 +190,20 @@ public class ImplementationResumePolicy {
                 targetPaths.add(Path.of(change.path()).normalize());
             }
         }
-        HtmlRuntimeOwnershipContract runtimeContract = contractGateResult == null ? null : contractGateResult.runtimeContract();
-        if (runtimeContract != null && runtimeContract.active()) {
-            if (runtimeContract.htmlEntryPath() != null) {
-                targetPaths.add(runtimeContract.htmlEntryPath().normalize());
-            }
-            for (Path runtimePath : runtimeContract.runtimePaths()) {
-                if (runtimePath != null) {
-                    targetPaths.add(runtimePath.normalize());
-                }
-            }
-        }
         return Set.copyOf(targetPaths);
     }
 
     private SubtaskRevisionDirective buildRetryDirective(
             ImplementationPatchTarget patchTarget,
-            List<FileChange> overrideChanges,
-            ArchitectIntegrationCheckResult contractGateResult,
-            Subtask subtask
+            List<FileChange> overrideChanges
     ) {
         if (patchTarget == null || patchTarget == ImplementationPatchTarget.NONE) {
             return SubtaskRevisionDirective.empty();
         }
-        if (patchTarget == ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION) {
-            if (overrideChanges == null || overrideChanges.isEmpty()) {
-                throw new IllegalStateException("PATCH_EXISTING_IMPLEMENTATION continuation requires overrideChanges.");
-            }
-            return SubtaskRevisionDirective.patch(List.copyOf(overrideChanges));
+        if (overrideChanges == null || overrideChanges.isEmpty()) {
+            throw new IllegalStateException(patchTarget.name() + " continuation requires overrideChanges.");
         }
-        HtmlRuntimeOwnershipContract runtimeContract = contractGateResult == null ? null : contractGateResult.runtimeContract();
-        if (runtimeContract == null || !runtimeContract.hasResolvedWiringRepairScope()) {
-            throw new IllegalStateException("Runtime wiring continuation requires a resolved runtime contract.");
-        }
-        return SubtaskRevisionDirective.patch(runtimeWiringRetryChangeFactory.build(runtimeContract));
+        return SubtaskRevisionDirective.patch(List.copyOf(overrideChanges));
     }
 
     private String blankIfNull(String value) {
