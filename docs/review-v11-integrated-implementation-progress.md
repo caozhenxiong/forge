@@ -157,7 +157,7 @@
 
 ### Scope 2
 
-- commit：`待本次提交回填`
+- commit：`ed6c76e Propagate accepted boundary contract through scope 2`
 - self-test：`mvn -q -Dtest=TaskPackageTests,TaskPackageAssemblerTests,TaskPackageMarkdownRendererTests,SubtaskReviewPromptAssemblerTests,SubtaskBoundaryGateTests test`
 - code review：`本地静态自审通过；未发现 accepted boundary contract 第二轨`
 - docs：`tracker 已回填 Scope 2 状态与证据`
