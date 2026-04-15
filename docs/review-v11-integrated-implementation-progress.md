@@ -51,15 +51,15 @@
 
 ### Scope 1. Planning Boundary Contract Closure
 
-- [ ] 把 shared-file downstream boundary 规则显式写进 `ImplementationOutlinePromptBuilder`
-- [ ] `ImplementationPlanningPromptAssembler` / `ImplementationPlanner` 只围绕同一份 planning boundary contract 组织重试
-- [ ] `ImplementationOutlineGate` / `ImplementationPlanGate` / `ImplementationPlanCoverageAnalyzer` 对 shared-file boundary 使用同一套结构化口径
-- [ ] `ImplementationSubtaskDetailPromptBuilder` / `ImplementationSubtaskDetailGate` 与 outline 使用同一份 boundary contract
-- [ ] `ImplementationPlanningFeedbackRouter` 把 final gate / accepted-package completeness 问题稳定路由回 outline 或具体 subtask detail
-- [ ] `ImplementationPlanningRepairSupport` / `ImplementationPlanningPayloadParser` 不再生成第二套 detail 修复语义
-- [ ] Scope 1 `self-test`
-- [ ] Scope 1 `code review`
-- [ ] Scope 1 `docs`
+- [x] 把 shared-file downstream boundary 规则显式写进 `ImplementationOutlinePromptBuilder`
+- [x] `ImplementationPlanningPromptAssembler` / `ImplementationPlanner` 只围绕同一份 planning boundary contract 组织重试
+- [x] `ImplementationOutlineGate` / `ImplementationPlanGate` / `ImplementationPlanCoverageAnalyzer` 对 shared-file boundary 使用同一套结构化口径
+- [x] `ImplementationSubtaskDetailPromptBuilder` / `ImplementationSubtaskDetailGate` 与 outline 使用同一份 boundary contract
+- [x] `ImplementationPlanningFeedbackRouter` 把 final gate / accepted-package completeness 问题稳定路由回 outline 或具体 subtask detail
+- [x] `ImplementationPlanningRepairSupport` / `ImplementationPlanningPayloadParser` 不再生成第二套 detail 修复语义
+- [x] Scope 1 `self-test`
+- [x] Scope 1 `code review`
+- [x] Scope 1 `docs`
 
 ### Scope 2. Boundary Contract Propagation
 
@@ -142,18 +142,18 @@
 
 ## Current Status
 
-- 当前阶段：`PLAN_APPROVED_PENDING_IMPLEMENTATION`
-- 当前 blocker：`等待 reviewer 对 v11 tracker 方案确认；代码尚未开始实现`
+- 当前阶段：`SCOPE_1_COMPLETED_PENDING_SCOPE_2`
+- 当前 blocker：`无`
 - 当前约束：`禁止兼容层、禁止双轨并存、禁止“后续再清理”`
 
 ## Evidence Log
 
 ### Scope 1
 
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`本文档已创建`
+- commit：`待本次提交回填`
+- self-test：`mvn -q -Dtest=ImplementationPlannerTests,ImplementationPlanGateTests,ImplementationPlanCoverageAnalyzerTests,ImplementationPlanningFeedbackRouterTests,ImplementationPlanningPayloadParserTests,ImplementationPlanNormalizationSupportTests,ImplementationPlanningPromptBuilderTests test`
+- code review：`本地静态自审通过；未发现 Scope 1 新双轨或 fallback`
+- docs：`tracker 已回填 Scope 1 状态与证据`
 
 ### Scope 2
 

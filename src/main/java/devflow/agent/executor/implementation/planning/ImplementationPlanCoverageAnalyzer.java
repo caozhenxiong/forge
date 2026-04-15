@@ -365,11 +365,9 @@ public class ImplementationPlanCoverageAnalyzer {
                 continue;
             }
             if (unit.deferredCapabilities().isEmpty()) {
-                LinkedHashSet<String> sharedPaths = new LinkedHashSet<>();
-                futureBoundaries.forEach(boundary -> sharedPaths.addAll(boundary.overlapPaths()));
                 issues.add("子任务 " + renderUnitId(unit.id())
-                        + " 与后续子任务共享文件 " + String.join("、", sharedPaths)
-                        + "，必须显式声明 deferredCapabilities 来锁定当前与下游 capability boundary。");
+                        + " 与后续子任务共享文件，必须显式声明 deferredCapabilities 来锁定当前与下游 capability boundary："
+                        + renderSharedBoundaryDetails(futureBoundaries));
                 continue;
             }
             for (SharedFileFutureBoundary boundary : futureBoundaries) {
@@ -379,7 +377,9 @@ public class ImplementationPlanCoverageAnalyzer {
                     issues.add("子任务 " + renderUnitId(unit.id())
                             + " 与后续子任务 " + boundary.futureUnitId()
                             + " 共享文件 " + String.join("、", boundary.overlapPaths())
-                            + "，必须把该下游 owner 的能力显式声明为 deferredCapabilities："
+                            + "；该后续 owner 的 ownedCapabilities="
+                            + String.join("、", boundary.ownedCapabilities())
+                            + "；当前 deferredCapabilities 缺少："
                             + String.join("、", missingCapabilities));
                 }
             }
@@ -416,5 +416,17 @@ public class ImplementationPlanCoverageAnalyzer {
             List<String> overlapPaths,
             List<String> ownedCapabilities
     ) {
+    }
+
+    private String renderSharedBoundaryDetails(List<SharedFileFutureBoundary> futureBoundaries) {
+        if (futureBoundaries == null || futureBoundaries.isEmpty()) {
+            return "";
+        }
+        List<String> details = futureBoundaries.stream()
+                .map(boundary -> boundary.futureUnitId()
+                        + " 共享文件 " + String.join("、", boundary.overlapPaths())
+                        + "，ownedCapabilities=" + String.join("、", boundary.ownedCapabilities()))
+                .toList();
+        return String.join(" | ", details);
     }
 }

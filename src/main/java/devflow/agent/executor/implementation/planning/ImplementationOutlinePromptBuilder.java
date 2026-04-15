@@ -80,6 +80,7 @@ final class ImplementationOutlinePromptBuilder {
                 12. continuation 时必须建立在现有文件事实之上，不得把已有文件退回骨架或重新开局
                 13. obligation=optional 的 coverage ref 只有在你明确打算实现该增强时才写进 coverageRefs；待确认问题不得写进 implementation ownership
                 """.formatted(maxFilesPerSubtask));
+        builder.append(PlanningBoundaryContractPromptSupport.outlineSharedFileRuleBlock());
         if (deliveryPolicy != null) {
             builder.append("""
 
@@ -178,6 +179,9 @@ final class ImplementationOutlinePromptBuilder {
                 当前工作区上下文：
                 %s
 
+                shared-file boundary 提醒：
+                %s
+
                 必需证据：
                 %s
 
@@ -192,6 +196,10 @@ final class ImplementationOutlinePromptBuilder {
                 continuationConstraints == null ? PlaceholderValues.none(language) : continuationConstraints.toMarkdown(language),
                 plannerContextMarkdown,
                 workspaceContext,
+                language.choose(
+                        "若多个子任务共享同一路径，前面的子任务必须把后续 owner 的 ownedCapabilities 全量写进 deferredCapabilities；不要留空，也不要只写一部分。",
+                        "If multiple subtasks share the same path, earlier subtasks must defer the full ownedCapabilities set of each downstream owner; do not leave it empty or partial."
+                ),
                 renderBulletList(deliveryPolicy == null ? null : deliveryPolicy.requiredEvidence()),
                 feedback == null || feedback.isBlank() ? PlaceholderValues.none(language) : feedback
         );

@@ -67,6 +67,9 @@ final class ImplementationSubtaskDetailPromptBuilder {
                 9. 若新增脚本本身会成为新的 runtime root，标记为 ROOT，并在同一子任务里携带宿主 HTML patch
                 10. 若新增脚本只是挂在当前 reachable runtime anchor 下的 leaf/module，标记为 LEAF
                 11. 非 runtime 文件、宿主 HTML、以及当前已 reachable 的 runtime 文件，不要填写 runtimeScriptRole
+                12. outline 中的 ownedCapabilities / deferredCapabilities 是当前子任务唯一 boundary contract，detail 阶段不得改写
+                13. 如果当前 targetPaths 与后续子任务共享文件，当前 detail 只能服务当前 ownedCapabilities，不得提前实现 deferredCapabilities
+                14. 如果上一轮反馈指出 shared-file boundary 问题，应回到当前 boundary contract 收紧 detail，而不是创造第二套 detail 语义
                 """.formatted(maxFilesPerSubtask));
         if (deliveryPolicy != null) {
             builder.append("""
@@ -147,6 +150,9 @@ final class ImplementationSubtaskDetailPromptBuilder {
                 - reachableRuntimePaths: %s
                 - runtimeRootPaths: %s
 
+                共享文件下游边界：
+                %s
+
                 质量计划：
                 %s
 
@@ -172,6 +178,7 @@ final class ImplementationSubtaskDetailPromptBuilder {
                 runtimeFacts == null || !runtimeFacts.hasResolvedHtmlEntry() ? PlaceholderValues.none(language) : runtimeFacts.htmlEntryPath(),
                 runtimeFacts == null ? "[]" : safePathList(runtimeFacts.reachableRuntimePaths()),
                 runtimeFacts == null ? "[]" : safePathList(runtimeFacts.runtimeRootPaths()),
+                PlanningBoundaryContractPromptSupport.sharedFileBoundaryContext(outline, subtask),
                 qualityPlan == null ? PlaceholderValues.none(language) : qualityPlan.toMarkdown(language),
                 workspaceContext,
                 feedback == null || feedback.isBlank() ? PlaceholderValues.none(language) : feedback

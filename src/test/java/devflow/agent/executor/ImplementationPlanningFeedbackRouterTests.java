@@ -71,6 +71,32 @@ class ImplementationPlanningFeedbackRouterTests {
         assertEquals("subtask-2", decision.unitId());
     }
 
+    @Test
+    void resolvesDetailUnitFromStructuredPathContextWhenUnitIdIsBlank() {
+        ImplementationPlanningFeedbackRouter router = new ImplementationPlanningFeedbackRouter();
+
+        ImplementationPlanningFeedbackRouter.RouteDecision decision = router.route(
+                GateReport.failure(
+                        "summary",
+                        List.of(new GateIssue(
+                                "NON_STANDARD_CODE",
+                                "detail owned failure",
+                                GateFailureDisposition.REPLAN_CURRENT_STAGE,
+                                GateIssueContext.forPlanningUnitPaths(
+                                        ImplementationPlanningUnitKind.SUBTASK_DETAIL,
+                                        "",
+                                        List.of("src/app.js")
+                                )
+                        ))
+                ),
+                outline()
+        );
+
+        assertNotNull(decision);
+        assertEquals(ImplementationPlanningUnitKind.SUBTASK_DETAIL, decision.unitKind());
+        assertEquals("subtask-2", decision.unitId());
+    }
+
     private ImplementationOutline outline() {
         return new ImplementationOutline(
                 "summary",

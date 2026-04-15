@@ -86,6 +86,8 @@ final class ImplementationPlanningRepairSupport {
                 子任务 detail 只允许保留 path/action/reason/runtimeScriptRole 这四个 change 字段。
                 runtimeScriptRole 仅允许 ROOT、LEAF 或 null。
                 不要补出 editScope、runtimeOwnership、hostHtmlPatchRequired 等旧字段。
+                outline 中的 ownedCapabilities / deferredCapabilities / targetPaths 是 planning boundary contract，不要删除、改名或用新字段替代。
+                子任务 detail 不得改写 outline 的 boundary contract；只修复当前 subtaskId 与 changes 的 JSON 结构。
                 保持原有字段语义不变，字段格式必须符合：
                 %s
                 """.formatted(schema);
