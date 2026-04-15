@@ -200,6 +200,38 @@
 - 本轮记录，不实现
 - 后续如果继续收 planning 边界，再单列 scope
 
+## Deferred Medium-Risk Backlog
+
+这两条中风险不是“不处理”，而是“本轮不并入 high-risk 主线实现”。后续是否升级，按下面规则执行。
+
+### Backlog Item A. `TestExecutor targeted reverification drift`
+
+- 对应问题：`M1`
+- 当前状态：记录，不纳入 `v13` 实现
+- 升级条件：
+  - high-risk 4 条已收口，但集成仍在 `TEST / targeted reverification` 阶段被打回
+  - 或 code review / logs 明确显示 `passed + unresolved target` 仍被错误翻译成 patch review
+- 下一轮入口：
+  - 单独起 `v14` 或后续独立方案
+  - 只改 `TestExecutor / ExperienceFailureDispositionResolver / targeted reverification mapping` 这条链
+
+### Backlog Item B. `Empty owner contract / weak capability partition`
+
+- 对应问题：`M2`
+- 当前状态：记录，不纳入 `v13` 实现
+- 升级条件：
+  - high-risk 4 条已收口后，planning / boundary review 仍出现空 owner contract 子任务
+  - 或 reviewer 明确指出 capability partition 仍允许无 owner / 无 deferred contract 的 plan 混入执行
+- 下一轮入口：
+  - 单独起 planning-boundary 收口方案
+  - 只改 `capability partition / owner contract / boundary review` 相关链路
+
+### Backlog Discipline
+
+- `M1/M2` 在本轮只做记录，不允许顺手并入实现
+- 只有当 high-risk 主线收完、且有新的 reviewer 证据或集成日志证据时，才允许升级
+- 升级后必须单独成文档、单独过审，不得直接混进 `v13`
+
 ## Problem / Solution Map
 
 ### High-Risk 优先级
@@ -287,4 +319,3 @@
 2. `Final State` 是否足够单一，没有留下第二条 owner / fallback 路径
 3. `Joint-Change Scope` 是否漏掉真实 owner
 4. `Regression Matrix` 是否已经能钉住这轮问题族，避免再次回退
-
