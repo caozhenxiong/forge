@@ -178,21 +178,21 @@
 
 ### Scope 5
 
-- commit：`待提交`
+- commit：`1678b1c Close scope 5 and 6 authority and validation audit`
 - self-test：`mvn -q -Dtest=ConstraintAuthoritySupportTests,AuthorityCorpusProjectionTests,ContractExtractorTests test`
 - code review：`本地静态自审通过；authority corpus 现在只投影 binding facts，runtimeOwnershipMode 不再回灌到文档 authority。`
 - docs：`tracker 已回填 Scope 5 完成态与证据`
 
 ### Scope 6
 
-- commit：`待提交`
+- commit：`1678b1c Close scope 5 and 6 authority and validation audit`
 - self-test：`mvn -q -Dtest=ValidationExecutorTests,ExperienceFailureDispositionResolverTests,TestExecutorTests test`
 - code review：`本地静态自审通过；resource validation 只消费 resolved html entry，TEST 自检链不再被次级 HTML 资源噪音误拒绝。`
 - docs：`tracker 已回填 Scope 6 完成态与证据`
 
 ### Scope 7
 
-- commit：`待提交`
+- commit：`1678b1c Close scope 5 and 6 authority and validation audit`
 - self-test：`R1~R7 复用 Scope 1~4 已记录 self-test；R8~R9 由 Scope 5/6 自测覆盖；R10 待黄金路径集成测试`
 - code review：`本地静态自审通过；回归矩阵已回填到 R9，剩余只保留黄金路径集成项。`
 - docs：`tracker 已回填 R1~R9；R10 与 Scope 8 待执行`
