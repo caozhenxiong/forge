@@ -688,4 +688,166 @@ class ImplementationResumePolicyTests {
         assertEquals("index.html", reusableState.resumedExecutionState().effectiveChanges().getFirst().path());
         assertEquals("index.app.js", reusableState.resumedExecutionState().effectiveChanges().get(1).path());
     }
+
+    @Test
+    void runtimeWiringPatchRejectsInlineHostWhenCompletedHtmlOwnerIsAmbiguous() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        ImplementationResumePolicy policy = new ImplementationResumePolicy(objectMapper);
+        String previousStateJson = objectMapper.writeValueAsString(new ImplementationStateSnapshot(
+                "修复 runtime wiring",
+                List.of(
+                        new ImplementationStateSnapshot.PlannedSubtaskState(
+                                "入口",
+                                "修入口",
+                                List.of(),
+                                List.of(),
+                                List.of(),
+                                List.of("入口完成"),
+                                true,
+                                "PATCH",
+                                List.of(
+                                        new ImplementationStateSnapshot.FileChangeState("index.html", "WRITE", "入口 owner"),
+                                        new ImplementationStateSnapshot.FileChangeState("src/app.js", "WRITE", "入口逻辑")
+                                )
+                        ),
+                        new ImplementationStateSnapshot.PlannedSubtaskState(
+                                "布局",
+                                "修布局",
+                                List.of(),
+                                List.of(),
+                                List.of(),
+                                List.of("布局完成"),
+                                false,
+                                "PATCH",
+                                List.of(
+                                        new ImplementationStateSnapshot.FileChangeState("index.html", "WRITE", "布局 owner"),
+                                        new ImplementationStateSnapshot.FileChangeState("styles.css", "WRITE", "样式")
+                                )
+                        )
+                ),
+                List.of(
+                        new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot("入口", true, List.of()),
+                        new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot("布局", true, List.of())
+                ),
+                List.of(),
+                null,
+                true,
+                false,
+                new ImplementationStateSnapshot.ContractGateState(
+                        ArchitectIntegrationCheckScope.STAGE_COMPLETION.name(),
+                        false,
+                        ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID.name(),
+                        "inline host owner is ambiguous",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                        new ImplementationStateSnapshot.RuntimeContractState(
+                                "index.html",
+                                RuntimeOwnershipMode.INLINE_HOST.name(),
+                                List.of()
+                        )
+                ),
+                "",
+                "",
+                "",
+                "",
+                "",
+                List.of(),
+                "",
+                "",
+                List.of()
+        ));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> policy.loadReusableImplementationState(
+                        previousStateJson,
+                        FixMode.PATCH,
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                        List.of(),
+                        DocumentLanguage.ZH
+                )
+        );
+
+        assertTrue(exception.getMessage().contains("could not find an owning subtask"));
+    }
+
+    @Test
+    void runtimeWiringPatchRejectsExternalCompanionWhenCompletedOwnerIsNotResolvable() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        ImplementationResumePolicy policy = new ImplementationResumePolicy(objectMapper);
+        String previousStateJson = objectMapper.writeValueAsString(new ImplementationStateSnapshot(
+                "修复 runtime wiring",
+                List.of(
+                        new ImplementationStateSnapshot.PlannedSubtaskState(
+                                "入口",
+                                "修入口",
+                                List.of(),
+                                List.of(),
+                                List.of(),
+                                List.of("入口完成"),
+                                true,
+                                "PATCH",
+                                List.of(
+                                        new ImplementationStateSnapshot.FileChangeState("index.html", "WRITE", "入口 owner"),
+                                        new ImplementationStateSnapshot.FileChangeState("styles.css", "WRITE", "样式")
+                                )
+                        ),
+                        new ImplementationStateSnapshot.PlannedSubtaskState(
+                                "布局",
+                                "修布局",
+                                List.of(),
+                                List.of(),
+                                List.of(),
+                                List.of("布局完成"),
+                                false,
+                                "PATCH",
+                                List.of(
+                                        new ImplementationStateSnapshot.FileChangeState("index.html", "WRITE", "布局 owner"),
+                                        new ImplementationStateSnapshot.FileChangeState("src/panel.js", "WRITE", "局部逻辑")
+                                )
+                        )
+                ),
+                List.of(
+                        new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot("入口", true, List.of()),
+                        new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot("布局", true, List.of())
+                ),
+                List.of(),
+                null,
+                true,
+                false,
+                new ImplementationStateSnapshot.ContractGateState(
+                        ArchitectIntegrationCheckScope.STAGE_COMPLETION.name(),
+                        false,
+                        ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID.name(),
+                        "runtime owner is not resolvable",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                        new ImplementationStateSnapshot.RuntimeContractState(
+                                "index.html",
+                                RuntimeOwnershipMode.EXTERNAL_COMPANION.name(),
+                                List.of("index.app.js")
+                        )
+                ),
+                "",
+                "",
+                "",
+                "",
+                "",
+                List.of(),
+                "",
+                "",
+                List.of()
+        ));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> policy.loadReusableImplementationState(
+                        previousStateJson,
+                        FixMode.PATCH,
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                        List.of(),
+                        DocumentLanguage.ZH
+                )
+        );
+
+        assertTrue(exception.getMessage().contains("could not find an owning subtask"));
+    }
 }

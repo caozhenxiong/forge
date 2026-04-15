@@ -554,6 +554,110 @@ class ImplementationStageGateTests {
         assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
     }
 
+    @Test
+    void blocksStageCompletionRuntimeWiringWhenInlineHostHasMultipleCompletedHtmlOwners() {
+        ImplementationStageGate gate = new ImplementationStageGate();
+        Subtask first = new Subtask(
+                "入口",
+                "入口",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("入口完成"),
+                true,
+                DeliveryMode.PATCH,
+                List.of(
+                        new FileChange("index.html", ChangeAction.WRITE, "入口 owner"),
+                        new FileChange("src/app.js", ChangeAction.WRITE, "入口逻辑")
+                )
+        );
+        Subtask second = new Subtask(
+                "布局",
+                "布局",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("布局完成"),
+                false,
+                DeliveryMode.PATCH,
+                List.of(
+                        new FileChange("index.html", ChangeAction.WRITE, "布局 owner"),
+                        new FileChange("styles.css", ChangeAction.WRITE, "样式")
+                )
+        );
+
+        ImplementationStageStatus stageStatus = gate.summarizeStageStatus(
+                new ImplementationPlan("summary", List.of(first, second)),
+                List.of(completedReport(first), completedReport(second)),
+                ArchitectIntegrationCheckResult.failure(
+                        ArchitectIntegrationCheckScope.STAGE_COMPLETION,
+                        ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID,
+                        "inline host owner is ambiguous",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                        HtmlRuntimeOwnershipContract.inlineHost(Path.of("index.html"))
+                )
+        );
+
+        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
+        assertTrue(stageStatus.continuationSummary().contains("唯一 completed owner"));
+        assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
+    }
+
+    @Test
+    void blocksStageCompletionRuntimeWiringWhenExternalCompanionOwnerIsNotResolvable() {
+        ImplementationStageGate gate = new ImplementationStageGate();
+        Subtask first = new Subtask(
+                "入口",
+                "入口",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("入口完成"),
+                true,
+                DeliveryMode.PATCH,
+                List.of(
+                        new FileChange("index.html", ChangeAction.WRITE, "入口 owner"),
+                        new FileChange("styles.css", ChangeAction.WRITE, "样式")
+                )
+        );
+        Subtask second = new Subtask(
+                "布局",
+                "布局",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("布局完成"),
+                false,
+                DeliveryMode.PATCH,
+                List.of(
+                        new FileChange("index.html", ChangeAction.WRITE, "布局 owner"),
+                        new FileChange("src/panel.js", ChangeAction.WRITE, "局部逻辑")
+                )
+        );
+
+        ImplementationStageStatus stageStatus = gate.summarizeStageStatus(
+                new ImplementationPlan("summary", List.of(first, second)),
+                List.of(completedReport(first), completedReport(second)),
+                ArchitectIntegrationCheckResult.failure(
+                        ArchitectIntegrationCheckScope.STAGE_COMPLETION,
+                        ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID,
+                        "runtime owner is not resolvable",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                        HtmlRuntimeOwnershipContract.externalCompanion(
+                                Path.of("index.html"),
+                                List.of(Path.of("index.app.js"))
+                        )
+                )
+        );
+
+        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
+        assertTrue(stageStatus.continuationSummary().contains("唯一 completed owner"));
+        assertTrue(stageStatus.continuationEvidence().contains("index.app.js"));
+        assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
+    }
+
     private Subtask subtask(String title, boolean runnableMilestone, String path) {
         return new Subtask(
                 title,

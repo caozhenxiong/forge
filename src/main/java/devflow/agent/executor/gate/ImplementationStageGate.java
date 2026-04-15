@@ -1,6 +1,7 @@
 package devflow.agent.executor.gate;
 
 import devflow.agent.executor.*;
+import devflow.agent.executor.implementation.CompletedPlanPatchOwnerResolver;
 import devflow.agent.executor.implementation.planning.ImplementationPlan;
 import devflow.agent.executor.runtime.*;
 
@@ -23,6 +24,8 @@ import devflow.agent.executor.subtask.SubtaskExecutionReport;
  */
 public class ImplementationStageGate {
 
+    private final CompletedPlanPatchOwnerResolver completedPlanPatchOwnerResolver =
+            new CompletedPlanPatchOwnerResolver();
     private final RuntimeWiringRetryChangeFactory runtimeWiringRetryChangeFactory = new RuntimeWiringRetryChangeFactory();
 
     /**
@@ -67,7 +70,12 @@ public class ImplementationStageGate {
                 remainingSubtasks,
                 contractGateResult
         );
-        continuationDisposition = enforceCompletedPlanPatchOwnership(planCompleted, reports, continuationDisposition);
+        continuationDisposition = enforceCompletedPlanPatchOwnership(
+                planCompleted,
+                reports,
+                contractGateResult,
+                continuationDisposition
+        );
         return new ImplementationStageStatus(
                 plannedSubtasks,
                 executedSubtasks,
@@ -107,7 +115,7 @@ public class ImplementationStageGate {
         if (contractGateResult == null || contractGateResult.passed()) {
             return null;
         }
-        return contractGateContinuation(contractGateResult, incompleteSubtasks);
+        return contractGateContinuation(reports, contractGateResult, incompleteSubtasks);
     }
 
     private ContinuationDisposition latestReportContinuationDisposition(
@@ -182,26 +190,41 @@ public class ImplementationStageGate {
     private ContinuationDisposition enforceCompletedPlanPatchOwnership(
             boolean planCompleted,
             List<SubtaskExecutionReport> reports,
+            ArchitectIntegrationCheckResult contractGateResult,
             ContinuationDisposition continuationDisposition
     ) {
         if (!planCompleted
                 || continuationDisposition == null
                 || continuationDisposition.mode() != ImplementationContinuationMode.CONTINUE_SUBTASKS
-                || continuationDisposition.implementationPatchTarget() != ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION) {
+                || !continuationDisposition.implementationPatchTarget().concretePatch()) {
             return continuationDisposition;
         }
-        if (hasSingleCompletedOwner(reports, continuationDisposition.overrideChanges())) {
+        if (continuationDisposition.implementationPatchTarget() == ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
+                && completedPlanPatchOwnerResolver.hasSingleCompletedOwner(reports, continuationDisposition.overrideChanges())) {
             return continuationDisposition;
         }
-        String evidence = continuationDisposition.overrideChanges().isEmpty()
-                ? "continuationOverrideChanges=(none)"
-                : "continuationOverrideChanges="
-                + continuationDisposition.overrideChanges().stream()
-                        .filter(change -> change != null && change.path() != null && !change.path().isBlank())
-                        .map(FileChange::path)
-                        .distinct()
-                        .reduce((left, right) -> left + "," + right)
-                        .orElse("(none)");
+        if (continuationDisposition.implementationPatchTarget() == ImplementationPatchTarget.PATCH_RUNTIME_WIRING
+                && completedPlanPatchOwnerResolver.hasResolvableRuntimeWiringOwner(
+                        reports,
+                        contractGateResult == null ? null : contractGateResult.runtimeContract()
+                )) {
+            return continuationDisposition;
+        }
+        String evidence = ownershipEvidence(continuationDisposition, contractGateResult);
+        if (continuationDisposition.implementationPatchTarget() == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
+            return new ContinuationDisposition(
+                    ImplementationContinuationMode.BLOCK_STAGE,
+                    "当前 runtime wiring patch package 不能唯一映射到已完成子任务 owner，不能自动续跑。",
+                    "请先把 runtime wiring patch 收敛到唯一的 completed owner；无法唯一定位时转人工。",
+                    evidence,
+                    "1. 优先按 companion runtime roots 反查唯一 completed owner。 2. 只有没有 runtime roots 时才允许按唯一 html owner 恢复。 3. 无法唯一定位时转人工。",
+                    List.of(),
+                    ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                    continuationDisposition.reasonCode() == null
+                            ? ReviewReasonCode.RUNTIME_WIRING_GAP
+                            : continuationDisposition.reasonCode()
+            );
+        }
         return new ContinuationDisposition(
                 ImplementationContinuationMode.BLOCK_STAGE,
                 "当前 patch package 跨越多个已完成子任务 owner，不能自动续跑。",
@@ -302,48 +325,6 @@ public class ImplementationStageGate {
         return !structuredRepairScope(report).isEmpty();
     }
 
-    private boolean hasSingleCompletedOwner(List<SubtaskExecutionReport> reports, List<FileChange> overrideChanges) {
-        if (reports == null || reports.isEmpty() || overrideChanges == null || overrideChanges.isEmpty()) {
-            return false;
-        }
-        java.util.LinkedHashSet<java.nio.file.Path> targetPaths = new java.util.LinkedHashSet<>();
-        for (FileChange change : overrideChanges) {
-            if (change == null || change.path() == null || change.path().isBlank()) {
-                continue;
-            }
-            targetPaths.add(java.nio.file.Path.of(change.path()).normalize());
-        }
-        if (targetPaths.isEmpty()) {
-            return false;
-        }
-        Integer matchedIndex = null;
-        for (int index = 0; index < reports.size(); index++) {
-            SubtaskExecutionReport report = reports.get(index);
-            if (report == null || !report.completed()) {
-                continue;
-            }
-            List<FileChange> declaredOwnerScope = declaredOwnerScope(report);
-            if (declaredOwnerScope.isEmpty()) {
-                continue;
-            }
-            java.util.LinkedHashSet<java.nio.file.Path> declaredPaths = new java.util.LinkedHashSet<>();
-            for (FileChange change : declaredOwnerScope) {
-                if (change == null || change.path() == null || change.path().isBlank()) {
-                    continue;
-                }
-                declaredPaths.add(java.nio.file.Path.of(change.path()).normalize());
-            }
-            if (!declaredPaths.containsAll(targetPaths)) {
-                continue;
-            }
-            if (matchedIndex != null) {
-                return false;
-            }
-            matchedIndex = index;
-        }
-        return matchedIndex != null;
-    }
-
     private boolean hasResolvedRuntimeContract(ArchitectIntegrationCheckResult contractGateResult) {
         HtmlRuntimeOwnershipContract runtimeContract = contractGateResult == null ? null : contractGateResult.runtimeContract();
         return runtimeContract != null && runtimeContract.hasResolvedWiringRepairScope();
@@ -354,15 +335,6 @@ public class ImplementationStageGate {
             return List.of();
         }
         return report.effectiveChanges().stream()
-                .filter(change -> change != null && change.path() != null && !change.path().isBlank())
-                .toList();
-    }
-
-    private List<FileChange> declaredOwnerScope(SubtaskExecutionReport report) {
-        if (report == null || report.subtask() == null || report.subtask().changes() == null || report.subtask().changes().isEmpty()) {
-            return List.of();
-        }
-        return report.subtask().changes().stream()
                 .filter(change -> change != null && change.path() != null && !change.path().isBlank())
                 .toList();
     }
@@ -402,12 +374,14 @@ public class ImplementationStageGate {
     }
 
     private ContinuationDisposition contractGateContinuation(
+            List<SubtaskExecutionReport> reports,
             ArchitectIntegrationCheckResult contractGateResult,
             List<String> incompleteSubtasks
     ) {
         if (contractGateResult.implementationPatchTarget() == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
             HtmlRuntimeOwnershipContract runtimeContract = contractGateResult.runtimeContract();
-            if (hasResolvedRuntimeContract(contractGateResult)) {
+            if (hasResolvedRuntimeContract(contractGateResult)
+                    && completedPlanPatchOwnerResolver.hasResolvableRuntimeWiringOwner(reports, runtimeContract)) {
                 return new ContinuationDisposition(
                         ImplementationContinuationMode.CONTINUE_SUBTASKS,
                         ImplementationContractGateMessages.summary(contractGateResult),
@@ -421,10 +395,19 @@ public class ImplementationStageGate {
             }
             return new ContinuationDisposition(
                     ImplementationContinuationMode.BLOCK_STAGE,
-                    "当前实现需要继续修复 runtime wiring，但 contract gate 没有提供有效的结构化接线范围，不能自动续跑。",
-                    "请先确认宿主 HTML 与 companion runtime 的唯一修复范围，再恢复 implementation 续跑。",
-                    ImplementationContractGateMessages.evidence(contractGateResult, incompleteSubtasks),
-                    "1. 明确当前需要修复的宿主 HTML。 2. 明确已存在的 companion runtime 根脚本。 3. 结构化范围补齐后再恢复自动续跑。",
+                    "当前实现需要继续修复 runtime wiring，但没有可恢复到唯一 completed owner 的结构化接线范围，不能自动续跑。",
+                    "请先确认宿主 HTML、companion runtime roots 与唯一 completed owner，再恢复 implementation 续跑。",
+                    "runtimeHtmlEntry=" + (runtimeContract == null || runtimeContract.htmlEntryPath() == null
+                            ? "(none)"
+                            : runtimeContract.htmlEntryPath().toString().replace('\\', '/'))
+                            + "\n"
+                            + "runtimeRoots=" + (runtimeContract == null || runtimeContract.runtimePaths().isEmpty()
+                                    ? "(none)"
+                                    : runtimeContract.runtimePaths().stream()
+                                            .map(path -> path.toString().replace('\\', '/'))
+                                            .reduce((left, right) -> left + "," + right)
+                                            .orElse("(none)")),
+                    "1. 明确当前需要修复的宿主 HTML。 2. 明确已存在的 companion runtime 根脚本。 3. 明确这些路径能唯一映射到 completed owner。 4. 结构化范围补齐后再恢复自动续跑。",
                     List.of(),
                     ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
                     ReviewReasonCode.RUNTIME_WIRING_GAP
@@ -481,6 +464,34 @@ public class ImplementationStageGate {
                 review.implementationPatchTarget(),
                 review.reasonCode()
         );
+    }
+
+    private String ownershipEvidence(
+            ContinuationDisposition continuationDisposition,
+            ArchitectIntegrationCheckResult contractGateResult
+    ) {
+        if (continuationDisposition.implementationPatchTarget() == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
+            HtmlRuntimeOwnershipContract runtimeContract = contractGateResult == null ? null : contractGateResult.runtimeContract();
+            String htmlEntry = runtimeContract == null || runtimeContract.htmlEntryPath() == null
+                    ? "(none)"
+                    : runtimeContract.htmlEntryPath().toString().replace('\\', '/');
+            String runtimeRoots = runtimeContract == null || runtimeContract.runtimePaths().isEmpty()
+                    ? "(none)"
+                    : runtimeContract.runtimePaths().stream()
+                            .map(path -> path.toString().replace('\\', '/'))
+                            .reduce((left, right) -> left + "," + right)
+                            .orElse("(none)");
+            return "runtimeHtmlEntry=" + htmlEntry + "\nruntimeRoots=" + runtimeRoots;
+        }
+        return continuationDisposition.overrideChanges().isEmpty()
+                ? "continuationOverrideChanges=(none)"
+                : "continuationOverrideChanges="
+                + continuationDisposition.overrideChanges().stream()
+                        .filter(change -> change != null && change.path() != null && !change.path().isBlank())
+                        .map(FileChange::path)
+                        .distinct()
+                        .reduce((left, right) -> left + "," + right)
+                        .orElse("(none)");
     }
 
     private ReviewResult missingScopeReview(ReviewResult review) {

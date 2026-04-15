@@ -15,10 +15,7 @@ import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.executor.runtime.RuntimeWiringRetryChangeFactory;
-import java.nio.file.Path;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 import devflow.agent.executor.subtask.Subtask;
 import devflow.agent.executor.subtask.SubtaskExecutionReport;
@@ -34,11 +31,13 @@ public class ImplementationResumePolicy {
 
     private final ObjectMapper objectMapper;
     private final ImplementationSnapshotRestorer snapshotRestorer;
+    private final CompletedPlanPatchOwnerResolver completedPlanPatchOwnerResolver;
     private final RuntimeWiringRetryChangeFactory runtimeWiringRetryChangeFactory;
 
     public ImplementationResumePolicy(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
         this.snapshotRestorer = new ImplementationSnapshotRestorer();
+        this.completedPlanPatchOwnerResolver = new CompletedPlanPatchOwnerResolver();
         this.runtimeWiringRetryChangeFactory = new RuntimeWiringRetryChangeFactory();
     }
 
@@ -116,7 +115,6 @@ public class ImplementationResumePolicy {
         ImplementationPatchTarget effectivePatchTarget = resolveCompletedPlanPatchTarget(requestedPatchTarget);
         int targetIndex = resolveCompletedPlanTargetIndex(
                 effectivePatchTarget,
-                subtasks,
                 previousReports,
                 overrideChanges,
                 contractGateResult
@@ -161,154 +159,20 @@ public class ImplementationResumePolicy {
 
     private int resolveCompletedPlanTargetIndex(
             ImplementationPatchTarget patchTarget,
-            List<Subtask> subtasks,
             List<SubtaskExecutionReport> previousReports,
             List<FileChange> overrideChanges,
             ArchitectIntegrationCheckResult contractGateResult
     ) {
-        Set<Path> targetPaths = targetPaths(overrideChanges);
-        if (targetPaths.isEmpty()) {
+        if (overrideChanges == null || overrideChanges.isEmpty()) {
             throw new IllegalStateException("Completed implementation PATCH requires deterministic target paths.");
         }
         if (patchTarget == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
-            return resolveRuntimeWiringTargetIndex(subtasks, previousReports, targetPaths, contractGateResult);
+            return completedPlanPatchOwnerResolver.requireResolvableRuntimeWiringOwnerIndex(
+                    previousReports,
+                    contractGateResult == null ? null : contractGateResult.runtimeContract()
+            );
         }
-        return findUniqueDeclaredOwnerIndex(subtasks, previousReports, targetPaths);
-    }
-
-    private int resolveRuntimeWiringTargetIndex(
-            List<Subtask> subtasks,
-            List<SubtaskExecutionReport> previousReports,
-            Set<Path> targetPaths,
-            ArchitectIntegrationCheckResult contractGateResult
-    ) {
-        HtmlRuntimeOwnershipContract runtimeContract = contractGateResult == null ? null : contractGateResult.runtimeContract();
-        Set<Path> runtimeRootPaths = runtimeRootPaths(runtimeContract);
-        int runtimeRootOwnerIndex = findLatestOwnerIndex(subtasks, previousReports, runtimeRootPaths, true);
-        if (runtimeRootOwnerIndex >= 0) {
-            return runtimeRootOwnerIndex;
-        }
-        Path htmlEntryPath = runtimeContract == null ? null : runtimeContract.htmlEntryPath();
-        if (htmlEntryPath != null) {
-            int htmlOwnerIndex = findUniqueOwnerIndex(subtasks, previousReports, Set.of(htmlEntryPath));
-            if (htmlOwnerIndex >= 0) {
-                return htmlOwnerIndex;
-            }
-        }
-        throw new IllegalStateException("Completed implementation PATCH could not find an owning subtask for the target paths.");
-    }
-
-    private int findLatestOwnerIndex(
-            List<Subtask> subtasks,
-            List<SubtaskExecutionReport> previousReports,
-            Set<Path> ownerPaths,
-            boolean requireAllPaths
-    ) {
-        if (ownerPaths.isEmpty()) {
-            return -1;
-        }
-        int limit = Math.min(subtasks.size(), previousReports.size());
-        for (int index = limit - 1; index >= 0; index--) {
-            Subtask subtask = subtasks.get(index);
-            SubtaskExecutionReport report = previousReports.get(index);
-            if (subtask == null || report == null || !report.completed()) {
-                continue;
-            }
-            Set<Path> declaredOwnerPaths = declaredOwnerPaths(subtask);
-            if (ownsCompletedPatch(declaredOwnerPaths, ownerPaths, requireAllPaths)) {
-                return index;
-            }
-        }
-        return -1;
-    }
-
-    private int findUniqueOwnerIndex(
-            List<Subtask> subtasks,
-            List<SubtaskExecutionReport> previousReports,
-            Set<Path> ownerPaths
-    ) {
-        if (ownerPaths.isEmpty()) {
-            return -1;
-        }
-        Integer matchedIndex = null;
-        int limit = Math.min(subtasks.size(), previousReports.size());
-        for (int index = 0; index < limit; index++) {
-            Subtask subtask = subtasks.get(index);
-            SubtaskExecutionReport report = previousReports.get(index);
-            if (subtask == null || report == null || !report.completed()) {
-                continue;
-            }
-            Set<Path> declaredOwnerPaths = declaredOwnerPaths(subtask);
-            if (!ownsCompletedPatch(declaredOwnerPaths, ownerPaths, true)) {
-                continue;
-            }
-            if (matchedIndex != null) {
-                return -1;
-            }
-            matchedIndex = index;
-        }
-        return matchedIndex == null ? -1 : matchedIndex;
-    }
-
-    private int findUniqueDeclaredOwnerIndex(
-            List<Subtask> subtasks,
-            List<SubtaskExecutionReport> previousReports,
-            Set<Path> targetPaths
-    ) {
-        int ownerIndex = findUniqueOwnerIndex(subtasks, previousReports, targetPaths);
-        if (ownerIndex >= 0) {
-            return ownerIndex;
-        }
-        throw new IllegalStateException("Completed implementation PATCH requires overrideChanges owned by a single completed subtask.");
-    }
-
-    private Set<Path> runtimeRootPaths(HtmlRuntimeOwnershipContract runtimeContract) {
-        if (runtimeContract == null || !runtimeContract.externalCompanion() || !runtimeContract.hasResolvedWiringRepairScope()) {
-            return Set.of();
-        }
-        LinkedHashSet<Path> runtimeRootPaths = new LinkedHashSet<>(runtimeContract.runtimePaths());
-        return runtimeRootPaths.isEmpty() ? Set.of() : Set.copyOf(runtimeRootPaths);
-    }
-
-    private Set<Path> declaredOwnerPaths(Subtask subtask) {
-        if (subtask == null || subtask.changes() == null || subtask.changes().isEmpty()) {
-            return Set.of();
-        }
-        return targetPaths(subtask.changes());
-    }
-
-    private boolean ownsCompletedPatch(
-            Set<Path> effectivePaths,
-            Set<Path> ownerPaths,
-            boolean requireAllPaths
-    ) {
-        if (effectivePaths.isEmpty()) {
-            return false;
-        }
-        if (requireAllPaths) {
-            return effectivePaths.containsAll(ownerPaths);
-        }
-        for (Path targetPath : ownerPaths) {
-            if (effectivePaths.contains(targetPath)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private Set<Path> targetPaths(
-            List<FileChange> overrideChanges
-    ) {
-        LinkedHashSet<Path> targetPaths = new LinkedHashSet<>();
-        if (overrideChanges != null) {
-            for (FileChange change : overrideChanges) {
-                if (change == null || change.path() == null || change.path().isBlank()) {
-                    continue;
-                }
-                targetPaths.add(Path.of(change.path()).normalize());
-            }
-        }
-        return Set.copyOf(targetPaths);
+        return completedPlanPatchOwnerResolver.requireSingleCompletedOwnerIndex(previousReports, overrideChanges);
     }
 
     private SubtaskRevisionDirective buildRetryDirective(
