@@ -9,7 +9,7 @@
 - 把 `v13` 的 4 条 high-risk 主线拆成可打勾 checklist
 - 记录当前执行状态、blocker、完成门槛
 - 约束实现顺序，避免实现时再次扩 scope
-- 为后续 `self-test / code review / docs / integration` 留下固定证据位
+- 为后续 `self-test / code review / docs` 留下固定证据位
 
 ## Rules
 
@@ -20,7 +20,6 @@
 - 如果 blocker 或 scope 变化，先更新本文档，再继续改代码
 - 不允许把“后续再清理”写进 checklist
 - 只有同类问题整体收口，才允许标记 scope 完成
-- 只有全部 scope、回归、自测、代码审阅完成后，才允许进入集成测试
 
 ## Final State
 
@@ -32,7 +31,6 @@
 - `S4` planning runtime facts 不再扫描 sibling/orphan runtime scripts；outline 只拦已知 root，brand-new root 下沉到 detail `runtimeScriptRole`
 - `R1 ~ R9` 全部有对应回归
 - 完成 `self-test + code review + docs`
-- 然后才允许跑黄金路径集成测试
 
 ## Removal Plan
 
@@ -107,13 +105,6 @@
 - [ ] Scope 5 `code review`
 - [ ] Scope 5 `docs`
 
-### Scope 6. Golden Path Integration
-
-- [ ] 仅在 Scope 1 ~ 5 全部完成后再启动集成测试
-- [ ] 重跑黄金路径集成测试
-- [ ] 如果失败，先把 blocker 与证据写回本文档
-- [ ] 如果通过，补齐最终 `commit / self-test / code review / docs / integration` 证据
-
 ## Current Status
 
 - 当前阶段：`READY_FOR_TRACKER_REVIEW`
@@ -157,13 +148,6 @@
 - code review：`待开始`
 - docs：`tracker 已创建，待审阅`
 
-### Scope 6
-
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`待开始`
-
 ## Deferred Backlog Guard
 
 下面两条只允许留在 backlog，不允许并入本轮 tracker：
@@ -171,7 +155,7 @@
 - `M1` `TestExecutor targeted reverification drift`
 - `M2` `Empty owner contract / weak capability partition`
 
-只有当 `v13 high-risk` 收完且有新的 code review / integration 证据时，才允许单独起下一轮方案。
+只有当 `v13 high-risk` 收完且有新的 code review / 执行证据时，才允许单独起下一轮方案。
 
 ## Completion Gate
 
@@ -181,7 +165,6 @@
 - [ ] `S4` planning runtime facts boundary 在 outline/detail 单轨收口
 - [ ] `R1 ~ R9` 全部补齐
 - [ ] `self-test + code review + docs` 全部补齐
-- [ ] 黄金路径集成测试通过
 
 结果：`NOT_STARTED`
 
