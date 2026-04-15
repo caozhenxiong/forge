@@ -145,10 +145,10 @@
 
 ## Current Status
 
-- 当前阶段：`PHASE_7_DONE_PHASE_8_PENDING`
-- 当前 blocker：`无`
+- 当前阶段：`PHASE_7_REOPENED_BY_REVIEW_V7`
+- 当前 blocker：`review-v7 指出的 4 个缺口尚未收口：capability partition gate、mixed runtime-root package completeness、PATCH_RUNTIME_WIRING retry scope、repair-mode shell deny pathIntents`
 - 当前约束：`禁止兼容层、禁止 fallback、禁止双轨并存、禁止“后续再清理”`
-- 当前执行入口：`进入 Phase 8：golden path integration`
+- 当前执行入口：`先完成 docs/review-v7-remediation-plan.md，再恢复 Phase 8：golden path integration`
 
 ## Evidence Log
 
