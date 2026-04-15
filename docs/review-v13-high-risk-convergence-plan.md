@@ -11,7 +11,7 @@
 本轮完成态必须同时满足下面 4 条高风险闭环：
 
 1. fresh implementation 子任务不会因为上游 prose note 非空而误入 repair mode。
-2. repair / continuation 回合的 existing-file completion 只认当前或恢复后的 canonical mutation history，不允许 tool-loop 以“文件存在”或“猜测当前工作区语义已正确”判定完成。
+2. repair / continuation 回合的 existing-file completion 只认当前或恢复后的 canonical mutation history，并且要求当前文件状态等于该 history 的 latest terminal state；不允许 tool-loop 以“文件存在”或“猜测当前工作区语义已正确”判定完成。
 3. runtime planning / runtime graph / ownership inspector 对 root-relative runtime path 使用同一套路径归一规则，不再出现“一层已接线、另一层 unreachable”的事实冲突。
 4. planning runtime facts 不再通过目录扫描 sibling/orphan runtime root 推导事实，只允许基于：
    - explicit runtime contract
@@ -22,7 +22,7 @@
 完成后，系统对当前问题族的单一语义应是：
 
 - `fresh implementation` 与 `repair implementation` 的进入条件单一且显式，并且只有一个 canonical repair predicate owner
-- `existing file patch round` 不会零 mutation 假完成；existing-file assistant-only completion 只能建立在当前/恢复后的 canonical mutation history 上
+- `existing file patch round` 不会零 mutation 假完成；existing-file assistant-only completion 只能建立在当前/恢复后的 canonical mutation history 上，且当前文件状态必须等于该 history 的 latest terminal state
 - `/index.app.js`、`/src/game.js` 这类 root-relative 引用在 planning / runtime / ownership 上事实一致
 - planning 不再把未接线 sibling script 当成当前 runtime root 事实
 - outline 与 detail 的 runtime root 边界单一：
@@ -54,6 +54,9 @@
 - [ImplementationPlanRunner.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/ImplementationPlanRunner.java)
 - [SubtaskExecutionContext.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/subtask/SubtaskExecutionContext.java)
 - [SubtaskExecutionState.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/subtask/SubtaskExecutionState.java)
+- [ImplementationResumePolicy.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/ImplementationResumePolicy.java)
+- [ImplementationStateSnapshotSerializer.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/state/ImplementationStateSnapshotSerializer.java)
+- [ImplementationSnapshotRestorer.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/state/ImplementationSnapshotRestorer.java)
 - [ImplementationToolLoopExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/toolloop/ImplementationToolLoopExecutor.java)
 - [ImplementationToolPermissionPolicy.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/tools/ImplementationToolPermissionPolicy.java)
 
@@ -119,6 +122,7 @@
   - canonical repair predicate 必须挂在 `SubtaskExecutionState`
   - 或由单一 resolver 只从 `SubtaskExecutionState` 解析
 - `ImplementationToolLoopExecutor` 与 `ImplementationToolPermissionPolicy` 只能消费同一份 canonical repair predicate，不能各自保留 if/heuristic 判定
+- 如果 canonical repair predicate 挂在 `SubtaskExecutionState`，则 `resume / snapshot serialize / snapshot restore` 必须同步承载该语义，不能只改 live execution 分支
 - 单纯 prose note / supervisor guidance / stage transition prose 不能触发 repair mode
 
 ### H2. Existing-file closure 过宽，可能零 mutation 假完成
@@ -140,8 +144,12 @@
 - existing file 的 assistant-only completion 只能建立在：
   - 当前 `ImplementationToolSessionState` 中已存在的 canonical mutation history
   - 或 restore 后仍然存在于 tool session state 的 canonical mutation history
+- 且必须同时满足：
+  - 当前文件状态与该 canonical mutation history 的 latest `afterExists / afterHash` 一致
+  - 不能只因为“history 存在”就允许 completion
 - 对 existing file：
   - 若没有 canonical mutation history，则 zero-mutation existing-file completion 一律失败
+  - 若当前文件状态已经偏离 latest terminal state，则即使 mutation history 存在也必须失败
   - 不允许再保留“workspace already correct + zero mutation”这种 tool-loop 层无法稳定判真的正例
 
 ### H3. Runtime graph 对 root-relative 路径事实不一致
@@ -270,6 +278,7 @@
 
 - 明确 repair mode 的唯一进入条件
 - 明确 canonical repair predicate 的唯一 owner
+- 把 canonical repair predicate 接进 resume / snapshot serialize / snapshot restore
 - 去掉 prose note 触发 repair mode 的旧语义
 - 补 tool-loop / permission policy 消费同一 repair predicate 的 regression
 - 补 fresh implementation 首轮不会误入 repair mode 的 regression
@@ -278,8 +287,10 @@
 
 - 改 `writeSatisfied(...)` / related completion logic
 - 把 completion owner 收回当前/恢复后的 `toolSessionState.mutationRecords`
+- 把 current file state 与 latest mutation terminal state 的一致性校验接入 closure
 - 补 “existing broken file + zero mutation must fail” 的反例回归
-- 补 “restored mutation history 存在时 assistant-only 可闭合” 的正例回归
+- 补 “restored mutation history 存在且当前状态等于 latest terminal state 时 assistant-only 可闭合” 的正例回归
+- 补 “mutation history 存在但当前状态已偏离 latest terminal state 时仍必须失败” 的反例回归
 - 删除 “workspace already correct + zero mutation” 正例口径
 
 ### Phase 3. Root-Relative Runtime Normalization
@@ -301,8 +312,10 @@
 
 - fresh implementation prose note 非空，但第一轮 `repairMode=false`
 - tool loop / permission policy 对同一 execution state 得出一致的 `repairMode` / `repair permission` 结论
+- resumed execution / restored execution state 继续保留同一 canonical repair predicate 语义
 - existing broken file + no mutation => declared changes not satisfied
-- restored canonical mutation history present => existing-file assistant-only completion allowed
+- restored canonical mutation history present + current state matches latest terminal state => existing-file assistant-only completion allowed
+- canonical mutation history present + current state drifted from latest terminal state => declared changes not satisfied
 - `/index.app.js` root-relative script 在 planning/runtime/ownership 三处归一结果一致
 - inline host 未引用 sibling runtime script 时，planning runtime facts 不再把 sibling script 当成 runtime root
 - reachable anchor + brand-new runtime root + no host patch 不在 outline 用 heuristic 通过；必须下沉到 detail `runtimeScriptRole`
