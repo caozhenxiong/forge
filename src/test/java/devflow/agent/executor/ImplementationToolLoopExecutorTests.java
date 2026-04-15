@@ -345,6 +345,49 @@ class ImplementationToolLoopExecutorTests {
     }
 
     @Test
+    void toolLoopFinishesWhenDeclaredWriteIsSatisfiedAtTurnLimit() throws Exception {
+        Path file = tempDir.resolve("index.html");
+
+        ImplementationToolLoopExecutor executor = newToolLoopExecutor(
+                new ScriptedChatProvider(
+                        new LlmChatResponse(
+                                "",
+                                List.of(new LlmToolCall(
+                                        "tool-1",
+                                        "Write",
+                                        Map.of(
+                                                "file_path", file.toString(),
+                                                "content", "<!DOCTYPE html><title>Tetris</title>"
+                                        )
+                                )),
+                                null,
+                                ""
+                        )
+                ),
+                1
+        );
+
+        ImplementationToolLoopResult result = executor.execute(
+                tempDir,
+                runRecord(tempDir),
+                subtask("创建首页入口", "index.html"),
+                taskPackage("创建首页入口", "index.html"),
+                null,
+                QualityPlan.empty(),
+                fingerprint("index.html"),
+                "",
+                "",
+                null,
+                new SubtaskExecutionState(DeliveryMode.PATCH, false)
+        );
+
+        assertEquals("已完成当前子任务的声明文件交付：创建首页入口", result.finalResponse());
+        assertTrue(Files.exists(file));
+        assertEquals("<!DOCTYPE html><title>Tetris</title>", Files.readString(file));
+        assertEquals(List.of(Path.of("index.html")), result.touchedPaths());
+    }
+
+    @Test
     void toolLoopRejectsAssistantOnlyCompletionWhenDeclaredWriteHasNoMutation() throws Exception {
         Path file = tempDir.resolve("app.js");
         Files.writeString(file, "export const ready = false;\n");

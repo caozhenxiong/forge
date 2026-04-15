@@ -138,6 +138,7 @@ public final class ImplementationToolLoopExecutor {
                 coderContextMarkdown
         );
         List<LlmToolDefinition> toolDefinitions = toolRegistry.toolDefinitions(permissionContext, permissionPolicy);
+        String completionSummary = completionSummary(activeSubtask);
 
         for (int turn = 1; turn <= maxToolTurns; turn++) {
             toolContext.appendEvent("实现阶段｜tool-loop｜轮次开始｜子任务=%s｜轮次=%d/%d"
@@ -189,7 +190,7 @@ public final class ImplementationToolLoopExecutor {
                             "请保留当前子任务状态，只补齐当前轮缺失的 assistant 输出或工具调用。"
                     );
                 }
-                assertDeclaredChangesSatisfied(projectPath, activeSubtask, toolContext, turn);
+                assertDeclaredChangesSatisfied(projectPath, activeSubtask, toolContext, turn, "assistant-only");
                 toolContext.appendEvent("实现阶段｜tool-loop｜轮次完成｜子任务=%s｜轮次=%d/%d｜触发工具=0"
                         .formatted(subtask.title(), turn, maxToolTurns));
                 return new ImplementationToolLoopResult(
@@ -226,15 +227,28 @@ public final class ImplementationToolLoopExecutor {
             toolContext.appendEvent("实现阶段｜tool-loop｜轮次完成｜子任务=%s｜轮次=%d/%d｜触发工具=%d"
                     .formatted(subtask.title(), turn, maxToolTurns, rawResults.size()));
         }
-                throw GenerationFailureExceptions.create(
-                        subtask.title(),
-                        activeDeliveryMode.name(),
-                        "tool-loop",
+        List<String> unsatisfied = collectUnsatisfiedDeclaredChanges(projectPath, activeSubtask, toolContext);
+        if (unsatisfied.isEmpty()) {
+            toolContext.appendEvent("实现阶段｜tool-loop｜声明交付已满足｜子任务=%s｜轮次=%d/%d｜结束=declared-changes-satisfied"
+                    .formatted(subtask.title(), maxToolTurns, maxToolTurns));
+            return new ImplementationToolLoopResult(
+                    completionSummary,
+                    List.copyOf(toolContext.touchedPaths()),
+                    toolContext.mutationRecords()
+            );
+        }
+        throw GenerationFailureExceptions.create(
+                subtask.title(),
+                activeDeliveryMode.name(),
+                "tool-loop",
                 GenerationFailureType.VALIDATION_FAILED,
                 maxToolTurns,
                 true,
                 "子任务在 tool loop 内未能收敛。",
-                "tool loop exceeded max turns without a terminal assistant response",
+                """
+                        tool loop exceeded max turns without a terminal assistant response
+                        unsatisfiedChanges=%s
+                        """.formatted(String.join(" | ", unsatisfied)).trim(),
                 "请根据当前工具错误和验收缺口继续修复，不要重新开始整个子任务。"
         );
     }
@@ -243,10 +257,43 @@ public final class ImplementationToolLoopExecutor {
             Path projectPath,
             Subtask subtask,
             ImplementationToolContext toolContext,
-            int turn
+            int turn,
+            String terminalMode
+    ) {
+        List<String> unsatisfied = collectUnsatisfiedDeclaredChanges(projectPath, subtask, toolContext);
+        if (unsatisfied.isEmpty()) {
+            return;
+        }
+        toolContext.appendEvent("实现阶段｜tool-loop｜交付契约未满足｜子任务=%s｜轮次=%d｜缺口=%d"
+                .formatted(subtask.title(), turn, unsatisfied.size()));
+        throw GenerationFailureExceptions.create(
+                subtask.title(),
+                subtask.deliveryMode().name(),
+                "tool-loop",
+                GenerationFailureType.NO_MATERIAL_CHANGE,
+                turn,
+                true,
+                "tool loop 结束时，当前子任务声明的文件交付契约未满足。",
+                """
+                        terminalMode=%s
+                        declaredChanges=%s
+                        unsatisfiedChanges=%s
+                        """.formatted(
+                        terminalMode == null || terminalMode.isBlank() ? "assistant-only" : terminalMode,
+                        summarizeDeclaredChanges(subtask.changes()),
+                        String.join(" | ", unsatisfied)
+                ).trim(),
+                "请继续当前子任务，只通过工具把缺失的文件写入、更新或删除到位，不要只输出口头完成说明。"
+        );
+    }
+
+    private List<String> collectUnsatisfiedDeclaredChanges(
+            Path projectPath,
+            Subtask subtask,
+            ImplementationToolContext toolContext
     ) {
         if (subtask == null || subtask.changes() == null || subtask.changes().isEmpty()) {
-            return;
+            return List.of();
         }
         Map<Path, PathMutationSummary> mutationsByPath = collectMutationsByPath(toolContext.mutationRecords());
         List<String> unsatisfied = new ArrayList<>();
@@ -278,29 +325,7 @@ public final class ImplementationToolLoopExecutor {
                 ).trim());
             }
         }
-        if (unsatisfied.isEmpty()) {
-            return;
-        }
-        toolContext.appendEvent("实现阶段｜tool-loop｜交付契约未满足｜子任务=%s｜轮次=%d｜缺口=%d"
-                .formatted(subtask.title(), turn, unsatisfied.size()));
-        throw GenerationFailureExceptions.create(
-                subtask.title(),
-                subtask.deliveryMode().name(),
-                "tool-loop",
-                GenerationFailureType.NO_MATERIAL_CHANGE,
-                turn,
-                true,
-                "tool loop 结束时，当前子任务声明的文件交付契约未满足。",
-                """
-                        terminalMode=assistant-only
-                        declaredChanges=%s
-                        unsatisfiedChanges=%s
-                        """.formatted(
-                        summarizeDeclaredChanges(subtask.changes()),
-                        String.join(" | ", unsatisfied)
-                ).trim(),
-                "请继续当前子任务，只通过工具把缺失的文件写入、更新或删除到位，不要只输出口头完成说明。"
-        );
+        return List.copyOf(unsatisfied);
     }
 
     private void initializeTranscript(
@@ -510,6 +535,13 @@ public final class ImplementationToolLoopExecutor {
                 .map(change -> "%s:%s".formatted(change.action().name(), change.path().replace('\\', '/')))
                 .toList()
                 .toString();
+    }
+
+    private String completionSummary(Subtask subtask) {
+        String title = subtask == null || subtask.title() == null || subtask.title().isBlank()
+                ? "当前子任务"
+                : subtask.title().trim();
+        return "已完成当前子任务的声明文件交付：%s".formatted(title);
     }
 
     private Set<Path> collectOwnedPaths(Subtask subtask) {
