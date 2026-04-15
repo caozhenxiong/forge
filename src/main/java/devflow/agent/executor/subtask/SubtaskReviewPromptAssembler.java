@@ -76,7 +76,13 @@ public final class SubtaskReviewPromptAssembler {
                 后续负责能力：
                 %s
 
+                当前负责文件：
+                %s
+
                 验收标准：
+                %s
+
+                边界契约提醒：
                 %s
 
                 自检结果：
@@ -107,7 +113,9 @@ public final class SubtaskReviewPromptAssembler {
                 joinList(safeList(subtask.coverageRefs()), "；"),
                 joinList(safeList(subtask.ownedCapabilities()), "；"),
                 joinList(safeList(subtask.deferredCapabilities()), "；"),
+                joinList(ownedFiles(subtask), "；"),
                 joinList(safeList(subtask.acceptanceCriteria()), "；"),
+                boundaryContractReminder(subtask),
                 selfCheck.passed(),
                 selfCheck.summary(),
                 selfCheck.details(),
@@ -151,5 +159,27 @@ public final class SubtaskReviewPromptAssembler {
 
     private String joinList(List<String> values, String separator) {
         return String.join(separator, values);
+    }
+
+    private List<String> ownedFiles(Subtask subtask) {
+        if (subtask == null || subtask.changes() == null || subtask.changes().isEmpty()) {
+            return List.of();
+        }
+        java.util.LinkedHashSet<String> paths = new java.util.LinkedHashSet<>();
+        for (devflow.agent.executor.FileChange change : subtask.changes()) {
+            if (change == null || change.path() == null || change.path().isBlank()) {
+                continue;
+            }
+            paths.add(java.nio.file.Path.of(change.path()).normalize().toString().replace('\\', '/'));
+        }
+        return List.copyOf(paths);
+    }
+
+    private String boundaryContractReminder(Subtask subtask) {
+        return """
+                - 只允许当前子任务实现 ownedCapabilities 与 acceptanceCriteria。
+                - deferredCapabilities 只能由后续子任务完成；共享文件也不能成为提前实现的理由。
+                - 若命中 capability boundary violation，offendingPaths 必须来自当前负责文件：%s
+                """.formatted(renderBulletList(ownedFiles(subtask)));
     }
 }

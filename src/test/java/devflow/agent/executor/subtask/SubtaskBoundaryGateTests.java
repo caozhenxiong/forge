@@ -46,6 +46,30 @@ class SubtaskBoundaryGateTests {
     }
 
     @Test
+    void appendsScopedOffendingPathsToBoundaryEvidence() {
+        SubtaskBoundaryGate gate = new SubtaskBoundaryGate();
+        StructuredReviewResult structured = new StructuredReviewResult(
+                new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", ""),
+                ReviewSemantics.empty(),
+                new SubtaskBoundaryReviewPayload(
+                        true,
+                        true,
+                        false,
+                        "当前子任务提前实现了后续 gameplay 能力。",
+                        "发现计分与消行逻辑已经落在当前 skeleton 子任务里。",
+                        "移除越界实现，只保留页面壳体与最小 bootstrapping。",
+                        List.of("index.html", "other.js")
+                )
+        );
+
+        ReviewResult review = gate.enforce(subtask(), structured, DocumentLanguage.ZH);
+
+        assertTrue(review.changeRequest().contains("index.html"));
+        assertTrue(review.evidence().contains("offendingPaths: index.html"));
+        assertTrue(review.evidence().contains("计分与消行逻辑"));
+    }
+
+    @Test
     void passesThroughWhenBoundaryPayloadIsAbsent() {
         SubtaskBoundaryGate gate = new SubtaskBoundaryGate();
         ReviewResult approved = new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");

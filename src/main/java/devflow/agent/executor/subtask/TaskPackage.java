@@ -27,6 +27,16 @@ public record TaskPackage(
         SharedContextBundle sharedContextBundle
 ) {
 
+    public TaskPackage {
+        ownedFiles = normalizePaths(ownedFiles);
+        coverageRefs = normalizeValues(coverageRefs);
+        ownedCapabilities = normalizeValues(ownedCapabilities);
+        deferredCapabilities = normalizeValues(deferredCapabilities);
+        acceptanceCriteria = normalizeValues(acceptanceCriteria);
+        mustFixFirst = normalizeValues(mustFixFirst);
+        forbiddenDirections = normalizeValues(forbiddenDirections);
+    }
+
     public TaskPackage scopeToFile(String ownedFile, String fileTargetedContext) {
         return new TaskPackage(
                 title,
@@ -100,6 +110,9 @@ public record TaskPackage(
                 %s
 
                 ### %s
+                %s
+
+                ### %s
 
                 ```text
                 %s
@@ -131,6 +144,8 @@ public record TaskPackage(
                 bullets(mustFixFirst, language),
                 ArtifactLabels.forbiddenDirections(language),
                 bullets(forbiddenDirections, language),
+                language.choose("边界契约提醒", "Boundary Contract Reminder"),
+                boundaryContractReminder(language),
                 language.choose("目标上下文", "Targeted Context"),
                 blank(targetedContext, language),
                 language.choose("共享上下文引用", "Shared Context Reference"),
@@ -190,6 +205,49 @@ public record TaskPackage(
         if (values == null || values.isEmpty()) {
             return List.of();
         }
-        return List.copyOf(values);
+        return normalizeValues(values);
+    }
+
+    private String boundaryContractReminder(DocumentLanguage language) {
+        return language.choose(
+                """
+                - 当前子任务只允许覆盖上面的负责文件、ownedCapabilities 与 acceptanceCriteria。
+                - deferredCapabilities 只允许留给后续子任务；即使共享文件，也不能提前实现。
+                - 若 reviewer 标记 capability boundary violation，offendingPaths 只能来自当前子任务的结构化变更范围。
+                """.trim(),
+                """
+                - The current subtask may only touch the owned files, ownedCapabilities, and acceptanceCriteria listed above.
+                - deferredCapabilities remain downstream-only scope, even when files are shared.
+                - If the reviewer flags a capability boundary violation, offendingPaths must come from the current subtask's structured change-set.
+                """.trim()
+        );
+    }
+
+    private List<String> normalizeValues(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        java.util.LinkedHashSet<String> normalized = new java.util.LinkedHashSet<>();
+        for (String value : values) {
+            if (value == null || value.isBlank()) {
+                continue;
+            }
+            normalized.add(value.trim());
+        }
+        return List.copyOf(normalized);
+    }
+
+    private List<String> normalizePaths(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        java.util.LinkedHashSet<String> normalized = new java.util.LinkedHashSet<>();
+        for (String value : values) {
+            if (value == null || value.isBlank()) {
+                continue;
+            }
+            normalized.add(java.nio.file.Path.of(value.trim()).normalize().toString().replace('\\', '/'));
+        }
+        return List.copyOf(normalized);
     }
 }

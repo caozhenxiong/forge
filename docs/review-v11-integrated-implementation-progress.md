@@ -63,13 +63,13 @@
 
 ### Scope 2. Boundary Contract Propagation
 
-- [ ] `TaskPackage` 与 accepted outline 的 boundary contract 对齐
-- [ ] `TaskPackageAssembler` / `TaskPackageMarkdownRenderer` 只消费 canonical boundary contract
-- [ ] `SubtaskReviewPromptAssembler` 展示当前/后续能力边界与禁止提前实现约束
-- [ ] `SubtaskBoundaryGate` 对 boundary contract 形成 deterministic rejection
-- [ ] Scope 2 `self-test`
-- [ ] Scope 2 `code review`
-- [ ] Scope 2 `docs`
+- [x] `TaskPackage` 与 accepted outline 的 boundary contract 对齐
+- [x] `TaskPackageAssembler` / `TaskPackageMarkdownRenderer` 只消费 canonical boundary contract
+- [x] `SubtaskReviewPromptAssembler` 展示当前/后续能力边界与禁止提前实现约束
+- [x] `SubtaskBoundaryGate` 对 boundary contract 形成 deterministic rejection
+- [x] Scope 2 `self-test`
+- [x] Scope 2 `code review`
+- [x] Scope 2 `docs`
 
 ### Scope 3. Continuation Semantics Closure
 
@@ -142,7 +142,7 @@
 
 ## Current Status
 
-- 当前阶段：`SCOPE_1_COMPLETED_PENDING_SCOPE_2`
+- 当前阶段：`SCOPE_2_COMPLETED_PENDING_SCOPE_3`
 - 当前 blocker：`无`
 - 当前约束：`禁止兼容层、禁止双轨并存、禁止“后续再清理”`
 
@@ -157,10 +157,10 @@
 
 ### Scope 2
 
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`待开始`
+- commit：`待本次提交回填`
+- self-test：`mvn -q -Dtest=TaskPackageTests,TaskPackageAssemblerTests,TaskPackageMarkdownRendererTests,SubtaskReviewPromptAssemblerTests,SubtaskBoundaryGateTests test`
+- code review：`本地静态自审通过；未发现 accepted boundary contract 第二轨`
+- docs：`tracker 已回填 Scope 2 状态与证据`
 
 ### Scope 3
 
