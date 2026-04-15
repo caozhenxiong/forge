@@ -74,6 +74,7 @@
 - [RuntimeScriptGraphInspector.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/runtime/RuntimeScriptGraphInspector.java)
 - [HtmlEntryRuntimeOwnershipInspector.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/runtime/HtmlEntryRuntimeOwnershipInspector.java)
 - [PlanningRuntimeFactsResolverTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/executor/implementation/planning/PlanningRuntimeFactsResolverTests.java)
+- [WebRuntimeWiringCheckTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/executor/WebRuntimeWiringCheckTests.java)
 
 ### Scope 4. Planning Runtime Facts Boundary
 
@@ -298,6 +299,7 @@
 - 抽单一路径归一逻辑
 - planning / runtime graph / ownership inspector 统一使用
 - 补 `/index.app.js` / `/src/game.js` 类型回归
+- 补 runtime/ownership 侧的 root-relative wiring regression，不只补 planning 侧测试
 
 ### Phase 4. Planning Runtime Facts Boundary
 
@@ -317,6 +319,7 @@
 - restored canonical mutation history present + current state matches latest terminal state => existing-file assistant-only completion allowed
 - canonical mutation history present + current state drifted from latest terminal state => declared changes not satisfied
 - `/index.app.js` root-relative script 在 planning/runtime/ownership 三处归一结果一致
+- `WebRuntimeWiringCheckTests` 必须覆盖 root-relative runtime script / import 场景，例如 `src="/js/game-engine.js"`，避免 runtime/ownership 侧回退
 - inline host 未引用 sibling runtime script 时，planning runtime facts 不再把 sibling script 当成 runtime root
 - reachable anchor + brand-new runtime root + no host patch 不在 outline 用 heuristic 通过；必须下沉到 detail `runtimeScriptRole`
 
