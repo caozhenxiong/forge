@@ -216,7 +216,7 @@ public final class ImplementationStateArtifactSupport {
     }
 
     private boolean hasContinuationDirective(ImplementationStateSnapshot snapshot) {
-        return continuationMode(snapshot) == ImplementationContinuationMode.BLOCK_STAGE
+        return continuationMode(snapshot).blocked()
                 || patchTarget(snapshot.continuationPatchTarget()).concretePatch()
                 || reasonCode(snapshot.continuationReasonCode()) != ReviewReasonCode.NONE
                 || !blank(snapshot.continuationSummary()).isBlank()

@@ -52,7 +52,7 @@ class ImplementationContinuationSupportTests {
                         ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
                         runtimeContract
                 ),
-                ImplementationContinuationMode.CONTINUE_SUBTASKS,
+                ImplementationContinuationMode.PATCH_CONTINUE,
                 "继续修当前入口接线",
                 "只修宿主 HTML 与 companion runtime 的接线。",
                 "continuationSubtask=修接线\nindex.app.js exists but index.html does not reference it",
@@ -89,7 +89,7 @@ class ImplementationContinuationSupportTests {
         ImplementationStageStatusPayload payload = new ImplementationStateArtifactSupport().readStageStatus(stateJson);
         StageContinuationContext continuationContext = new ImplementationContinuationSupport().toContinuationContext(payload);
 
-        assertEquals(ImplementationContinuationMode.CONTINUE_SUBTASKS, payload.continuationMode());
+        assertEquals(ImplementationContinuationMode.PATCH_CONTINUE, payload.continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, continuationContext.implementationPatchTarget());
         assertEquals(ReviewReasonCode.RUNTIME_WIRING_GAP, continuationContext.reasonCode());
         assertEquals(List.of("index.html", "index.app.js"),

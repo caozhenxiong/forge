@@ -126,7 +126,7 @@ class ImplementationArtifactRendererTests {
                 false,
                 List.of("修接线"),
                 null,
-                devflow.agent.protocol.ImplementationContinuationMode.CONTINUE_SUBTASKS,
+                devflow.agent.protocol.ImplementationContinuationMode.PATCH_CONTINUE,
                 "继续修当前入口接线",
                 "只修宿主 HTML 与 companion runtime 的接线。",
                 "continuationSubtask=修接线\nindex.app.js exists but index.html does not reference it",

@@ -26,6 +26,7 @@ final class ImplementationContinuationSupport {
         }
         requireCanonicalRepairPackage(payload);
         return new StageContinuationContext(
+                payload.continuationMode(),
                 requiredField("continuationSummary", payload.continuationSummary()),
                 requiredField("continuationChangeRequest", payload.continuationChangeRequest()),
                 requiredField("continuationEvidence", payload.continuationEvidence()),
@@ -52,11 +53,13 @@ final class ImplementationContinuationSupport {
     }
 
     private void requireCanonicalRepairPackage(ImplementationStageStatusPayload payload) {
-        if (payload.continuationMode() != devflow.agent.protocol.ImplementationContinuationMode.CONTINUE_SUBTASKS) {
+        if (!payload.continuationMode().patchContinue()) {
             return;
         }
         if (payload.continuationPatchTarget() == null || !payload.continuationPatchTarget().concretePatch()) {
-            return;
+            throw new IllegalStateException(
+                    "Invalid implementation continuation payload: PATCH_CONTINUE requires a concrete continuationPatchTarget."
+            );
         }
         if (payload.continuationOverrideChanges() == null || payload.continuationOverrideChanges().isEmpty()) {
             throw new IllegalStateException(

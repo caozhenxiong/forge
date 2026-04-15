@@ -1554,7 +1554,7 @@ class StageArtifactComposerTests {
             payload.put("currentSubtaskTitle", "");
             payload.put("planCompleted", planCompleted);
             payload.put("stageReady", stageReady);
-            payload.put("continuationMode", "CONTINUE_SUBTASKS");
+            payload.put("continuationMode", "MID_PLAN_CONTINUE");
             payload.put("continuationSummary", "");
             payload.put("continuationChangeRequest", "");
             payload.put("continuationEvidence", "");

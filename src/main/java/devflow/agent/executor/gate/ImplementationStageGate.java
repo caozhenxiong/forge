@@ -85,7 +85,7 @@ public class ImplementationStageGate {
                 remainingSubtasks,
                 contractGateResult,
                 continuationDisposition == null
-                        ? ImplementationContinuationMode.CONTINUE_SUBTASKS
+                        ? ImplementationContinuationMode.MID_PLAN_CONTINUE
                         : continuationDisposition.mode(),
                 continuationDisposition == null ? "" : continuationDisposition.summary(),
                 continuationDisposition == null ? "" : continuationDisposition.changeRequest(),
@@ -139,7 +139,7 @@ public class ImplementationStageGate {
                 return continuationDisposition(
                         report,
                         missingScopeReview(review),
-                        ImplementationContinuationMode.BLOCK_STAGE,
+                        ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK,
                         "当前实现需要继续 patch，但阶段汇总没有拿到结构化文件范围，不能自动续跑。"
                 );
             }
@@ -147,7 +147,7 @@ public class ImplementationStageGate {
                 return continuationDisposition(
                         report,
                         missingRuntimeContractReview(review),
-                        ImplementationContinuationMode.BLOCK_STAGE,
+                        ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK,
                         "当前实现需要继续修复 runtime wiring，但阶段汇总没有拿到有效的 runtime contract，不能自动续跑。"
                 );
             }
@@ -155,7 +155,7 @@ public class ImplementationStageGate {
                 return continuationDisposition(
                         report,
                         review,
-                        ImplementationContinuationMode.BLOCK_STAGE,
+                        ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK,
                         blank(review.summary()).isBlank()
                                 ? "实现阶段遇到确定性工具阻塞，当前不能继续自动续跑。"
                                 : review.summary()
@@ -170,14 +170,14 @@ public class ImplementationStageGate {
                     return continuationDisposition(
                             report,
                             missingScopeReview(review),
-                            ImplementationContinuationMode.BLOCK_STAGE,
+                            ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK,
                             "当前实现需要继续 patch，但阶段汇总没有拿到结构化文件范围，不能自动续跑。"
                     );
                 }
                 return continuationDisposition(
                         report,
                         review,
-                        ImplementationContinuationMode.CONTINUE_SUBTASKS,
+                        ImplementationContinuationMode.PATCH_CONTINUE,
                         blank(review.summary()).isBlank()
                                 ? "实现阶段需要继续修补当前子任务，再重新验证。"
                                 : review.summary()
@@ -195,7 +195,7 @@ public class ImplementationStageGate {
     ) {
         if (!planCompleted
                 || continuationDisposition == null
-                || continuationDisposition.mode() != ImplementationContinuationMode.CONTINUE_SUBTASKS
+                || continuationDisposition.mode() != ImplementationContinuationMode.PATCH_CONTINUE
                 || !continuationDisposition.implementationPatchTarget().concretePatch()) {
             return continuationDisposition;
         }
@@ -213,7 +213,7 @@ public class ImplementationStageGate {
         String evidence = ownershipEvidence(continuationDisposition, contractGateResult);
         if (continuationDisposition.implementationPatchTarget() == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
             return new ContinuationDisposition(
-                    ImplementationContinuationMode.BLOCK_STAGE,
+                    ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK,
                     "当前 runtime wiring patch package 不能唯一映射到已完成子任务 owner，不能自动续跑。",
                     "请先把 runtime wiring patch 收敛到唯一的 completed owner；无法唯一定位时转人工。",
                     evidence,
@@ -226,7 +226,7 @@ public class ImplementationStageGate {
             );
         }
         return new ContinuationDisposition(
-                ImplementationContinuationMode.BLOCK_STAGE,
+                ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK,
                 "当前 patch package 跨越多个已完成子任务 owner，不能自动续跑。",
                 "请先把 overrideChanges 收敛到单个 completed subtask 的 declared owner 文件范围，再恢复 implementation 续跑。",
                 evidence,
@@ -362,7 +362,7 @@ public class ImplementationStageGate {
                 ? "当前实现计划仍有未执行或未完成的子任务。"
                 : "未完成子任务：" + String.join("；", incompleteSubtasks);
         return new ContinuationDisposition(
-                ImplementationContinuationMode.CONTINUE_SUBTASKS,
+                ImplementationContinuationMode.MID_PLAN_CONTINUE,
                 "实现计划尚未执行完毕，当前仍处于阶段中间态。",
                 "请继续完成未完成的 implementation 子任务，补齐骨架后的真实行为实现，再重新进入 implementation review。",
                 evidence,
@@ -383,7 +383,7 @@ public class ImplementationStageGate {
             if (hasResolvedRuntimeContract(contractGateResult)
                     && completedPlanPatchOwnerResolver.hasResolvableRuntimeWiringOwner(reports, runtimeContract)) {
                 return new ContinuationDisposition(
-                        ImplementationContinuationMode.CONTINUE_SUBTASKS,
+                        ImplementationContinuationMode.PATCH_CONTINUE,
                         ImplementationContractGateMessages.summary(contractGateResult),
                         ImplementationContractGateMessages.changeRequest(contractGateResult),
                         ImplementationContractGateMessages.evidence(contractGateResult, incompleteSubtasks),
@@ -394,7 +394,7 @@ public class ImplementationStageGate {
                 );
             }
             return new ContinuationDisposition(
-                    ImplementationContinuationMode.BLOCK_STAGE,
+                    ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK,
                     "当前实现需要继续修复 runtime wiring，但没有可恢复到唯一 completed owner 的结构化接线范围，不能自动续跑。",
                     "请先确认宿主 HTML、companion runtime roots 与唯一 completed owner，再恢复 implementation 续跑。",
                     "runtimeHtmlEntry=" + (runtimeContract == null || runtimeContract.htmlEntryPath() == null
@@ -415,7 +415,7 @@ public class ImplementationStageGate {
         }
         if (contractGateResult.implementationPatchTarget() == ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION) {
             return new ContinuationDisposition(
-                    ImplementationContinuationMode.BLOCK_STAGE,
+                    ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK,
                     "当前实现需要继续 patch，但阶段汇总没有拿到结构化文件范围，不能自动续跑。",
                     "请先补齐 overrideChanges 指向的受影响文件，确认修复范围后再继续 implementation。",
                     ImplementationContractGateMessages.evidence(contractGateResult, incompleteSubtasks),
@@ -426,7 +426,7 @@ public class ImplementationStageGate {
             );
         }
         return new ContinuationDisposition(
-                ImplementationContinuationMode.BLOCK_STAGE,
+                ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK,
                 "当前实现未通过 contract gate，但没有拿到确定性的 patch 目标，不能自动续跑。",
                 "请先明确当前 contract gap 的唯一修复目标，再恢复 implementation 续跑。",
                 ImplementationContractGateMessages.evidence(contractGateResult, incompleteSubtasks),
@@ -528,14 +528,16 @@ public class ImplementationStageGate {
             ImplementationContinuationMode mode,
             ImplementationPatchTarget implementationPatchTarget
     ) {
-        if (mode == ImplementationContinuationMode.BLOCK_STAGE) {
+        if (mode == ImplementationContinuationMode.PATCH_CONTINUE) {
+            if (implementationPatchTarget == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
+                return "请继续按 canonical runtime wiring patch package 修复入口接线，再重新进入 implementation review。";
+            }
+            if (implementationPatchTarget == ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION) {
+                return "请继续按当前 canonical patch package 修补实现缺口，再重新进入 implementation review。";
+            }
+        }
+        if (mode == ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK) {
             return "请先按当前评审结论明确修复范围或补齐阻塞条件，再恢复 implementation 续跑。";
-        }
-        if (implementationPatchTarget == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
-            return "请继续修复入口接线与运行时所有权，再重新进入 implementation review。";
-        }
-        if (implementationPatchTarget == ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION) {
-            return "请继续修补当前实现缺口，再重新进入 implementation review。";
         }
         return "请继续按当前阶段要求补齐实现，再重新进入 implementation review。";
     }
@@ -544,14 +546,16 @@ public class ImplementationStageGate {
             ImplementationContinuationMode mode,
             ImplementationPatchTarget implementationPatchTarget
     ) {
-        if (mode == ImplementationContinuationMode.BLOCK_STAGE) {
+        if (mode == ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK) {
             return "1. 明确当前阻塞点。 2. 补齐结构化修复范围或确认人工处理。 3. 条件满足后再恢复 implementation。";
         }
-        if (implementationPatchTarget == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
-            return "1. 修复宿主入口与 runtime 根脚本的接线。 2. 保持既有 runtime 所有权不变。 3. 完成后重新验证。";
-        }
-        if (implementationPatchTarget == ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION) {
-            return "1. 只修当前实现缺口。 2. 不要重开新骨架。 3. 完成后重新验证。";
+        if (mode == ImplementationContinuationMode.PATCH_CONTINUE) {
+            if (implementationPatchTarget == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
+                return "1. 只按 canonical runtime wiring patch package 修复宿主入口与 runtime 根脚本的接线。 2. 保持既有 runtime 所有权不变。 3. 完成后重新验证。";
+            }
+            if (implementationPatchTarget == ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION) {
+                return "1. 只按 canonical patch package 修当前实现缺口。 2. 不要重开新骨架。 3. 完成后重新验证。";
+            }
         }
         return "1. 继续修补当前阶段实现。 2. 完成后重新验证。";
     }

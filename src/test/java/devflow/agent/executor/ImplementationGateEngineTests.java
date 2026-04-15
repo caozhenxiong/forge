@@ -153,7 +153,7 @@ class ImplementationGateEngineTests {
 
         assertFalse(outcome.stageStatus().planCompleted());
         assertFalse(outcome.stageStatus().stageReady());
-        assertEquals(ImplementationContinuationMode.CONTINUE_SUBTASKS, outcome.stageStatus().continuationMode());
+        assertEquals(ImplementationContinuationMode.PATCH_CONTINUE, outcome.stageStatus().continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, outcome.stageStatus().continuationPatchTarget());
         assertEquals("运行时接线未完成", outcome.stageStatus().continuationSummary());
         assertTrue(outcome.stageStatus().continuationEvidence().contains("continuationSubtask=修接线"));
@@ -192,7 +192,7 @@ class ImplementationGateEngineTests {
                 DocumentLanguage.ZH
         );
 
-        assertEquals(ImplementationContinuationMode.CONTINUE_SUBTASKS, outcome.stageStatus().continuationMode());
+        assertEquals(ImplementationContinuationMode.PATCH_CONTINUE, outcome.stageStatus().continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, outcome.stageStatus().continuationPatchTarget());
         assertEquals(1, outcome.stageStatus().continuationOverrideChanges().size());
         assertEquals("index.html", outcome.stageStatus().continuationOverrideChanges().getFirst().path());
@@ -237,7 +237,7 @@ class ImplementationGateEngineTests {
                 DocumentLanguage.ZH
         );
 
-        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, outcome.stageStatus().continuationMode());
+        assertEquals(ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK, outcome.stageStatus().continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, outcome.stageStatus().continuationPatchTarget());
         assertTrue(outcome.stageStatus().continuationOverrideChanges().isEmpty());
         assertTrue(outcome.stageStatus().continuationSummary().contains("结构化文件范围"));
@@ -282,7 +282,7 @@ class ImplementationGateEngineTests {
                 DocumentLanguage.ZH
         );
 
-        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, outcome.stageStatus().continuationMode());
+        assertEquals(ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK, outcome.stageStatus().continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, outcome.stageStatus().continuationPatchTarget());
         assertTrue(outcome.stageStatus().continuationOverrideChanges().isEmpty());
         assertTrue(outcome.stageStatus().continuationSummary().contains("结构化文件范围"));
@@ -317,7 +317,7 @@ class ImplementationGateEngineTests {
                 DocumentLanguage.ZH
         );
 
-        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, outcome.stageStatus().continuationMode());
+        assertEquals(ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK, outcome.stageStatus().continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, outcome.stageStatus().continuationPatchTarget());
         assertTrue(outcome.stageStatus().continuationOverrideChanges().isEmpty());
         assertTrue(outcome.stageStatus().continuationSummary().contains("runtime contract"));

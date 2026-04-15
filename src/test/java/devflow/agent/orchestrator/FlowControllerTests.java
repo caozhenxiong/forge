@@ -10,6 +10,7 @@ import devflow.agent.executor.ChangeAction;
 import devflow.agent.executor.FileChange;
 
 import devflow.agent.loop.TransitionReason;
+import devflow.agent.protocol.ImplementationContinuationMode;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
@@ -171,6 +172,7 @@ class FlowControllerTests {
                         false,
                         List.of("实现行消除与计分系统"),
                         new StageContinuationContext(
+                                ImplementationContinuationMode.PATCH_CONTINUE,
                                 "继续修当前子任务",
                                 "只修 src/game.js",
                                 "continuationSubtask=实现行消除与计分系统",
@@ -223,6 +225,7 @@ class FlowControllerTests {
                         true,
                         List.of("实现行消除与计分系统"),
                         new StageContinuationContext(
+                                ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK,
                                 "当前实现需要继续 patch，但阶段汇总没有拿到结构化文件范围，不能自动续跑。",
                                 "请先补齐 overrideChanges 指向的受影响文件。",
                                 "evidence",

@@ -98,12 +98,24 @@ final class ImplementationStateCodec {
                 patchTargetNode.asText(),
                 "continuationPatchTarget"
         );
-        if (continuationMode != ImplementationContinuationMode.CONTINUE_SUBTASKS || !patchTarget.concretePatch()) {
+        if (continuationMode.patchContinue()) {
+            if (!patchTarget.concretePatch()) {
+                throw new IllegalStateException(
+                        "Invalid implementation_state auxiliary artifact: PATCH_CONTINUE requires a concrete continuationPatchTarget."
+                );
+            }
+            if (overrideChangesNode == null || !overrideChangesNode.isArray() || overrideChangesNode.isEmpty()) {
+                throw new IllegalStateException(
+                        "Invalid implementation_state auxiliary artifact: concrete continuation patch requires continuationOverrideChanges."
+                );
+            }
             return;
         }
-        if (overrideChangesNode == null || !overrideChangesNode.isArray() || overrideChangesNode.isEmpty()) {
+        if (continuationMode == ImplementationContinuationMode.MID_PLAN_CONTINUE
+                && (patchTarget.concretePatch()
+                || (overrideChangesNode != null && overrideChangesNode.isArray() && !overrideChangesNode.isEmpty()))) {
             throw new IllegalStateException(
-                    "Invalid implementation_state auxiliary artifact: concrete continuation patch requires continuationOverrideChanges."
+                    "Invalid implementation_state auxiliary artifact: MID_PLAN_CONTINUE cannot carry a concrete continuation patch."
             );
         }
     }

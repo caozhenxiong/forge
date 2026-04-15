@@ -36,7 +36,7 @@ public class ImplementationProgressSupport {
             );
         }
         StageContinuationContext continuationContext = implementationContinuationSupport.toContinuationContext(stageStatus);
-        if (stageStatus.continuationMode() == ImplementationContinuationMode.BLOCK_STAGE) {
+        if (stageStatus.continuationMode().blocked()) {
             return ImplementationProgressState.blocked(
                     continuationContext,
                     implementationContinuationSupport.toHumanReviewResult(continuationContext)
@@ -59,7 +59,7 @@ public class ImplementationProgressSupport {
         StageContinuationContext continuationContext = implementationContinuationSupport.toContinuationContext(stageStatus);
         return new ImplementationRevisionFacts(
                 false,
-                stageStatus.continuationMode() == ImplementationContinuationMode.BLOCK_STAGE,
+                stageStatus.continuationMode().blocked(),
                 stageStatus.incompleteSubtasks(),
                 continuationContext
         );

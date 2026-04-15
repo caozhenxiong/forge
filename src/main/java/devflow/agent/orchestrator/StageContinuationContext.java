@@ -1,6 +1,7 @@
 package devflow.agent.orchestrator;
 
 import devflow.agent.executor.FileChange;
+import devflow.agent.protocol.ImplementationContinuationMode;
 import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewReasonCode;
 import java.util.List;
@@ -9,6 +10,7 @@ import java.util.List;
  * implementation continuation 的唯一结构化上下文。
  */
 public record StageContinuationContext(
+        ImplementationContinuationMode continuationMode,
         String summary,
         String changeRequest,
         String evidence,
@@ -18,6 +20,9 @@ public record StageContinuationContext(
         ReviewReasonCode reasonCode
 ) {
     public StageContinuationContext {
+        continuationMode = continuationMode == null
+                ? ImplementationContinuationMode.MID_PLAN_CONTINUE
+                : continuationMode;
         summary = summary == null ? "" : summary.trim();
         changeRequest = changeRequest == null ? "" : changeRequest.trim();
         evidence = evidence == null ? "" : evidence.trim();

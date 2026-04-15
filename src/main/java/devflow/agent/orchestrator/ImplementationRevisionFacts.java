@@ -6,6 +6,7 @@ import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewReasonCode;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.review.ReviewRevisionRoute;
+import devflow.agent.protocol.ImplementationContinuationMode;
 import java.util.List;
 
 /**
@@ -39,12 +40,16 @@ public record ImplementationRevisionFacts(
 
     public boolean hasStructuredPatchScope() {
         return continuationContext != null
+                && continuationContext.continuationMode().patchContinue()
                 && continuationContext.implementationPatchTarget().concretePatch()
                 && !continuationContext.overrideChanges().isEmpty();
     }
 
     public boolean shouldAutoContinueCurrentImplementation() {
-        return !stageReady && !blocked && (hasIncompleteSubtasks() || hasStructuredPatchScope());
+        return !stageReady
+                && !blocked
+                && continuationContext != null
+                && continuationContext.continuationMode().autoContinue();
     }
 
     public boolean shouldBlockForHumanReview() {
@@ -73,7 +78,7 @@ public record ImplementationRevisionFacts(
         if (!shouldAutoContinueCurrentImplementation()) {
             return RevisionRoutingPlan.none();
         }
-        if (hasStructuredPatchScope()) {
+        if (continuationContext.continuationMode() == ImplementationContinuationMode.PATCH_CONTINUE) {
             return new RevisionRoutingPlan(
                     FixMode.PATCH,
                     continuationContext.implementationPatchTarget(),

@@ -36,7 +36,7 @@ public record ImplementationStageStatusPayload(
                 planCompleted,
                 incompleteSubtasks,
                 null,
-                ImplementationContinuationMode.CONTINUE_SUBTASKS,
+                ImplementationContinuationMode.MID_PLAN_CONTINUE,
                 "",
                 "",
                 "",

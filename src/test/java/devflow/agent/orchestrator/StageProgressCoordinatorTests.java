@@ -85,7 +85,7 @@ class StageProgressCoordinatorTests {
                         false,
                         java.util.List.of("补齐方块渲染"),
                         null,
-                        ImplementationContinuationMode.CONTINUE_SUBTASKS,
+                        ImplementationContinuationMode.MID_PLAN_CONTINUE,
                         "实现计划尚未执行完毕，当前仍处于阶段中间态。",
                         "请继续完成未完成的 implementation 子任务，补齐骨架后的真实行为实现，再重新进入 implementation review。",
                         "未完成子任务：补齐方块渲染",
@@ -209,7 +209,7 @@ class StageProgressCoordinatorTests {
                         false,
                         java.util.List.of("补齐接线"),
                         null,
-                        ImplementationContinuationMode.CONTINUE_SUBTASKS,
+                        ImplementationContinuationMode.PATCH_CONTINUE,
                         "继续修当前入口接线",
                         "只修宿主 HTML 与 companion runtime 的接线。",
                         "continuationSubtask=修接线\nindex.app.js exists but index.html does not reference it",
@@ -338,7 +338,7 @@ class StageProgressCoordinatorTests {
                         false,
                         java.util.List.of("补齐方块渲染"),
                         null,
-                        ImplementationContinuationMode.BLOCK_STAGE,
+                        ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK,
                         "probe invalid",
                         "fix probe contract",
                         "unexpected field bodyTextLength",
@@ -455,7 +455,7 @@ class StageProgressCoordinatorTests {
                                 ImplementationPatchTarget.NONE.name(),
                                 null
                         ),
-                        ImplementationContinuationMode.CONTINUE_SUBTASKS,
+                        ImplementationContinuationMode.MID_PLAN_CONTINUE,
                         "继续修当前子任务",
                         "只按当前 implementation_state 的续跑要求继续。",
                         "deterministic continuation payload",
@@ -547,7 +547,7 @@ class StageProgressCoordinatorTests {
                         false,
                         List.of("修复宿主入口接线"),
                         null,
-                        ImplementationContinuationMode.BLOCK_STAGE,
+                        ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK,
                         blockedSummary,
                         blockedChangeRequest,
                         "index.app.js exists but host entry wiring scope is unresolved",
@@ -1087,7 +1087,7 @@ class StageProgressCoordinatorTests {
             root.put("planCompleted", payload.planCompleted());
             root.put("stageReady", payload.stageReady());
             root.put("contractGate", renderContractGate(payload));
-            root.put("continuationMode", payload.continuationMode() == null ? ImplementationContinuationMode.CONTINUE_SUBTASKS.name() : payload.continuationMode().name());
+            root.put("continuationMode", payload.continuationMode() == null ? ImplementationContinuationMode.MID_PLAN_CONTINUE.name() : payload.continuationMode().name());
             root.put("continuationSummary", payload.continuationSummary());
             root.put("continuationChangeRequest", payload.continuationChangeRequest());
             root.put("continuationEvidence", payload.continuationEvidence());

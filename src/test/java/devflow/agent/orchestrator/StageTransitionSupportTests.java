@@ -319,6 +319,7 @@ class StageTransitionSupportTests {
                 runRecord,
                 StageType.IMPLEMENTATION,
                 new StageContinuationContext(
+                        devflow.agent.protocol.ImplementationContinuationMode.MID_PLAN_CONTINUE,
                         "实现仍处于阶段中间态",
                         "继续完成剩余子任务",
                         "",

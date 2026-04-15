@@ -51,7 +51,7 @@ class ImplementationStateArtifactSupportTests {
         ImplementationStageStatusPayload payload = support.readStageStatus(objectMapper.writeValueAsString(root));
 
         assertFalse(payload.stageReady());
-        assertEquals(ImplementationContinuationMode.CONTINUE_SUBTASKS, payload.continuationMode());
+        assertEquals(ImplementationContinuationMode.MID_PLAN_CONTINUE, payload.continuationMode());
         assertEquals("继续修当前子任务", payload.continuationSummary());
     }
 
@@ -76,6 +76,7 @@ class ImplementationStateArtifactSupportTests {
     void readStageStatusRejectsConcreteContinuationPatchWithoutOverrideChanges() throws Exception {
         ImplementationStateArtifactSupport support = new ImplementationStateArtifactSupport();
         LinkedHashMap<String, Object> root = baseState();
+        root.put("continuationMode", ImplementationContinuationMode.PATCH_CONTINUE.name());
         root.put("continuationPatchTarget", ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name());
         root.put("continuationOverrideChanges", List.of());
 
@@ -139,7 +140,7 @@ class ImplementationStateArtifactSupportTests {
         root.put("planCompleted", false);
         root.put("stageReady", false);
         root.put("contractGate", null);
-        root.put("continuationMode", ImplementationContinuationMode.CONTINUE_SUBTASKS.name());
+        root.put("continuationMode", ImplementationContinuationMode.MID_PLAN_CONTINUE.name());
         root.put("continuationSummary", "继续修当前子任务");
         root.put("continuationChangeRequest", "继续修补当前实现。");
         root.put("continuationEvidence", "deterministic continuation payload");

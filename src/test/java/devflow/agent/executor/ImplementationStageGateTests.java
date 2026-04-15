@@ -44,7 +44,7 @@ class ImplementationStageGateTests {
         );
 
         assertFalse(stageStatus.stageReady());
-        assertEquals(ImplementationContinuationMode.CONTINUE_SUBTASKS, stageStatus.continuationMode());
+        assertEquals(ImplementationContinuationMode.MID_PLAN_CONTINUE, stageStatus.continuationMode());
         assertEquals("实现计划尚未执行完毕，当前仍处于阶段中间态。", stageStatus.continuationSummary());
         assertTrue(stageStatus.continuationEvidence().contains("补逻辑"));
     }
@@ -83,7 +83,7 @@ class ImplementationStageGateTests {
                 )
         );
 
-        assertEquals(ImplementationContinuationMode.CONTINUE_SUBTASKS, stageStatus.continuationMode());
+        assertEquals(ImplementationContinuationMode.PATCH_CONTINUE, stageStatus.continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
         assertEquals(ReviewReasonCode.RUNTIME_WIRING_GAP, stageStatus.continuationReasonCode());
         assertEquals(2, stageStatus.continuationOverrideChanges().size());
@@ -112,7 +112,7 @@ class ImplementationStageGateTests {
                 )
         );
 
-        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK, stageStatus.continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
         assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
     }
@@ -135,7 +135,7 @@ class ImplementationStageGateTests {
                 )
         );
 
-        assertEquals(ImplementationContinuationMode.CONTINUE_SUBTASKS, stageStatus.continuationMode());
+        assertEquals(ImplementationContinuationMode.PATCH_CONTINUE, stageStatus.continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
         assertEquals(1, stageStatus.continuationOverrideChanges().size());
         assertEquals("index.html", stageStatus.continuationOverrideChanges().getFirst().path());
@@ -157,7 +157,7 @@ class ImplementationStageGateTests {
                 )
         );
 
-        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK, stageStatus.continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, stageStatus.continuationPatchTarget());
         assertEquals(ReviewReasonCode.IMPLEMENTATION_GAP, stageStatus.continuationReasonCode());
         assertTrue(stageStatus.continuationSummary().contains("结构化文件范围"));
@@ -206,7 +206,7 @@ class ImplementationStageGateTests {
                 null
         );
 
-        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK, stageStatus.continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, stageStatus.continuationPatchTarget());
         assertTrue(stageStatus.continuationSummary().contains("结构化文件范围"));
         assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
@@ -245,7 +245,7 @@ class ImplementationStageGateTests {
                 null
         );
 
-        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK, stageStatus.continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
         assertTrue(stageStatus.continuationSummary().contains("runtime wiring"));
         assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
@@ -294,7 +294,7 @@ class ImplementationStageGateTests {
                 )
         );
 
-        assertEquals(ImplementationContinuationMode.CONTINUE_SUBTASKS, stageStatus.continuationMode());
+        assertEquals(ImplementationContinuationMode.PATCH_CONTINUE, stageStatus.continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
         assertEquals(2, stageStatus.continuationOverrideChanges().size());
         assertEquals("index.html", stageStatus.continuationOverrideChanges().getFirst().path());
@@ -344,7 +344,7 @@ class ImplementationStageGateTests {
                 )
         );
 
-        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK, stageStatus.continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
         assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
     }
@@ -389,7 +389,7 @@ class ImplementationStageGateTests {
                 )
         );
 
-        assertEquals(ImplementationContinuationMode.CONTINUE_SUBTASKS, stageStatus.continuationMode());
+        assertEquals(ImplementationContinuationMode.PATCH_CONTINUE, stageStatus.continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
         assertEquals(1, stageStatus.continuationOverrideChanges().size());
         assertEquals("index.html", stageStatus.continuationOverrideChanges().getFirst().path());
@@ -441,7 +441,7 @@ class ImplementationStageGateTests {
                 null
         );
 
-        assertEquals(ImplementationContinuationMode.CONTINUE_SUBTASKS, stageStatus.continuationMode());
+        assertEquals(ImplementationContinuationMode.PATCH_CONTINUE, stageStatus.continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, stageStatus.continuationPatchTarget());
         assertEquals(1, stageStatus.continuationOverrideChanges().size());
         assertEquals("src/game.js", stageStatus.continuationOverrideChanges().getFirst().path());
@@ -561,7 +561,7 @@ class ImplementationStageGateTests {
                 null
         );
 
-        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK, stageStatus.continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, stageStatus.continuationPatchTarget());
         assertTrue(stageStatus.continuationSummary().contains("多个已完成子任务 owner"));
         assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
@@ -611,7 +611,7 @@ class ImplementationStageGateTests {
                 )
         );
 
-        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK, stageStatus.continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
         assertTrue(stageStatus.continuationSummary().contains("唯一 completed owner"));
         assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
@@ -664,7 +664,7 @@ class ImplementationStageGateTests {
                 )
         );
 
-        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK, stageStatus.continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
         assertTrue(stageStatus.continuationSummary().contains("唯一 completed owner"));
         assertTrue(stageStatus.continuationEvidence().contains("index.app.js"));
@@ -715,7 +715,7 @@ class ImplementationStageGateTests {
                 )
         );
 
-        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK, stageStatus.continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
         assertTrue(stageStatus.continuationSummary().contains("唯一 completed owner"));
         assertTrue(stageStatus.continuationEvidence().contains("index.app.js"));
@@ -769,7 +769,7 @@ class ImplementationStageGateTests {
                 )
         );
 
-        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK, stageStatus.continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
         assertTrue(stageStatus.continuationSummary().contains("唯一 completed owner"));
         assertTrue(stageStatus.continuationEvidence().contains("index.app.js"));

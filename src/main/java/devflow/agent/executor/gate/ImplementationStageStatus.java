@@ -34,7 +34,7 @@ public record ImplementationStageStatus(
     public ImplementationStageStatus {
         incompleteSubtasks = incompleteSubtasks == null ? List.of() : List.copyOf(incompleteSubtasks);
         continuationMode = continuationMode == null
-                ? ImplementationContinuationMode.CONTINUE_SUBTASKS
+                ? ImplementationContinuationMode.MID_PLAN_CONTINUE
                 : continuationMode;
         continuationSummary = continuationSummary == null ? "" : continuationSummary;
         continuationChangeRequest = continuationChangeRequest == null ? "" : continuationChangeRequest;
@@ -65,7 +65,7 @@ public record ImplementationStageStatus(
                 stageReady,
                 incompleteSubtasks,
                 null,
-                ImplementationContinuationMode.CONTINUE_SUBTASKS,
+                ImplementationContinuationMode.MID_PLAN_CONTINUE,
                 "",
                 "",
                 "",
@@ -81,7 +81,7 @@ public record ImplementationStageStatus(
     }
 
     public boolean blockedForHuman() {
-        return continuationMode == ImplementationContinuationMode.BLOCK_STAGE;
+        return continuationMode.blocked();
     }
 
     public boolean hasContinuationDirective() {
