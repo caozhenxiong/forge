@@ -12,10 +12,11 @@ import devflow.agent.executor.runtime.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.i18n.DocumentLanguage;
+import devflow.agent.protocol.ImplementationContinuationMode;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ImplementationPatchTarget;
-import devflow.agent.executor.runtime.RuntimeWiringRetryChangeFactory;
 import java.util.List;
+import java.util.Locale;
 
 import devflow.agent.executor.subtask.Subtask;
 import devflow.agent.executor.subtask.SubtaskExecutionReport;
@@ -29,16 +30,14 @@ import devflow.agent.executor.subtask.SubtaskRevisionDirective;
  */
 public class ImplementationResumePolicy {
 
-    private final ObjectMapper objectMapper;
+    private final ImplementationStateCodec stateCodec;
     private final ImplementationSnapshotRestorer snapshotRestorer;
     private final CompletedPlanPatchOwnerResolver completedPlanPatchOwnerResolver;
-    private final RuntimeWiringRetryChangeFactory runtimeWiringRetryChangeFactory;
 
     public ImplementationResumePolicy(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+        this.stateCodec = new ImplementationStateCodec(objectMapper);
         this.snapshotRestorer = new ImplementationSnapshotRestorer();
         this.completedPlanPatchOwnerResolver = new CompletedPlanPatchOwnerResolver();
-        this.runtimeWiringRetryChangeFactory = new RuntimeWiringRetryChangeFactory();
     }
 
     /**
@@ -56,24 +55,28 @@ public class ImplementationResumePolicy {
             return null;
         }
         try {
-            ImplementationStateSnapshot snapshot = objectMapper.readValue(previousStateJson, ImplementationStateSnapshot.class);
+            ImplementationStateSnapshot snapshot = stateCodec.readRequired(previousStateJson);
             if (snapshot == null || snapshot.subtasks() == null || snapshot.subtasks().isEmpty()) {
+                return null;
+            }
+            PersistedContinuation continuation = restoreContinuation(snapshot);
+            if (continuation.mode().blocked()) {
                 return null;
             }
             List<Subtask> subtasks = snapshotRestorer.restoreSubtasks(snapshot.subtasks());
             List<SubtaskExecutionReport> previousReports = snapshotRestorer.restoreReports(snapshot.reports(), subtasks);
             ArchitectIntegrationCheckResult contractGateResult = snapshotRestorer.restoreContractGate(snapshot.contractGate());
             if (snapshot.planCompleted()) {
-                if (contractGateResult == null || contractGateResult.passed()) {
+                if (contractGateResult == null || contractGateResult.passed() || !continuation.mode().patchContinue()) {
                     return null;
                 }
                 return reopenCompletedPlanPatch(
                         snapshot,
                         subtasks,
                         previousReports,
-                        implementationPatchTarget,
+                        continuation.patchTarget(),
                         contractGateResult,
-                        resolveCompletedPlanOverrideChanges(implementationPatchTarget, overrideChanges, contractGateResult)
+                        continuation.overrideChanges()
                 );
             }
             List<SubtaskExecutionReport> completedPrefix = snapshotRestorer.takeCompletedPrefix(previousReports);
@@ -83,12 +86,12 @@ public class ImplementationResumePolicy {
             SubtaskExecutionState resumedExecutionState = completedPrefix.size() < previousReports.size()
                     ? snapshotRestorer.restoreExecutionState(previousReports.get(completedPrefix.size()))
                     : null;
+            if (continuation.mode().patchContinue() && resumedExecutionState == null) {
+                resumedExecutionState = new SubtaskExecutionState(DeliveryMode.PATCH, true);
+            }
             if (resumedExecutionState != null) {
                 resumedExecutionState = resumedExecutionState.applyRevisionDirective(
-                        buildRetryDirective(
-                                resolveIncompletePlanPatchTarget(implementationPatchTarget),
-                                overrideChanges
-                        )
+                        buildRetryDirective(continuation.patchTarget(), continuation.overrideChanges())
                 );
                 resumedExecutionState.resetToolLoopTranscript();
             }
@@ -108,11 +111,11 @@ public class ImplementationResumePolicy {
             ImplementationStateSnapshot snapshot,
             List<Subtask> subtasks,
             List<SubtaskExecutionReport> previousReports,
-            ImplementationPatchTarget requestedPatchTarget,
+            ImplementationPatchTarget persistedPatchTarget,
             ArchitectIntegrationCheckResult contractGateResult,
             List<FileChange> overrideChanges
     ) {
-        ImplementationPatchTarget effectivePatchTarget = resolveCompletedPlanPatchTarget(requestedPatchTarget);
+        ImplementationPatchTarget effectivePatchTarget = resolveCompletedPlanPatchTarget(persistedPatchTarget);
         int targetIndex = resolveCompletedPlanTargetIndex(
                 effectivePatchTarget,
                 previousReports,
@@ -148,15 +151,6 @@ public class ImplementationResumePolicy {
         throw new IllegalStateException("Completed implementation PATCH requires implementationPatchTarget.");
     }
 
-    private ImplementationPatchTarget resolveIncompletePlanPatchTarget(
-            ImplementationPatchTarget requestedPatchTarget
-    ) {
-        if (requestedPatchTarget != null && requestedPatchTarget.concretePatch()) {
-            return requestedPatchTarget;
-        }
-        return ImplementationPatchTarget.NONE;
-    }
-
     private int resolveCompletedPlanTargetIndex(
             ImplementationPatchTarget patchTarget,
             List<SubtaskExecutionReport> previousReports,
@@ -188,22 +182,111 @@ public class ImplementationResumePolicy {
         return SubtaskRevisionDirective.patch(List.copyOf(overrideChanges));
     }
 
-    private List<FileChange> resolveCompletedPlanOverrideChanges(
-            ImplementationPatchTarget patchTarget,
-            List<FileChange> overrideChanges,
-            ArchitectIntegrationCheckResult contractGateResult
-    ) {
-        if (patchTarget == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
-            HtmlRuntimeOwnershipContract runtimeContract = contractGateResult == null ? null : contractGateResult.runtimeContract();
-            if (runtimeContract == null || !runtimeContract.hasResolvedWiringRepairScope()) {
-                throw new IllegalStateException("Completed runtime wiring PATCH requires a resolved runtime contract.");
-            }
-            return runtimeWiringRetryChangeFactory.build(runtimeContract);
-        }
-        return overrideChanges == null ? List.of() : List.copyOf(overrideChanges);
-    }
-
     private String blankIfNull(String value) {
         return value == null ? "" : value;
+    }
+
+    private PersistedContinuation restoreContinuation(ImplementationStateSnapshot snapshot) {
+        if (snapshot == null) {
+            return PersistedContinuation.none();
+        }
+        ImplementationContinuationMode mode = parseContinuationMode(snapshot.continuationMode());
+        ImplementationPatchTarget patchTarget = parsePatchTarget(snapshot.continuationPatchTarget());
+        List<FileChange> overrideChanges = restoreContinuationChanges(snapshot.continuationOverrideChanges());
+        if (!mode.patchContinue()) {
+            return new PersistedContinuation(mode, ImplementationPatchTarget.NONE, List.of());
+        }
+        if (!patchTarget.concretePatch() || overrideChanges.isEmpty()) {
+            throw new IllegalStateException("Persisted PATCH_CONTINUE requires a canonical repair package.");
+        }
+        return new PersistedContinuation(mode, patchTarget, overrideChanges);
+    }
+
+    private List<FileChange> restoreContinuationChanges(
+            List<ImplementationStateSnapshot.FileChangeState> changes
+    ) {
+        if (changes == null || changes.isEmpty()) {
+            return List.of();
+        }
+        return changes.stream()
+                .filter(change -> change != null && change.path() != null && !change.path().isBlank())
+                .map(change -> new FileChange(
+                        change.path(),
+                        parseChangeAction(change.action()),
+                        blankIfNull(change.reason()),
+                        parseFileEditScope(change.editScope()),
+                        parseRuntimeOwnership(change.runtimeOwnership()),
+                        change.hostHtmlPatchRequired()
+                ))
+                .toList();
+    }
+
+    private ChangeAction parseChangeAction(String action) {
+        if (action == null || action.isBlank()) {
+            return ChangeAction.WRITE;
+        }
+        try {
+            return ChangeAction.valueOf(action.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return ChangeAction.WRITE;
+        }
+    }
+
+    private FileEditScope parseFileEditScope(String editScope) {
+        if (editScope == null || editScope.isBlank()) {
+            return FileEditScope.AUTO;
+        }
+        try {
+            return FileEditScope.valueOf(editScope.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return FileEditScope.AUTO;
+        }
+    }
+
+    private RuntimeOwnershipMode parseRuntimeOwnership(String runtimeOwnership) {
+        if (runtimeOwnership == null || runtimeOwnership.isBlank()) {
+            return null;
+        }
+        try {
+            return RuntimeOwnershipMode.valueOf(runtimeOwnership.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    private ImplementationContinuationMode parseContinuationMode(String continuationMode) {
+        if (continuationMode == null || continuationMode.isBlank()) {
+            return ImplementationContinuationMode.MID_PLAN_CONTINUE;
+        }
+        try {
+            return ImplementationContinuationMode.valueOf(continuationMode.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return ImplementationContinuationMode.MID_PLAN_CONTINUE;
+        }
+    }
+
+    private ImplementationPatchTarget parsePatchTarget(String patchTarget) {
+        if (patchTarget == null || patchTarget.isBlank()) {
+            return ImplementationPatchTarget.NONE;
+        }
+        try {
+            return ImplementationPatchTarget.valueOf(patchTarget.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return ImplementationPatchTarget.NONE;
+        }
+    }
+
+    private record PersistedContinuation(
+            ImplementationContinuationMode mode,
+            ImplementationPatchTarget patchTarget,
+            List<FileChange> overrideChanges
+    ) {
+        private static PersistedContinuation none() {
+            return new PersistedContinuation(
+                    ImplementationContinuationMode.MID_PLAN_CONTINUE,
+                    ImplementationPatchTarget.NONE,
+                    List.of()
+            );
+        }
     }
 }

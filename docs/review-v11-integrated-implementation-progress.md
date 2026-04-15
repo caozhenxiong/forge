@@ -85,18 +85,18 @@
 
 ### Scope 4. Canonical Repair Package / Resume Restore Closure
 
-- [ ] `SubtaskVerificationSupport` / `SubtaskVerificationOutcome` / `SubtaskRevisionDirective` / `SubtaskExecutionState` 只保留 `review.overrideChanges -> revisionDirective.retryChanges -> executionState.effectiveChanges` 一条 direct carrier 链
-- [ ] `SubtaskRepairDirectiveResolver` / `SubtaskRecoverySupport` / `SubtaskRetryFeedbackRenderer` 不再把 repair package prose 化或清空回 `NONE`
-- [ ] `TestExecutor` 与 subtask producer 共享 canonical repair package 口径
-- [ ] `ExecutionDirectiveProtocol` / `ExecutionDirectivePayload` / `ExecutionDirectiveFeedbackSupport` 不再在 merge 中吞 scope
-- [ ] `ImplementationDirectiveResolver` / `ImplementationContextResolver` / `ImplementationPlanRunner` 对 repair package 只消费 canonical owner
-- [ ] `StageContinuationNoteBuilder` / `StageRevisionRepairSupport` / `StageRevisionNoteBuilder` / `RepairAgent` 不再形成 reroute-to-repair 的并行 directive producer 第二轨
-- [ ] `ImplementationStateSnapshot` / `ImplementationStateSnapshotSerializer` / `ImplementationStateArtifactSupport` 让 canonical repair package 进入 `implementation_state` 单一真相源
-- [ ] `SubtaskAttemptStepExecutor` / `SubtaskExecutor` / `ImplementationContinuationSupport` 作为 repair package 的执行消费链与 continuation bridge，不再游离在 canonical owner 之外
-- [ ] `ImplementationSnapshotRestorer` / `ImplementationResumePolicy` 不再从旧 report / narrowed scope / 旧 delivery mode 反推 continuation
-- [ ] Scope 4 `self-test`
-- [ ] Scope 4 `code review`
-- [ ] Scope 4 `docs`
+- [x] `SubtaskVerificationSupport` / `SubtaskVerificationOutcome` / `SubtaskRevisionDirective` / `SubtaskExecutionState` 只保留 `review.overrideChanges -> revisionDirective.retryChanges -> executionState.effectiveChanges` 一条 direct carrier 链
+- [x] `SubtaskRepairDirectiveResolver` / `SubtaskRecoverySupport` / `SubtaskRetryFeedbackRenderer` 不再把 repair package prose 化或清空回 `NONE`
+- [x] `TestExecutor` 与 subtask producer 共享 canonical repair package 口径
+- [x] `ExecutionDirectiveProtocol` / `ExecutionDirectivePayload` / `ExecutionDirectiveFeedbackSupport` 不再在 merge 中吞 scope
+- [x] `ImplementationDirectiveResolver` / `ImplementationContextResolver` / `ImplementationPlanRunner` 对 repair package 只消费 canonical owner
+- [x] `StageContinuationNoteBuilder` / `StageRevisionRepairSupport` / `StageRevisionNoteBuilder` / `RepairAgent` 不再形成 reroute-to-repair 的并行 directive producer 第二轨
+- [x] `ImplementationStateSnapshot` / `ImplementationStateSnapshotSerializer` / `ImplementationStateArtifactSupport` 让 canonical repair package 进入 `implementation_state` 单一真相源
+- [x] `SubtaskAttemptStepExecutor` / `SubtaskExecutor` / `ImplementationContinuationSupport` 作为 repair package 的执行消费链与 continuation bridge，不再游离在 canonical owner 之外
+- [x] `ImplementationSnapshotRestorer` / `ImplementationResumePolicy` 不再从旧 report / narrowed scope / 旧 delivery mode 反推 continuation
+- [x] Scope 4 `self-test`
+- [x] Scope 4 `code review`
+- [x] Scope 4 `docs`
 
 ### Scope 5. Upstream Authority Audit
 
@@ -142,7 +142,7 @@
 
 ## Current Status
 
-- 当前阶段：`SCOPE_3_COMPLETED_PENDING_SCOPE_4`
+- 当前阶段：`SCOPE_4_COMPLETED_PENDING_SCOPE_5`
 - 当前 blocker：`无`
 - 当前约束：`禁止兼容层、禁止双轨并存、禁止“后续再清理”`
 
@@ -171,10 +171,10 @@
 
 ### Scope 4
 
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`待开始`
+- commit：`待提交`
+- self-test：`mvn -q -Dtest=ExecutionDirectiveFeedbackSupportTests,ImplementationResumePolicyTests,ImplementationPlanRunnerTests,ImplementationStateArtifactSupportTests,ImplementationSnapshotRestorerTests,RepairAgentTests,ImplementationContextResolverTests,CoderTurnCoordinatorTests,ImplementationStateSnapshotSerializerTests,StageTransitionSupportTests test`
+- code review：`本地静态自审通过；已确认 repair package 只在 persisted continuation truth 上恢复，directive merge 不再把既有 concrete package 误改写成新 target。`
+- docs：`tracker 已回填 Scope 4 状态与证据`
 
 ### Scope 5
 
@@ -206,14 +206,14 @@
 
 ## Completion Gate
 
-- [ ] `S1` planning boundary contract 已在 outline/detail/final-gate/reroute 单轨收口
-- [ ] `S2` accepted boundary contract 已稳定进入 task package、coder、reviewer、boundary gate
-- [ ] `S3` implementation continuation 已保留三分类，不再被 generic continue 压平
-- [ ] `S4` canonical repair package 已在 subtask / retry / directive / implementation_state / reroute / resume 全链保持单一真相源
+- [x] `S1` planning boundary contract 已在 outline/detail/final-gate/reroute 单轨收口
+- [x] `S2` accepted boundary contract 已稳定进入 task package、coder、reviewer、boundary gate
+- [x] `S3` implementation continuation 已保留三分类，不再被 generic continue 压平
+- [x] `S4` canonical repair package 已在 subtask / retry / directive / implementation_state / reroute / resume 全链保持单一真相源
 - [ ] `S5` authority corpus 已不再循环强化错误 runtime contract
 - [ ] `S6` validation 与 TEST disposition mapping 已不再误拒绝或误路由
 - [ ] `R1 ~ R10` 已全部补齐
 - [ ] `self-test + code review + docs` 已全部补齐
 - [ ] 黄金路径集成测试已通过
 
-结果：`NOT_STARTED`
+结果：`IN_PROGRESS`

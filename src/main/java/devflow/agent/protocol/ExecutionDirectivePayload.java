@@ -1,7 +1,9 @@
 package devflow.agent.protocol;
 
+import devflow.agent.review.ImplementationPatchTarget;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * implementation/repair/supervisor/generation feedback 共用的结构化指令协议。
@@ -79,10 +81,16 @@ public record ExecutionDirectivePayload(
         if (override == null) {
             return this;
         }
+        CanonicalPatchPackage patchPackage = mergeCanonicalPatchPackage(
+                implementationPatchTarget,
+                overrideChanges,
+                override.implementationPatchTarget,
+                override.overrideChanges
+        );
         return new ExecutionDirectivePayload(
                 chooseText(fixMode, override.fixMode),
-                chooseText(implementationPatchTarget, override.implementationPatchTarget),
-                chooseFileChanges(overrideChanges, override.overrideChanges),
+                patchPackage.patchTarget(),
+                patchPackage.overrideChanges(),
                 chooseBoolean(repairBriefPresent, override.repairBriefPresent),
                 chooseBoolean(repairBriefEnforced, override.repairBriefEnforced),
                 chooseText(deliveryMode, override.deliveryMode),
@@ -112,11 +120,28 @@ public record ExecutionDirectivePayload(
         );
     }
 
-    private static List<FileChangePayload> chooseFileChanges(List<FileChangePayload> base, List<FileChangePayload> override) {
-        if (override != null && !override.isEmpty()) {
-            return List.copyOf(override);
+    private static CanonicalPatchPackage mergeCanonicalPatchPackage(
+            String basePatchTarget,
+            List<FileChangePayload> baseOverrideChanges,
+            String overridePatchTarget,
+            List<FileChangePayload> overrideOverrideChanges
+    ) {
+        if (hasConcretePatchPackage(overridePatchTarget, overrideOverrideChanges)) {
+            return new CanonicalPatchPackage(
+                    canonicalPatchTarget(overridePatchTarget),
+                    List.copyOf(overrideOverrideChanges)
+            );
         }
-        return base == null ? List.of() : List.copyOf(base);
+        if (hasConcretePatchPackage(basePatchTarget, baseOverrideChanges)) {
+            return new CanonicalPatchPackage(
+                    canonicalPatchTarget(basePatchTarget),
+                    List.copyOf(baseOverrideChanges)
+            );
+        }
+        return new CanonicalPatchPackage(
+                chooseText(basePatchTarget, overridePatchTarget),
+                chooseFileChanges(baseOverrideChanges, overrideOverrideChanges)
+        );
     }
 
     private static String chooseText(String base, String override) {
@@ -129,6 +154,13 @@ public record ExecutionDirectivePayload(
 
     private static Integer chooseInteger(Integer base, Integer override) {
         return override != null ? override : base;
+    }
+
+    private static List<FileChangePayload> chooseFileChanges(List<FileChangePayload> base, List<FileChangePayload> override) {
+        if (override != null && !override.isEmpty()) {
+            return List.copyOf(override);
+        }
+        return base == null ? List.of() : List.copyOf(base);
     }
 
     private static List<String> mergeList(List<String> base, List<String> override) {
@@ -161,5 +193,32 @@ public record ExecutionDirectivePayload(
                     .forEach(merged::add);
         }
         return List.copyOf(merged);
+    }
+
+    private static boolean hasConcretePatchPackage(String patchTarget, List<FileChangePayload> overrideChanges) {
+        return concretePatchTarget(patchTarget).concretePatch()
+                && overrideChanges != null
+                && !overrideChanges.isEmpty();
+    }
+
+    private static ImplementationPatchTarget concretePatchTarget(String patchTarget) {
+        if (patchTarget == null || patchTarget.isBlank()) {
+            return ImplementationPatchTarget.NONE;
+        }
+        try {
+            return ImplementationPatchTarget.valueOf(patchTarget.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return ImplementationPatchTarget.NONE;
+        }
+    }
+
+    private static String canonicalPatchTarget(String patchTarget) {
+        return concretePatchTarget(patchTarget).name();
+    }
+
+    private record CanonicalPatchPackage(
+            String patchTarget,
+            List<FileChangePayload> overrideChanges
+    ) {
     }
 }

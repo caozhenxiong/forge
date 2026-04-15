@@ -102,6 +102,95 @@ class ExecutionDirectiveFeedbackSupportTests {
     }
 
     @Test
+    void mergeDoesNotRetargetConcretePatchWithoutReplacementScope() {
+        String persistent = ExecutionDirectiveNarrativeRenderer.renderRevisionNote(
+                new ExecutionDirectivePayload(
+                        FixMode.PATCH.name(),
+                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION.name(),
+                        List.of(new FileChangePayload("src/game.js", ChangeAction.WRITE.name(), "repair gameplay", "AUTO", null, false)),
+                        false,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        "继续修 gameplay",
+                        "只修当前 patch scope",
+                        "evidence",
+                        "action",
+                        null,
+                        null,
+                        List.of(),
+                        List.of(),
+                        null,
+                        null,
+                        null,
+                        null
+                ),
+                "继续修 gameplay",
+                "只修当前 patch scope",
+                "evidence",
+                "action"
+        );
+
+        String transientFeedback = ExecutionDirectiveNarrativeRenderer.renderRetryFeedback(
+                new ExecutionDirectivePayload(
+                        FixMode.PATCH.name(),
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                        List.of(),
+                        false,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        "继续观察 runtime wiring",
+                        "暂时不要清空既有 patch scope",
+                        "no structured runtime scope yet",
+                        "wait",
+                        null,
+                        null,
+                        List.of(),
+                        List.of(),
+                        null,
+                        null,
+                        null,
+                        null
+                ),
+                "self check",
+                "details",
+                "summary",
+                "changeRequest",
+                "completeness",
+                "- evidence"
+        );
+
+        ExecutionDirectivePayload directives = ExecutionDirectiveProtocol.parseMerged(
+                ExecutionDirectiveFeedbackSupport.merge(persistent, transientFeedback)
+        );
+
+        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION.name(), directives.implementationPatchTarget());
+        assertEquals(1, directives.overrideChanges().size());
+        assertEquals("src/game.js", directives.overrideChanges().getFirst().path());
+    }
+
+    @Test
     void persistentRetryFeedbackKeepsConcretePatchNoteWithoutRepairBrief() {
         String note = ExecutionDirectiveNarrativeRenderer.renderRevisionNote(
                 new ExecutionDirectivePayload(

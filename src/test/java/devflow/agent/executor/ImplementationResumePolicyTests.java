@@ -12,8 +12,10 @@ import devflow.agent.executor.implementation.toolloop.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.i18n.DocumentLanguage;
+import devflow.agent.protocol.ImplementationContinuationMode;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ImplementationPatchTarget;
+import devflow.agent.review.ReviewReasonCode;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -85,6 +87,15 @@ class ImplementationResumePolicyTests {
                 "补齐逻辑",
                 false,
                 false,
+                null,
+                ImplementationContinuationMode.MID_PLAN_CONTINUE.name(),
+                "继续完成当前 implementation 计划",
+                "继续执行当前未完成子任务，不要重开 planning。",
+                "continuationSubtask=补齐逻辑",
+                "1. 继续修当前子任务。 2. 修完后重新验证。",
+                List.of(),
+                ImplementationPatchTarget.NONE.name(),
+                ReviewReasonCode.NONE.name(),
                 List.of("补齐逻辑")
         ));
 
@@ -107,6 +118,76 @@ class ImplementationResumePolicyTests {
         assertEquals("export function tick() {}\n", progressState.workingContent());
         assertEquals("code-unit-16", progressState.currentTargetLabel());
         assertEquals(List.of("code-unit-1", "code-unit-2"), progressState.completedTargetLabels());
+    }
+
+    @Test
+    void restoresIncompletePatchContinuationFromPersistedStateEvenWithoutExistingAttemptState() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        ImplementationResumePolicy policy = new ImplementationResumePolicy(objectMapper);
+        String previousStateJson = objectMapper.writeValueAsString(new ImplementationStateSnapshot(
+                "继续修补当前实现",
+                List.of(
+                        new ImplementationStateSnapshot.PlannedSubtaskState(
+                                "入口",
+                                "完成入口",
+                                List.of(),
+                                List.of(),
+                                List.of(),
+                                List.of("入口完成"),
+                                true,
+                                "PATCH",
+                                List.of(new ImplementationStateSnapshot.FileChangeState("index.html", "WRITE", "修入口"))
+                        ),
+                        new ImplementationStateSnapshot.PlannedSubtaskState(
+                                "逻辑",
+                                "补齐逻辑",
+                                List.of(),
+                                List.of(),
+                                List.of(),
+                                List.of("逻辑完成"),
+                                false,
+                                "PATCH",
+                                List.of(new ImplementationStateSnapshot.FileChangeState("src/app.js", "WRITE", "修逻辑"))
+                        )
+                ),
+                List.of(new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot(
+                        "入口",
+                        true,
+                        List.of()
+                )),
+                List.of(),
+                "逻辑",
+                false,
+                false,
+                null,
+                ImplementationContinuationMode.PATCH_CONTINUE.name(),
+                continuationSummary(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION),
+                continuationChangeRequest(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION),
+                continuationEvidence(
+                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                        List.of(implementationPatchContinuationChange("src/app.js", "修逻辑"))
+                ),
+                continuationActionItems(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION),
+                List.of(implementationPatchContinuationChange("src/app.js", "修逻辑")),
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION.name(),
+                ReviewReasonCode.IMPLEMENTATION_GAP.name(),
+                List.of("逻辑")
+        ));
+
+        ReusableImplementationState reusableState = policy.loadReusableImplementationState(
+                previousStateJson,
+                FixMode.PATCH,
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                List.of(new FileChange("wrong.js", ChangeAction.WRITE, "should be ignored")),
+                DocumentLanguage.ZH
+        );
+
+        assertNotNull(reusableState);
+        assertEquals(1, reusableState.completedReports().size());
+        assertNotNull(reusableState.resumedExecutionState());
+        assertEquals(DeliveryMode.PATCH, reusableState.resumedExecutionState().deliveryMode());
+        assertEquals(1, reusableState.resumedExecutionState().effectiveChanges().size());
+        assertEquals("src/app.js", reusableState.resumedExecutionState().effectiveChanges().getFirst().path());
     }
 
     @Test
@@ -156,14 +237,14 @@ class ImplementationResumePolicyTests {
                                 List.of("index.app.js")
                         )
                 ),
-                "",
-                "",
-                "",
-                "",
-                "",
-                List.of(),
-                "",
-                "",
+                ImplementationContinuationMode.PATCH_CONTINUE.name(),
+                continuationSummary(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationChangeRequest(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationEvidence(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, runtimeWiringContinuationChanges("index.app.js")),
+                continuationActionItems(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                runtimeWiringContinuationChanges("index.app.js"),
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                ReviewReasonCode.RUNTIME_WIRING_GAP.name(),
                 List.of()
         ));
 
@@ -244,14 +325,14 @@ class ImplementationResumePolicyTests {
                                 List.of("index.app.js")
                         )
                 ),
-                "",
-                "",
-                "",
-                "",
-                "",
-                List.of(),
-                "",
-                "",
+                ImplementationContinuationMode.PATCH_CONTINUE.name(),
+                continuationSummary(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationChangeRequest(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationEvidence(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, runtimeWiringContinuationChanges("index.app.js")),
+                continuationActionItems(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                runtimeWiringContinuationChanges("index.app.js"),
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                ReviewReasonCode.RUNTIME_WIRING_GAP.name(),
                 List.of()
         ));
 
@@ -324,14 +405,30 @@ class ImplementationResumePolicyTests {
                                 List.of()
                         )
                 ),
-                "",
-                "",
-                "",
-                "",
-                "",
-                List.of(),
-                "",
-                "",
+                ImplementationContinuationMode.PATCH_CONTINUE.name(),
+                continuationSummary(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationChangeRequest(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationEvidence(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, List.of(
+                        new ImplementationStateSnapshot.FileChangeState(
+                                "index.html",
+                                "WRITE",
+                                "补齐宿主接线",
+                                FileEditScope.HOST_HTML_PATCH.name(),
+                                RuntimeOwnershipMode.EXTERNAL_COMPANION.name(),
+                                true
+                        )
+                )),
+                continuationActionItems(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                List.of(new ImplementationStateSnapshot.FileChangeState(
+                        "index.html",
+                        "WRITE",
+                        "补齐宿主接线",
+                        FileEditScope.HOST_HTML_PATCH.name(),
+                        RuntimeOwnershipMode.EXTERNAL_COMPANION.name(),
+                        true
+                )),
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                ReviewReasonCode.RUNTIME_WIRING_GAP.name(),
                 List.of()
         ));
 
@@ -421,14 +518,14 @@ class ImplementationResumePolicyTests {
                                 List.of("index.app.js")
                         )
                 ),
-                "",
-                "",
-                "",
-                "",
-                "",
-                List.of(),
-                "",
-                "",
+                ImplementationContinuationMode.PATCH_CONTINUE.name(),
+                continuationSummary(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationChangeRequest(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationEvidence(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, runtimeWiringContinuationChanges("index.app.js")),
+                continuationActionItems(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                runtimeWiringContinuationChanges("index.app.js"),
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                ReviewReasonCode.RUNTIME_WIRING_GAP.name(),
                 List.of()
         ));
 
@@ -449,7 +546,7 @@ class ImplementationResumePolicyTests {
     }
 
     @Test
-    void runtimeWiringPatchDerivesCanonicalOverrideChangesFromContractGate() throws Exception {
+    void runtimeWiringPatchUsesPersistedContinuationPackageInsteadOfIncomingOverrideChanges() throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         ImplementationResumePolicy policy = new ImplementationResumePolicy(objectMapper);
         String previousStateJson = objectMapper.writeValueAsString(new ImplementationStateSnapshot(
@@ -495,14 +592,14 @@ class ImplementationResumePolicyTests {
                                 List.of("index.app.js")
                         )
                 ),
-                "",
-                "",
-                "",
-                "",
-                "",
-                List.of(),
-                "",
-                "",
+                ImplementationContinuationMode.PATCH_CONTINUE.name(),
+                continuationSummary(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationChangeRequest(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationEvidence(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, runtimeWiringContinuationChanges("index.app.js")),
+                continuationActionItems(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                runtimeWiringContinuationChanges("index.app.js"),
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                ReviewReasonCode.RUNTIME_WIRING_GAP.name(),
                 List.of()
         ));
 
@@ -510,7 +607,7 @@ class ImplementationResumePolicyTests {
                 previousStateJson,
                 FixMode.PATCH,
                 ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
-                List.of(),
+                List.of(new FileChange("wrong.js", ChangeAction.WRITE, "should be ignored")),
                 DocumentLanguage.ZH
         );
 
@@ -567,14 +664,23 @@ class ImplementationResumePolicyTests {
                         ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION.name(),
                         null
                 ),
-                "",
-                "",
-                "",
-                "",
-                "",
-                List.of(),
-                "",
-                "",
+                ImplementationContinuationMode.PATCH_CONTINUE.name(),
+                continuationSummary(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION),
+                continuationChangeRequest(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION),
+                continuationEvidence(
+                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                        List.of(
+                                implementationPatchContinuationChange("index.html", "修入口"),
+                                implementationPatchContinuationChange("src/app.js", "修逻辑")
+                        )
+                ),
+                continuationActionItems(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION),
+                List.of(
+                        implementationPatchContinuationChange("index.html", "修入口"),
+                        implementationPatchContinuationChange("src/app.js", "修逻辑")
+                ),
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION.name(),
+                ReviewReasonCode.IMPLEMENTATION_GAP.name(),
                 List.of()
         ));
 
@@ -669,14 +775,14 @@ class ImplementationResumePolicyTests {
                                 List.of("index.app.js")
                         )
                 ),
-                "",
-                "",
-                "",
-                "",
-                "",
-                List.of(),
-                "",
-                "",
+                ImplementationContinuationMode.PATCH_CONTINUE.name(),
+                continuationSummary(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationChangeRequest(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationEvidence(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, runtimeWiringContinuationChanges("index.app.js")),
+                continuationActionItems(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                runtimeWiringContinuationChanges("index.app.js"),
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                ReviewReasonCode.RUNTIME_WIRING_GAP.name(),
                 List.of()
         ));
 
@@ -752,14 +858,16 @@ class ImplementationResumePolicyTests {
                                 List.of()
                         )
                 ),
-                "",
-                "",
-                "",
-                "",
-                "",
-                List.of(),
-                "",
-                "",
+                ImplementationContinuationMode.PATCH_CONTINUE.name(),
+                continuationSummary(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationChangeRequest(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationEvidence(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, List.of(
+                        implementationPatchContinuationChange("index.html", "修复宿主入口")
+                )),
+                continuationActionItems(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                List.of(implementationPatchContinuationChange("index.html", "修复宿主入口")),
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                ReviewReasonCode.RUNTIME_WIRING_GAP.name(),
                 List.of()
         ));
 
@@ -833,14 +941,14 @@ class ImplementationResumePolicyTests {
                                 List.of("index.app.js")
                         )
                 ),
-                "",
-                "",
-                "",
-                "",
-                "",
-                List.of(),
-                "",
-                "",
+                ImplementationContinuationMode.PATCH_CONTINUE.name(),
+                continuationSummary(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationChangeRequest(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationEvidence(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, runtimeWiringContinuationChanges("index.app.js")),
+                continuationActionItems(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                runtimeWiringContinuationChanges("index.app.js"),
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                ReviewReasonCode.RUNTIME_WIRING_GAP.name(),
                 List.of()
         ));
 
@@ -911,14 +1019,14 @@ class ImplementationResumePolicyTests {
                                 List.of("index.app.js")
                         )
                 ),
-                "",
-                "",
-                "",
-                "",
-                "",
-                List.of(),
-                "",
-                "",
+                ImplementationContinuationMode.PATCH_CONTINUE.name(),
+                continuationSummary(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationChangeRequest(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationEvidence(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, runtimeWiringContinuationChanges("index.app.js")),
+                continuationActionItems(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                runtimeWiringContinuationChanges("index.app.js"),
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                ReviewReasonCode.RUNTIME_WIRING_GAP.name(),
                 List.of()
         ));
 
@@ -992,14 +1100,14 @@ class ImplementationResumePolicyTests {
                                 List.of("index.app.js")
                         )
                 ),
-                "",
-                "",
-                "",
-                "",
-                "",
-                List.of(),
-                "",
-                "",
+                ImplementationContinuationMode.PATCH_CONTINUE.name(),
+                continuationSummary(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationChangeRequest(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                continuationEvidence(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, runtimeWiringContinuationChanges("index.app.js")),
+                continuationActionItems(ImplementationPatchTarget.PATCH_RUNTIME_WIRING),
+                runtimeWiringContinuationChanges("index.app.js"),
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                ReviewReasonCode.RUNTIME_WIRING_GAP.name(),
                 List.of()
         ));
 
@@ -1016,4 +1124,57 @@ class ImplementationResumePolicyTests {
 
         assertTrue(exception.getMessage().contains("could not find an owning subtask"));
     }
+
+    private List<ImplementationStateSnapshot.FileChangeState> runtimeWiringContinuationChanges(String runtimeRootPath) {
+        return List.of(
+                new ImplementationStateSnapshot.FileChangeState(
+                        "index.html",
+                        "WRITE",
+                        "补齐宿主接线",
+                        FileEditScope.HOST_HTML_PATCH.name(),
+                        RuntimeOwnershipMode.EXTERNAL_COMPANION.name(),
+                        true
+                ),
+                new ImplementationStateSnapshot.FileChangeState(
+                        runtimeRootPath,
+                        "WRITE",
+                        "补齐 companion runtime",
+                        FileEditScope.AUTO.name(),
+                        RuntimeOwnershipMode.EXTERNAL_COMPANION.name(),
+                        false
+                )
+        );
+    }
+
+    private ImplementationStateSnapshot.FileChangeState implementationPatchContinuationChange(String path, String reason) {
+        return new ImplementationStateSnapshot.FileChangeState(path, "WRITE", reason);
+    }
+
+    private String continuationSummary(ImplementationPatchTarget patchTarget) {
+        return patchTarget == ImplementationPatchTarget.PATCH_RUNTIME_WIRING
+                ? "继续修复 runtime wiring"
+                : "继续修补当前实现";
+    }
+
+    private String continuationChangeRequest(ImplementationPatchTarget patchTarget) {
+        return patchTarget == ImplementationPatchTarget.PATCH_RUNTIME_WIRING
+                ? "只修宿主 HTML 与 companion runtime 接线"
+                : "只修当前结构化 patch 范围";
+    }
+
+    private String continuationEvidence(ImplementationPatchTarget patchTarget, List<ImplementationStateSnapshot.FileChangeState> changes) {
+        String paths = changes == null || changes.isEmpty()
+                ? "(none)"
+                : changes.stream().map(ImplementationStateSnapshot.FileChangeState::path).reduce((left, right) -> left + "," + right).orElse("(none)");
+        return patchTarget == ImplementationPatchTarget.PATCH_RUNTIME_WIRING
+                ? "runtimeRoots=" + paths
+                : "continuationOverrideChanges=" + paths;
+    }
+
+    private String continuationActionItems(ImplementationPatchTarget patchTarget) {
+        return patchTarget == ImplementationPatchTarget.PATCH_RUNTIME_WIRING
+                ? "1. 只修 host html。 2. 只修 companion runtime。 3. 不要重开 outline。"
+                : "1. 只修当前 patch 范围。 2. 不要扩大到其他 subtask。 3. 修完后重新验证。";
+    }
+
 }

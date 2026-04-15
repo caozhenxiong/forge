@@ -22,7 +22,7 @@ import java.util.List;
  * <p>implementation live control flow 依赖的字段必须在这里一次性校验，
  * 读取侧不允许再通过默认值、推导或 fallback 去猜状态。
  */
-final class ImplementationStateCodec {
+public final class ImplementationStateCodec {
 
     private static final List<String> REQUIRED_LIVE_CONTROL_FIELDS = List.of(
             "planCompleted",
@@ -40,11 +40,11 @@ final class ImplementationStateCodec {
 
     private final ObjectMapper objectMapper;
 
-    ImplementationStateCodec(ObjectMapper objectMapper) {
+    public ImplementationStateCodec(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
     }
 
-    String write(ImplementationStateSnapshot snapshot) {
+    public String write(ImplementationStateSnapshot snapshot) {
         try {
             return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(snapshot);
         } catch (Exception exception) {
@@ -52,7 +52,7 @@ final class ImplementationStateCodec {
         }
     }
 
-    ImplementationStateSnapshot readRequired(String stateJson) {
+    public ImplementationStateSnapshot readRequired(String stateJson) {
         if (stateJson == null || stateJson.isBlank()) {
             throw new IllegalStateException("Missing implementation_state auxiliary artifact.");
         }
