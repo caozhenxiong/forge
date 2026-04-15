@@ -146,12 +146,13 @@
 - 如果文件已经在正确终态，本轮允许零 mutation 收口。
 - 如果文件未达终态，才继续要求实际工具动作。
 
-### P2. 最新 canonical patch package 必须压过 persisted continuation 和上轮 failure
+### P2. 最新 canonical patch package 必须压过 persisted continuation、feedback merge 残留和上轮 failure
 
 #### Problem
 
-- 当前系统里至少还有两条旧语义会抢最新 patch package：
+- 当前系统里至少还有三条旧语义会抢最新 patch package：
   - `ImplementationResumePolicy` 优先 persisted continuation
+  - intra-stage feedback merge 仍可能把旧 concrete package 保留下来
   - `TestExecutor` 在 targeted reverification 中回退到 `previousFailure.overrideChanges()` / 旧 patch target
 
 #### Solution
@@ -159,6 +160,12 @@
 - 统一成单一规则：
   - 当前 reroute note / 当前 TEST / 当前 review 产出的 canonical patch package 优先级最高
   - persisted continuation 只在当前轮没有新 concrete package 时才允许生效
+  - feedback merge 在 fresh feedback 没有 concrete package 时，不得把旧 concrete package 继续偷带进下一轮
+- revision note producer / parser / feedback merge / resume 必须使用同一份 canonical patch package 口径：
+  - revision note 负责落盘当前 fresh package
+  - directive parser 只解析这份 package，不再从其他路径补第二份 owner
+  - feedback merge 只能保留当前 fresh package，不能把 base concrete package 复活
+  - resume 只消费收口后的 canonical package
 - `TestExecutor` 不再回退使用上轮 `overrideChanges` 或 patch target。
 - 当前 failure 如果没有安全 canonical scope：
   - 直接 `REQUEST_HUMAN` / `BLOCK_STAGE`
@@ -239,6 +246,7 @@
 
 - `ImplementationToolLoopExecutor` 中“declared changes satisfied 必须来自本轮 mutation”的旧语义。
 - `ImplementationResumePolicy` 中“persisted PATCH_CONTINUE 优先于当前 reroute patch package”的旧语义。
+- `ExecutionDirectivePayload` / `ExecutionDirectiveFeedbackSupport` / `ImplementationPlanRunner` / `SubtaskRecoverySupport` 中“旧 concrete package 可在 feedback merge 后继续残留”的旧语义。
 - `TestExecutor` 中对 `previousFailure.overrideChanges()` / 旧 patch target 的回退复用。
 - `ImplementationStageGate` 中“空 scope / 完全不相交 scope 自动退回 allowedScope”的旧 fallback。
 - repair mode 中只会被拒绝的 Bash / whole-file rewrite 伪可用路径。
@@ -265,8 +273,15 @@
 - whole-file rewrite reject 返回 localized-edit 指引
 - Bash 不再作为 repair-mode 伪回退路径
 
-### Scope 2. Resume / Continuation Precedence Closure
+### Scope 2. Canonical Patch Package Precedence Closure
 
+- `src/main/java/devflow/agent/orchestrator/StageRevisionRepairSupport.java`
+- `src/main/java/devflow/agent/orchestrator/StageRevisionNoteBuilder.java`
+- `src/main/java/devflow/agent/executor/implementation/planning/ImplementationDirectiveResolver.java`
+- `src/main/java/devflow/agent/protocol/ExecutionDirectivePayload.java`
+- `src/main/java/devflow/agent/protocol/ExecutionDirectiveFeedbackSupport.java`
+- `src/main/java/devflow/agent/executor/implementation/ImplementationPlanRunner.java`
+- `src/main/java/devflow/agent/executor/subtask/SubtaskRecoverySupport.java`
 - `src/main/java/devflow/agent/executor/implementation/ImplementationResumePolicy.java`
 - `src/main/java/devflow/agent/executor/implementation/CoderTurnCoordinator.java`
 - `src/main/java/devflow/agent/artifact/ImplementationStageComposer.java`
@@ -274,6 +289,8 @@
 收口要求：
 
 - 当前 reroute note 的 concrete patch package 优先于 persisted continuation
+- revision note 生成、directive 解析、feedback merge、resume 消费必须使用同一份 fresh canonical package
+- feedback merge 不得在 fresh feedback 缺少 concrete package 时复活 base concrete package
 - persisted continuation 只在当前轮没有新 concrete package 时才允许生效
 - resume 不能继续沿用旧 patch scope 修旧问题
 
@@ -294,6 +311,7 @@
 - `src/main/java/devflow/agent/executor/subtask/SubtaskVerificationSupport.java`
 - `src/main/java/devflow/agent/executor/subtask/SubtaskRunnableMilestoneGuard.java`
 - `src/main/java/devflow/agent/executor/subtask/ImplementationSelfCheckReviewResolver.java`
+- `src/main/java/devflow/agent/executor/testing/TestExecutor.java`
 - `src/main/java/devflow/agent/validation/ValidationExecutor.java`
 - `src/main/java/devflow/agent/validation/WebRuntimeWiringValidationSupport.java`
 - `src/main/java/devflow/agent/validation/WebResourceValidationSupport.java`
@@ -301,6 +319,7 @@
 收口要求：
 
 - runnable milestone 不再只靠 smoke/resource/syntax 放行
+- `TestExecutor` 对 runnable milestone 的 functional verification 触发条件和验证面必须同步收紧
 - 当前 milestone 的运行态能力证据必须达标
 - 弱骨架必须在当前子任务内被打回
 
@@ -318,11 +337,18 @@
 - `src/test/java/devflow/agent/executor/BashToolTests.java`
 - `src/test/java/devflow/agent/executor/implementation/toolloop/BashToolFailureDiagnosticsTests.java`
   - repair-mode Bash 不再承担伪回退角色
+- `src/test/java/devflow/agent/protocol/ExecutionDirectiveFeedbackSupportTests.java`
+  - fresh feedback 缺少 concrete package 时，不再复活 base concrete package
+- `src/test/java/devflow/agent/executor/implementation/ImplementationPlanRunnerTests.java`
+  - intra-stage feedback merge 不再把旧 concrete patch package 带入后续 active subtask
 - `src/test/java/devflow/agent/executor/ImplementationResumePolicyTests.java`
   - 当前 reroute patch package 覆盖 persisted continuation
+- 新增 revision note render / parse round-trip 回归
+  - fresh patch package 经 `StageRevisionNoteBuilder -> ImplementationDirectiveResolver` 后仍保持同一份 machine truth
 - `src/test/java/devflow/agent/executor/ImplementationStageGateTests.java`
   - 空 scope / 完全不相交 scope 不再扩成 allowedScope
 - `src/test/java/devflow/agent/executor/testing/TestExecutorTests.java`
+  - runnable milestone 会触发更强 functional verification，而不是仅凭弱壳页面通过
 - `src/test/java/devflow/agent/executor/testing/ExperienceFailureDispositionResolverTests.java`
   - targeted reverification 不再回退旧 scope
 - `src/test/java/devflow/agent/executor/subtask/SubtaskVerificationSupportTests.java`
