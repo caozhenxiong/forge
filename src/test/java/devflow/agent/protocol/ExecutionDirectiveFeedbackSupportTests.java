@@ -1,0 +1,158 @@
+package devflow.agent.protocol;
+
+import devflow.agent.executor.ChangeAction;
+import devflow.agent.executor.FileChange;
+import devflow.agent.review.FixMode;
+import devflow.agent.review.ImplementationPatchTarget;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class ExecutionDirectiveFeedbackSupportTests {
+
+    @Test
+    void mergeKeepsCanonicalConcretePatchPackage() {
+        String persistent = ExecutionDirectiveNarrativeRenderer.renderRevisionNote(
+                new ExecutionDirectivePayload(
+                        FixMode.PATCH.name(),
+                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION.name(),
+                        List.of(new FileChangePayload("index.html", ChangeAction.WRITE.name(), "repair host", "HOST_HTML_PATCH", null, true)),
+                        false,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        "继续修 host",
+                        "只修 host html",
+                        "evidence",
+                        "action",
+                        null,
+                        null,
+                        List.of(),
+                        List.of(),
+                        null,
+                        null,
+                        null,
+                        null
+                ),
+                "继续修 host",
+                "只修 host html",
+                "evidence",
+                "action"
+        );
+
+        String transientFeedback = ExecutionDirectiveNarrativeRenderer.renderRetryFeedback(
+                new ExecutionDirectivePayload(
+                        FixMode.PATCH.name(),
+                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION.name(),
+                        List.of(),
+                        false,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        "仍需修 host",
+                        "继续修",
+                        "runtime gap",
+                        "action",
+                        null,
+                        null,
+                        List.of(),
+                        List.of(),
+                        null,
+                        null,
+                        null,
+                        null
+                ),
+                "self check",
+                "details",
+                "summary",
+                "changeRequest",
+                "completeness",
+                "- evidence"
+        );
+
+        String merged = ExecutionDirectiveFeedbackSupport.merge(persistent, transientFeedback);
+        ExecutionDirectivePayload directives = ExecutionDirectiveProtocol.parseMerged(merged);
+
+        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION.name(), directives.implementationPatchTarget());
+        assertEquals(1, directives.overrideChanges().size());
+        assertEquals("index.html", directives.overrideChanges().getFirst().path());
+    }
+
+    @Test
+    void persistentRetryFeedbackKeepsConcretePatchNoteWithoutRepairBrief() {
+        String note = ExecutionDirectiveNarrativeRenderer.renderRevisionNote(
+                new ExecutionDirectivePayload(
+                        FixMode.PATCH.name(),
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                        List.of(
+                                new FileChangePayload("index.html", ChangeAction.WRITE.name(), "wire host", "HOST_HTML_PATCH", "EXTERNAL_COMPANION", true),
+                                new FileChangePayload("index.app.js", ChangeAction.WRITE.name(), "wire companion", "AUTO", "EXTERNAL_COMPANION", false)
+                        ),
+                        false,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        "继续修接线",
+                        "只修 host 和 companion 接线",
+                        "evidence",
+                        "action",
+                        null,
+                        null,
+                        List.of(),
+                        List.of(),
+                        null,
+                        null,
+                        null,
+                        null
+                ),
+                "继续修接线",
+                "只修 host 和 companion 接线",
+                "evidence",
+                "action"
+        );
+
+        String persistent = ExecutionDirectiveFeedbackSupport.persistentRetryFeedback(note);
+
+        assertTrue(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage(persistent));
+        assertEquals(2, ExecutionDirectiveProtocol.parseMerged(persistent).overrideChanges().size());
+    }
+
+    @Test
+    void persistentRetryFeedbackDropsPureProseNote() {
+        assertFalse(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage("plain prose only"));
+        assertTrue(ExecutionDirectiveFeedbackSupport.persistentRetryFeedback("plain prose only").isBlank());
+    }
+}

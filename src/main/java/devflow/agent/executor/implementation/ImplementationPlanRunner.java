@@ -14,8 +14,7 @@ import devflow.agent.context.ContractView;
 import devflow.agent.context.SharedContextBundle;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.domain.RunRecord;
-import devflow.agent.protocol.ExecutionDirectivePayload;
-import devflow.agent.protocol.ExecutionDirectiveProtocol;
+import devflow.agent.protocol.ExecutionDirectiveFeedbackSupport;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Path;
@@ -72,12 +71,17 @@ public class ImplementationPlanRunner {
         if (completedPrefix != null && !completedPrefix.isEmpty()) {
             reports.addAll(completedPrefix);
         }
-        String persistentRepairFeedback = repairFeedback(note);
-        String sharedFeedback = mergeFeedback(persistentRepairFeedback, note == null ? "" : note);
+        String persistentRepairBriefFeedback = repairBriefFeedback(note);
+        String persistentRetryFeedback = repairFeedback(note);
+        String sharedFeedback = mergeFeedback(persistentRetryFeedback, note == null ? "" : note);
         SubtaskExecutionState initialExecutionState = resumedExecutionState == null ? null : resumedExecutionState.copy();
+        boolean firstActiveSubtask = true;
         for (int index = reports.size(); index < plan.subtasks().size(); index++) {
             Subtask subtask = plan.subtasks().get(index);
             TaskPackage taskPackage = index < taskPackages.size() ? taskPackages.get(index) : null;
+            String subtaskPersistentFeedback = firstActiveSubtask
+                    ? persistentRetryFeedback
+                    : persistentRepairBriefFeedback;
             publishEvent(
                     eventJournal,
                     ImplementationEventMessages.subtaskStart(
@@ -94,7 +98,7 @@ public class ImplementationPlanRunner {
                     subtask,
                     taskPackage,
                     sharedFeedback,
-                    persistentRepairFeedback,
+                    subtaskPersistentFeedback,
                     deliveryPolicy,
                     contractView,
                     qualityPlan,
@@ -115,7 +119,8 @@ public class ImplementationPlanRunner {
             if (!report.completed()) {
                 break;
             }
-            sharedFeedback = mergeFeedback(persistentRepairFeedback, report.lastVerifierChangeRequest());
+            firstActiveSubtask = false;
+            sharedFeedback = mergeFeedback(persistentRepairBriefFeedback, report.lastVerifierChangeRequest());
         }
         return reports;
     }
@@ -135,22 +140,14 @@ public class ImplementationPlanRunner {
     }
 
     private String repairFeedback(String note) {
-        ExecutionDirectivePayload directives = ExecutionDirectiveProtocol.parseMerged(note);
-        if (!Boolean.TRUE.equals(directives.repairBriefEnforced())) {
-            return "";
-        }
-        return note;
+        return ExecutionDirectiveFeedbackSupport.persistentRetryFeedback(note);
+    }
+
+    private String repairBriefFeedback(String note) {
+        return ExecutionDirectiveFeedbackSupport.repairBriefFeedback(note);
     }
 
     private String mergeFeedback(String inheritedFeedback, String newFeedback) {
-        String inherited = inheritedFeedback == null ? "" : inheritedFeedback.trim();
-        String fresh = newFeedback == null ? "" : newFeedback.trim();
-        if (inherited.isBlank()) {
-            return fresh;
-        }
-        if (fresh.isBlank()) {
-            return inherited;
-        }
-        return inherited + "\n\n" + fresh;
+        return ExecutionDirectiveFeedbackSupport.merge(inheritedFeedback, newFeedback);
     }
 }

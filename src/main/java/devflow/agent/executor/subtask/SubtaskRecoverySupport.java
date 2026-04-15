@@ -6,6 +6,7 @@ import devflow.agent.executor.runtime.*;
 import devflow.agent.executor.generation.GenerationFailureReport;
 
 import devflow.agent.protocol.ExecutionDirectivePayload;
+import devflow.agent.protocol.ExecutionDirectiveFeedbackSupport;
 import devflow.agent.protocol.ExecutionDirectiveProtocol;
 import devflow.agent.review.FixMode;
 import devflow.agent.supervisor.DeliveryPolicy;
@@ -151,19 +152,7 @@ public final class SubtaskRecoverySupport {
     }
 
     String mergeFeedback(String persistentRepairFeedback, String transientFeedback) {
-        String persistent = persistentRepairFeedback == null ? "" : persistentRepairFeedback.strip();
-        String transientText = transientFeedback == null ? "" : transientFeedback.strip();
-        if (persistent.isBlank()) {
-            return transientText;
-        }
-        if (transientText.isBlank()) {
-            return persistent;
-        }
-        ExecutionDirectivePayload directives = ExecutionDirectiveProtocol.parseMerged(transientText);
-        if (Boolean.TRUE.equals(directives.repairBriefPresent()) || Boolean.TRUE.equals(directives.repairBriefEnforced())) {
-            return transientText;
-        }
-        return persistent + "\n\n" + transientText;
+        return ExecutionDirectiveFeedbackSupport.merge(persistentRepairFeedback, transientFeedback);
     }
 
     private GenerationRecoveryDecision normalizeRecoveryDecision(GenerationRecoveryDecision decision) {
