@@ -171,7 +171,7 @@
 
 ### Scope 4
 
-- commit：`待提交`
+- commit：`ff8b924 Close scope 4 canonical repair package chain`
 - self-test：`mvn -q -Dtest=ExecutionDirectiveFeedbackSupportTests,ImplementationResumePolicyTests,ImplementationPlanRunnerTests,ImplementationStateArtifactSupportTests,ImplementationSnapshotRestorerTests,RepairAgentTests,ImplementationContextResolverTests,CoderTurnCoordinatorTests,ImplementationStateSnapshotSerializerTests,StageTransitionSupportTests test`
 - code review：`本地静态自审通过；已确认 repair package 只在 persisted continuation truth 上恢复，directive merge 不再把既有 concrete package 误改写成新 target。`
 - docs：`tracker 已回填 Scope 4 状态与证据`
