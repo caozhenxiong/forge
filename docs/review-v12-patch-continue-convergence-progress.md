@@ -72,30 +72,30 @@
 
 ### Scope 1. Tool Loop Convergence Closure
 
-- [ ] `ImplementationToolLoopExecutor` 的 declared-change completion 改成 workspace-state 判定
-- [ ] 已满足当前 canonical package 终态的文件允许零 mutation 收口
-- [ ] `ImplementationToolPromptBuilder` / `ImplementationToolPermissionPolicy` / `ImplementationToolRegistry` 使用同一 repair-mode 工具口径
-- [ ] repair-mode 下不再把 Bash 暴露成伪回退路径
-- [ ] whole-file rewrite reject 返回结构化 localized-edit 指引
-- [ ] `FileEditTool` / `FileWriteTool` / `ToolExecutionContext` 与上面口径一致
-- [ ] Scope 1 `self-test`
-- [ ] Scope 1 `code review`
-- [ ] Scope 1 `docs`
+- [x] `ImplementationToolLoopExecutor` 的 declared-change completion 改成 workspace-state 判定
+- [x] 已满足当前 canonical package 终态的文件允许零 mutation 收口
+- [x] `ImplementationToolPromptBuilder` / `ImplementationToolPermissionPolicy` / `ImplementationToolRegistry` 使用同一 repair-mode 工具口径
+- [x] repair-mode 下不再把 Bash 暴露成伪回退路径
+- [x] whole-file rewrite reject 返回结构化 localized-edit 指引
+- [x] `FileEditTool` / `FileWriteTool` / `ToolExecutionContext` 与上面口径一致
+- [x] Scope 1 `self-test`
+- [x] Scope 1 `code review`
+- [x] Scope 1 `docs`
 
 ### Scope 2. Canonical Patch Package Precedence Closure
 
-- [ ] `StageRevisionRepairSupport` / `StageRevisionNoteBuilder` 只落 fresh canonical patch package
-- [ ] `ImplementationDirectiveResolver` 只解析 fresh package，不再从其他路径补第二份 owner
-- [ ] `ExecutionDirectivePayload` / `ExecutionDirectiveFeedbackSupport` merge 不再复活 base concrete package
-- [ ] `ImplementationPlanRunner` / `SubtaskRecoverySupport` 不再通过 merged feedback 持有 active patch package
-- [ ] stage-level fresh package 只沿 `revision note -> directive parser -> resumed execution state` 进入 implementation
-- [ ] 当前 active subtask 的 machine owner 固定为 `SubtaskExecutionState.effectiveChanges`
-- [ ] `SubtaskRevisionDirective` 成为 active execution state 的唯一结构化写入口
-- [ ] `TaskPackage` / scoped task package 只从当前 active scope 派生，不再承担 machine owner
-- [ ] `ImplementationResumePolicy` / `CoderTurnCoordinator` / `ImplementationStageComposer` 对 fresh package precedence 使用同一口径
-- [ ] Scope 2 `self-test`
-- [ ] Scope 2 `code review`
-- [ ] Scope 2 `docs`
+- [x] `StageRevisionRepairSupport` / `StageRevisionNoteBuilder` 只落 fresh canonical patch package
+- [x] `ImplementationDirectiveResolver` 只解析 fresh package，不再从其他路径补第二份 owner
+- [x] `ExecutionDirectivePayload` / `ExecutionDirectiveFeedbackSupport` merge 不再复活 base concrete package
+- [x] `ImplementationPlanRunner` / `SubtaskRecoverySupport` 不再通过 merged feedback 持有 active patch package
+- [x] stage-level fresh package 只沿 `revision note -> directive parser -> resumed execution state` 进入 implementation
+- [x] 当前 active subtask 的 machine owner 固定为 `SubtaskExecutionState.effectiveChanges`
+- [x] `SubtaskRevisionDirective` 成为 active execution state 的唯一结构化写入口
+- [x] `TaskPackage` / scoped task package 只从当前 active scope 派生，不再承担 machine owner
+- [x] `ImplementationResumePolicy` / `CoderTurnCoordinator` / `ImplementationStageComposer` 对 fresh package precedence 使用同一口径
+- [x] Scope 2 `self-test`
+- [x] Scope 2 `code review`
+- [x] Scope 2 `docs`
 
 ### Scope 3. Stage Gate Scope Discipline Closure
 
@@ -143,25 +143,25 @@
 
 ## Current Status
 
-- 当前阶段：`PLAN_REVIEW_PENDING`
-- 当前 blocker：`执行 tracker 待 review`
+- 当前阶段：`SCOPE_3_IN_PROGRESS`
+- 当前 blocker：`无`
 - 当前约束：`禁止兼容层、禁止双轨并存、禁止“后续再清理”`
 
 ## Evidence Log
 
 ### Scope 1
 
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`待开始`
+- commit：`待本轮提交`
+- self-test：`mvn -q -Dtest=ImplementationToolLoopExecutorTests,ImplementationToolRegistryTests,FileEditToolTests,FileWriteToolTests,BashToolTests,BashToolFailureDiagnosticsTests test`
+- code review：`本地静态自审通过；workspace-state closure、repair-mode Bash visibility 和 whole-file rewrite structured guidance 已对齐 Scope 1 口径`
+- docs：`tracker 已回填 Scope 1 状态与证据`
 
 ### Scope 2
 
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`待开始`
+- commit：`待本轮提交`
+- self-test：`mvn -q -Dtest=ExecutionDirectiveFeedbackSupportTests,SubtaskRetryFeedbackRendererTests,ImplementationPlanRunnerTests,ImplementationResumePolicyTests,ImplementationToolLoopExecutorTests,ImplementationToolRegistryTests,FileEditToolTests,FileWriteToolTests,BashToolTests,BashToolFailureDiagnosticsTests test`
+- code review：`本地静态自审通过；feedback channel 已去掉 concrete patch package owner，fresh package precedence 与 runtime wiring canonicalization 已对齐`
+- docs：`tracker 已回填 Scope 2 状态与证据`
 
 ### Scope 3
 
@@ -186,14 +186,14 @@
 
 ## Completion Gate
 
-- [ ] `S1` tool loop closure 已改成 workspace-state based，repair-mode tool surface 已与权限完全一致
-- [ ] `S2` canonical patch package 已在 `revision note -> directive parser -> resumed execution state -> active execution state` 单轨收口
+- [x] `S1` tool loop closure 已改成 workspace-state based，repair-mode tool surface 已与权限完全一致
+- [x] `S2` canonical patch package 已在 `revision note -> directive parser -> resumed execution state -> active execution state` 单轨收口
 - [ ] `S3` stage gate / TEST 对 patch scope 已只允许 fail-fast 或安全 canonical scope
 - [ ] `S4` runnable milestone 已只在当前里程碑运行态证据达标时放行
 - [ ] `S5` 回归矩阵与黄金路径集成测试已全部通过
-- [ ] active patch package machine owner 已只剩 `SubtaskExecutionState.effectiveChanges`
+- [x] active patch package machine owner 已只剩 `SubtaskExecutionState.effectiveChanges`
 - [ ] `TaskPackage` 已只保留派生视图职责
-- [ ] `feedback` 已不再承担 active patch package owner
+- [x] `feedback` 已不再承担 active patch package owner
 - [ ] `self-test + code review + docs` 已全部完成
 
 结果：`NOT_STARTED`

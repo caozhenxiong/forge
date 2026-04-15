@@ -68,6 +68,8 @@ class FileEditToolTests {
                 "Edit whole-file replacement is only allowed for new files unless the current execution scope explicitly allows whole-file rewrite. Use Read + Edit for existing files in PATCH.",
                 payload.get("message")
         );
+        assertEquals("WHOLE_FILE_REWRITE_DENIED", payload.get("code"));
+        assertEquals("READ_THEN_LOCAL_EDIT", payload.get("requiredAction"));
         assertEquals("export const ready = true;\n", Files.readString(file));
     }
 
@@ -147,6 +149,8 @@ class FileEditToolTests {
                 "Edit whole-file replacement is only allowed for new files unless the current execution scope explicitly allows whole-file rewrite. Use Read + Edit for existing files in repair mode.",
                 payload.get("message")
         );
+        assertEquals("WHOLE_FILE_REWRITE_DENIED", payload.get("code"));
+        assertEquals("READ_THEN_LOCAL_EDIT", payload.get("requiredAction"));
     }
 
     private ImplementationToolContext newContext(Path file, DeliveryMode deliveryMode, boolean repairMode) throws Exception {

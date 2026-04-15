@@ -44,7 +44,11 @@ public final class FileWriteTool implements ImplementationTool {
             context.assertWritable(absolutePath);
             boolean exists = context.exists(absolutePath);
             if (exists) {
-                context.assertExistingFileWholeRewriteAllowed(absolutePath, "Write");
+                try {
+                    context.assertExistingFileWholeRewriteAllowed(absolutePath, "Write");
+                } catch (IllegalArgumentException exception) {
+                    return wholeFileRewriteDenied(exception.getMessage());
+                }
                 context.assertFreshReadBeforeOverwrite(absolutePath);
             }
             String previous = exists ? context.readFile(absolutePath) : "";
@@ -78,6 +82,16 @@ public final class FileWriteTool implements ImplementationTool {
         } catch (IllegalArgumentException exception) {
             return ToolInvocationResult.failure(Map.of("type", "error", "message", exception.getMessage()));
         }
+    }
+
+    private ToolInvocationResult wholeFileRewriteDenied(String message) {
+        return ToolInvocationResult.failure(Map.of(
+                "type", "error",
+                "code", "WHOLE_FILE_REWRITE_DENIED",
+                "requiredAction", "READ_THEN_LOCAL_EDIT",
+                "message", message == null ? "Whole-file rewrite is not allowed in the current execution scope." : message,
+                "guidance", "Use Read to inspect the current file, then Edit only the smallest necessary span. Use Write only for new files."
+        ));
     }
 
     private record WriteInput(

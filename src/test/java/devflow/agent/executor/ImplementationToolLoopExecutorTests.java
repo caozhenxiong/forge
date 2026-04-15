@@ -423,6 +423,37 @@ class ImplementationToolLoopExecutorTests {
     }
 
     @Test
+    void toolLoopAllowsAssistantOnlyCompletionInRepairModeWhenWorkspaceAlreadyMatchesScope() throws Exception {
+        Path file = tempDir.resolve("app.js");
+        Files.writeString(file, "export const ready = true;\n");
+
+        ImplementationToolLoopExecutor executor = newToolLoopExecutor(
+                new ScriptedChatProvider(
+                        new LlmChatResponse("当前修复范围已满足", List.of(), null, "stop")
+                ),
+                2
+        );
+
+        ImplementationToolLoopResult result = executor.execute(
+                tempDir,
+                runRecord(tempDir),
+                subtask("继续修复 app.js", "app.js"),
+                taskPackage("继续修复 app.js", "app.js"),
+                null,
+                QualityPlan.empty(),
+                fingerprint("app.js"),
+                "继续当前 repair round，只验证当前范围。",
+                "",
+                null,
+                new SubtaskExecutionState(DeliveryMode.PATCH, false)
+        );
+
+        assertEquals("当前修复范围已满足", result.finalResponse());
+        assertEquals(List.of(), result.touchedPaths());
+        assertEquals("export const ready = true;\n", Files.readString(file));
+    }
+
+    @Test
     void toolLoopContinuesCurrentSubtaskAfterDeniedBashCommand() throws Exception {
         Path file = tempDir.resolve("app.js");
         Files.writeString(file, "export const ready = false;\n");

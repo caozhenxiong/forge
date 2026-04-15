@@ -33,8 +33,8 @@ public final class ImplementationToolPromptBuilder {
                 4. 优先用 Edit 做局部改动；Write 默认只用于新文件。只有显式 REWORK 时，现有文件才允许整文件重写。
                 5. 删除文件时使用 Delete。
                 6. 搜索和找文件优先用 Grep / Glob。
-                7. Bash 只允许两类命令：确定性的只读命令，或单段、确定性的简单文件命令；不要用 Bash 做就地编辑、管道写入或链式多步写入。
-                8. 如果 Bash 被拒绝，收窄命令或改用 Write / Edit / Delete，不要原样重试。
+                7. Bash 只有在当前工具列表里可见时才能使用；repair mode 下不要把 Bash 当作回退路径。
+                8. 如果 Bash 被拒绝，收窄命令或改用 Read / Edit / Delete，不要原样重试。
                 9. 如果工具返回错误，先在当前 tool loop 内修正，不要直接放弃子任务。
                 10. 不允许输出骨架、占位、TODO 或半成品冒充完成。
                 11. 完成后再给出一句简洁总结，不要输出大段解释。

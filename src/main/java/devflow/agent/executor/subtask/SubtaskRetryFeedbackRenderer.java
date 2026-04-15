@@ -7,7 +7,6 @@ import devflow.agent.executor.gate.ImplementationCompletenessResult;
 import devflow.agent.executor.SelfCheckResult;
 import devflow.agent.protocol.ExecutionDirectiveNarrativeRenderer;
 import devflow.agent.protocol.ExecutionDirectivePayload;
-import devflow.agent.protocol.FileChangePayload;
 import devflow.agent.review.ReviewResult;
 import java.util.List;
 
@@ -33,17 +32,8 @@ public final class SubtaskRetryFeedbackRenderer {
         return ExecutionDirectiveNarrativeRenderer.renderRetryFeedback(
                 new ExecutionDirectivePayload(
                         verification.fixMode() == null ? null : verification.fixMode().name(),
-                        verification.implementationPatchTarget() == null ? null : verification.implementationPatchTarget().name(),
-                        verification.overrideChanges().stream()
-                                .map(change -> new FileChangePayload(
-                                        change.path(),
-                                        change.action() == null ? null : change.action().name(),
-                                        change.reason() == null ? "" : change.reason(),
-                                        change.effectiveEditScope().name(),
-                                        change.runtimeOwnership() == null ? null : change.runtimeOwnership().name(),
-                                        change.hostHtmlPatchRequired()
-                                ))
-                                .toList(),
+                        null,
+                        List.of(),
                         false,
                         false,
                         null,

@@ -121,7 +121,7 @@ class ImplementationResumePolicyTests {
     }
 
     @Test
-    void restoresIncompletePatchContinuationFromPersistedStateEvenWithoutExistingAttemptState() throws Exception {
+    void currentRevisionNotePatchPackageOverridesPersistedPatchContinuationForIncompletePlan() throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         ImplementationResumePolicy policy = new ImplementationResumePolicy(objectMapper);
         String previousStateJson = objectMapper.writeValueAsString(new ImplementationStateSnapshot(
@@ -187,7 +187,7 @@ class ImplementationResumePolicyTests {
         assertNotNull(reusableState.resumedExecutionState());
         assertEquals(DeliveryMode.PATCH, reusableState.resumedExecutionState().deliveryMode());
         assertEquals(1, reusableState.resumedExecutionState().effectiveChanges().size());
-        assertEquals("src/app.js", reusableState.resumedExecutionState().effectiveChanges().getFirst().path());
+        assertEquals("wrong.js", reusableState.resumedExecutionState().effectiveChanges().getFirst().path());
     }
 
     @Test

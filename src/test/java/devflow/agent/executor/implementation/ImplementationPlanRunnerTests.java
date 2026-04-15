@@ -11,6 +11,7 @@ import devflow.agent.executor.subtask.SubtaskExecutionContext;
 import devflow.agent.executor.subtask.SubtaskExecutionReport;
 import devflow.agent.executor.subtask.SubtaskExecutionState;
 import devflow.agent.executor.subtask.SubtaskExecutor;
+import devflow.agent.executor.subtask.SubtaskRevisionDirective;
 import devflow.agent.executor.subtask.TaskPackage;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.protocol.ExecutionDirectiveFeedbackSupport;
@@ -34,7 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ImplementationPlanRunnerTests {
 
     @Test
-    void passesConcreteContinuationNoteAsPersistentRetryFeedbackToFirstActiveSubtask() {
+    void firstActiveSubtaskOwnsConcretePatchPackageViaExecutionStateNotFeedback() {
         AtomicReference<SubtaskExecutionContext> captured = new AtomicReference<>();
         SubtaskExecutor stubExecutor = new SubtaskExecutor(null, null, null, 1) {
             @Override
@@ -109,6 +110,12 @@ class ImplementationPlanRunnerTests {
                 "action"
         );
 
+        SubtaskExecutionState resumedState = new SubtaskExecutionState(DeliveryMode.PATCH, true)
+                .applyRevisionDirective(SubtaskRevisionDirective.patch(List.of(
+                        new FileChange("index.html", ChangeAction.WRITE, "wire host"),
+                        new FileChange("index.app.js", ChangeAction.WRITE, "wire companion")
+                )));
+
         runner.execute(
                 Path.of("."),
                 (RunRecord) null,
@@ -135,7 +142,7 @@ class ImplementationPlanRunnerTests {
                 null,
                 DocumentLanguage.ZH,
                 List.of(),
-                new SubtaskExecutionState(DeliveryMode.PATCH, true),
+                resumedState,
                 null,
                 "",
                 null,
@@ -144,8 +151,10 @@ class ImplementationPlanRunnerTests {
 
         SubtaskExecutionContext executionContext = captured.get();
         ExecutionDirectivePayload persistent = ExecutionDirectiveProtocol.parseMerged(executionContext.persistentRepairFeedback());
-        assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(), persistent.implementationPatchTarget());
-        assertEquals(2, persistent.overrideChanges().size());
+        assertFalse(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage(executionContext.persistentRepairFeedback()));
+        assertTrue(persistent.overrideChanges().isEmpty());
+        assertEquals(2, executionContext.initialExecutionState().effectiveChanges().size());
+        assertEquals("index.html", executionContext.initialExecutionState().effectiveChanges().getFirst().path());
         assertTrue(executionContext.inheritedFeedback().contains("继续修接线"));
     }
 
@@ -214,6 +223,11 @@ class ImplementationPlanRunnerTests {
                 "action"
         );
 
+        SubtaskExecutionState resumedState = new SubtaskExecutionState(DeliveryMode.PATCH, true)
+                .applyRevisionDirective(SubtaskRevisionDirective.patch(List.of(
+                        new FileChange("src/game.js", ChangeAction.WRITE, "repair gameplay")
+                )));
+
         runner.execute(
                 Path.of("."),
                 (RunRecord) null,
@@ -235,7 +249,7 @@ class ImplementationPlanRunnerTests {
                 null,
                 DocumentLanguage.ZH,
                 List.of(),
-                new SubtaskExecutionState(DeliveryMode.PATCH, true),
+                resumedState,
                 null,
                 "",
                 null,
@@ -243,7 +257,8 @@ class ImplementationPlanRunnerTests {
         );
 
         assertEquals(2, captured.size());
-        assertEquals(1, ExecutionDirectiveProtocol.parseMerged(captured.getFirst().persistentRepairFeedback()).overrideChanges().size());
+        assertFalse(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage(captured.getFirst().persistentRepairFeedback()));
+        assertEquals(1, captured.getFirst().initialExecutionState().effectiveChanges().size());
         assertTrue(captured.get(1).persistentRepairFeedback().isBlank());
     }
 
@@ -312,6 +327,11 @@ class ImplementationPlanRunnerTests {
                 "action"
         );
 
+        SubtaskExecutionState resumedState = new SubtaskExecutionState(DeliveryMode.PATCH, true)
+                .applyRevisionDirective(SubtaskRevisionDirective.patch(List.of(
+                        new FileChange("src/game.js", ChangeAction.WRITE, "repair gameplay")
+                )));
+
         runner.execute(
                 Path.of("."),
                 (RunRecord) null,
@@ -333,7 +353,7 @@ class ImplementationPlanRunnerTests {
                 null,
                 DocumentLanguage.ZH,
                 List.of(),
-                new SubtaskExecutionState(DeliveryMode.PATCH, true),
+                resumedState,
                 null,
                 "",
                 null,
@@ -341,7 +361,7 @@ class ImplementationPlanRunnerTests {
         );
 
         assertEquals(2, captured.size());
-        assertTrue(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage(captured.getFirst().persistentRepairFeedback()));
+        assertFalse(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage(captured.getFirst().persistentRepairFeedback()));
         ExecutionDirectivePayload secondPersistent = ExecutionDirectiveProtocol.parseMerged(captured.get(1).persistentRepairFeedback());
         assertFalse(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage(captured.get(1).persistentRepairFeedback()));
         assertTrue(Boolean.TRUE.equals(secondPersistent.repairBriefEnforced()));

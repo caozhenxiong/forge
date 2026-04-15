@@ -33,11 +33,13 @@ public class ImplementationResumePolicy {
     private final ImplementationStateCodec stateCodec;
     private final ImplementationSnapshotRestorer snapshotRestorer;
     private final CompletedPlanPatchOwnerResolver completedPlanPatchOwnerResolver;
+    private final RuntimeWiringRetryChangeFactory runtimeWiringRetryChangeFactory;
 
     public ImplementationResumePolicy(ObjectMapper objectMapper) {
         this.stateCodec = new ImplementationStateCodec(objectMapper);
         this.snapshotRestorer = new ImplementationSnapshotRestorer();
         this.completedPlanPatchOwnerResolver = new CompletedPlanPatchOwnerResolver();
+        this.runtimeWiringRetryChangeFactory = new RuntimeWiringRetryChangeFactory();
     }
 
     /**
@@ -71,6 +73,11 @@ public class ImplementationResumePolicy {
             List<Subtask> subtasks = snapshotRestorer.restoreSubtasks(snapshot.subtasks());
             List<SubtaskExecutionReport> previousReports = snapshotRestorer.restoreReports(snapshot.reports(), subtasks);
             ArchitectIntegrationCheckResult contractGateResult = snapshotRestorer.restoreContractGate(snapshot.contractGate());
+            List<FileChange> continuationChanges = canonicalizeContinuationChanges(
+                    continuation.patchTarget(),
+                    continuation.overrideChanges(),
+                    contractGateResult
+            );
             if (snapshot.planCompleted()) {
                 if (!continuation.mode().patchContinue()) {
                     return null;
@@ -81,7 +88,7 @@ public class ImplementationResumePolicy {
                         previousReports,
                         continuation.patchTarget(),
                         contractGateResult,
-                        continuation.overrideChanges()
+                        continuationChanges
                 );
             }
             List<SubtaskExecutionReport> completedPrefix = snapshotRestorer.takeCompletedPrefix(previousReports);
@@ -96,7 +103,7 @@ public class ImplementationResumePolicy {
             }
             if (resumedExecutionState != null) {
                 resumedExecutionState = resumedExecutionState.applyRevisionDirective(
-                        buildRetryDirective(continuation.patchTarget(), continuation.overrideChanges())
+                        buildRetryDirective(continuation.patchTarget(), continuationChanges)
                 );
                 resumedExecutionState.resetToolLoopTranscript();
             }
@@ -200,15 +207,11 @@ public class ImplementationResumePolicy {
             ImplementationPatchTarget implementationPatchTarget,
             List<FileChange> overrideChanges
     ) {
-        PersistedContinuation persisted = restoreContinuation(snapshot);
-        if (persisted.mode().patchContinue()) {
-            return persisted;
-        }
         PersistedContinuation requested = requestedContinuation(fixMode, implementationPatchTarget, overrideChanges);
         if (requested != null) {
             return requested;
         }
-        return persisted;
+        return restoreContinuation(snapshot);
     }
 
     private PersistedContinuation requestedContinuation(
@@ -244,6 +247,20 @@ public class ImplementationResumePolicy {
             throw new IllegalStateException("Persisted PATCH_CONTINUE requires a canonical repair package.");
         }
         return new PersistedContinuation(mode, patchTarget, overrideChanges);
+    }
+
+    private List<FileChange> canonicalizeContinuationChanges(
+            ImplementationPatchTarget patchTarget,
+            List<FileChange> overrideChanges,
+            ArchitectIntegrationCheckResult contractGateResult
+    ) {
+        if (patchTarget != ImplementationPatchTarget.PATCH_RUNTIME_WIRING
+                || contractGateResult == null
+                || contractGateResult.runtimeContract() == null
+                || !contractGateResult.runtimeContract().active()) {
+            return overrideChanges;
+        }
+        return runtimeWiringRetryChangeFactory.build(contractGateResult.runtimeContract());
     }
 
     private List<FileChange> restoreContinuationChanges(

@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ExecutionDirectiveFeedbackSupportTests {
 
     @Test
-    void mergeKeepsCanonicalConcretePatchPackage() {
+    void mergeDropsConcretePatchPackageFromFeedbackChannel() {
         String persistent = ExecutionDirectiveNarrativeRenderer.renderRevisionNote(
                 new ExecutionDirectivePayload(
                         FixMode.PATCH.name(),
@@ -96,13 +96,14 @@ class ExecutionDirectiveFeedbackSupportTests {
         String merged = ExecutionDirectiveFeedbackSupport.merge(persistent, transientFeedback);
         ExecutionDirectivePayload directives = ExecutionDirectiveProtocol.parseMerged(merged);
 
-        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION.name(), directives.implementationPatchTarget());
-        assertEquals(1, directives.overrideChanges().size());
-        assertEquals("index.html", directives.overrideChanges().getFirst().path());
+        assertFalse(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage(merged));
+        assertTrue(directives.overrideChanges().isEmpty());
+        assertEquals("仍需修 host", directives.summary());
+        assertEquals("继续修", directives.changeRequest());
     }
 
     @Test
-    void mergeDoesNotRetargetConcretePatchWithoutReplacementScope() {
+    void mergeNeverRetainsConcretePatchPackageWithoutActiveScopeOwner() {
         String persistent = ExecutionDirectiveNarrativeRenderer.renderRevisionNote(
                 new ExecutionDirectivePayload(
                         FixMode.PATCH.name(),
@@ -185,13 +186,15 @@ class ExecutionDirectiveFeedbackSupportTests {
                 ExecutionDirectiveFeedbackSupport.merge(persistent, transientFeedback)
         );
 
-        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION.name(), directives.implementationPatchTarget());
-        assertEquals(1, directives.overrideChanges().size());
-        assertEquals("src/game.js", directives.overrideChanges().getFirst().path());
+        assertFalse(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage(
+                ExecutionDirectiveFeedbackSupport.merge(persistent, transientFeedback)
+        ));
+        assertTrue(directives.overrideChanges().isEmpty());
+        assertEquals("继续观察 runtime wiring", directives.summary());
     }
 
     @Test
-    void persistentRetryFeedbackKeepsConcretePatchNoteWithoutRepairBrief() {
+    void persistentRetryFeedbackStripsConcretePatchPackageFromRetryFeedback() {
         String note = ExecutionDirectiveNarrativeRenderer.renderRevisionNote(
                 new ExecutionDirectivePayload(
                         FixMode.PATCH.name(),
@@ -235,8 +238,8 @@ class ExecutionDirectiveFeedbackSupportTests {
 
         String persistent = ExecutionDirectiveFeedbackSupport.persistentRetryFeedback(note);
 
-        assertTrue(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage(persistent));
-        assertEquals(2, ExecutionDirectiveProtocol.parseMerged(persistent).overrideChanges().size());
+        assertFalse(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage(persistent));
+        assertTrue(persistent.isBlank());
     }
 
     @Test

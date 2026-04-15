@@ -190,7 +190,7 @@ public final class ImplementationToolLoopExecutor {
                             "请保留当前子任务状态，只补齐当前轮缺失的 assistant 输出或工具调用。"
                     );
                 }
-                assertDeclaredChangesSatisfied(projectPath, activeSubtask, toolContext, turn, "assistant-only");
+                assertDeclaredChangesSatisfied(projectPath, activeSubtask, toolContext, turn, "assistant-only", repairMode);
                 toolContext.appendEvent("实现阶段｜tool-loop｜轮次完成｜子任务=%s｜轮次=%d/%d｜触发工具=0"
                         .formatted(subtask.title(), turn, maxToolTurns));
                 return new ImplementationToolLoopResult(
@@ -227,7 +227,7 @@ public final class ImplementationToolLoopExecutor {
             toolContext.appendEvent("实现阶段｜tool-loop｜轮次完成｜子任务=%s｜轮次=%d/%d｜触发工具=%d"
                     .formatted(subtask.title(), turn, maxToolTurns, rawResults.size()));
         }
-        List<String> unsatisfied = collectUnsatisfiedDeclaredChanges(projectPath, activeSubtask, toolContext);
+        List<String> unsatisfied = collectUnsatisfiedDeclaredChanges(projectPath, activeSubtask, toolContext, repairMode);
         if (unsatisfied.isEmpty()) {
             toolContext.appendEvent("实现阶段｜tool-loop｜声明交付已满足｜子任务=%s｜轮次=%d/%d｜结束=declared-changes-satisfied"
                     .formatted(subtask.title(), maxToolTurns, maxToolTurns));
@@ -258,9 +258,10 @@ public final class ImplementationToolLoopExecutor {
             Subtask subtask,
             ImplementationToolContext toolContext,
             int turn,
-            String terminalMode
+            String terminalMode,
+            boolean workspaceStateClosure
     ) {
-        List<String> unsatisfied = collectUnsatisfiedDeclaredChanges(projectPath, subtask, toolContext);
+        List<String> unsatisfied = collectUnsatisfiedDeclaredChanges(projectPath, subtask, toolContext, workspaceStateClosure);
         if (unsatisfied.isEmpty()) {
             return;
         }
@@ -276,10 +277,12 @@ public final class ImplementationToolLoopExecutor {
                 "tool loop 结束时，当前子任务声明的文件交付契约未满足。",
                 """
                         terminalMode=%s
+                        closureMode=%s
                         declaredChanges=%s
                         unsatisfiedChanges=%s
                         """.formatted(
                         terminalMode == null || terminalMode.isBlank() ? "assistant-only" : terminalMode,
+                        workspaceStateClosure ? "workspace-state" : "mutation-history",
                         summarizeDeclaredChanges(subtask.changes()),
                         String.join(" | ", unsatisfied)
                 ).trim(),
@@ -290,7 +293,8 @@ public final class ImplementationToolLoopExecutor {
     private List<String> collectUnsatisfiedDeclaredChanges(
             Path projectPath,
             Subtask subtask,
-            ImplementationToolContext toolContext
+            ImplementationToolContext toolContext,
+            boolean workspaceStateClosure
     ) {
         if (subtask == null || subtask.changes() == null || subtask.changes().isEmpty()) {
             return List.of();
@@ -307,12 +311,12 @@ public final class ImplementationToolLoopExecutor {
             PathMutationSummary mutationSummary = mutationsByPath.get(relativePath);
             FileStateSnapshot currentState = toolContext.captureFileState(absolutePath);
             boolean satisfied = switch (change.action()) {
-                case WRITE -> writeSatisfied(mutationSummary, currentState);
-                case DELETE -> deleteSatisfied(mutationSummary, exists);
+                case WRITE -> writeSatisfied(mutationSummary, currentState, workspaceStateClosure);
+                case DELETE -> deleteSatisfied(mutationSummary, exists, workspaceStateClosure);
             };
             if (!satisfied) {
                 unsatisfied.add("""
-                        path=%s, action=%s, exists=%s, baselineExists=%s, baselineHash=%s, currentHash=%s, mutations=%s, reason=%s
+                        path=%s, action=%s, exists=%s, baselineExists=%s, baselineHash=%s, currentHash=%s, mutations=%s, closureMode=%s, reason=%s
                         """.formatted(
                         relativePath.toString().replace('\\', '/'),
                         change.action().name(),
@@ -321,6 +325,7 @@ public final class ImplementationToolLoopExecutor {
                         mutationSummary == null ? "" : mutationSummary.beforeHash(),
                         currentState.contentHash(),
                         mutationSummary == null || mutationSummary.operations().isEmpty() ? "[]" : mutationSummary.operations(),
+                        workspaceStateClosure ? "workspace-state" : "mutation-history",
                         change.reason() == null ? "" : change.reason().trim()
                 ).trim());
             }
@@ -498,15 +503,32 @@ public final class ImplementationToolLoopExecutor {
         return mutationsByPath;
     }
 
-    private boolean writeSatisfied(PathMutationSummary mutationSummary, FileStateSnapshot currentState) {
-        if (mutationSummary == null || currentState == null || !currentState.exists()) {
+    private boolean writeSatisfied(
+            PathMutationSummary mutationSummary,
+            FileStateSnapshot currentState,
+            boolean workspaceStateClosure
+    ) {
+        if (currentState == null || !currentState.exists()) {
+            return false;
+        }
+        if (workspaceStateClosure) {
+            return true;
+        }
+        if (mutationSummary == null) {
             return false;
         }
         return mutationSummary.beforeExists() != currentState.exists()
                 || !mutationSummary.beforeHash().equals(currentState.contentHash());
     }
 
-    private boolean deleteSatisfied(PathMutationSummary mutationSummary, boolean currentExists) {
+    private boolean deleteSatisfied(
+            PathMutationSummary mutationSummary,
+            boolean currentExists,
+            boolean workspaceStateClosure
+    ) {
+        if (workspaceStateClosure) {
+            return !currentExists;
+        }
         return mutationSummary != null && mutationSummary.beforeExists() && !currentExists;
     }
 

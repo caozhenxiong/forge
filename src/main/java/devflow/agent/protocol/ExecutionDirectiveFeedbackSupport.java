@@ -25,8 +25,10 @@ public final class ExecutionDirectiveFeedbackSupport {
         if (fresh.isBlank()) {
             return normalize(inherited);
         }
-        ExecutionDirectivePayload mergedPayload = ExecutionDirectiveProtocol.parseMerged(inherited)
-                .merge(ExecutionDirectiveProtocol.parseMerged(fresh));
+        ExecutionDirectivePayload mergedPayload = feedbackPayload(
+                ExecutionDirectiveProtocol.parseMerged(inherited)
+                        .merge(ExecutionDirectiveProtocol.parseMerged(fresh))
+        );
         LinkedHashSet<String> proseParts = new LinkedHashSet<>();
         addProse(proseParts, inherited);
         addProse(proseParts, fresh);
@@ -38,7 +40,7 @@ public final class ExecutionDirectiveFeedbackSupport {
         if (normalized.isBlank()) {
             return "";
         }
-        ExecutionDirectivePayload payload = ExecutionDirectiveProtocol.parseMerged(normalized);
+        ExecutionDirectivePayload payload = feedbackPayload(ExecutionDirectiveProtocol.parseMerged(normalized));
         LinkedHashSet<String> proseParts = new LinkedHashSet<>();
         addProse(proseParts, normalized);
         return joinPayloadAndProse(payload, proseParts);
@@ -51,7 +53,9 @@ public final class ExecutionDirectiveFeedbackSupport {
         }
         ExecutionDirectivePayload directives = ExecutionDirectiveProtocol.parseMerged(normalized);
         if (Boolean.TRUE.equals(directives.repairBriefEnforced()) || carriesConcretePatchPackage(directives)) {
-            return normalized;
+            LinkedHashSet<String> proseParts = new LinkedHashSet<>();
+            addProse(proseParts, normalized);
+            return joinPayloadAndProse(feedbackPayload(directives), proseParts);
         }
         return "";
     }
@@ -113,6 +117,40 @@ public final class ExecutionDirectiveFeedbackSupport {
                 directives.actionItems(),
                 null,
                 null,
+                directives.focus(),
+                directives.constraints(),
+                directives.generationFailureSummary(),
+                directives.generationFailureType(),
+                directives.generationFailureEvidence(),
+                directives.generationFailureRetryHint()
+        );
+    }
+
+    private static ExecutionDirectivePayload feedbackPayload(ExecutionDirectivePayload directives) {
+        return new ExecutionDirectivePayload(
+                directives.fixMode(),
+                null,
+                List.of(),
+                directives.repairBriefPresent(),
+                directives.repairBriefEnforced(),
+                directives.deliveryMode(),
+                directives.deliveryMaxFiles(),
+                directives.deliveryMaxSymbols(),
+                directives.deliveryPreferPreciseEditing(),
+                directives.deliveryForceBacklogSplit(),
+                directives.deliveryRequireVerificationBeforeReview(),
+                directives.requiredEvidence(),
+                directives.mustFixFirst(),
+                directives.forbiddenDirections(),
+                directives.acceptanceChecks(),
+                directives.requiredCapabilitySurfaces(),
+                directives.targetSections(),
+                directives.summary(),
+                directives.changeRequest(),
+                directives.evidence(),
+                directives.actionItems(),
+                directives.supervisorAction(),
+                directives.supervisorReason(),
                 directives.focus(),
                 directives.constraints(),
                 directives.generationFailureSummary(),

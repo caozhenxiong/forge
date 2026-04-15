@@ -82,7 +82,11 @@ public final class FileEditTool implements ImplementationTool {
                 return error("old_string and new_string must differ.");
             }
             if (replacesEntireExistingBody(currentContent, oldString)) {
-                context.assertExistingFileWholeRewriteAllowed(absolutePath, "Edit whole-file replacement");
+                try {
+                    context.assertExistingFileWholeRewriteAllowed(absolutePath, "Edit whole-file replacement");
+                } catch (IllegalArgumentException exception) {
+                    return wholeFileRewriteDenied(exception.getMessage());
+                }
             }
             String revised = applyExactReplace(currentContent, oldString, newString, Boolean.TRUE.equals(input.replaceAll()));
             context.assertMutationContract(absolutePath, revised);
@@ -169,6 +173,16 @@ public final class FileEditTool implements ImplementationTool {
 
     private ToolInvocationResult error(String message) {
         return ToolInvocationResult.failure(Map.of("type", "error", "message", message == null ? "Edit failed." : message));
+    }
+
+    private ToolInvocationResult wholeFileRewriteDenied(String message) {
+        return ToolInvocationResult.failure(Map.of(
+                "type", "error",
+                "code", "WHOLE_FILE_REWRITE_DENIED",
+                "requiredAction", "READ_THEN_LOCAL_EDIT",
+                "message", message == null ? "Whole-file rewrite is not allowed in the current execution scope." : message,
+                "guidance", "Use Read to inspect the current file, then Edit only the smallest necessary span via old_string/new_string."
+        ));
     }
 
     private record EditInput(

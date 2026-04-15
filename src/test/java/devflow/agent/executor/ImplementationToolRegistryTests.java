@@ -73,4 +73,25 @@ class ImplementationToolRegistryTests {
         assertTrue(visible.contains("Write"));
         assertTrue(visible.contains("Delete"));
     }
+
+    @Test
+    void hidesBashDuringRepairMode() {
+        ImplementationToolPermissionContext context = permissionPolicy.build(
+                Path.of("/tmp/project"),
+                Set.of(Path.of("src/app.js")),
+                DeliveryMode.PATCH,
+                true,
+                registry.toolNames()
+        );
+
+        Set<String> visible = registry.visibleTools(context, permissionPolicy).stream()
+                .map(ImplementationTool::name)
+                .collect(java.util.stream.Collectors.toSet());
+
+        assertTrue(visible.contains("Read"));
+        assertTrue(visible.contains("Edit"));
+        assertTrue(visible.contains("Write"));
+        assertTrue(visible.contains("Delete"));
+        assertFalse(visible.contains("Bash"));
+    }
 }

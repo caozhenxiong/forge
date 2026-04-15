@@ -62,6 +62,9 @@ public final class ImplementationToolPermissionPolicy {
         if (specification == null || context == null || !context.allowsTool(specification.name())) {
             return false;
         }
+        if ("Bash".equals(specification.name()) && context.repairMode()) {
+            return false;
+        }
         return switch (specification.permissionScope()) {
             case WRITE_OWNED_PATHS, DELETE_OWNED_PATHS -> context.hasOwnedPaths();
             case READ_WORKSPACE, SEARCH_WORKSPACE, EXECUTE_SHELL -> true;
