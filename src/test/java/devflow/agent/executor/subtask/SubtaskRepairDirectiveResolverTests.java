@@ -95,6 +95,32 @@ class SubtaskRepairDirectiveResolverTests {
         assertTrue(outcome.revisionDirective().retryChanges().isEmpty());
     }
 
+    @Test
+    void explicitPatchOutsideCurrentSubtaskScopeRequestsHuman() {
+        ReviewResult review = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.PATCH,
+                "需要修复当前实现",
+                "请修复超出当前子任务边界的实现缺口。",
+                "src/engine.js 不在当前子任务 effective change-set 中。",
+                "",
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                List.of(new FileChange("src/engine.js", ChangeAction.WRITE, "修复越界文件")),
+                ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET,
+                ReviewReasonCode.IMPLEMENTATION_GAP
+        );
+
+        SubtaskVerificationOutcome outcome = resolver.resolveExplicitPatch(
+                subtask(),
+                review,
+                DocumentLanguage.ZH
+        );
+
+        assertEquals(ReviewRevisionRoute.REQUEST_HUMAN, outcome.review().revisionRoute());
+        assertEquals(ImplementationPatchTarget.NONE, outcome.review().implementationPatchTarget());
+        assertTrue(outcome.revisionDirective().retryChanges().isEmpty());
+    }
+
     private List<String> paths(List<FileChange> changes) {
         return changes.stream().map(FileChange::path).toList();
     }

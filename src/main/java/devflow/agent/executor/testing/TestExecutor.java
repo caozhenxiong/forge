@@ -268,10 +268,11 @@ public class TestExecutor {
                 testRunReport.caseResults(),
                 coverageLedger
         );
-        return toImplementationVerificationOutcome(disposition, language);
+        return toImplementationVerificationOutcome(subtask, disposition, language);
     }
 
     SubtaskVerificationOutcome toImplementationVerificationOutcome(
+            Subtask subtask,
             ExperienceFailureDisposition disposition,
             DocumentLanguage language
     ) {
@@ -335,7 +336,7 @@ public class TestExecutor {
                 disposition.revisionRoute(),
                 disposition.reasonCode()
         );
-        return repairDirectiveResolver.resolveExplicitPatch(review, language);
+        return repairDirectiveResolver.resolveExplicitPatch(subtask, review, language);
     }
 
     private boolean requiresCanonicalPatchScope(devflow.agent.review.ImplementationPatchTarget patchTarget) {

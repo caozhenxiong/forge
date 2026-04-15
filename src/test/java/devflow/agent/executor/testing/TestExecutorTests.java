@@ -1,12 +1,15 @@
 package devflow.agent.executor.testing;
 
 import devflow.agent.executor.ChangeAction;
+import devflow.agent.executor.DeliveryMode;
 import devflow.agent.executor.FileChange;
 import devflow.agent.executor.SelfCheckResult;
 import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
 import devflow.agent.executor.llm.LlmProvider;
+import devflow.agent.executor.subtask.Subtask;
+import devflow.agent.executor.subtask.SubtaskVerificationOutcome;
 
 import devflow.agent.project.FileProjectWorkspace;
 import devflow.agent.review.ImplementationPatchTarget;
@@ -27,8 +30,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import devflow.agent.executor.subtask.SubtaskVerificationOutcome;
 class TestExecutorTests {
 
     @TempDir
@@ -281,6 +282,7 @@ class TestExecutorTests {
         );
 
         SubtaskVerificationOutcome outcome = executor.toImplementationVerificationOutcome(
+                subtask("index.html"),
                 new ExperienceFailureDisposition(
                         ExperienceFailureKind.IMPLEMENTATION_CAPABILITY_GAP,
                         "runtime wiring gap",
@@ -309,6 +311,7 @@ class TestExecutorTests {
         TestExecutor executor = devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), noopProvider(), new com.fasterxml.jackson.databind.ObjectMapper());
 
         SubtaskVerificationOutcome outcome = executor.toImplementationVerificationOutcome(
+                subtask("index.html"),
                 new ExperienceFailureDisposition(
                         ExperienceFailureKind.TEST_PLAN_DEFECT,
                         "必测 testcase 结构与能力契约不一致。",
@@ -337,6 +340,7 @@ class TestExecutorTests {
         TestExecutor executor = devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), noopProvider(), new com.fasterxml.jackson.databind.ObjectMapper());
 
         SubtaskVerificationOutcome outcome = executor.toImplementationVerificationOutcome(
+                subtask("index.html"),
                 new ExperienceFailureDisposition(
                         ExperienceFailureKind.IMPLEMENTATION_CAPABILITY_GAP,
                         "当前实现仍缺少关键体验能力的通过证据。",
@@ -360,6 +364,35 @@ class TestExecutorTests {
         assertTrue(outcome.revisionDirective().active());
         assertEquals(1, outcome.revisionDirective().retryChanges().size());
         assertEquals("index.html", outcome.revisionDirective().retryChanges().getFirst().path());
+    }
+
+    @Test
+    void implementationVerificationRejectsOverrideChangesOutsideCurrentSubtaskScope() {
+        TestExecutor executor = devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), noopProvider(), new com.fasterxml.jackson.databind.ObjectMapper());
+
+        SubtaskVerificationOutcome outcome = executor.toImplementationVerificationOutcome(
+                subtask("index.html"),
+                new ExperienceFailureDisposition(
+                        ExperienceFailureKind.IMPLEMENTATION_CAPABILITY_GAP,
+                        "当前实现仍缺少关键体验能力的通过证据。",
+                        "请在实现阶段补齐缺失能力。",
+                        "missingExperienceCoverage=primary-interaction",
+                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                        List.of(new FileChange("src/engine.js", ChangeAction.WRITE, "补齐交互反馈")),
+                        List.of("TC-002"),
+                        List.of("primary-interaction"),
+                        List.of("primary-interaction"),
+                        ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET,
+                        ReviewReasonCode.IMPLEMENTATION_GAP
+                ),
+                devflow.agent.i18n.DocumentLanguage.ZH
+        );
+
+        assertNotNull(outcome);
+        assertEquals(ReviewRevisionRoute.REQUEST_HUMAN, outcome.review().revisionRoute());
+        assertEquals(ImplementationPatchTarget.NONE, outcome.review().implementationPatchTarget());
+        assertTrue(outcome.review().changeRequest().contains("当前子任务负责文件"));
+        assertTrue(outcome.revisionDirective().retryChanges().isEmpty());
     }
 
     @Test
@@ -703,5 +736,21 @@ class TestExecutorTests {
                 return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
             }
         };
+    }
+
+    private Subtask subtask(String... paths) {
+        return new Subtask(
+                "验证子任务",
+                "只修当前子任务文件",
+                List.of(),
+                List.of("current-capability"),
+                List.of(),
+                List.of("当前子任务通过验证"),
+                false,
+                DeliveryMode.PATCH,
+                java.util.Arrays.stream(paths)
+                        .map(path -> new FileChange(path, ChangeAction.WRITE, "当前子任务负责文件"))
+                        .toList()
+        );
     }
 }

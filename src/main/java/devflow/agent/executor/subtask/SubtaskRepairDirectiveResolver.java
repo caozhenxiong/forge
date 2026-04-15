@@ -39,6 +39,7 @@ public final class SubtaskRepairDirectiveResolver {
     }
 
     public SubtaskVerificationOutcome resolveExplicitPatch(
+            Subtask subtask,
             ReviewResult review,
             DocumentLanguage language
     ) {
@@ -51,11 +52,18 @@ public final class SubtaskRepairDirectiveResolver {
         if (review.implementationPatchTarget() == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
             return missingRuntimeRepairPackage(review, language);
         }
+        List<FileChange> allowedScope = effectiveChanges(subtask);
+        if (allowedScope.isEmpty()) {
+            return missingStructuredPatchScope(review, language);
+        }
         if (review.overrideChanges().isEmpty()) {
             return missingStructuredPatchScope(review, language);
         }
-        List<FileChange> canonicalChanges = List.copyOf(review.overrideChanges());
-        return patchOutcome(review, canonicalChanges);
+        List<FileChange> canonicalChanges = matchScopedChanges(allowedScope, review.overrideChanges());
+        if (canonicalChanges.size() != review.overrideChanges().size()) {
+            return invalidScopedPatch(review, language);
+        }
+        return patchOutcome(withOverrideChanges(review, canonicalChanges), canonicalChanges);
     }
 
     public SubtaskVerificationOutcome resolveRuntimeWiringPatch(
@@ -67,7 +75,7 @@ public final class SubtaskRepairDirectiveResolver {
             return SubtaskVerificationOutcome.of(review, SubtaskRevisionDirective.empty());
         }
         if (review.implementationPatchTarget() != ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
-            return resolveExplicitPatch(review, language);
+            return SubtaskVerificationOutcome.of(review, SubtaskRevisionDirective.empty());
         }
         if (runtimeChanges == null || runtimeChanges.isEmpty()) {
             return missingRuntimeRepairPackage(review, language);

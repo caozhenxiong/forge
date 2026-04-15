@@ -340,6 +340,107 @@ class ImplementationResumePolicyTests {
     }
 
     @Test
+    void runtimeWiringPatchReopensRuntimeRootOwnerInsteadOfLaterSharedHtmlSubtask() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        ImplementationResumePolicy policy = new ImplementationResumePolicy(objectMapper);
+        String previousStateJson = objectMapper.writeValueAsString(new ImplementationStateSnapshot(
+                "修复 runtime wiring",
+                List.of(
+                        new ImplementationStateSnapshot.PlannedSubtaskState(
+                                "建立入口",
+                                "创建入口与 companion runtime",
+                                List.of(),
+                                List.of(),
+                                List.of(),
+                                List.of("入口可运行"),
+                                true,
+                                "PATCH",
+                                List.of(
+                                        new ImplementationStateSnapshot.FileChangeState(
+                                                "index.html",
+                                                "WRITE",
+                                                "补齐宿主接线",
+                                                FileEditScope.HOST_HTML_PATCH.name(),
+                                                RuntimeOwnershipMode.EXTERNAL_COMPANION.name()
+                                        ),
+                                        new ImplementationStateSnapshot.FileChangeState("index.app.js", "WRITE", "补齐 companion runtime")
+                                )
+                        ),
+                        new ImplementationStateSnapshot.PlannedSubtaskState(
+                                "补充布局",
+                                "继续调整宿主页布局",
+                                List.of(),
+                                List.of(),
+                                List.of(),
+                                List.of("布局完成"),
+                                false,
+                                "PATCH",
+                                List.of(
+                                        new ImplementationStateSnapshot.FileChangeState(
+                                                "index.html",
+                                                "WRITE",
+                                                "调整宿主页布局"
+                                        ),
+                                        new ImplementationStateSnapshot.FileChangeState("styles.css", "WRITE", "补齐样式")
+                                )
+                        )
+                ),
+                List.of(
+                        new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot(
+                                "建立入口",
+                                true,
+                                List.of()
+                        ),
+                        new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot(
+                                "补充布局",
+                                true,
+                                List.of()
+                        )
+                ),
+                List.of(),
+                null,
+                true,
+                false,
+                new ImplementationStateSnapshot.ContractGateState(
+                        ArchitectIntegrationCheckScope.STAGE_COMPLETION.name(),
+                        false,
+                        ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID.name(),
+                        "index.app.js 存在，但 index.html 未接线",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                        new ImplementationStateSnapshot.RuntimeContractState(
+                                "index.html",
+                                RuntimeOwnershipMode.EXTERNAL_COMPANION.name(),
+                                List.of("index.app.js")
+                        )
+                ),
+                "",
+                "",
+                "",
+                "",
+                "",
+                List.of(),
+                "",
+                "",
+                List.of()
+        ));
+
+        ReusableImplementationState reusableState = policy.loadReusableImplementationState(
+                previousStateJson,
+                FixMode.PATCH,
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                List.of(),
+                DocumentLanguage.ZH
+        );
+
+        assertNotNull(reusableState);
+        assertEquals(0, reusableState.completedReports().size());
+        assertNotNull(reusableState.resumedExecutionState());
+        assertEquals(2, reusableState.resumedExecutionState().effectiveChanges().size());
+        assertEquals("index.html", reusableState.resumedExecutionState().effectiveChanges().getFirst().path());
+        assertEquals("index.app.js", reusableState.resumedExecutionState().effectiveChanges().get(1).path());
+    }
+
+    @Test
     void runtimeWiringPatchDerivesCanonicalOverrideChangesFromContractGate() throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         ImplementationResumePolicy policy = new ImplementationResumePolicy(objectMapper);

@@ -27,6 +27,7 @@ import devflow.agent.quality.StructureGateOutcome;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.ReviewDecision;
+import devflow.agent.review.ReviewReasonCode;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.review.ReviewRevisionRoute;
 import devflow.agent.review.StructuredReviewResult;
@@ -215,12 +216,15 @@ public final class SubtaskVerificationSupport {
             return new StructuredReviewResult(
                     new ReviewResult(
                             ReviewDecision.REVISION_REQUIRED,
-                            FixMode.PATCH,
+                            FixMode.NONE,
                             language.choose("子任务验证调用超时或失败，暂不放行当前子任务。", "Subtask verification timed out or failed, so the subtask cannot be approved yet."),
-                            language.choose("请保持当前实现结果不变，重新执行当前子任务验证。", "Keep the current implementation result and rerun the current subtask verification."),
+                            language.choose("请保持当前实现结果不变，先重新执行当前子任务验证；在验证调用恢复前不要继续自动改代码。", "Keep the current implementation result unchanged and rerun the current subtask verification first; do not continue automatic code repair until verification recovers."),
                             exception.report().evidence(),
-                            language.choose("先重新验证当前子任务；若多次超时，再收缩验证输入。", "Retry the current subtask verification first; if it times out repeatedly, shrink the verification input."),
-                            ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
+                            language.choose("1. 先恢复 review/verification 调用。 2. 重新执行当前子任务验证。 3. 验证调用未恢复前转人工，不要自动续跑 patch。", "1. Restore the review or verification call first. 2. Rerun the current subtask verification. 3. Route to human review instead of auto-patching until verification recovers."),
+                            ImplementationPatchTarget.NONE,
+                            List.of(),
+                            ReviewRevisionRoute.REQUEST_HUMAN,
+                            ReviewReasonCode.NONE
                     ),
                     null
             );

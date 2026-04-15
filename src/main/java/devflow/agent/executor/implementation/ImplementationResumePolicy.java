@@ -73,6 +73,7 @@ public class ImplementationResumePolicy {
                         subtasks,
                         previousReports,
                         implementationPatchTarget,
+                        contractGateResult,
                         resolveCompletedPlanOverrideChanges(implementationPatchTarget, overrideChanges, contractGateResult)
                 );
             }
@@ -109,10 +110,17 @@ public class ImplementationResumePolicy {
             List<Subtask> subtasks,
             List<SubtaskExecutionReport> previousReports,
             ImplementationPatchTarget requestedPatchTarget,
+            ArchitectIntegrationCheckResult contractGateResult,
             List<FileChange> overrideChanges
     ) {
         ImplementationPatchTarget effectivePatchTarget = resolveCompletedPlanPatchTarget(requestedPatchTarget);
-        int targetIndex = resolveCompletedPlanTargetIndex(subtasks, previousReports, overrideChanges);
+        int targetIndex = resolveCompletedPlanTargetIndex(
+                effectivePatchTarget,
+                subtasks,
+                previousReports,
+                overrideChanges,
+                contractGateResult
+        );
         List<SubtaskExecutionReport> completedPrefix = targetIndex <= 0
                 ? List.of()
                 : List.copyOf(previousReports.subList(0, targetIndex));
@@ -152,13 +160,18 @@ public class ImplementationResumePolicy {
     }
 
     private int resolveCompletedPlanTargetIndex(
+            ImplementationPatchTarget patchTarget,
             List<Subtask> subtasks,
             List<SubtaskExecutionReport> previousReports,
-            List<FileChange> overrideChanges
+            List<FileChange> overrideChanges,
+            ArchitectIntegrationCheckResult contractGateResult
     ) {
         Set<Path> targetPaths = targetPaths(overrideChanges);
         if (targetPaths.isEmpty()) {
             throw new IllegalStateException("Completed implementation PATCH requires deterministic target paths.");
+        }
+        if (patchTarget == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
+            return resolveRuntimeWiringTargetIndex(subtasks, previousReports, targetPaths, contractGateResult);
         }
         int limit = Math.min(subtasks.size(), previousReports.size());
         for (int index = limit - 1; index >= 0; index--) {
@@ -167,18 +180,119 @@ public class ImplementationResumePolicy {
             if (subtask == null || report == null || !report.completed()) {
                 continue;
             }
-            List<FileChange> effectiveChanges = report.effectiveChanges().isEmpty()
+            Set<Path> effectivePaths = targetPaths(report.effectiveChanges().isEmpty()
                     ? (subtask.changes() == null ? List.of() : subtask.changes())
-                    : report.effectiveChanges();
-            boolean ownsTargetPath = effectiveChanges.stream()
-                    .filter(change -> change != null && change.path() != null && !change.path().isBlank())
-                    .map(change -> Path.of(change.path()).normalize())
-                    .anyMatch(targetPaths::contains);
-            if (ownsTargetPath) {
+                    : report.effectiveChanges());
+            if (ownsCompletedPatch(effectivePaths, targetPaths, false)) {
                 return index;
             }
         }
         throw new IllegalStateException("Completed implementation PATCH could not find an owning subtask for the target paths.");
+    }
+
+    private int resolveRuntimeWiringTargetIndex(
+            List<Subtask> subtasks,
+            List<SubtaskExecutionReport> previousReports,
+            Set<Path> targetPaths,
+            ArchitectIntegrationCheckResult contractGateResult
+    ) {
+        HtmlRuntimeOwnershipContract runtimeContract = contractGateResult == null ? null : contractGateResult.runtimeContract();
+        Set<Path> runtimeRootPaths = runtimeRootPaths(runtimeContract);
+        int runtimeRootOwnerIndex = findLatestOwnerIndex(subtasks, previousReports, runtimeRootPaths, true);
+        if (runtimeRootOwnerIndex >= 0) {
+            return runtimeRootOwnerIndex;
+        }
+        Path htmlEntryPath = runtimeContract == null ? null : runtimeContract.htmlEntryPath();
+        if (htmlEntryPath != null) {
+            int htmlOwnerIndex = findUniqueOwnerIndex(subtasks, previousReports, Set.of(htmlEntryPath));
+            if (htmlOwnerIndex >= 0) {
+                return htmlOwnerIndex;
+            }
+        }
+        throw new IllegalStateException("Completed implementation PATCH could not find an owning subtask for the target paths.");
+    }
+
+    private int findLatestOwnerIndex(
+            List<Subtask> subtasks,
+            List<SubtaskExecutionReport> previousReports,
+            Set<Path> ownerPaths,
+            boolean requireAllPaths
+    ) {
+        if (ownerPaths.isEmpty()) {
+            return -1;
+        }
+        int limit = Math.min(subtasks.size(), previousReports.size());
+        for (int index = limit - 1; index >= 0; index--) {
+            Subtask subtask = subtasks.get(index);
+            SubtaskExecutionReport report = previousReports.get(index);
+            if (subtask == null || report == null || !report.completed()) {
+                continue;
+            }
+            Set<Path> effectivePaths = targetPaths(report.effectiveChanges().isEmpty()
+                    ? (subtask.changes() == null ? List.of() : subtask.changes())
+                    : report.effectiveChanges());
+            if (ownsCompletedPatch(effectivePaths, ownerPaths, requireAllPaths)) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private int findUniqueOwnerIndex(
+            List<Subtask> subtasks,
+            List<SubtaskExecutionReport> previousReports,
+            Set<Path> ownerPaths
+    ) {
+        if (ownerPaths.isEmpty()) {
+            return -1;
+        }
+        Integer matchedIndex = null;
+        int limit = Math.min(subtasks.size(), previousReports.size());
+        for (int index = 0; index < limit; index++) {
+            Subtask subtask = subtasks.get(index);
+            SubtaskExecutionReport report = previousReports.get(index);
+            if (subtask == null || report == null || !report.completed()) {
+                continue;
+            }
+            Set<Path> effectivePaths = targetPaths(report.effectiveChanges().isEmpty()
+                    ? (subtask.changes() == null ? List.of() : subtask.changes())
+                    : report.effectiveChanges());
+            if (!ownsCompletedPatch(effectivePaths, ownerPaths, true)) {
+                continue;
+            }
+            if (matchedIndex != null) {
+                return -1;
+            }
+            matchedIndex = index;
+        }
+        return matchedIndex == null ? -1 : matchedIndex;
+    }
+
+    private Set<Path> runtimeRootPaths(HtmlRuntimeOwnershipContract runtimeContract) {
+        if (runtimeContract == null || !runtimeContract.externalCompanion() || !runtimeContract.hasResolvedWiringRepairScope()) {
+            return Set.of();
+        }
+        LinkedHashSet<Path> runtimeRootPaths = new LinkedHashSet<>(runtimeContract.runtimePaths());
+        return runtimeRootPaths.isEmpty() ? Set.of() : Set.copyOf(runtimeRootPaths);
+    }
+
+    private boolean ownsCompletedPatch(
+            Set<Path> effectivePaths,
+            Set<Path> ownerPaths,
+            boolean requireAllPaths
+    ) {
+        if (effectivePaths.isEmpty()) {
+            return false;
+        }
+        if (requireAllPaths) {
+            return effectivePaths.containsAll(ownerPaths);
+        }
+        for (Path targetPath : ownerPaths) {
+            if (effectivePaths.contains(targetPath)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Set<Path> targetPaths(
