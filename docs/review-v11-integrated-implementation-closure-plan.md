@@ -308,6 +308,8 @@
 - `src/main/java/devflow/agent/executor/subtask/SubtaskRepairDirectiveResolver.java`
 - `src/main/java/devflow/agent/executor/subtask/SubtaskRecoverySupport.java`
 - `src/main/java/devflow/agent/executor/subtask/SubtaskVerificationSupport.java`
+- `src/main/java/devflow/agent/executor/subtask/SubtaskVerificationOutcome.java`
+- `src/main/java/devflow/agent/executor/subtask/SubtaskRevisionDirective.java`
 - `src/main/java/devflow/agent/executor/subtask/SubtaskRetryFeedbackRenderer.java`
 - `src/main/java/devflow/agent/executor/subtask/SubtaskExecutionState.java`
 - `src/main/java/devflow/agent/executor/subtask/SubtaskAttemptStepExecutor.java`
@@ -333,6 +335,7 @@
 目标：
 
 - 让 canonical repair package 从 producer 到 persisted state 再到 resume 只有一个结构化真相源。
+- 让 subtask 内部 `review.overrideChanges -> revisionDirective.retryChanges -> executionState.effectiveChanges` 只保留一条 direct carrier 链，不再同时保留两份 machine owner。
 - 同轮收紧 `ExecutionDirectiveProtocol` 的 merge owner，避免后续再用“协议层可能吞 scope”解释同类问题。
 - 封掉 reroute-to-repair note / repair brief 这条并行 directive producer 第二轨，避免 `StageContinuationNoteBuilder` 与 repair route 各自生成不同 machine package。
 
@@ -383,6 +386,7 @@
 5. `MID_PLAN_CONTINUE` 与 `PATCH_CONTINUE` 在 progress / transition / artifact / resume 层不能再混成同一个 generic continue。
 6. canonical repair package 必须经过：
    - review/test producer
+   - subtask verification outcome / revision directive
    - retry feedback
    - execution directive
    - implementation_state serialize / parse
