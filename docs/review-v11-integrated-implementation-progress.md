@@ -100,35 +100,35 @@
 
 ### Scope 5. Upstream Authority Audit
 
-- [ ] `ConstraintAuthoritySupport` 只拼装受控 binding authority，不再放大 soft prose
-- [ ] `ContractExtractor` / `ExecutionContract` / `ContractMetadataConsistencyGuard` 对 binding runtime contract 使用单一来源
-- [ ] `DocumentStageIntake` / `StageArtifactInputResolver` 不再把错误 runtime contract 循环喂回文档阶段
-- [ ] Scope 5 `self-test`
-- [ ] Scope 5 `code review`
-- [ ] Scope 5 `docs`
+- [x] `ConstraintAuthoritySupport` 只拼装受控 binding authority，不再放大 soft prose
+- [x] `ContractExtractor` / `ExecutionContract` / `ContractMetadataConsistencyGuard` 对 binding runtime contract 使用单一来源
+- [x] `DocumentStageIntake` / `StageArtifactInputResolver` 不再把错误 runtime contract 循环喂回文档阶段
+- [x] Scope 5 `self-test`
+- [x] Scope 5 `code review`
+- [x] Scope 5 `docs`
 
 ### Scope 6. Validation-Side Consistency Audit
 
-- [ ] `ValidationExecutor` 只按当前契约执行 validation，不再依赖旧 wiring/resource 语义
-- [ ] `WebRuntimeWiringValidationSupport` 对合法 split runtime 不误拒绝
-- [ ] `WebResourceValidationSupport` 只判断真实缺失资源，不额外引入旧布局假设
-- [ ] `ExperienceFailureDispositionResolver` 不再把正确 evidence 误映射成 implementation patch 请求
-- [ ] `TestExecutor` 的 implementation re-verification 与 disposition mapping 保持同一语义
-- [ ] Scope 6 `self-test`
-- [ ] Scope 6 `code review`
-- [ ] Scope 6 `docs`
+- [x] `ValidationExecutor` 只按当前契约执行 validation，不再依赖旧 wiring/resource 语义
+- [x] `WebRuntimeWiringValidationSupport` 对合法 split runtime 不误拒绝
+- [x] `WebResourceValidationSupport` 只判断真实缺失资源，不额外引入旧布局假设
+- [x] `ExperienceFailureDispositionResolver` 不再把正确 evidence 误映射成 implementation patch 请求
+- [x] `TestExecutor` 的 implementation re-verification 与 disposition mapping 保持同一语义
+- [x] Scope 6 `self-test`
+- [x] Scope 6 `code review`
+- [x] Scope 6 `docs`
 
 ### Scope 7. Regression Matrix
 
-- [ ] `R1` shared-file incremental outline 无 deferred boundary 时 deterministic fail
-- [ ] `R2` shared-file incremental outline 正确声明 deferred boundary 时一次通过
-- [ ] `R3` accepted boundary contract 稳定进入 task package / review prompt / boundary gate
-- [ ] `R4` final gate / detail completeness 命中 shared-file boundary 时稳定路由回正确 planning unit
-- [ ] `R5` `MID_PLAN_CONTINUE` 与 `PATCH_CONTINUE` 不再混成 generic continue
-- [ ] `R6` canonical repair package 经过 subtask verification outcome / revision directive / retry feedback / directive / `implementation_state` / reroute / resume 后保持结构化
-- [ ] `R7` `ExecutionDirectiveProtocol` merge 不吞 canonical override scope
-- [ ] `R8` authority corpus 不再把 soft design choice 升级成 binding runtime contract
-- [ ] `R9` validation 与 TEST disposition mapping 对合法 split runtime / local asset layout 不误拒绝或误路由
+- [x] `R1` shared-file incremental outline 无 deferred boundary 时 deterministic fail
+- [x] `R2` shared-file incremental outline 正确声明 deferred boundary 时一次通过
+- [x] `R3` accepted boundary contract 稳定进入 task package / review prompt / boundary gate
+- [x] `R4` final gate / detail completeness 命中 shared-file boundary 时稳定路由回正确 planning unit
+- [x] `R5` `MID_PLAN_CONTINUE` 与 `PATCH_CONTINUE` 不再混成 generic continue
+- [x] `R6` canonical repair package 经过 subtask verification outcome / revision directive / retry feedback / directive / `implementation_state` / reroute / resume 后保持结构化
+- [x] `R7` `ExecutionDirectiveProtocol` merge 不吞 canonical override scope
+- [x] `R8` authority corpus 不再把 soft design choice 升级成 binding runtime contract
+- [x] `R9` validation 与 TEST disposition mapping 对合法 split runtime / local asset layout 不误拒绝或误路由
 - [ ] `R10` 黄金路径集成测试不再复现 `v178` 及其后续 continuation / repair / TEST 误拒绝问题
 - [ ] Scope 7 `self-test`
 - [ ] Scope 7 `code review`
@@ -142,8 +142,8 @@
 
 ## Current Status
 
-- 当前阶段：`SCOPE_4_COMPLETED_PENDING_SCOPE_5`
-- 当前 blocker：`无`
+- 当前阶段：`SCOPE_6_COMPLETED_PENDING_SCOPE_7`
+- 当前 blocker：`R10 / 黄金路径集成未执行`
 - 当前约束：`禁止兼容层、禁止双轨并存、禁止“后续再清理”`
 
 ## Evidence Log
@@ -178,24 +178,24 @@
 
 ### Scope 5
 
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`待开始`
+- commit：`待提交`
+- self-test：`mvn -q -Dtest=ConstraintAuthoritySupportTests,AuthorityCorpusProjectionTests,ContractExtractorTests test`
+- code review：`本地静态自审通过；authority corpus 现在只投影 binding facts，runtimeOwnershipMode 不再回灌到文档 authority。`
+- docs：`tracker 已回填 Scope 5 完成态与证据`
 
 ### Scope 6
 
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`待开始`
+- commit：`待提交`
+- self-test：`mvn -q -Dtest=ValidationExecutorTests,ExperienceFailureDispositionResolverTests,TestExecutorTests test`
+- code review：`本地静态自审通过；resource validation 只消费 resolved html entry，TEST 自检链不再被次级 HTML 资源噪音误拒绝。`
+- docs：`tracker 已回填 Scope 6 完成态与证据`
 
 ### Scope 7
 
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`待开始`
+- commit：`待提交`
+- self-test：`R1~R7 复用 Scope 1~4 已记录 self-test；R8~R9 由 Scope 5/6 自测覆盖；R10 待黄金路径集成测试`
+- code review：`本地静态自审通过；回归矩阵已回填到 R9，剩余只保留黄金路径集成项。`
+- docs：`tracker 已回填 R1~R9；R10 与 Scope 8 待执行`
 
 ### Scope 8
 
@@ -210,8 +210,8 @@
 - [x] `S2` accepted boundary contract 已稳定进入 task package、coder、reviewer、boundary gate
 - [x] `S3` implementation continuation 已保留三分类，不再被 generic continue 压平
 - [x] `S4` canonical repair package 已在 subtask / retry / directive / implementation_state / reroute / resume 全链保持单一真相源
-- [ ] `S5` authority corpus 已不再循环强化错误 runtime contract
-- [ ] `S6` validation 与 TEST disposition mapping 已不再误拒绝或误路由
+- [x] `S5` authority corpus 已不再循环强化错误 runtime contract
+- [x] `S6` validation 与 TEST disposition mapping 已不再误拒绝或误路由
 - [ ] `R1 ~ R10` 已全部补齐
 - [ ] `self-test + code review + docs` 已全部补齐
 - [ ] 黄金路径集成测试已通过

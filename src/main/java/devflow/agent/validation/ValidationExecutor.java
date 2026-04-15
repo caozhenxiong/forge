@@ -12,6 +12,7 @@ import java.util.List;
 
 public class ValidationExecutor {
 
+    private final ProjectInspector projectInspector;
     private final ValidationCommandSupport commandSupport;
     private final WebResourceValidationSupport resourceValidationSupport;
     private final WebRuntimeWiringValidationSupport runtimeWiringValidationSupport;
@@ -19,6 +20,7 @@ public class ValidationExecutor {
     private final PlaywrightSmokeValidationSupport playwrightSmokeValidationSupport;
 
     public ValidationExecutor(FileProjectWorkspace workspace, PlaywrightExecutionPolicy playwrightExecutionPolicy) {
+        this.projectInspector = new ProjectInspector(workspace);
         this.commandSupport = new ValidationCommandSupport(workspace);
         this.resourceValidationSupport = new WebResourceValidationSupport(workspace);
         this.runtimeWiringValidationSupport = new WebRuntimeWiringValidationSupport(workspace);
@@ -31,10 +33,11 @@ public class ValidationExecutor {
     }
 
     public ValidationExecutionReport executeDetailed(Path projectPath, ProjectFingerprint fingerprint, ValidationPlan plan) {
+        ProjectFingerprint effectiveFingerprint = fingerprint != null ? fingerprint : projectInspector.inspect(projectPath);
         List<String> detailLines = new ArrayList<>();
         List<ToolResult> toolResults = new ArrayList<>();
         for (ValidationStep step : plan.steps()) {
-            ValidationStepExecution execution = runStep(projectPath, fingerprint, step);
+            ValidationStepExecution execution = runStep(projectPath, effectiveFingerprint, step);
             ValidationStepResult result = execution.stepResult();
             toolResults.add(execution.toolResult());
             detailLines.add("""
@@ -87,7 +90,7 @@ public class ValidationExecutor {
             return commandSupport.runCommandStep(projectPath, ValidationCapability.YARN_TEST, List.of("yarn", "test"), step.reason(), false);
         }
         if (capability == ValidationCapability.WEB_RESOURCE_LINK_CHECK) {
-            return resourceValidationSupport.run(projectPath, step.reason());
+            return resourceValidationSupport.run(projectPath, fingerprint, step.reason());
         }
         if (capability == ValidationCapability.WEB_RUNTIME_WIRING_CHECK) {
             return runtimeWiringValidationSupport.run(projectPath, fingerprint, step.reason());

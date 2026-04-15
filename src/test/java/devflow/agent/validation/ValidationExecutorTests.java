@@ -86,6 +86,45 @@ class ValidationExecutorTests {
     }
 
     @Test
+    void resourceCheckOnlyValidatesResolvedHtmlEntry() throws Exception {
+        Files.writeString(tempDir.resolve("index.html"), """
+                <!doctype html>
+                <html>
+                <head>
+                  <link rel="stylesheet" href="./style.css">
+                </head>
+                <body>
+                  <script src="./game.js"></script>
+                </body>
+                </html>
+                """);
+        Files.writeString(tempDir.resolve("style.css"), "body { margin: 0; }");
+        Files.writeString(tempDir.resolve("game.js"), "console.log('ok');");
+        Files.writeString(tempDir.resolve("demo.html"), """
+                <!doctype html>
+                <html>
+                <head>
+                  <link rel="stylesheet" href="./missing-demo.css">
+                </head>
+                <body>
+                  <script src="./missing-demo.js"></script>
+                </body>
+                </html>
+                """);
+
+        ValidationPlan plan = new ValidationPlan(
+                "检查网页资源引用。",
+                List.of(new ValidationStep(ValidationCapability.WEB_RESOURCE_LINK_CHECK, "检查当前入口资源引用。", true))
+        );
+
+        SelfCheckResult result = executor.execute(tempDir, null, plan);
+
+        assertTrue(result.passed(), result.details());
+        assertFalse(result.details().contains("missing-demo.css"));
+        assertFalse(result.details().contains("missing-demo.js"));
+    }
+
+    @Test
     void detailedExecutionCarriesStructuredToolResults() throws Exception {
         Files.writeString(tempDir.resolve("index.html"), """
                 <!doctype html>

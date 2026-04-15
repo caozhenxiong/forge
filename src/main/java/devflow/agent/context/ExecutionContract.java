@@ -132,6 +132,33 @@ public record ExecutionContract(
         );
     }
 
+    /**
+     * authority corpus 只允许投影稳定的 binding contract facts。
+     *
+     * <p>runtime ownership 仍保留在结构化 execution contract 中，
+     * 但不能回灌到 authority prose，避免把一次实现期判断循环强化成文档硬约束。
+     */
+    public List<String> bindingAuthorityFacts() {
+        List<String> facts = new ArrayList<>();
+        if (entryRequired) {
+            facts.add("entry required");
+        }
+        if (launchRequired) {
+            facts.add("launch required");
+        }
+        if (surfaceRequired) {
+            facts.add("surface required");
+        }
+        if (entryKind != null && !entryKind.isBlank()) {
+            facts.add(entryKind.trim());
+        }
+        if (entryPackagingMode != null && !entryPackagingMode.isBlank()) {
+            facts.add(entryPackagingMode.trim());
+        }
+        facts.addAll(acceptanceSignals);
+        return List.copyOf(facts);
+    }
+
     private String bullets(List<String> items, DocumentLanguage language) {
         if (items == null || items.isEmpty()) {
             return PlaceholderValues.bulletNone(language);

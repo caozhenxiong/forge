@@ -173,6 +173,75 @@ class TestExecutorTests {
     }
 
     @Test
+    void selfCheckIgnoresBrokenSecondaryHtmlOutsideResolvedEntry() throws Exception {
+        Files.writeString(
+                tempDir.resolve("index.html"),
+                """
+                        <!DOCTYPE html>
+                        <html lang="zh-CN">
+                        <body>
+                          <script src="./app.js"></script>
+                        </body>
+                        </html>
+                        """
+        );
+        Files.writeString(tempDir.resolve("app.js"), "console.log('ok');");
+        Files.writeString(
+                tempDir.resolve("demo.html"),
+                """
+                        <!DOCTYPE html>
+                        <html lang="zh-CN">
+                        <head>
+                          <link rel="stylesheet" href="./missing.css">
+                        </head>
+                        </html>
+                        """
+        );
+
+        LlmProvider provider = new devflow.agent.testsupport.RequestBackedLlmProvider() {
+            @Override
+            public String generate(String systemPrompt, String userPrompt, Map<String, Object> options) {
+                if (systemPrompt.contains("验证策略规划器")) {
+                    return """
+                            {
+                              "summary": "对当前网页入口执行资源与脚本语法检查。",
+                              "steps": [
+                                {
+                                  "capability": "WEB_RESOURCE_LINK_CHECK",
+                                  "reason": "确认当前入口资源完整。",
+                                  "required": true
+                                },
+                                {
+                                  "capability": "WEB_JAVASCRIPT_SYNTAX_CHECK",
+                                  "reason": "确认当前入口脚本语法可执行。",
+                                  "required": true
+                                }
+                              ]
+                            }
+                            """;
+                }
+                return "";
+            }
+
+            @Override
+            public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
+                return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
+            }
+        };
+
+        TestExecutor executor = devflow.agent.executor.testing.TestExecutorTestSupport.create(
+                new FileProjectWorkspace(),
+                provider,
+                new com.fasterxml.jackson.databind.ObjectMapper()
+        );
+
+        SelfCheckResult result = executor.selfCheck(tempDir);
+
+        assertTrue(result.passed(), result.details());
+        assertFalse(result.details().contains("missing.css"));
+    }
+
+    @Test
     void projectInspectorTreatsSingleHtmlWithInlineScriptAsWebStatic() throws Exception {
         Files.writeString(
                 tempDir.resolve("index.html"),

@@ -34,25 +34,7 @@ public final class ConstraintAuthoritySupport {
             addAll(parts, metadata.hardUpstreamFacts());
         }
         if (executionContract != null) {
-            if (executionContract.entryRequired()) {
-                parts.add("entry required");
-            }
-            if (executionContract.launchRequired()) {
-                parts.add("launch required");
-            }
-            if (executionContract.surfaceRequired()) {
-                parts.add("surface required");
-            }
-            if (executionContract.entryKind() != null && !executionContract.entryKind().isBlank()) {
-                parts.add(executionContract.entryKind().trim());
-            }
-            if (executionContract.entryPackagingMode() != null && !executionContract.entryPackagingMode().isBlank()) {
-                parts.add(executionContract.entryPackagingMode().trim());
-            }
-            if (executionContract.runtimeOwnershipMode() != null && !executionContract.runtimeOwnershipMode().isBlank()) {
-                parts.add(executionContract.runtimeOwnershipMode().trim());
-            }
-            addAll(parts, executionContract.acceptanceSignals());
+            addAll(parts, executionContract.bindingAuthorityFacts());
         }
         return String.join("\n", parts);
     }

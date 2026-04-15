@@ -23,12 +23,21 @@ final class WebResourceValidationSupport {
         this.workspace = workspace;
     }
 
-    ValidationStepExecution run(Path projectPath, String reason) {
+    ValidationStepExecution run(Path projectPath, ProjectFingerprint fingerprint, String reason) {
         List<String> missing = new ArrayList<>();
-        for (Path relativePath : workspace.listProjectFiles(projectPath)) {
-            if (!ProjectPathSupport.isHtml(relativePath)) {
-                continue;
-            }
+        List<Path> htmlFiles = htmlFilesToValidate(projectPath, fingerprint);
+        if (htmlFiles.isEmpty()) {
+            return new ValidationStepExecution(
+                    new ValidationStepResult(
+                            ValidationCapability.WEB_RESOURCE_LINK_CHECK,
+                            ValidationStatus.PASSED,
+                            "未解析到 HTML 入口，跳过资源引用检查。",
+                            reason
+                    ),
+                    ToolResult.success(ToolName.RESOURCE_LINK_VERIFY)
+            );
+        }
+        for (Path relativePath : htmlFiles) {
             String content = workspace.readFile(projectPath, relativePath);
             collectMissingLocalAssets(projectPath, relativePath, content, missing);
         }
@@ -57,6 +66,19 @@ final class WebResourceValidationSupport {
                 ),
                 ToolResult.success(ToolName.RESOURCE_LINK_VERIFY)
         );
+    }
+
+    private List<Path> htmlFilesToValidate(Path projectPath, ProjectFingerprint fingerprint) {
+        if (fingerprint != null && fingerprint.hasResolvedHtmlEntry()) {
+            return List.of(Path.of(fingerprint.resolvedHtmlEntryPath()).normalize());
+        }
+        List<Path> htmlFiles = new ArrayList<>();
+        for (Path relativePath : workspace.listProjectFiles(projectPath)) {
+            if (ProjectPathSupport.isHtml(relativePath)) {
+                htmlFiles.add(relativePath);
+            }
+        }
+        return List.copyOf(htmlFiles);
     }
 
     private void collectMissingLocalAssets(Path projectPath, Path htmlFile, String content, List<String> missingResources) {
