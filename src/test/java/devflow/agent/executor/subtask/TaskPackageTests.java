@@ -52,6 +52,33 @@ class TaskPackageTests {
     }
 
     @Test
+    void scopeToFileNarrowsOwnedFilesToCurrentFile() {
+        TaskPackage taskPackage = new TaskPackage(
+                "title",
+                "goal",
+                "PATCH",
+                true,
+                List.of("index.html", "src/app.js"),
+                List.of("CAP-1"),
+                List.of("shell"),
+                List.of("gameplay"),
+                List.of("页面可打开"),
+                List.of(),
+                List.of(),
+                "shared context",
+                sharedContextBundle()
+        );
+
+        TaskPackage scoped = taskPackage.scopeToFile("src/app.js", "current file context");
+
+        assertEquals(List.of("src/app.js"), scoped.ownedFiles());
+        assertEquals("current file context", scoped.targetedContext());
+        assertEquals(List.of("CAP-1"), scoped.coverageRefs());
+        assertEquals(List.of("shell"), scoped.ownedCapabilities());
+        assertEquals(List.of("gameplay"), scoped.deferredCapabilities());
+    }
+
+    @Test
     void markdownIncludesBoundaryContractReminder() {
         TaskPackage taskPackage = new TaskPackage(
                 "title",

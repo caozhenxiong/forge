@@ -59,7 +59,12 @@ public class ImplementationResumePolicy {
             if (snapshot == null || snapshot.subtasks() == null || snapshot.subtasks().isEmpty()) {
                 return null;
             }
-            PersistedContinuation continuation = restoreContinuation(snapshot);
+            PersistedContinuation continuation = resolveContinuation(
+                    snapshot,
+                    fixMode,
+                    implementationPatchTarget,
+                    overrideChanges
+            );
             if (continuation.mode().blocked()) {
                 return null;
             }
@@ -67,7 +72,7 @@ public class ImplementationResumePolicy {
             List<SubtaskExecutionReport> previousReports = snapshotRestorer.restoreReports(snapshot.reports(), subtasks);
             ArchitectIntegrationCheckResult contractGateResult = snapshotRestorer.restoreContractGate(snapshot.contractGate());
             if (snapshot.planCompleted()) {
-                if (contractGateResult == null || contractGateResult.passed() || !continuation.mode().patchContinue()) {
+                if (!continuation.mode().patchContinue()) {
                     return null;
                 }
                 return reopenCompletedPlanPatch(
@@ -160,10 +165,13 @@ public class ImplementationResumePolicy {
         if (overrideChanges == null || overrideChanges.isEmpty()) {
             throw new IllegalStateException("Completed implementation PATCH requires deterministic target paths.");
         }
-        if (patchTarget == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
+        if (patchTarget == ImplementationPatchTarget.PATCH_RUNTIME_WIRING
+                && contractGateResult != null
+                && contractGateResult.runtimeContract() != null
+                && contractGateResult.runtimeContract().active()) {
             return completedPlanPatchOwnerResolver.requireResolvableRuntimeWiringOwnerIndex(
                     previousReports,
-                    contractGateResult == null ? null : contractGateResult.runtimeContract()
+                    contractGateResult.runtimeContract()
             );
         }
         return completedPlanPatchOwnerResolver.requireSingleCompletedOwnerIndex(previousReports, overrideChanges);
@@ -184,6 +192,42 @@ public class ImplementationResumePolicy {
 
     private String blankIfNull(String value) {
         return value == null ? "" : value;
+    }
+
+    private PersistedContinuation resolveContinuation(
+            ImplementationStateSnapshot snapshot,
+            FixMode fixMode,
+            ImplementationPatchTarget implementationPatchTarget,
+            List<FileChange> overrideChanges
+    ) {
+        PersistedContinuation persisted = restoreContinuation(snapshot);
+        if (persisted.mode().patchContinue()) {
+            return persisted;
+        }
+        PersistedContinuation requested = requestedContinuation(fixMode, implementationPatchTarget, overrideChanges);
+        if (requested != null) {
+            return requested;
+        }
+        return persisted;
+    }
+
+    private PersistedContinuation requestedContinuation(
+            FixMode fixMode,
+            ImplementationPatchTarget implementationPatchTarget,
+            List<FileChange> overrideChanges
+    ) {
+        if (fixMode != FixMode.PATCH
+                || implementationPatchTarget == null
+                || !implementationPatchTarget.concretePatch()
+                || overrideChanges == null
+                || overrideChanges.isEmpty()) {
+            return null;
+        }
+        return new PersistedContinuation(
+                ImplementationContinuationMode.PATCH_CONTINUE,
+                implementationPatchTarget,
+                List.copyOf(overrideChanges)
+        );
     }
 
     private PersistedContinuation restoreContinuation(ImplementationStateSnapshot snapshot) {

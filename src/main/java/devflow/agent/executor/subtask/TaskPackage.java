@@ -43,7 +43,7 @@ public record TaskPackage(
                 goal,
                 deliveryMode,
                 runnableMilestone,
-                ownedFiles,
+                ownedFile == null || ownedFile.isBlank() ? ownedFiles : List.of(ownedFile),
                 coverageRefs,
                 ownedCapabilities,
                 deferredCapabilities,

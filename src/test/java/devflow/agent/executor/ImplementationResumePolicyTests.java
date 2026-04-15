@@ -191,6 +191,71 @@ class ImplementationResumePolicyTests {
     }
 
     @Test
+    void currentRevisionNotePatchPackageReopensCompletedPlanWithoutPersistedPatchContinuation() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        ImplementationResumePolicy policy = new ImplementationResumePolicy(objectMapper);
+        String previousStateJson = objectMapper.writeValueAsString(new ImplementationStateSnapshot(
+                "继续修补当前实现",
+                List.of(
+                        new ImplementationStateSnapshot.PlannedSubtaskState(
+                                "入口",
+                                "完成入口",
+                                List.of(),
+                                List.of(),
+                                List.of(),
+                                List.of("入口完成"),
+                                true,
+                                "PATCH",
+                                List.of(new ImplementationStateSnapshot.FileChangeState("index.html", "WRITE", "修入口"))
+                        ),
+                        new ImplementationStateSnapshot.PlannedSubtaskState(
+                                "逻辑",
+                                "补齐逻辑",
+                                List.of(),
+                                List.of(),
+                                List.of(),
+                                List.of("逻辑完成"),
+                                false,
+                                "PATCH",
+                                List.of(new ImplementationStateSnapshot.FileChangeState("src/app.js", "WRITE", "修逻辑"))
+                        )
+                ),
+                List.of(
+                        new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot("入口", true, List.of()),
+                        new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot("逻辑", true, List.of())
+                ),
+                List.of(),
+                null,
+                true,
+                true,
+                null,
+                ImplementationContinuationMode.MID_PLAN_CONTINUE.name(),
+                "",
+                "",
+                "",
+                "",
+                List.of(),
+                ImplementationPatchTarget.NONE.name(),
+                ReviewReasonCode.NONE.name(),
+                List.of()
+        ));
+
+        ReusableImplementationState reusableState = policy.loadReusableImplementationState(
+                previousStateJson,
+                FixMode.PATCH,
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                List.of(new FileChange("src/app.js", ChangeAction.WRITE, "修逻辑")),
+                DocumentLanguage.ZH
+        );
+
+        assertNotNull(reusableState);
+        assertEquals(1, reusableState.completedReports().size());
+        assertNotNull(reusableState.resumedExecutionState());
+        assertEquals(1, reusableState.resumedExecutionState().effectiveChanges().size());
+        assertEquals("src/app.js", reusableState.resumedExecutionState().effectiveChanges().getFirst().path());
+    }
+
+    @Test
     void reopensOwningCompletedSubtaskForRuntimeWiringPatch() throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         ImplementationResumePolicy policy = new ImplementationResumePolicy(objectMapper);

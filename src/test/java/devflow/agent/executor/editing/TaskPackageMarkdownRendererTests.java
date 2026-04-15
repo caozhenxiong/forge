@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TaskPackageMarkdownRendererTests {
@@ -42,5 +43,37 @@ class TaskPackageMarkdownRendererTests {
         assertTrue(markdown.contains("Owned Capabilities"));
         assertTrue(markdown.contains("Deferred Capabilities"));
         assertTrue(markdown.contains("Boundary Contract Reminder"));
+    }
+
+    @Test
+    void renderCompactScopesOwnedFilesToRequestedFile() {
+        TaskPackageMarkdownRenderer renderer = new TaskPackageMarkdownRenderer();
+        Subtask subtask = new Subtask(
+                "patch current file",
+                "only patch current file",
+                List.of("CAP-1"),
+                List.of("shell"),
+                List.of("gameplay"),
+                List.of("页面可打开"),
+                true,
+                DeliveryMode.PATCH,
+                List.of(
+                        new FileChange("index.html", ChangeAction.WRITE, "patch host"),
+                        new FileChange("src/app.js", ChangeAction.WRITE, "patch logic")
+                )
+        );
+
+        String markdown = renderer.renderCompact(
+                Path.of("."),
+                subtask,
+                new SharedContextBundle("goal", "constraints", null, List.of(), List.of(), List.of(), "", ""),
+                null,
+                null,
+                Path.of("src/app.js"),
+                (projectPath, changes, relativePath, contractView, fingerprint) -> "ctx"
+        );
+
+        assertTrue(markdown.contains("- src/app.js"));
+        assertFalse(markdown.contains("- index.html"));
     }
 }

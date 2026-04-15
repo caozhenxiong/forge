@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -90,6 +91,57 @@ class FileEditRequestFactoryTests {
         );
 
         assertNull(request.runtimeContract());
+    }
+
+    @Test
+    void fileScopedRequestNarrowsTaskPackageOwnedFilesToCurrentFile() throws Exception {
+        java.nio.file.Files.createDirectories(tempDir.resolve("src"));
+        java.nio.file.Files.writeString(tempDir.resolve("src/app.js"), "export const ready = true;");
+
+        FileEditRequest request = newFactory().create(
+                tempDir,
+                Path.of("src/app.js"),
+                "patch current file",
+                new Subtask(
+                        "patch current file",
+                        "patch current file",
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        false,
+                        DeliveryMode.PATCH,
+                        List.of(
+                                new FileChange("index.html", ChangeAction.WRITE, "host entry"),
+                                new FileChange("src/app.js", ChangeAction.WRITE, "logic")
+                        )
+                ),
+                new devflow.agent.executor.subtask.TaskPackage(
+                        "patch current file",
+                        "patch current file",
+                        DeliveryMode.PATCH.name(),
+                        false,
+                        List.of("index.html", "src/app.js"),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        "shared context",
+                        null
+                ),
+                "",
+                "patch current file",
+                null,
+                null,
+                fingerprint("index.html", Set.of("index.html", "src/app.js")),
+                "",
+                null
+        );
+
+        assertEquals(List.of("src/app.js"), request.taskPackage().ownedFiles());
+        assertFalse(request.taskPackage().toMarkdown().contains("- index.html"));
     }
 
     private FileEditRequestFactory newFactory() {

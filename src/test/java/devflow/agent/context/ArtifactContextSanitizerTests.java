@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ArtifactContextSanitizerTests {
 
     @Test
-    void projectionKeepsAuthoredRecommendationLines() {
+    void projectionDropsExplicitRecommendationLines() {
         String artifact = """
                 ## 4. Non-Functional Requirements
                 - Recommendation: 控制响应时间小于 100ms
@@ -27,14 +27,14 @@ class ArtifactContextSanitizerTests {
                 """
         );
 
-        assertTrue(sanitized.contains("100ms"));
-        assertTrue(sanitized.contains("单个 HTML 文件"));
-        assertTrue(sanitized.contains("体验应保持流畅"));
+        assertFalse(sanitized.contains("100ms"));
+        assertFalse(sanitized.contains("单个 HTML 文件"));
+        assertFalse(sanitized.contains("体验应保持流畅"));
         assertTrue(sanitized.contains("页面可直接打开运行"));
     }
 
     @Test
-    void promptSanitizerDoesNotGuessRecommendationSemanticsFromBodyText() {
+    void promptSanitizerDropsExplicitRecommendationLinesFromBody() {
         String artifact = """
                 ## 5. Acceptance Criteria
                 - [ ] 页面可直接打开运行
@@ -52,12 +52,12 @@ class ArtifactContextSanitizerTests {
         );
 
         assertTrue(sanitized.contains("页面可直接打开运行"));
-        assertTrue(sanitized.contains("20x20"));
-        assertTrue(sanitized.contains("100ms"));
+        assertFalse(sanitized.contains("20x20"));
+        assertFalse(sanitized.contains("100ms"));
     }
 
     @Test
-    void projectionKeepsAuthoredDesignChoiceLines() {
+    void projectionDropsExplicitDesignChoiceLines() {
         String artifact = """
                 ## 1. 技术目标
                 - 设计选择：交付物为单一 HTML 文件
@@ -74,8 +74,34 @@ class ArtifactContextSanitizerTests {
                 """
         );
 
-        assertTrue(sanitized.contains("单一 HTML 文件"));
-        assertTrue(sanitized.contains("所有资源均内联"));
+        assertFalse(sanitized.contains("单一 HTML 文件"));
+        assertFalse(sanitized.contains("所有资源均内联"));
         assertTrue(sanitized.contains("游戏逻辑在浏览器中运行"));
+    }
+
+    @Test
+    void projectionDropsRuntimeBindingLinesNotBackedByAuthorityCorpus() {
+        String artifact = """
+                ## 1. Runtime Contract
+                - entryKind: html-entry
+                - entryPackagingMode: entry-with-local-dependencies
+                - runtimeOwnershipMode: companion-owned
+                - 页面可直接打开运行
+                """;
+
+        String sanitized = ArtifactContextSanitizer.sanitizeForProjection(
+                artifact,
+                StageType.DESIGN,
+                """
+                html-entry
+                entry-with-local-dependencies
+                page-opens
+                """
+        );
+
+        assertTrue(sanitized.contains("entryKind: html-entry"));
+        assertTrue(sanitized.contains("entryPackagingMode: entry-with-local-dependencies"));
+        assertFalse(sanitized.contains("runtimeOwnershipMode: companion-owned"));
+        assertTrue(sanitized.contains("页面可直接打开运行"));
     }
 }

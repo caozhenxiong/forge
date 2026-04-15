@@ -31,6 +31,7 @@ public final class TaskPackageMarkdownRenderer {
             Path relativePath,
             TargetedContextRenderer targetedContextRenderer
     ) {
+        String targetedContext = targetedContextRenderer.render(projectPath, subtask.changes(), relativePath, contractView, fingerprint);
         TaskPackage taskPackage = new TaskPackage(
                 subtask.title(),
                 subtask.goal(),
@@ -43,9 +44,12 @@ public final class TaskPackageMarkdownRenderer {
                 safeList(subtask.acceptanceCriteria()),
                 sharedContextBundle == null ? List.of() : sharedContextBundle.mustFixFirst(),
                 sharedContextBundle == null ? List.of() : sharedContextBundle.forbiddenDirections(),
-                targetedContextRenderer.render(projectPath, subtask.changes(), relativePath, contractView, fingerprint),
+                targetedContext,
                 sharedContextBundle
         );
+        if (relativePath != null) {
+            taskPackage = taskPackage.scopeToFile(relativePath.toString(), targetedContext);
+        }
         return taskPackage.toMarkdown();
     }
 
