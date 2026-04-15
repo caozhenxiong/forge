@@ -26,6 +26,7 @@ public final class SubtaskRunnableMilestoneGuard {
 
     private final ArchitectIntegrationCheck architectIntegrationCheck;
     private final RuntimeWiringRetryChangeFactory runtimeWiringRetryChangeFactory = new RuntimeWiringRetryChangeFactory();
+    private final SubtaskRepairDirectiveResolver repairDirectiveResolver = new SubtaskRepairDirectiveResolver();
 
     SubtaskRunnableMilestoneGuard(ArchitectIntegrationCheck architectIntegrationCheck) {
         this.architectIntegrationCheck = architectIntegrationCheck;
@@ -58,29 +59,14 @@ public final class SubtaskRunnableMilestoneGuard {
                         ? ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
                         : runnableCheck.implementationPatchTarget()
         );
-        return SubtaskVerificationOutcome.of(
-                review,
-                buildRevisionDirective(subtask, runnableCheck)
-        );
-    }
-
-    private SubtaskRevisionDirective buildRevisionDirective(
-            Subtask subtask,
-            ArchitectIntegrationCheckResult runnableCheck
-    ) {
-        if (runnableCheck == null || runnableCheck.implementationPatchTarget() == null) {
-            return SubtaskRevisionDirective.patch(List.of());
-        }
-        if (runnableCheck.implementationPatchTarget() == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
+        if (runnableCheck != null
+                && runnableCheck.implementationPatchTarget() == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
             HtmlRuntimeOwnershipContract runtimeContract = runnableCheck.runtimeContract();
-            if (runtimeContract == null || !runtimeContract.hasResolvedWiringRepairScope()) {
-                throw new IllegalStateException("Runnable milestone wiring patch requires an explicit runtime contract.");
-            }
-            return SubtaskRevisionDirective.patch(runtimeWiringRetryChangeFactory.build(runtimeContract));
+            List<devflow.agent.executor.FileChange> runtimeChanges = runtimeContract != null && runtimeContract.hasResolvedWiringRepairScope()
+                    ? runtimeWiringRetryChangeFactory.build(runtimeContract)
+                    : List.of();
+            return repairDirectiveResolver.resolveRuntimeWiringPatch(review, runtimeChanges, language);
         }
-        if (subtask == null || subtask.changes() == null) {
-            return SubtaskRevisionDirective.patch(List.of());
-        }
-        return SubtaskRevisionDirective.patch(subtask.changes());
+        return repairDirectiveResolver.resolveCurrentScopePatch(subtask, review, language);
     }
 }

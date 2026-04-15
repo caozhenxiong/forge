@@ -30,6 +30,8 @@ public record PatchFailureRoutingSettings(
     }
 
     public PatchFailureRoutingSettings {
-        unsplittableUnitMaxAttempts = Math.max(DEFAULT_UNSPLITTABLE_UNIT_MAX_ATTEMPTS, unsplittableUnitMaxAttempts);
+        unsplittableUnitMaxAttempts = unsplittableUnitMaxAttempts > 0
+                ? unsplittableUnitMaxAttempts
+                : DEFAULT_UNSPLITTABLE_UNIT_MAX_ATTEMPTS;
     }
 }

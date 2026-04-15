@@ -76,7 +76,8 @@ final class OllamaStructuredReviewExecutor {
                     "implementsForeignCapabilities": false,
                     "summary": "",
                     "evidence": "",
-                    "actionItems": ""
+                    "actionItems": "",
+                    "offendingPaths": []
                   },
                   "semantics": {
                     "targetsLowAuthorityContent": true,
@@ -111,7 +112,8 @@ final class OllamaStructuredReviewExecutor {
                 7. actionItems 必须是可执行动作，优先写文件、函数、模块、验证步骤
                 8. semantics 必须是你对本次审阅语义的结构化判断，不要省略任何字段
                 8.1 如果当前是 implementation 子任务审阅，且发现实现越过了当前 capability boundary，必须在 subtaskBoundary 中显式标记
-                8.2 如果没有 boundary finding，subtaskBoundary 可以返回 null，或 provided=false
+                8.2 一旦 subtaskBoundary 标记了 boundary violation，offendingPaths 必须非空，且路径只能来自当前子任务结构化 change-set
+                8.3 如果没有 boundary finding，subtaskBoundary 可以返回 null，或 provided=false
                 9. targetsLowAuthorityContent 表示 finding 主要针对推断/建议/设计选择/低权重内容
                 10. targetsTrackedOpenQuestion 表示 finding 主要针对文档里已经显式标为待确认/开放问题的内容
                 11. clarificationRequest 表示本次 finding 的核心诉求是“请明确/补充/说明/确认”
@@ -204,7 +206,8 @@ final class OllamaStructuredReviewExecutor {
             @JsonProperty("implementsForeignCapabilities") Boolean implementsForeignCapabilities,
             @JsonProperty("summary") String summary,
             @JsonProperty("evidence") String evidence,
-            @JsonProperty("actionItems") String actionItems
+            @JsonProperty("actionItems") String actionItems,
+            @JsonProperty("offendingPaths") List<String> offendingPaths
     ) {
         private SubtaskBoundaryReviewPayload toPayload() {
             return new SubtaskBoundaryReviewPayload(
@@ -213,7 +216,8 @@ final class OllamaStructuredReviewExecutor {
                     Boolean.TRUE.equals(implementsForeignCapabilities),
                     summary == null ? "" : summary,
                     evidence == null ? "" : evidence,
-                    actionItems == null ? "" : actionItems
+                    actionItems == null ? "" : actionItems,
+                    offendingPaths == null ? List.of() : offendingPaths
             );
         }
     }

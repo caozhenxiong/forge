@@ -30,7 +30,8 @@ class SubtaskBoundaryGateTests {
                         false,
                         "当前子任务提前实现了后续 gameplay 能力。",
                         "发现计分与消行逻辑已经落在当前 skeleton 子任务里。",
-                        "移除越界实现，只保留页面壳体与最小 bootstrapping。"
+                        "移除越界实现，只保留页面壳体与最小 bootstrapping。",
+                        List.of("index.html")
                 )
         );
 

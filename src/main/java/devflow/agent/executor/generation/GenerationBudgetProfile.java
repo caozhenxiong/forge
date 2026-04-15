@@ -122,8 +122,8 @@ public final class GenerationBudgetProfile {
 
     public static double wholeFileRewriteOutputRatio(DeliveryMode deliveryMode) {
         if (deliveryMode == DeliveryMode.PATCH) {
-            return DEFAULT_PATCH_BUDGET_RATIO;
+            return patchOutputRatio();
         }
-        return DEFAULT_FULL_BUDGET_RATIO;
+        return fullBudgetRatio();
     }
 }

@@ -16,17 +16,6 @@ public record SubtaskVerificationOutcome(
         SubtaskRevisionDirective revisionDirective
 ) {
 
-    public static SubtaskVerificationOutcome of(ReviewResult review) {
-        return new SubtaskVerificationOutcome(
-                review,
-                review == null
-                        ? SubtaskRevisionDirective.empty()
-                        : review.fixMode() == devflow.agent.review.FixMode.PATCH
-                                ? SubtaskRevisionDirective.patch(review.overrideChanges())
-                                : SubtaskRevisionDirective.retry(review.overrideChanges())
-        );
-    }
-
     public static SubtaskVerificationOutcome of(ReviewResult review, SubtaskRevisionDirective revisionDirective) {
         return new SubtaskVerificationOutcome(
                 review,

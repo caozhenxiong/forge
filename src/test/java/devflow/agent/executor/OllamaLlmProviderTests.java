@@ -38,6 +38,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
@@ -218,6 +219,7 @@ class OllamaLlmProviderTests {
         assertTrue(result.subtaskBoundary().provided());
         assertTrue(result.subtaskBoundary().implementsDeferredCapabilities());
         assertTrue(result.subtaskBoundary().summary().contains("后续能力"));
+        assertEquals(List.of("src/app.js"), result.subtaskBoundary().offendingPaths());
     }
 
     @Test
@@ -391,7 +393,7 @@ class OllamaLlmProviderTests {
         public void handle(HttpExchange exchange) throws IOException {
             byte[] body = """
                     {
-                      "response":"{\\"decision\\":\\"APPROVED\\",\\"fixMode\\":\\"NONE\\",\\"summary\\":\\"ok\\",\\"changeRequest\\":\\"\\",\\"evidence\\":\\"\\",\\"actionItems\\":\\"\\",\\"subtaskBoundary\\":{\\"provided\\":true,\\"implementsDeferredCapabilities\\":true,\\"implementsForeignCapabilities\\":false,\\"summary\\":\\"实现落入后续能力\\",\\"evidence\\":\\"计分逻辑已经出现\\",\\"actionItems\\":\\"移除越界实现\\"},\\"semantics\\":{\\"targetsLowAuthorityContent\\":false,\\"targetsTrackedOpenQuestion\\":false,\\"clarificationRequest\\":false,\\"backedByHardAuthority\\":false,\\"requestsQuantitativeHardening\\":false,\\"requestsImplementationHardening\\":false,\\"downstreamDetailOnly\\":false,\\"coreStageGap\\":true,\\"performanceClaim\\":false,\\"measurementEvidencePresent\\":false,\\"unsupportedQuantitativeConstraintPresent\\":false,\\"unsupportedImplementationConstraintPresent\\":false}}",
+                      "response":"{\\"decision\\":\\"APPROVED\\",\\"fixMode\\":\\"NONE\\",\\"summary\\":\\"ok\\",\\"changeRequest\\":\\"\\",\\"evidence\\":\\"\\",\\"actionItems\\":\\"\\",\\"subtaskBoundary\\":{\\"provided\\":true,\\"implementsDeferredCapabilities\\":true,\\"implementsForeignCapabilities\\":false,\\"summary\\":\\"实现落入后续能力\\",\\"evidence\\":\\"计分逻辑已经出现\\",\\"actionItems\\":\\"移除越界实现\\",\\"offendingPaths\\":[\\"src/app.js\\"]},\\"semantics\\":{\\"targetsLowAuthorityContent\\":false,\\"targetsTrackedOpenQuestion\\":false,\\"clarificationRequest\\":false,\\"backedByHardAuthority\\":false,\\"requestsQuantitativeHardening\\":false,\\"requestsImplementationHardening\\":false,\\"downstreamDetailOnly\\":false,\\"coreStageGap\\":true,\\"performanceClaim\\":false,\\"measurementEvidencePresent\\":false,\\"unsupportedQuantitativeConstraintPresent\\":false,\\"unsupportedImplementationConstraintPresent\\":false}}",
                       "done":true,
                       "done_reason":"stop",
                       "eval_count":1

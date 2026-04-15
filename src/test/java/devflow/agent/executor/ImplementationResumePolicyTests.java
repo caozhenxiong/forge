@@ -340,7 +340,7 @@ class ImplementationResumePolicyTests {
     }
 
     @Test
-    void runtimeWiringPatchRequiresCanonicalOverrideChangesEvenWhenContractGateExists() throws Exception {
+    void runtimeWiringPatchDerivesCanonicalOverrideChangesFromContractGate() throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         ImplementationResumePolicy policy = new ImplementationResumePolicy(objectMapper);
         String previousStateJson = objectMapper.writeValueAsString(new ImplementationStateSnapshot(
@@ -397,15 +397,18 @@ class ImplementationResumePolicyTests {
                 List.of()
         ));
 
-        org.junit.jupiter.api.Assertions.assertThrows(
-                IllegalStateException.class,
-                () -> policy.loadReusableImplementationState(
-                        previousStateJson,
-                        FixMode.PATCH,
-                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
-                        List.of(),
-                        DocumentLanguage.ZH
-                )
+        ReusableImplementationState reusableState = policy.loadReusableImplementationState(
+                previousStateJson,
+                FixMode.PATCH,
+                ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                List.of(),
+                DocumentLanguage.ZH
         );
+
+        assertNotNull(reusableState);
+        assertNotNull(reusableState.resumedExecutionState());
+        assertEquals(2, reusableState.resumedExecutionState().effectiveChanges().size());
+        assertEquals("index.html", reusableState.resumedExecutionState().effectiveChanges().getFirst().path());
+        assertEquals("index.app.js", reusableState.resumedExecutionState().effectiveChanges().get(1).path());
     }
 }

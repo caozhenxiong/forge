@@ -358,6 +358,8 @@ class TestExecutorTests {
         assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, outcome.review().implementationPatchTarget());
         assertEquals(1, outcome.review().overrideChanges().size());
         assertTrue(outcome.revisionDirective().active());
+        assertEquals(1, outcome.revisionDirective().retryChanges().size());
+        assertEquals("index.html", outcome.revisionDirective().retryChanges().getFirst().path());
     }
 
     @Test

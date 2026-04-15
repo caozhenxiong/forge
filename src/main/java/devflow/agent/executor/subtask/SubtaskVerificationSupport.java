@@ -71,6 +71,7 @@ public final class SubtaskVerificationSupport {
     private final ImplementationSelfCheckReviewResolver selfCheckReviewResolver = new ImplementationSelfCheckReviewResolver();
     private final StructureGateEvaluator structureGateEvaluator = new StructureGateEvaluator();
     private final SubtaskBoundaryGate subtaskBoundaryGate = new SubtaskBoundaryGate();
+    private final SubtaskRepairDirectiveResolver repairDirectiveResolver = new SubtaskRepairDirectiveResolver();
 
     public SubtaskVerificationSupport(
             TestExecutor testExecutor,
@@ -132,14 +133,11 @@ public final class SubtaskVerificationSupport {
                     "",
                     ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
             );
-            return SubtaskVerificationOutcome.of(normalizeScopedPatchReview(structureReview, subtask));
+            return repairDirectiveResolver.resolveCurrentScopePatch(subtask, structureReview, language);
         }
-        ReviewResult selfCheckReview = normalizeScopedPatchReview(
-                selfCheckReviewResolver.resolve(selfCheck, selfCheckToolResults, language),
-                subtask
-        );
+        ReviewResult selfCheckReview = selfCheckReviewResolver.resolve(selfCheck, selfCheckToolResults, language);
         if (selfCheckReview != null) {
-            return SubtaskVerificationOutcome.of(selfCheckReview);
+            return repairDirectiveResolver.resolveCurrentScopePatch(subtask, selfCheckReview, language);
         }
         SubtaskVerificationOutcome functionalVerification = testExecutor.verifyImplementationSubtask(
                 projectPath,
@@ -164,14 +162,8 @@ public final class SubtaskVerificationSupport {
         );
         StructuredReviewResult structuredReview = reviewWithObservation(subtask, candidate, language, eventJournal);
         ReviewResult review = subtaskBoundaryGate.enforce(subtask, structuredReview, language);
-        ReviewResult enforcedReview = normalizeScopedPatchReview(
-                enforceCompleteness(completenessOutcome, review, language),
-                subtask
-        );
-        return SubtaskVerificationOutcome.of(
-                enforcedReview,
-                SubtaskRevisionDirective.retry(enforcedReview.overrideChanges())
-        );
+        ReviewResult enforcedReview = enforceCompleteness(completenessOutcome, review, language);
+        return repairDirectiveResolver.resolveStructuredPatch(subtask, enforcedReview, structuredReview, language);
     }
 
     String buildRetryFeedback(
@@ -252,58 +244,6 @@ public final class SubtaskVerificationSupport {
             return review;
         }
         return implementationCompletenessGate.toBlockingReviewResult(completenessOutcome, language);
-    }
-
-    private ReviewResult normalizeScopedPatchReview(ReviewResult review, Subtask subtask) {
-        if (review == null
-                || review.fixMode() != FixMode.PATCH
-                || !review.implementationPatchTarget().concretePatch()
-                || !review.overrideChanges().isEmpty()) {
-            return review;
-        }
-        if (review.implementationPatchTarget() == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
-            return new ReviewResult(
-                    review.decision(),
-                    review.fixMode(),
-                    "当前子任务需要继续修复 runtime wiring，但 review 没有给出 canonical runtime repair package。",
-                    "请先由 runtime wiring contract 链生成当前子任务的 canonical runtime repair package；缺少结构化 repair package 时不要继续自动续跑。",
-                    review.evidence(),
-                    review.actionItems(),
-                    ImplementationPatchTarget.NONE,
-                    List.of(),
-                    ReviewRevisionRoute.REQUEST_HUMAN,
-                    review.reasonCode()
-            );
-        }
-        List<FileChange> effectiveChanges = subtask == null || subtask.changes() == null
-                ? List.of()
-                : List.copyOf(subtask.changes());
-        if (effectiveChanges.isEmpty()) {
-            return new ReviewResult(
-                    review.decision(),
-                    review.fixMode(),
-                    review.summary(),
-                    review.changeRequest(),
-                    review.evidence(),
-                    review.actionItems(),
-                    ImplementationPatchTarget.NONE,
-                    List.of(),
-                    ReviewRevisionRoute.REQUEST_HUMAN,
-                    review.reasonCode()
-            );
-        }
-        return new ReviewResult(
-                review.decision(),
-                review.fixMode(),
-                review.summary(),
-                review.changeRequest(),
-                review.evidence(),
-                review.actionItems(),
-                review.implementationPatchTarget(),
-                effectiveChanges,
-                review.revisionRoute(),
-                review.reasonCode()
-        );
     }
 
 }

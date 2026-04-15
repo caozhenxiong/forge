@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ImplementationPatchTarget;
+import devflow.agent.executor.runtime.RuntimeWiringRetryChangeFactory;
 import java.nio.file.Path;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -33,10 +34,12 @@ public class ImplementationResumePolicy {
 
     private final ObjectMapper objectMapper;
     private final ImplementationSnapshotRestorer snapshotRestorer;
+    private final RuntimeWiringRetryChangeFactory runtimeWiringRetryChangeFactory;
 
     public ImplementationResumePolicy(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
         this.snapshotRestorer = new ImplementationSnapshotRestorer();
+        this.runtimeWiringRetryChangeFactory = new RuntimeWiringRetryChangeFactory();
     }
 
     /**
@@ -70,7 +73,7 @@ public class ImplementationResumePolicy {
                         subtasks,
                         previousReports,
                         implementationPatchTarget,
-                        overrideChanges
+                        resolveCompletedPlanOverrideChanges(implementationPatchTarget, overrideChanges, contractGateResult)
                 );
             }
             List<SubtaskExecutionReport> completedPrefix = snapshotRestorer.takeCompletedPrefix(previousReports);
@@ -204,6 +207,21 @@ public class ImplementationResumePolicy {
             throw new IllegalStateException(patchTarget.name() + " continuation requires overrideChanges.");
         }
         return SubtaskRevisionDirective.patch(List.copyOf(overrideChanges));
+    }
+
+    private List<FileChange> resolveCompletedPlanOverrideChanges(
+            ImplementationPatchTarget patchTarget,
+            List<FileChange> overrideChanges,
+            ArchitectIntegrationCheckResult contractGateResult
+    ) {
+        if (patchTarget == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
+            HtmlRuntimeOwnershipContract runtimeContract = contractGateResult == null ? null : contractGateResult.runtimeContract();
+            if (runtimeContract == null || !runtimeContract.hasResolvedWiringRepairScope()) {
+                throw new IllegalStateException("Completed runtime wiring PATCH requires a resolved runtime contract.");
+            }
+            return runtimeWiringRetryChangeFactory.build(runtimeContract);
+        }
+        return overrideChanges == null ? List.of() : List.copyOf(overrideChanges);
     }
 
     private String blankIfNull(String value) {

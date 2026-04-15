@@ -34,6 +34,7 @@ public final class SubtaskRuntimeWiringGuard {
     private final TreeSitterSupport treeSitterSupport;
     private final WebRuntimeWiringCheck webRuntimeWiringCheck;
     private final RuntimeWiringRetryChangeFactory runtimeWiringRetryChangeFactory;
+    private final SubtaskRepairDirectiveResolver repairDirectiveResolver = new SubtaskRepairDirectiveResolver();
 
     SubtaskRuntimeWiringGuard(FileProjectWorkspace workspace, TreeSitterSupport treeSitterSupport) {
         this.workspace = workspace;
@@ -80,10 +81,11 @@ public final class SubtaskRuntimeWiringGuard {
                         : devflow.agent.review.ReviewRevisionRoute.REQUEST_HUMAN,
                 devflow.agent.review.ReviewReasonCode.RUNTIME_WIRING_GAP
         );
-        SubtaskRevisionDirective revisionDirective = resolvedRepairScope
-                ? SubtaskRevisionDirective.patch(runtimeWiringRetryChangeFactory.build(runtimeContract))
-                : SubtaskRevisionDirective.patch(java.util.List.of());
-        return SubtaskVerificationOutcome.of(review, revisionDirective);
+        return repairDirectiveResolver.resolveRuntimeWiringPatch(
+                review,
+                resolvedRepairScope ? runtimeWiringRetryChangeFactory.build(runtimeContract) : java.util.List.of(),
+                language
+        );
     }
 
     private boolean touchesHtmlEntryRuntimeOwnership(Subtask subtask, Path projectPath) {

@@ -26,27 +26,16 @@ class WorkspaceSnapshotStoreTests {
         UUID runId = UUID.randomUUID();
         snapshotStore.captureBaseline(projectPath, runId);
 
-        String largePayload = "x".repeat(80);
+        String largePayload = "x".repeat(9_000);
         Files.writeString(projectPath.resolve("a.js"), "export const a = '" + largePayload + "';\n");
         Files.writeString(projectPath.resolve("b.js"), "export const b = '" + largePayload + "';\n");
         Files.writeString(projectPath.resolve("c.js"), "export const c = '" + largePayload + "';\n");
 
-        String propertyKey = "devflow.generation-budget.file-context-preview-chars";
-        String previousValue = System.getProperty(propertyKey);
-        System.setProperty(propertyKey, "24");
-        try {
-            String markdown = snapshotStore.buildReviewChangePack(projectPath, runId).toMarkdown();
-            assertTrue(markdown.contains("MODIFIED: a.js"));
-            assertTrue(markdown.contains("MODIFIED: b.js"));
-            assertTrue(markdown.contains("MODIFIED: c.js"));
-            assertTrue(markdown.contains("- truncated: true"));
-            assertTrue(markdown.contains("## File Excerpts"));
-        } finally {
-            if (previousValue == null) {
-                System.clearProperty(propertyKey);
-            } else {
-                System.setProperty(propertyKey, previousValue);
-            }
-        }
+        String markdown = snapshotStore.buildReviewChangePack(projectPath, runId).toMarkdown();
+        assertTrue(markdown.contains("MODIFIED: a.js"));
+        assertTrue(markdown.contains("MODIFIED: b.js"));
+        assertTrue(markdown.contains("MODIFIED: c.js"));
+        assertTrue(markdown.contains("- truncated: true"));
+        assertTrue(markdown.contains("## File Excerpts"));
     }
 }

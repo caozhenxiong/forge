@@ -71,6 +71,8 @@ public class TestExecutor {
     private final ExperienceFailureDispositionResolver experienceFailureDispositionResolver;
     private final Map<ValidationPlanCacheKey, ValidationPlan> cachedPlans = new ConcurrentHashMap<>();
     private final LanguagePolicy languagePolicy;
+    private final devflow.agent.executor.subtask.SubtaskRepairDirectiveResolver repairDirectiveResolver =
+            new devflow.agent.executor.subtask.SubtaskRepairDirectiveResolver();
 
     @Autowired
     public TestExecutor(
@@ -314,8 +316,8 @@ public class TestExecutor {
                             disposition.evidence(),
                             disposition.reasonCode(),
                             language
-                    ),
-                    SubtaskRevisionDirective.empty()
+                ),
+                SubtaskRevisionDirective.empty()
             );
         }
         devflow.agent.review.ReviewResult review = new devflow.agent.review.ReviewResult(
@@ -333,7 +335,7 @@ public class TestExecutor {
                 disposition.revisionRoute(),
                 disposition.reasonCode()
         );
-        return SubtaskVerificationOutcome.of(review);
+        return repairDirectiveResolver.resolveExplicitPatch(review, language);
     }
 
     private boolean requiresCanonicalPatchScope(devflow.agent.review.ImplementationPatchTarget patchTarget) {

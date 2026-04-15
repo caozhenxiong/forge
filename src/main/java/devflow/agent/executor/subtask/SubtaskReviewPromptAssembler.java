@@ -43,6 +43,8 @@ public final class SubtaskReviewPromptAssembler {
                 16. 如果当前负责能力是行为、状态、交互、数据处理或运行时接线，而代码只完成了静态结构、表面文案切换、按钮可见性变化、示意渲染或其他表层 UI 变化，则不能视为能力已实现。
                 17. 验证时优先判断“当前负责能力是否真的产生了对应行为或状态变化”，不要把仅有入口、控件、静态画面或无副作用事件处理误判为实现完成。
                 18. 如果当前实现提前落入后续负责能力，或明显越过当前 capability boundary，必须在结构化 subtaskBoundary 字段里显式标记。
+                18.1 一旦标记 boundary violation，必须同时给出 offendingPaths，且路径只能来自当前子任务的结构化 change-set。
+                18.2 offendingPaths 只能填写有明确代码证据的相对路径，不允许根据 prose 猜路径。
                 """;
     }
 

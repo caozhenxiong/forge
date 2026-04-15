@@ -5,17 +5,11 @@ import devflow.agent.domain.StageType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.time.Duration;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 class StageOperationPolicyTests {
 
     private final StageOperationPolicy policy = new StageOperationPolicy();
-
-    @AfterEach
-    void clearSystemProperties() {
-        System.clearProperty("devflow.stage.document-review-timeout-seconds");
-    }
 
     @Test
     void usesLongerGenerationTimeoutForExecutionStages() {
@@ -34,9 +28,15 @@ class StageOperationPolicyTests {
     }
 
     @Test
-    void reviewTimeoutCanBeOverriddenFromSystemProperty() {
-        System.setProperty("devflow.stage.document-review-timeout-seconds", "360");
+    void reviewTimeoutUsesConfiguredPolicyValues() {
+        StageOperationPolicy configuredPolicy = new StageOperationPolicy(
+                20,
+                300,
+                1_800,
+                360,
+                300
+        );
 
-        assertEquals(Duration.ofMinutes(6), policy.reviewTimeout(StageType.DESIGN));
+        assertEquals(Duration.ofMinutes(6), configuredPolicy.reviewTimeout(StageType.DESIGN));
     }
 }

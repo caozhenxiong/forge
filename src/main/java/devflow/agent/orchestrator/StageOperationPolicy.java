@@ -64,13 +64,9 @@ public record StageOperationPolicy(
         if (stageType == StageType.IMPLEMENTATION
                 || stageType == StageType.CODE_REVIEW
                 || stageType == StageType.TEST) {
-            return readDuration(
-                    executionGenerationTimeoutSeconds
-            );
+            return readDuration(executionGenerationTimeoutSeconds);
         }
-        return readDuration(
-                documentGenerationTimeoutSeconds
-        );
+        return readDuration(documentGenerationTimeoutSeconds);
     }
 
     public Duration reviewHeartbeatInterval(StageType stageType) {
@@ -81,13 +77,9 @@ public record StageOperationPolicy(
         if (stageType == StageType.IMPLEMENTATION
                 || stageType == StageType.CODE_REVIEW
                 || stageType == StageType.TEST) {
-            return readDuration(
-                    executionReviewTimeoutSeconds
-            );
+            return readDuration(executionReviewTimeoutSeconds);
         }
-        return readDuration(
-                documentReviewTimeoutSeconds
-        );
+        return readDuration(documentReviewTimeoutSeconds);
     }
 
     private Duration readDuration(int seconds) {
