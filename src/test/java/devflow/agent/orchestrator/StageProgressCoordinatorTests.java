@@ -177,7 +177,7 @@ class StageProgressCoordinatorTests {
         assertEquals("请继续完成未完成的 implementation 子任务，补齐骨架后的真实行为实现，再重新进入 implementation review。", continuationChangeRequest.get());
         assertTrue(continuationOverrideChanges.get().isEmpty());
         assertNotNull(result.transitionDecision());
-        assertEquals(devflow.agent.loop.TransitionReason.STAGE_CONTINUE, result.transitionDecision().reason());
+        assertEquals(devflow.agent.loop.TransitionReason.IMPLEMENTATION_MID_PLAN_CONTINUE, result.transitionDecision().reason());
         assertEquals(StageType.IMPLEMENTATION, result.transitionDecision().targetStage());
         assertNull(result.transitionDecision().supervisorDecision());
     }
@@ -311,7 +311,7 @@ class StageProgressCoordinatorTests {
         assertEquals(ChangeAction.WRITE, continuationOverrideChanges.get().getFirst().action());
         assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, continuationPatchTarget.get());
         assertNotNull(result.transitionDecision());
-        assertEquals(devflow.agent.loop.TransitionReason.STAGE_CONTINUE, result.transitionDecision().reason());
+        assertEquals(devflow.agent.loop.TransitionReason.IMPLEMENTATION_PATCH_CONTINUE, result.transitionDecision().reason());
     }
 
     @Test
@@ -424,7 +424,7 @@ class StageProgressCoordinatorTests {
         assertTrue(blockedCalled.get());
         assertEquals(ReviewReasonCode.RUNTIME_PROBE_INVALID, blockedReview.get().reasonCode());
         assertNotNull(result.transitionDecision());
-        assertEquals(devflow.agent.loop.TransitionReason.HUMAN_REVIEW_REQUIRED, result.transitionDecision().reason());
+        assertEquals(devflow.agent.loop.TransitionReason.IMPLEMENTATION_BLOCKED_EXHAUSTED_SUBTASK, result.transitionDecision().reason());
         assertEquals(StageType.IMPLEMENTATION, result.transitionDecision().targetStage());
         assertNull(result.transitionDecision().supervisorDecision());
     }
@@ -648,7 +648,7 @@ class StageProgressCoordinatorTests {
         assertTrue(supervisorCalled.get());
         assertTrue(contextProjected.get());
         assertNotNull(result.transitionDecision());
-        assertEquals(devflow.agent.loop.TransitionReason.HUMAN_REVIEW_REQUIRED, result.transitionDecision().reason());
+        assertEquals(devflow.agent.loop.TransitionReason.IMPLEMENTATION_BLOCKED_EXHAUSTED_SUBTASK, result.transitionDecision().reason());
         assertEquals(StageType.CODE_REVIEW, result.transitionDecision().targetStage());
         assertEquals(blockedSummary, result.transitionDecision().summary());
         assertFalse(result.continueLoop());
@@ -658,7 +658,7 @@ class StageProgressCoordinatorTests {
                 runRecord.runId(),
                 AuxiliaryArtifactNames.TRANSITION_DECISION
         );
-        assertTrue(transitionArtifact.contains("reason: HUMAN_REVIEW_REQUIRED"));
+        assertTrue(transitionArtifact.contains("reason: IMPLEMENTATION_BLOCKED_EXHAUSTED_SUBTASK"));
         assertTrue(transitionArtifact.contains("targetStage: CODE_REVIEW"));
         assertTrue(transitionArtifact.contains("reviewSummary: " + blockedSummary));
         assertTrue(transitionArtifact.contains("supervisorAction: RETRY_STAGE"));

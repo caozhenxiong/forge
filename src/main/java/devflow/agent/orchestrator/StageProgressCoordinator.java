@@ -78,7 +78,7 @@ public class StageProgressCoordinator {
         if (stageType == StageType.IMPLEMENTATION) {
             ImplementationProgressState implementationProgress = implementationProgressSupport.read(projectPath, current);
             if (!implementationProgress.stageReady()) {
-                if (implementationProgress.blocked()) {
+                if (implementationProgress.blockedForHumanReview()) {
                     return blockImplementationForHuman(projectPath, current, stageType, implementationProgress, language);
                 }
                 return continueIncompleteImplementation(projectPath, current, stageType, implementationProgress, language);
@@ -156,7 +156,7 @@ public class StageProgressCoordinator {
     ) {
         StageContinuationContext continuationContext = implementationProgress.continuationContext();
         TransitionDecision transitionDecision = new TransitionDecision(
-                TransitionReason.STAGE_CONTINUE,
+                continuationTransitionReason(continuationContext),
                 stageType,
                 stageType,
                 false,
@@ -187,7 +187,7 @@ public class StageProgressCoordinator {
     ) {
         StageContinuationContext continuationContext = implementationProgress.continuationContext();
         TransitionDecision transitionDecision = new TransitionDecision(
-                TransitionReason.HUMAN_REVIEW_REQUIRED,
+                continuationTransitionReason(continuationContext),
                 stageType,
                 stageType,
                 false,
@@ -198,5 +198,16 @@ public class StageProgressCoordinator {
         ReviewResult reviewResult = implementationProgress.humanReviewResult();
         RunRecord next = flowDecisionExecutor.blockForHumanReview(current, stageType, reviewResult);
         return new LoopStepResult(next, transitionDecision, flowController.shouldContinue(next));
+    }
+
+    private TransitionReason continuationTransitionReason(StageContinuationContext continuationContext) {
+        if (continuationContext == null) {
+            return TransitionReason.STAGE_CONTINUE;
+        }
+        return switch (continuationContext.continuationMode()) {
+            case MID_PLAN_CONTINUE -> TransitionReason.IMPLEMENTATION_MID_PLAN_CONTINUE;
+            case PATCH_CONTINUE -> TransitionReason.IMPLEMENTATION_PATCH_CONTINUE;
+            case BLOCKED_EXHAUSTED_SUBTASK -> TransitionReason.IMPLEMENTATION_BLOCKED_EXHAUSTED_SUBTASK;
+        };
     }
 }

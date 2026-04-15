@@ -169,7 +169,6 @@ class FlowControllerTests {
                 StageToolResultSummary.none(),
                 new ImplementationRevisionFacts(
                         false,
-                        false,
                         List.of("实现行消除与计分系统"),
                         new StageContinuationContext(
                                 ImplementationContinuationMode.PATCH_CONTINUE,
@@ -191,6 +190,58 @@ class FlowControllerTests {
         assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
                 flowDecision.revisionRoutingPlan().implementationPatchTarget());
         assertEquals("src/game.js", flowDecision.revisionRoutingPlan().overrideChanges().getFirst().path());
+        assertEquals(TransitionReason.IMPLEMENTATION_PATCH_CONTINUE, flowDecision.transitionDecision().reason());
+    }
+
+    @Test
+    void keepsMidPlanContinuationDistinctFromPatchContinuation() {
+        FlowController controller = new FlowController();
+        ReviewResult reviewResult = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.REWORK,
+                "代码未满足验收",
+                "继续修复 implementation"
+        );
+        SupervisorDecision supervisorDecision = new SupervisorDecision(
+                WorkflowAction.RETRY_STAGE,
+                StageType.IMPLEMENTATION,
+                FixMode.REWORK,
+                "回 implementation 修复",
+                List.of(),
+                List.of(),
+                List.of(),
+                DeliveryPolicy.patchSafe(),
+                false
+        );
+
+        FlowDecision flowDecision = controller.decide(
+                StageType.CODE_REVIEW,
+                reviewResult,
+                false,
+                supervisorDecision,
+                StageToolResultSummary.none(),
+                new ImplementationRevisionFacts(
+                        false,
+                        List.of("继续剩余子任务"),
+                        new StageContinuationContext(
+                                ImplementationContinuationMode.MID_PLAN_CONTINUE,
+                                "实现仍在中途",
+                                "继续完成剩余子任务",
+                                "未完成子任务：继续剩余子任务",
+                                "继续实现",
+                                List.of(),
+                                ImplementationPatchTarget.NONE,
+                                devflow.agent.review.ReviewReasonCode.NONE
+                        )
+                )
+        );
+
+        assertEquals(WorkflowAction.RETRY_STAGE, flowDecision.action());
+        assertEquals(StageType.IMPLEMENTATION, flowDecision.targetStage());
+        assertTrue(flowDecision.revisionRoutingPlan().active());
+        assertEquals(TransitionReason.IMPLEMENTATION_MID_PLAN_CONTINUE, flowDecision.transitionDecision().reason());
+        assertEquals(ImplementationPatchTarget.NONE, flowDecision.revisionRoutingPlan().implementationPatchTarget());
+        assertTrue(flowDecision.revisionRoutingPlan().overrideChanges().isEmpty());
     }
 
     @Test
@@ -222,7 +273,6 @@ class FlowControllerTests {
                 StageToolResultSummary.none(),
                 new ImplementationRevisionFacts(
                         false,
-                        true,
                         List.of("实现行消除与计分系统"),
                         new StageContinuationContext(
                                 ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK,
@@ -240,7 +290,7 @@ class FlowControllerTests {
         assertEquals(WorkflowAction.REQUEST_HUMAN_REVIEW, flowDecision.action());
         assertEquals(StageType.CODE_REVIEW, flowDecision.targetStage());
         assertFalse(flowDecision.revisionRoutingPlan().active());
-        assertEquals(TransitionReason.HUMAN_REVIEW_REQUIRED, flowDecision.transitionDecision().reason());
+        assertEquals(TransitionReason.IMPLEMENTATION_BLOCKED_EXHAUSTED_SUBTASK, flowDecision.transitionDecision().reason());
         assertEquals("当前实现需要继续 patch，但阶段汇总没有拿到结构化文件范围，不能自动续跑。",
                 flowDecision.reviewResultOverride().summary());
         assertEquals("请先补齐 overrideChanges 指向的受影响文件。",

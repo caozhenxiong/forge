@@ -14,13 +14,12 @@ import java.util.List;
  */
 public record ImplementationRevisionFacts(
         boolean stageReady,
-        boolean blocked,
         List<String> incompleteSubtasks,
         StageContinuationContext continuationContext
 ) {
 
     private static final ImplementationRevisionFacts NONE =
-            new ImplementationRevisionFacts(true, false, List.of(), null);
+            new ImplementationRevisionFacts(true, List.of(), null);
 
     public ImplementationRevisionFacts {
         incompleteSubtasks = incompleteSubtasks == null ? List.of() : List.copyOf(incompleteSubtasks);
@@ -40,20 +39,29 @@ public record ImplementationRevisionFacts(
 
     public boolean hasStructuredPatchScope() {
         return continuationContext != null
-                && continuationContext.continuationMode().patchContinue()
+                && continuationMode().patchContinue()
                 && continuationContext.implementationPatchTarget().concretePatch()
                 && !continuationContext.overrideChanges().isEmpty();
     }
 
     public boolean shouldAutoContinueCurrentImplementation() {
         return !stageReady
-                && !blocked
                 && continuationContext != null
-                && continuationContext.continuationMode().autoContinue();
+                && continuationMode().autoContinue();
+    }
+
+    public boolean shouldMidPlanContinueCurrentImplementation() {
+        return shouldAutoContinueCurrentImplementation()
+                && continuationMode() == ImplementationContinuationMode.MID_PLAN_CONTINUE;
+    }
+
+    public boolean shouldPatchContinueCurrentImplementation() {
+        return shouldAutoContinueCurrentImplementation()
+                && continuationMode() == ImplementationContinuationMode.PATCH_CONTINUE;
     }
 
     public boolean shouldBlockForHumanReview() {
-        return !stageReady && blocked;
+        return !stageReady && continuationContext != null && continuationMode().blocked();
     }
 
     public ReviewResult blockedReviewResult() {
@@ -78,7 +86,7 @@ public record ImplementationRevisionFacts(
         if (!shouldAutoContinueCurrentImplementation()) {
             return RevisionRoutingPlan.none();
         }
-        if (continuationContext.continuationMode() == ImplementationContinuationMode.PATCH_CONTINUE) {
+        if (continuationMode() == ImplementationContinuationMode.PATCH_CONTINUE) {
             return new RevisionRoutingPlan(
                     FixMode.PATCH,
                     continuationContext.implementationPatchTarget(),
@@ -90,5 +98,11 @@ public record ImplementationRevisionFacts(
                 ImplementationPatchTarget.NONE,
                 List.of()
         );
+    }
+
+    public ImplementationContinuationMode continuationMode() {
+        return continuationContext == null
+                ? ImplementationContinuationMode.MID_PLAN_CONTINUE
+                : continuationContext.continuationMode();
     }
 }

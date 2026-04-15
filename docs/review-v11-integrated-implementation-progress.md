@@ -73,15 +73,15 @@
 
 ### Scope 3. Continuation Semantics Closure
 
-- [ ] `ImplementationStageGate` / `ImplementationStageStatus` 不再把 exhausted subtask 与 patch continuation 混成 generic continue
-- [ ] `ImplementationContinuationMode` / `ImplementationStageStatusPayload` / `ImplementationStateCodec` 对三分类保持单一协议
-- [ ] `ImplementationStageStatusArtifactRenderer` / `StageContinuationContext` 对三分类保持同一 artifact/context bridge，不再在桥接层退回旧二元语义
-- [ ] `ImplementationProgressSupport` / `ImplementationProgressState` / `ImplementationRevisionFacts` 不再只按 blocked/not-blocked 处理
-- [ ] `StageProgressCoordinator` / `FlowController` / `FlowDecisionExecutor` / `StageTransitionSupport` / `StageEntryExecutor` 对三分类保持单一路由
-- [ ] `TransitionReason` 不再用单一 `STAGE_CONTINUE` 覆盖所有 implementation continuation
-- [ ] Scope 3 `self-test`
-- [ ] Scope 3 `code review`
-- [ ] Scope 3 `docs`
+- [x] `ImplementationStageGate` / `ImplementationStageStatus` 不再把 exhausted subtask 与 patch continuation 混成 generic continue
+- [x] `ImplementationContinuationMode` / `ImplementationStageStatusPayload` / `ImplementationStateCodec` 对三分类保持单一协议
+- [x] `ImplementationStageStatusArtifactRenderer` / `StageContinuationContext` 对三分类保持同一 artifact/context bridge，不再在桥接层退回旧二元语义
+- [x] `ImplementationProgressSupport` / `ImplementationProgressState` / `ImplementationRevisionFacts` 不再只按 blocked/not-blocked 处理
+- [x] `StageProgressCoordinator` / `FlowController` / `FlowDecisionExecutor` / `StageTransitionSupport` / `StageEntryExecutor` 对三分类保持单一路由
+- [x] `TransitionReason` 不再用单一 `STAGE_CONTINUE` 覆盖所有 implementation continuation
+- [x] Scope 3 `self-test`
+- [x] Scope 3 `code review`
+- [x] Scope 3 `docs`
 
 ### Scope 4. Canonical Repair Package / Resume Restore Closure
 
@@ -142,7 +142,7 @@
 
 ## Current Status
 
-- 当前阶段：`SCOPE_2_COMPLETED_PENDING_SCOPE_3`
+- 当前阶段：`SCOPE_3_COMPLETED_PENDING_SCOPE_4`
 - 当前 blocker：`无`
 - 当前约束：`禁止兼容层、禁止双轨并存、禁止“后续再清理”`
 
@@ -164,10 +164,10 @@
 
 ### Scope 3
 
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`待开始`
+- commit：`待本次提交回填`
+- self-test：`mvn -q -Dtest=FlowControllerTests,StageProgressCoordinatorTests,ImplementationContinuationSupportTests,StageTransitionSupportTests,StageStatusSupportTests test`
+- code review：`本地静态自审通过；implementation continuation 不再走 generic STAGE_CONTINUE 活路径`
+- docs：`tracker 已回填 Scope 3 状态与证据`
 
 ### Scope 4
 

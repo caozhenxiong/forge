@@ -75,7 +75,7 @@ public class FlowController {
                 reviewResultOverride = implementationFacts.blockedReviewResult();
             }
         }
-        TransitionReason reason = mapReason(action, stageType);
+        TransitionReason reason = mapReason(action, stageType, targetStage, implementationFacts);
         TransitionDecision transitionDecision = new TransitionDecision(
                 reason,
                 stageType,
@@ -104,7 +104,16 @@ public class FlowController {
                 && currentStage.status() == StageStatus.RUNNING;
     }
 
-    private TransitionReason mapReason(WorkflowAction action, StageType stageType) {
+    private TransitionReason mapReason(
+            WorkflowAction action,
+            StageType stageType,
+            StageType targetStage,
+            ImplementationRevisionFacts implementationFacts
+    ) {
+        TransitionReason implementationReason = implementationContinuationReason(action, targetStage, implementationFacts);
+        if (implementationReason != null) {
+            return implementationReason;
+        }
         return switch (action) {
             case ADVANCE_STAGE -> StageType.TEST == stageType ? TransitionReason.RUN_COMPLETED : TransitionReason.STAGE_APPROVED;
             case REQUEST_HUMAN_REVIEW -> TransitionReason.HUMAN_REVIEW_REQUIRED;
@@ -114,6 +123,32 @@ public class FlowController {
             case COMPLETE_RUN -> TransitionReason.RUN_COMPLETED;
             case FAIL_RUN -> TransitionReason.RUN_FAILED;
         };
+    }
+
+    private TransitionReason implementationContinuationReason(
+            WorkflowAction action,
+            StageType targetStage,
+            ImplementationRevisionFacts implementationFacts
+    ) {
+        if (implementationFacts == null) {
+            return null;
+        }
+        if (implementationFacts.shouldBlockForHumanReview()) {
+            return TransitionReason.IMPLEMENTATION_BLOCKED_EXHAUSTED_SUBTASK;
+        }
+        if (targetStage != StageType.IMPLEMENTATION) {
+            return null;
+        }
+        if (action != WorkflowAction.RETRY_STAGE && action != WorkflowAction.ROUTE_TO_REPAIR) {
+            return null;
+        }
+        if (implementationFacts.shouldPatchContinueCurrentImplementation()) {
+            return TransitionReason.IMPLEMENTATION_PATCH_CONTINUE;
+        }
+        if (implementationFacts.shouldMidPlanContinueCurrentImplementation()) {
+            return TransitionReason.IMPLEMENTATION_MID_PLAN_CONTINUE;
+        }
+        return null;
     }
 
     private boolean shouldRetryCurrentStage(StageType stageType, WorkflowAction action, StageToolResultSummary toolSummary) {

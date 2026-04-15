@@ -1,5 +1,6 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.protocol.ImplementationContinuationMode;
 import devflow.agent.review.ReviewResult;
 
 /**
@@ -7,24 +8,37 @@ import devflow.agent.review.ReviewResult;
  */
 public record ImplementationProgressState(
         boolean stageReady,
-        boolean blocked,
         String reviewSummary,
         StageContinuationContext continuationContext,
         ReviewResult humanReviewResult
 ) {
 
     public static ImplementationProgressState ready(String reviewSummary) {
-        return new ImplementationProgressState(true, false, reviewSummary, null, null);
+        return new ImplementationProgressState(true, reviewSummary, null, null);
     }
 
     public static ImplementationProgressState continuing(StageContinuationContext continuationContext) {
-        return new ImplementationProgressState(false, false, null, continuationContext, null);
+        return new ImplementationProgressState(false, null, continuationContext, null);
     }
 
     public static ImplementationProgressState blocked(
             StageContinuationContext continuationContext,
             ReviewResult humanReviewResult
     ) {
-        return new ImplementationProgressState(false, true, null, continuationContext, humanReviewResult);
+        return new ImplementationProgressState(false, null, continuationContext, humanReviewResult);
+    }
+
+    public ImplementationContinuationMode continuationMode() {
+        return continuationContext == null
+                ? ImplementationContinuationMode.MID_PLAN_CONTINUE
+                : continuationContext.continuationMode();
+    }
+
+    public boolean blockedForHumanReview() {
+        return !stageReady && continuationMode().blocked();
+    }
+
+    public boolean autoContinue() {
+        return !stageReady && continuationMode().autoContinue();
     }
 }

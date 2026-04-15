@@ -59,7 +59,6 @@ public class ImplementationProgressSupport {
         StageContinuationContext continuationContext = implementationContinuationSupport.toContinuationContext(stageStatus);
         return new ImplementationRevisionFacts(
                 false,
-                stageStatus.continuationMode().blocked(),
                 stageStatus.incompleteSubtasks(),
                 continuationContext
         );
