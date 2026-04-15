@@ -104,4 +104,29 @@ class ArtifactContextSanitizerTests {
         assertFalse(sanitized.contains("runtimeOwnershipMode: companion-owned"));
         assertTrue(sanitized.contains("页面可直接打开运行"));
     }
+
+    @Test
+    void projectionKeepsRuntimeBindingLinesBackedByControlledTermsEmbeddedInAuthorityProse() {
+        String artifact = """
+                ## 1. Runtime Contract
+                - entryKind: html-entry
+                - entryPackagingMode: entry-with-local-dependencies
+                - runtimeOwnershipMode: companion-owned
+                - 页面可直接打开运行
+                """;
+
+        String sanitized = ArtifactContextSanitizer.sanitizeForProjection(
+                artifact,
+                StageType.DESIGN,
+                """
+                入口必须保持 html-entry，并采用 companion-owned 方式交付运行时文件。
+                页面应保持 entry-with-local-dependencies 的打包形态，以便直接打开运行。
+                """
+        );
+
+        assertTrue(sanitized.contains("entryKind: html-entry"));
+        assertTrue(sanitized.contains("entryPackagingMode: entry-with-local-dependencies"));
+        assertTrue(sanitized.contains("runtimeOwnershipMode: companion-owned"));
+        assertTrue(sanitized.contains("页面可直接打开运行"));
+    }
 }

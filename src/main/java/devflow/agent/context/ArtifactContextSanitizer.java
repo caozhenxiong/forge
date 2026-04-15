@@ -122,6 +122,7 @@ public final class ArtifactContextSanitizer {
             String normalized = normalizeLine(line);
             if (!normalized.isBlank()) {
                 terms.add(normalized);
+                terms.addAll(controlledTermsInLine(normalized));
             }
         }
         return Set.copyOf(terms);
