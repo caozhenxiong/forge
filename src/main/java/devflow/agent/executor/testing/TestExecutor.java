@@ -202,28 +202,12 @@ public class TestExecutor {
         if (unresolvedCases.isEmpty() && unresolvedSurfaces.isEmpty() && currentFailure.passed()) {
             return null;
         }
-        devflow.agent.review.ImplementationPatchTarget patchTarget = effectivePatchTarget(previousFailure, currentFailure);
-        List<FileChange> overrideChanges = !currentFailure.overrideChanges().isEmpty()
-                ? currentFailure.overrideChanges()
-                : previousFailure.overrideChanges();
-        String evidence = buildTargetedVerificationEvidence(previousFailure, unresolvedCases, unresolvedSurfaces, currentFailure);
-        if (requiresCanonicalPatchScope(patchTarget) && overrideChanges.isEmpty()) {
-            return missingCanonicalPatchScopeReview(patchTarget, evidence, currentFailure.reasonCode(), resolvedLanguage);
-        }
-        return new devflow.agent.review.ReviewResult(
-                devflow.agent.review.ReviewDecision.REVISION_REQUIRED,
-                devflow.agent.review.FixMode.PATCH,
-                "当前实现尚未用针对性复核关闭上一轮 TEST 失败项。",
-                buildTargetedVerificationChangeRequest(previousFailure, unresolvedCases, unresolvedSurfaces, currentFailure),
-                evidence,
-                resolvedLanguage.choose(
-                        "1. 先修复上一轮失败 case/capability 对应的实现缺口。 2. 重新执行针对性验证，确认这些目标全部通过。 3. 只有当前失败项闭环后才能批准 implementation。",
-                        "1. Fix the implementation gap behind the previously failing case or capability. 2. Rerun targeted verification until those targets pass. 3. Approve implementation only after the active failure targets are closed."
-                ),
-                patchTarget,
-                overrideChanges,
-                currentFailure.passed() ? previousFailure.revisionRoute() : currentFailure.revisionRoute(),
-                currentFailure.passed() ? previousFailure.reasonCode() : currentFailure.reasonCode()
+        return toTargetedReverificationReview(
+                previousFailure,
+                currentFailure,
+                unresolvedCases,
+                unresolvedSurfaces,
+                resolvedLanguage
         );
     }
 
@@ -609,17 +593,37 @@ public class TestExecutor {
                 .orElse(null);
     }
 
-    private devflow.agent.review.ImplementationPatchTarget effectivePatchTarget(
+    devflow.agent.review.ReviewResult toTargetedReverificationReview(
             ExperienceFailureDisposition previousFailure,
-            ExperienceFailureDisposition currentFailure
+            ExperienceFailureDisposition currentFailure,
+            List<String> unresolvedCases,
+            List<String> unresolvedSurfaces,
+            DocumentLanguage language
     ) {
-        if (currentFailure != null && currentFailure.implementationPatchTarget().concretePatch()) {
-            return currentFailure.implementationPatchTarget();
+        if (currentFailure == null) {
+            return null;
         }
-        if (previousFailure != null && previousFailure.implementationPatchTarget().concretePatch()) {
-            return previousFailure.implementationPatchTarget();
+        devflow.agent.review.ImplementationPatchTarget patchTarget = currentFailure.implementationPatchTarget();
+        List<FileChange> overrideChanges = currentFailure.overrideChanges();
+        String evidence = buildTargetedVerificationEvidence(previousFailure, unresolvedCases, unresolvedSurfaces, currentFailure);
+        if (requiresCanonicalPatchScope(patchTarget) && (overrideChanges == null || overrideChanges.isEmpty())) {
+            return missingCanonicalPatchScopeReview(patchTarget, evidence, currentFailure.reasonCode(), language);
         }
-        return devflow.agent.review.ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION;
+        return new devflow.agent.review.ReviewResult(
+                devflow.agent.review.ReviewDecision.REVISION_REQUIRED,
+                devflow.agent.review.FixMode.PATCH,
+                "当前实现尚未用针对性复核关闭上一轮 TEST 失败项。",
+                buildTargetedVerificationChangeRequest(previousFailure, unresolvedCases, unresolvedSurfaces, currentFailure),
+                evidence,
+                language.choose(
+                        "1. 先修复上一轮失败 case/capability 对应的实现缺口。 2. 重新执行针对性验证，确认这些目标全部通过。 3. 只有当前失败项闭环后才能批准 implementation。",
+                        "1. Fix the implementation gap behind the previously failing case or capability. 2. Rerun targeted verification until those targets pass. 3. Approve implementation only after the active failure targets are closed."
+                ),
+                patchTarget,
+                overrideChanges == null ? List.of() : overrideChanges,
+                currentFailure.revisionRoute(),
+                currentFailure.reasonCode()
+        );
     }
 
     private String buildTargetedVerificationChangeRequest(

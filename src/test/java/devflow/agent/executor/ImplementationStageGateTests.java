@@ -441,10 +441,10 @@ class ImplementationStageGateTests {
                 null
         );
 
-        assertEquals(ImplementationContinuationMode.PATCH_CONTINUE, stageStatus.continuationMode());
+        assertEquals(ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK, stageStatus.continuationMode());
         assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, stageStatus.continuationPatchTarget());
-        assertEquals(1, stageStatus.continuationOverrideChanges().size());
-        assertEquals("src/game.js", stageStatus.continuationOverrideChanges().getFirst().path());
+        assertTrue(stageStatus.continuationSummary().contains("结构化文件范围"));
+        assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
     }
 
     @Test
@@ -514,6 +514,45 @@ class ImplementationStageGateTests {
         assertEquals(RuntimeOwnershipMode.EXTERNAL_COMPANION,
                 stageStatus.continuationOverrideChanges().getFirst().runtimeOwnership());
         assertTrue(stageStatus.continuationOverrideChanges().getFirst().hostHtmlPatchRequired());
+    }
+
+    @Test
+    void blocksPatchContinuationWhenReviewScopeIsCompletelyOutsideCurrentSubtask() {
+        ImplementationStageGate gate = new ImplementationStageGate();
+        Subtask subtask = subtask("补逻辑", false, "src/game.js");
+        SubtaskExecutionState executionState = new SubtaskExecutionState(DeliveryMode.PATCH, true);
+        executionState.setEffectiveChanges(List.of(new FileChange("src/game.js", ChangeAction.WRITE, "当前安全 scope")));
+        ReviewResult patchReview = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.PATCH,
+                "需要继续修补",
+                "继续修复当前子任务",
+                "review 提供了越界 scope",
+                "继续修复",
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                List.of(new FileChange("index.html", ChangeAction.WRITE, "越界路径"))
+        );
+
+        ImplementationStageStatus stageStatus = gate.summarizeStageStatus(
+                new ImplementationPlan("summary", List.of(subtask)),
+                List.of(new SubtaskExecutionReport(
+                        subtask,
+                        false,
+                        List.of(SubtaskAttemptReport.fromVerification(
+                                1,
+                                new SelfCheckResult(false, "failed", ""),
+                                List.of(),
+                                patchReview
+                        )),
+                        executionState
+                )),
+                null
+        );
+
+        assertEquals(ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK, stageStatus.continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, stageStatus.continuationPatchTarget());
+        assertTrue(stageStatus.continuationSummary().contains("结构化文件范围"));
+        assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
     }
 
     @Test

@@ -465,6 +465,99 @@ class TestExecutorTests {
     }
 
     @Test
+    void targetedReverificationUsesCurrentFailureScopeInsteadOfPreviousFailureScope() {
+        TestExecutor executor = devflow.agent.executor.testing.TestExecutorTestSupport.create(
+                new FileProjectWorkspace(),
+                noopProvider(),
+                new com.fasterxml.jackson.databind.ObjectMapper()
+        );
+
+        ReviewResult review = executor.toTargetedReverificationReview(
+                new ExperienceFailureDisposition(
+                        ExperienceFailureKind.IMPLEMENTATION_CAPABILITY_GAP,
+                        "上一轮失败",
+                        "修旧 scope",
+                        "previous",
+                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                        List.of(new FileChange("src/old.js", ChangeAction.WRITE, "旧 scope")),
+                        List.of("TC-001"),
+                        List.of("primary-interaction"),
+                        List.of("primary-interaction"),
+                        ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET,
+                        ReviewReasonCode.IMPLEMENTATION_GAP
+                ),
+                new ExperienceFailureDisposition(
+                        ExperienceFailureKind.IMPLEMENTATION_CAPABILITY_GAP,
+                        "当前失败",
+                        "修当前 scope",
+                        "current",
+                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                        List.of(new FileChange("index.html", ChangeAction.WRITE, "当前 scope")),
+                        List.of("TC-002"),
+                        List.of("primary-interaction"),
+                        List.of("primary-interaction"),
+                        ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET,
+                        ReviewReasonCode.IMPLEMENTATION_GAP
+                ),
+                List.of("TC-002"),
+                List.of("primary-interaction"),
+                devflow.agent.i18n.DocumentLanguage.ZH
+        );
+
+        assertNotNull(review);
+        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, review.implementationPatchTarget());
+        assertEquals(1, review.overrideChanges().size());
+        assertEquals("index.html", review.overrideChanges().getFirst().path());
+    }
+
+    @Test
+    void targetedReverificationDoesNotFallbackToPreviousScopeWhenCurrentFailureHasNoCanonicalScope() {
+        TestExecutor executor = devflow.agent.executor.testing.TestExecutorTestSupport.create(
+                new FileProjectWorkspace(),
+                noopProvider(),
+                new com.fasterxml.jackson.databind.ObjectMapper()
+        );
+
+        ReviewResult review = executor.toTargetedReverificationReview(
+                new ExperienceFailureDisposition(
+                        ExperienceFailureKind.IMPLEMENTATION_CAPABILITY_GAP,
+                        "上一轮失败",
+                        "修旧 scope",
+                        "previous",
+                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                        List.of(new FileChange("src/old.js", ChangeAction.WRITE, "旧 scope")),
+                        List.of("TC-001"),
+                        List.of("primary-interaction"),
+                        List.of("primary-interaction"),
+                        ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET,
+                        ReviewReasonCode.IMPLEMENTATION_GAP
+                ),
+                new ExperienceFailureDisposition(
+                        ExperienceFailureKind.IMPLEMENTATION_CAPABILITY_GAP,
+                        "当前失败",
+                        "当前轮没有 canonical scope",
+                        "current",
+                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                        List.of(),
+                        List.of("TC-002"),
+                        List.of("primary-interaction"),
+                        List.of("primary-interaction"),
+                        ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET,
+                        ReviewReasonCode.IMPLEMENTATION_GAP
+                ),
+                List.of("TC-002"),
+                List.of("primary-interaction"),
+                devflow.agent.i18n.DocumentLanguage.ZH
+        );
+
+        assertNotNull(review);
+        assertEquals(ImplementationPatchTarget.NONE, review.implementationPatchTarget());
+        assertEquals(ReviewRevisionRoute.REQUEST_HUMAN, review.revisionRoute());
+        assertTrue(review.overrideChanges().isEmpty());
+        assertTrue(review.changeRequest().contains("文件范围"));
+    }
+
+    @Test
     void missingHtmlEntryIsReportedAsExecutionContractFailure() throws Exception {
         Files.writeString(tempDir.resolve("game.js"), "export const boot = () => 'ok';");
 

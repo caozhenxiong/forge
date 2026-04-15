@@ -99,14 +99,14 @@
 
 ### Scope 3. Stage Gate Scope Discipline Closure
 
-- [ ] `ImplementationStageGate` 对空 scope / 完全不相交 scope 直接 fail-fast
-- [ ] `ImplementationStageGate` 不再把错 scope 扩成整份 `allowedScope`
-- [ ] `TestExecutor` targeted reverification 不再回退复用旧 `overrideChanges`
-- [ ] `ExperienceFailureDispositionResolver` 不再把旧 patch target / 旧 scope 当当前 scope 使用
-- [ ] 自动 patch continue 只允许在当前轮拥有安全 canonical scope 时发生
-- [ ] Scope 3 `self-test`
-- [ ] Scope 3 `code review`
-- [ ] Scope 3 `docs`
+- [x] `ImplementationStageGate` 对空 scope / 完全不相交 scope 直接 fail-fast
+- [x] `ImplementationStageGate` 不再把错 scope 扩成整份 `allowedScope`
+- [x] `TestExecutor` targeted reverification 不再回退复用旧 `overrideChanges`
+- [x] `ExperienceFailureDispositionResolver` 不再把旧 patch target / 旧 scope 当当前 scope 使用
+- [x] 自动 patch continue 只允许在当前轮拥有安全 canonical scope 时发生
+- [x] Scope 3 `self-test`
+- [x] Scope 3 `code review`
+- [x] Scope 3 `docs`
 
 ### Scope 4. Runnable Milestone Quality Closure
 
@@ -143,7 +143,7 @@
 
 ## Current Status
 
-- 当前阶段：`SCOPE_3_IN_PROGRESS`
+- 当前阶段：`SCOPE_4_IN_PROGRESS`
 - 当前 blocker：`无`
 - 当前约束：`禁止兼容层、禁止双轨并存、禁止“后续再清理”`
 
@@ -165,10 +165,10 @@
 
 ### Scope 3
 
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`待开始`
+- commit：`待本轮提交`
+- self-test：`mvn -q -Dtest=ImplementationStageGateTests,TestExecutorTests,ExperienceFailureDispositionResolverTests test`
+- code review：`本地静态自审通过；stage gate 已对空 scope / 越界 scope fail-fast，TEST targeted reverification 不再回捞 previousFailure 的旧 scope`
+- docs：`tracker 已回填 Scope 3 状态与证据`
 
 ### Scope 4
 
@@ -188,7 +188,7 @@
 
 - [x] `S1` tool loop closure 已改成 workspace-state based，repair-mode tool surface 已与权限完全一致
 - [x] `S2` canonical patch package 已在 `revision note -> directive parser -> resumed execution state -> active execution state` 单轨收口
-- [ ] `S3` stage gate / TEST 对 patch scope 已只允许 fail-fast 或安全 canonical scope
+- [x] `S3` stage gate / TEST 对 patch scope 已只允许 fail-fast 或安全 canonical scope
 - [ ] `S4` runnable milestone 已只在当前里程碑运行态证据达标时放行
 - [ ] `S5` 回归矩阵与黄金路径集成测试已全部通过
 - [x] active patch package machine owner 已只剩 `SubtaskExecutionState.effectiveChanges`

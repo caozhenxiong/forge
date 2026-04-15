@@ -264,7 +264,7 @@ public class ImplementationStageGate {
             return List.of();
         }
         if (proposedChanges == null || proposedChanges.isEmpty()) {
-            return List.copyOf(allowedScope);
+            return List.of();
         }
         java.util.LinkedHashMap<java.nio.file.Path, FileChange> allowedByPath = new java.util.LinkedHashMap<>();
         for (FileChange change : allowedScope) {
@@ -284,7 +284,7 @@ public class ImplementationStageGate {
             }
         }
         if (acceptedPaths.isEmpty()) {
-            return List.copyOf(allowedScope);
+            return List.of();
         }
         java.util.ArrayList<FileChange> canonical = new java.util.ArrayList<>();
         for (FileChange change : allowedScope) {
