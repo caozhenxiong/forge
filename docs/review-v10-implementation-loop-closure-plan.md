@@ -267,6 +267,7 @@
 - `src/main/java/devflow/agent/executor/subtask/SubtaskExecutor.java`
 - `src/main/java/devflow/agent/executor/testing/TestExecutor.java`
 - `src/main/java/devflow/agent/protocol/ExecutionDirectivePayload.java`
+- `src/main/java/devflow/agent/executor/implementation/planning/ImplementationDirectiveResolver.java`
 - `src/main/java/devflow/agent/orchestrator/StageContinuationNoteBuilder.java`
 - `src/main/java/devflow/agent/executor/implementation/planning/ImplementationContextResolver.java`
 - `src/main/java/devflow/agent/executor/implementation/state/ImplementationStateSnapshotSerializer.java`
@@ -281,6 +282,7 @@
 ### Scope 4. Implementation Continuation / Stage Attempt Classification
 
 - `src/main/java/devflow/agent/executor/gate/ImplementationStageGate.java`
+- `src/main/java/devflow/agent/executor/gate/ImplementationStageStatus.java`
 - `src/main/java/devflow/agent/protocol/ImplementationContinuationMode.java`
 - `src/main/java/devflow/agent/protocol/ImplementationStageStatusPayload.java`
 - `src/main/java/devflow/agent/executor/implementation/render/ImplementationStageStatusArtifactRenderer.java`
@@ -314,6 +316,7 @@
 - 不顺手重做全套 runtime ownership 架构。
 - 不顺手改 completed-plan owner resolver 的既有语义。
 - 不顺手放松 repair-mode patch-first 工具约束。
+- 本轮不改 `ExecutionDirectiveProtocol` 的多段 directive block merge / 覆盖语义；只有在 Scope 3 实现证明 call-site owner 收口仍不足时，才单独起下一轮协议整改。
 
 ## Closure Decision
 
