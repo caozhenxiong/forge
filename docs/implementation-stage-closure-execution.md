@@ -211,9 +211,9 @@
 ### Review V7 Follow-up
 
 - commit：`待提交`
-- self-test：`mvn -q -Dtest=ImplementationPlanGateTests,TestExecutorTests,SubtaskVerificationSupportTests,BashToolFailureDiagnosticsTests test`；`mvn -q -Dtest=ImplementationPlanNormalizationSupportTests,ImplementationPlanGateTests,ImplementationPlannerTests,ImplementationSubtaskDetailGateTests,TestExecutorTests,SubtaskRuntimeWiringGuardTests,SubtaskVerificationSupportTests,BashToolTests,BashToolFailureDiagnosticsTests test`
-- code review：`已完成自查；确认 capability partition 进入 outline + final plan gate，PATCH_RUNTIME_WIRING 不再回填旧 accepted package，repair-mode shell deny 保留 pathIntents，mixed runtime-root package 不再被 wired root 掩护放过`
-- docs：`docs/review-v7-remediation-plan.md` 与本文档已同步更新
+- self-test：`mvn -q -Dtest=ImplementationPlanGateTests,TestExecutorTests,SubtaskVerificationSupportTests,BashToolFailureDiagnosticsTests test`；`mvn -q -Dtest=ImplementationPlanNormalizationSupportTests,ImplementationPlanGateTests,ImplementationPlannerTests,ImplementationSubtaskDetailGateTests,TestExecutorTests,SubtaskRuntimeWiringGuardTests,SubtaskVerificationSupportTests,BashToolTests,BashToolFailureDiagnosticsTests test`；`mvn -q -Dtest=ImplementationPlanningPayloadParserTests,ImplementationSubtaskDetailGateTests,ImplementationPlanGateTests,ImplementationPlannerTests,PlanningRuntimeFactsResolverTests,ImplementationPlanNormalizationSupportTests test`
+- code review：`已完成自查；确认 capability partition 进入 outline + final plan gate，PATCH_RUNTIME_WIRING 不再回填旧 accepted package，repair-mode shell deny 保留 pathIntents，mixed runtime-root package 不再被 wired root 掩护放过；planning runtimeScriptRole 只负责 package shape 与显式角色声明，不前置判真 root/leaf 语义`
+- docs：`docs/review-v7-remediation-plan.md`、`docs/implementation-stage-closure-trace.md` 与本文档已同步更新
 
 ## Completion Gate
 

@@ -453,6 +453,99 @@ class ImplementationPlannerTests {
                         && entry.message().contains("runtimeScriptRole=ROOT|LEAF")));
     }
 
+    @Test
+    void passesPlannerRoundTripWhenNewRootCarriesHostPatch() throws Exception {
+        java.nio.file.Files.writeString(
+                tempDir.resolve("index.html"),
+                """
+                        <!doctype html>
+                        <html>
+                        <body>
+                          <script type="module" src="./index.app.js"></script>
+                        </body>
+                        </html>
+                        """
+        );
+        java.nio.file.Files.writeString(
+                tempDir.resolve("index.app.js"),
+                """
+                        export function boot() {
+                          return true;
+                        }
+                        """
+        );
+
+        SequenceLlmProvider llmProvider = new SequenceLlmProvider(List.of(
+                response("""
+                        {
+                          "summary": "extend runtime with a new root",
+                          "subtasks": [
+                            {
+                              "id": "subtask-1",
+                              "title": "wire host and new root",
+                              "goal": "patch host html and add a second runtime root",
+                              "deliveryMode": "PATCH",
+                              "runnableMilestone": true,
+                              "coverageRefs": [],
+                              "ownedCapabilities": ["cap-1"],
+                              "deferredCapabilities": [],
+                              "acceptanceCriteria": ["acc-1"],
+                              "targetPaths": ["index.html", "admin.app.js"]
+                            }
+                          ]
+                        }
+                        """),
+                response("""
+                        {
+                          "subtaskId": "subtask-1",
+                          "changes": [
+                            {
+                              "path": "index.html",
+                              "action": "WRITE",
+                              "reason": "wire host html for new runtime root"
+                            },
+                            {
+                              "path": "admin.app.js",
+                              "action": "WRITE",
+                              "reason": "add new runtime root",
+                              "runtimeScriptRole": "ROOT"
+                            }
+                          ]
+                        }
+                        """)
+        ));
+        ImplementationPlanner planner = newPlanner(llmProvider);
+        ImplementationEventJournal eventJournal = newEventJournal();
+
+        ImplementationPlan plan = planner.plan(new PlanningRequest(
+                runRecord(),
+                "",
+                "",
+                "",
+                "",
+                false,
+                new DeliveryPolicyEnvelope(DeliveryMode.PATCH, 3, 4, true, false, true, List.of()),
+                null,
+                QualityPlan.empty(),
+                new devflow.agent.validation.ProjectInspector(new devflow.agent.project.FileProjectWorkspace()).inspect(tempDir),
+                devflow.agent.i18n.DocumentLanguage.ZH,
+                devflow.agent.review.FixMode.NONE,
+                devflow.agent.review.ImplementationPatchTarget.NONE,
+                "",
+                ImplementationContinuationConstraints.empty(),
+                null,
+                eventJournal
+        ));
+
+        assertEquals(1, plan.subtasks().size());
+        assertEquals(1, llmProvider.outlinePromptCount());
+        assertEquals(1, llmProvider.subtaskPromptCount("subtask-1"));
+        assertTrue(plan.subtasks().getFirst().changes().stream().anyMatch(change -> "index.html".equals(change.path())));
+        assertTrue(plan.subtasks().getFirst().changes().stream().anyMatch(change -> "admin.app.js".equals(change.path())));
+        assertTrue(eventJournal.snapshot().stream().anyMatch(entry ->
+                entry.message().contains("实现规划｜单元通过｜类型=SUBTASK_DETAIL｜单元=subtask-1")));
+    }
+
     private ImplementationPlanner newPlanner(SequenceLlmProvider llmProvider) {
         return ImplementationPlanningWiring.createPlanner(
                 llmProvider,

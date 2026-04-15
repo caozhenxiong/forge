@@ -76,6 +76,9 @@
   planning runtime facts 输入
   accepted change-set
   `FileChange`
+- 语义边界：
+  planning 只校验 accepted package 形状是否自洽，以及新增 runtime 脚本是否显式声明 `ROOT|LEAF`；
+  不在 planning 阶段判真 root/leaf 语义，真实 runtime ownership 仍由后续 wiring / ownership check 收口。
 - 事实来源约束：
   只允许来自：
   explicit host contract
