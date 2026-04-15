@@ -44,6 +44,10 @@
 - 扩展 `SubtaskBoundaryReviewPayload`：
   - 新增 `offendingPaths`
   - 只允许填写当前子任务相对路径
+- 把 review provider/schema owner 一并纳入本轮 scope：
+  - `OllamaStructuredReviewExecutor` 的 subtaskBoundary JSON schema 必须新增 `offendingPaths`
+  - 对应 provider 侧 payload record、`StructuredReviewResult` 解码链、`SubtaskBoundaryReviewPayload` typed carrier 必须同步更新
+  - 禁止只改 prompt 而不改 provider schema；否则 `offendingPaths` 只是文档字段，执行链接不住
 - `SubtaskReviewPromptAssembler` 补充 reviewer 约束：
   - 只有在有明确代码证据时才填写 `offendingPaths`
   - 只能填写当前子任务结构化 change-set 内文件
@@ -65,8 +69,18 @@
   - `SubtaskVerificationSupport.normalizeScopedPatchReview()`
   - `SubtaskRunnableMilestoneGuard`
   - `TestExecutor.toImplementationVerificationOutcome()`
+  - `SubtaskVerificationOutcome` 构造链
 
-### 3. 真正收成 patch-first retry，而不是 prose-first retry
+### 3. 收掉 `SubtaskVerificationOutcome.of(review)` 这条隐式第二轨
+
+- `SubtaskVerificationOutcome.of(review)` 不能再根据 `ReviewResult.overrideChanges()` 被动派生 `SubtaskRevisionDirective`。
+- 本轮要把这条 helper 改成显式模式，二选一即可，但必须只保留单轨：
+  - 删除 `of(review)`，所有调用点显式传入 resolver 产出的 directive
+  - 或保留 `of(review)` 但只允许 `revisionDirective=empty`，禁止它从 review 自动反推 patch scope
+- 任何 `PATCH` review 的自动续跑，都必须先经过 canonical resolver，再构造 `SubtaskVerificationOutcome`。
+- `SubtaskVerificationSupport`、`TestExecutor` 等现有调用点必须同步改为显式消费 resolver 结果，不能继续借 helper 隐式回填。
+
+### 4. 真正收成 patch-first retry，而不是 prose-first retry
 
 - `SubtaskRevisionDirective` 继续作为执行态 carrier，但 `retryChanges` 只能来自 canonical resolver。
 - `SubtaskExecutionState.applyRevisionDirective()` 只消费 canonical repair package，不允许自行放大范围。
@@ -80,7 +94,7 @@
   - 不要把已通过文件重新 whole rewrite
   - 不要把局部 patch 退化成整子任务重做
 
-### 4. 补结构化可观测性
+### 5. 补结构化可观测性
 
 - 子任务验证结果进入 implementation 结构化状态时，至少持久化：
   - `reviewDecision`
@@ -108,20 +122,28 @@
    - reviewer 说越界，但 `offendingPaths` 为空或越出当前 change-set
    - 结果必须转 `REQUEST_HUMAN`
 
-3. runtime wiring 回归
+3. provider/schema round-trip
+   - reviewer 返回带 `offendingPaths` 的 `subtaskBoundary`
+   - `OllamaStructuredReviewExecutor -> StructuredReviewResult -> SubtaskBoundaryReviewPayload` 全链必须保留该字段
+
+4. runtime wiring 回归
    - 继续保持“只有 canonical runtime repair package 才能自动 patch”
    - 本轮改动不能把这条收紧打松
 
-4. generic patch review 缺 scope
+5. generic patch review 缺 scope
    - `PATCH_EXISTING_IMPLEMENTATION` 无 override scope
    - 不能回退为整子任务自动续跑
 
-5. retry payload round-trip
+6. implicit helper second-track
+   - 任意 `PATCH` review 经过 `SubtaskVerificationOutcome` 后
+   - 不能再出现“没走 resolver，但 helper 自动派生 revisionDirective”的路径
+
+7. retry payload round-trip
    - canonical repair package 经过
      `verification -> SubtaskRevisionDirective -> SubtaskExecutionState -> next attempt`
      后仍保持同一文件范围
 
-6. observability
+8. observability
    - 子任务驳回后，结构化状态里能直接看到
      `reasonCode / patchTarget / overrideChanges / revisionRoute`
 
