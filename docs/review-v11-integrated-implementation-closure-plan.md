@@ -125,11 +125,14 @@
 #### Solution
 
 - 把 shared-file boundary 协议前移成 outline prompt 的显式规则，而不是只放在 gate 里做事后裁决。
-- prompt、retry feedback、outline gate、final plan gate、task package、review prompt 必须围绕同一份 boundary contract 表达：
+- prompt、retry feedback、outline gate、detail gate、final plan gate、task package、review prompt 必须围绕同一份 boundary contract 表达：
   - 当前子任务拥有的能力
   - 与后续子任务共享的文件
   - 每个 future owner 的 ownedCapabilities
   - 当前子任务必须显式 defer 的 capability 集合
+- final plan gate 若命中 shared-file / accepted-package completeness 问题，反馈回流必须继续沿同一份 boundary contract 路由到正确 planning unit：
+  - outline
+  - 或具体 subtask detail
 - 对 shared-file boundary，不允许再接受：
   - `deferredCapabilities=[]`
   - 只 defer 一部分下游能力
@@ -177,6 +180,7 @@
   - execution directive payload
   - implementation_state serialize / parse
   - stage continuation context
+  - reroute-to-repair note / repair brief producer
   - resume policy
 - `implementation_shared_context.md` 明确降级为 repair summary，仅供阅读，不承担 machine truth。
 
@@ -218,7 +222,7 @@
   - resource check 只判断本地引用是否存在
   - runtime wiring check 只判断真实入口接线与 ownership 契约是否一致
   - 不再从旧的 inline-host / orphan-root 过时语义反向阻断合法 split package
-- `TestExecutor` 对 implementation re-verification 的 producer 语义必须与新的 canonical repair package 保持一致。
+- `TestExecutor` 与 `ExperienceFailureDispositionResolver` 对 implementation re-verification / patch target / override scope 的 producer 语义必须与新的 canonical repair package 保持一致。
 
 ## Final State
 
@@ -253,10 +257,16 @@
 - `src/main/java/devflow/agent/executor/implementation/planning/ImplementationPlanCoverageAnalyzer.java`
 - `src/main/java/devflow/agent/executor/implementation/planning/ImplementationPlanNormalizationSupport.java`
 - `src/main/java/devflow/agent/executor/implementation/planning/ImplementationPlanGateInputBuilder.java`
+- `src/main/java/devflow/agent/executor/implementation/planning/ImplementationSubtaskDetailPromptBuilder.java`
+- `src/main/java/devflow/agent/executor/implementation/planning/ImplementationSubtaskDetailGate.java`
+- `src/main/java/devflow/agent/executor/implementation/planning/ImplementationPlanningFeedbackRouter.java`
+- `src/main/java/devflow/agent/executor/implementation/planning/ImplementationPlanningRepairSupport.java`
+- `src/main/java/devflow/agent/executor/implementation/planning/ImplementationPlanningPayloadParser.java`
 
 目标：
 
-- 让 shared-file downstream boundary 成为 outline 模型可直接学习和输出的协议，而不是事后 gate 语言。
+- 让 shared-file downstream boundary 成为 planning 模型可直接学习和输出的协议，而不是事后 gate 语言。
+- 让 final gate / accepted-package completeness 命中后的 reroute 仍沿同一条 planning owner 链回到 outline 或具体 subtask detail，而不是生成第二套 detail 修复语义。
 
 ### Scope 2. Boundary Contract Propagation
 
@@ -310,17 +320,21 @@
 - `src/main/java/devflow/agent/executor/implementation/planning/ImplementationContextResolver.java`
 - `src/main/java/devflow/agent/executor/implementation/ImplementationPlanRunner.java`
 - `src/main/java/devflow/agent/orchestrator/StageContinuationNoteBuilder.java`
+- `src/main/java/devflow/agent/orchestrator/StageRevisionRepairSupport.java`
+- `src/main/java/devflow/agent/orchestrator/StageRevisionNoteBuilder.java`
 - `src/main/java/devflow/agent/executor/implementation/state/ImplementationStateSnapshot.java`
 - `src/main/java/devflow/agent/executor/implementation/state/ImplementationStateSnapshotSerializer.java`
 - `src/main/java/devflow/agent/executor/implementation/state/ImplementationStateArtifactSupport.java`
 - `src/main/java/devflow/agent/executor/implementation/state/ImplementationSnapshotRestorer.java`
 - `src/main/java/devflow/agent/orchestrator/ImplementationContinuationSupport.java`
 - `src/main/java/devflow/agent/executor/implementation/ImplementationResumePolicy.java`
+- `src/main/java/devflow/agent/repair/RepairAgent.java`
 
 目标：
 
 - 让 canonical repair package 从 producer 到 persisted state 再到 resume 只有一个结构化真相源。
 - 同轮收紧 `ExecutionDirectiveProtocol` 的 merge owner，避免后续再用“协议层可能吞 scope”解释同类问题。
+- 封掉 reroute-to-repair note / repair brief 这条并行 directive producer 第二轨，避免 `StageContinuationNoteBuilder` 与 repair route 各自生成不同 machine package。
 
 ### Scope 5. Upstream Authority Audit
 
@@ -338,6 +352,7 @@
 ### Scope 6. Validation-Side Consistency Audit
 
 - `src/main/java/devflow/agent/executor/testing/TestExecutor.java`
+- `src/main/java/devflow/agent/executor/testing/ExperienceFailureDispositionResolver.java`
 - `src/main/java/devflow/agent/validation/ValidationExecutor.java`
 - `src/main/java/devflow/agent/validation/WebRuntimeWiringValidationSupport.java`
 - `src/main/java/devflow/agent/validation/WebResourceValidationSupport.java`
@@ -345,6 +360,7 @@
 目标：
 
 - 防止 implementation 真修对后，被旧 validation 语义误拒绝。
+- 防止 TEST 侧即使拿到正确 evidence，仍被旧 disposition 映射错误地下推回 implementation patch。
 
 ## Execution Order
 
@@ -363,19 +379,21 @@
 1. shared-file incremental outline 没写 downstream deferred boundary 时，outline planning 必须 deterministic fail。
 2. shared-file incremental outline 正确声明 deferred boundary 时，outline planning 必须一次通过。
 3. accepted boundary contract 必须稳定出现在 task package、review prompt 与 deterministic boundary gate 消费链。
-4. `MID_PLAN_CONTINUE` 与 `PATCH_CONTINUE` 在 progress / transition / artifact / resume 层不能再混成同一个 generic continue。
-5. canonical repair package 必须经过：
+4. final plan gate / detail completeness 若命中 shared-file boundary 问题，反馈必须稳定路由回正确 planning unit，而不是长出第二套 detail 修复轨。
+5. `MID_PLAN_CONTINUE` 与 `PATCH_CONTINUE` 在 progress / transition / artifact / resume 层不能再混成同一个 generic continue。
+6. canonical repair package 必须经过：
    - review/test producer
    - retry feedback
    - execution directive
    - implementation_state serialize / parse
+   - reroute-to-repair note / repair brief
    - continuation context
    - resume restore
    后保持同一份结构化 patch facts。
-6. `ExecutionDirectiveProtocol` 多段 block merge 不能吞掉 canonical override scope。
-7. authority corpus 不能把 soft design choice 升级成 binding runtime contract。
-8. validation 对合法 split runtime / local asset layout 不能误拒绝。
-9. 黄金路径集成测试不再出现：
+7. `ExecutionDirectiveProtocol` 多段 block merge 不能吞掉 canonical override scope。
+8. authority corpus 不能把 soft design choice 升级成 binding runtime contract。
+9. validation 与 TEST disposition mapping 对合法 split runtime / local asset layout 不能误拒绝或误路由。
+10. 黄金路径集成测试不再出现：
    - outline 三次都死在 shared-file boundary
    - continuation 在流程层被压平
    - patch package 在 attempt 间丢失
