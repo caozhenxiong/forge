@@ -11,19 +11,23 @@
 本轮完成态必须同时满足下面 4 条高风险闭环：
 
 1. fresh implementation 子任务不会因为上游 prose note 非空而误入 repair mode。
-2. repair / continuation 回合的 completion 只看“当前工作区是否满足 canonical patch package”，不会因为 existing file 仅仅存在就被误判完成。
+2. repair / continuation 回合的 existing-file completion 只认当前或恢复后的 canonical mutation history，不允许 tool-loop 以“文件存在”或“猜测当前工作区语义已正确”判定完成。
 3. runtime planning / runtime graph / ownership inspector 对 root-relative runtime path 使用同一套路径归一规则，不再出现“一层已接线、另一层 unreachable”的事实冲突。
 4. planning runtime facts 不再通过目录扫描 sibling/orphan runtime root 推导事实，只允许基于：
    - explicit runtime contract
    - accepted / continuation scoped contract
    - 当前 HTML 已观察到的结构化 wiring facts
+   - 对于 brand-new runtime root，outline 不再猜测；统一由 detail 阶段的 `runtimeScriptRole` 结构化声明并校验
 
 完成后，系统对当前问题族的单一语义应是：
 
-- `fresh implementation` 与 `repair implementation` 的进入条件单一且显式
-- `existing file patch round` 不会零 mutation 假完成
+- `fresh implementation` 与 `repair implementation` 的进入条件单一且显式，并且只有一个 canonical repair predicate owner
+- `existing file patch round` 不会零 mutation 假完成；existing-file assistant-only completion 只能建立在当前/恢复后的 canonical mutation history 上
 - `/index.app.js`、`/src/game.js` 这类 root-relative 引用在 planning / runtime / ownership 上事实一致
 - planning 不再把未接线 sibling script 当成当前 runtime root 事实
+- outline 与 detail 的 runtime root 边界单一：
+  - outline 只对已知 root / accepted root 做 completeness gate
+  - brand-new root 统一由 detail 的 `runtimeScriptRole` 校验
 
 ## Removal Plan
 
@@ -49,12 +53,16 @@
 
 - [ImplementationPlanRunner.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/ImplementationPlanRunner.java)
 - [SubtaskExecutionContext.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/subtask/SubtaskExecutionContext.java)
+- [SubtaskExecutionState.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/subtask/SubtaskExecutionState.java)
 - [ImplementationToolLoopExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/toolloop/ImplementationToolLoopExecutor.java)
 - [ImplementationToolPermissionPolicy.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/tools/ImplementationToolPermissionPolicy.java)
 
 ### Scope 2. Existing-File Closure Semantics
 
 - [ImplementationToolLoopExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/toolloop/ImplementationToolLoopExecutor.java)
+- [ImplementationToolSessionState.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/toolloop/ImplementationToolSessionState.java)
+- [ImplementationStateSnapshotSerializer.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/state/ImplementationStateSnapshotSerializer.java)
+- [ImplementationSnapshotRestorer.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/state/ImplementationSnapshotRestorer.java)
 - [ImplementationToolLoopExecutorTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/executor/ImplementationToolLoopExecutorTests.java)
 
 ### Scope 3. Runtime Path Consistency
@@ -67,6 +75,7 @@
 ### Scope 4. Planning Runtime Facts Boundary
 
 - [PlanningRuntimeFactsResolver.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/PlanningRuntimeFactsResolver.java)
+- [ImplementationOutlineGate.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/ImplementationOutlineGate.java)
 - [ImplementationPlanChangeGate.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/ImplementationPlanChangeGate.java)
 - [ImplementationSubtaskDetailGate.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/ImplementationSubtaskDetailGate.java)
 - [PlanningRuntimeFactsResolverTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/executor/implementation/planning/PlanningRuntimeFactsResolverTests.java)
@@ -106,9 +115,10 @@
 
 #### Required Fix
 
-- repair mode 的 owner 必须单一且结构化：
-  - 只能来自 `executionState` 中已存在的 retry / repair state
-  - 或显式的 structured repair directive
+- repair mode 的 owner 必须单一且结构化，并达到可执行口径：
+  - canonical repair predicate 必须挂在 `SubtaskExecutionState`
+  - 或由单一 resolver 只从 `SubtaskExecutionState` 解析
+- `ImplementationToolLoopExecutor` 与 `ImplementationToolPermissionPolicy` 只能消费同一份 canonical repair predicate，不能各自保留 if/heuristic 判定
 - 单纯 prose note / supervisor guidance / stage transition prose 不能触发 repair mode
 
 ### H2. Existing-file closure 过宽，可能零 mutation 假完成
@@ -126,10 +136,13 @@
 
 #### Required Fix
 
-- `workspaceStateClosure` 必须改成“当前终态满足”判定，而不是“文件存在”
+- `workspaceStateClosure` 不能再让 tool-loop 猜“当前工作区语义是否已经正确”
+- existing file 的 assistant-only completion 只能建立在：
+  - 当前 `ImplementationToolSessionState` 中已存在的 canonical mutation history
+  - 或 restore 后仍然存在于 tool session state 的 canonical mutation history
 - 对 existing file：
-  - 若没有 mutation 且当前内容仍未达到 canonical target semantics，必须失败
-  - 只允许“工作区已经正确”这一种零 mutation 正例
+  - 若没有 canonical mutation history，则 zero-mutation existing-file completion 一律失败
+  - 不允许再保留“workspace already correct + zero mutation”这种 tool-loop 层无法稳定判真的正例
 
 ### H3. Runtime graph 对 root-relative 路径事实不一致
 
@@ -179,6 +192,11 @@
   - accepted / continuation scoped runtime contract
   - 当前 HTML 已观察到的 structured wiring facts
 - 禁止再通过目录扫描 sibling/orphan script 推事实
+- outline / detail 的边界必须写死：
+  - outline 只对已知 root / accepted root 做 completeness gate
+  - `reachable anchor + brand-new runtime root + no host patch` 这类场景，不在 outline 用 heuristic 判定
+  - brand-new runtime root 统一下沉到 detail，并由 `runtimeScriptRole` 作为唯一结构化入口
+- 本轮不为 outline 额外引入第二套 runtime role schema
 
 ## Medium-Risk Findings
 
@@ -251,14 +269,18 @@
 ### Phase 1. Fresh vs Repair Boundary
 
 - 明确 repair mode 的唯一进入条件
+- 明确 canonical repair predicate 的唯一 owner
 - 去掉 prose note 触发 repair mode 的旧语义
+- 补 tool-loop / permission policy 消费同一 repair predicate 的 regression
 - 补 fresh implementation 首轮不会误入 repair mode 的 regression
 
 ### Phase 2. Existing-File Closure
 
 - 改 `writeSatisfied(...)` / related completion logic
+- 把 completion owner 收回当前/恢复后的 `toolSessionState.mutationRecords`
 - 补 “existing broken file + zero mutation must fail” 的反例回归
-- 保留 “workspace already correct” 的零 mutation 正例
+- 补 “restored mutation history 存在时 assistant-only 可闭合” 的正例回归
+- 删除 “workspace already correct + zero mutation” 正例口径
 
 ### Phase 3. Root-Relative Runtime Normalization
 
@@ -269,6 +291,7 @@
 ### Phase 4. Planning Runtime Facts Boundary
 
 - 删掉目录扫描 sibling/orphan script 生成 runtime root facts 的旧路径
+- 明确 outline 只拦已知 root，brand-new root 下沉到 detail `runtimeScriptRole`
 - 改测试口径，让 facts 只来自已成立 contract / 当前 HTML 观察到的 wiring
 - 补 accepted package completeness regression
 
@@ -277,10 +300,12 @@
 ### Required High-Risk Regressions
 
 - fresh implementation prose note 非空，但第一轮 `repairMode=false`
+- tool loop / permission policy 对同一 execution state 得出一致的 `repairMode` / `repair permission` 结论
 - existing broken file + no mutation => declared changes not satisfied
-- workspace already correct + no mutation => declared changes satisfied
+- restored canonical mutation history present => existing-file assistant-only completion allowed
 - `/index.app.js` root-relative script 在 planning/runtime/ownership 三处归一结果一致
 - inline host 未引用 sibling runtime script 时，planning runtime facts 不再把 sibling script 当成 runtime root
+- reachable anchor + brand-new runtime root + no host patch 不在 outline 用 heuristic 通过；必须下沉到 detail `runtimeScriptRole`
 
 ### Required Safety Regressions
 
