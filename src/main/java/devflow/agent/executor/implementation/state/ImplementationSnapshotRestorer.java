@@ -195,6 +195,7 @@ public final class ImplementationSnapshotRestorer {
         return SubtaskExecutionState.restore(
                 report.deliveryMode(),
                 report.preferPreciseEditing(),
+                report.repairRound(),
                 restoreFileEditAttemptStates(report.fileEditAttemptStates()),
                 restoreEffectiveChanges(report.effectiveChanges()),
                 restoreToolSessionState(report.toolSessionState())

@@ -23,6 +23,8 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import devflow.agent.executor.subtask.SubtaskExecutionState;
+import devflow.agent.executor.subtask.SubtaskRevisionDirective;
 class ImplementationToolPermissionPolicyTests {
 
     @Test
@@ -83,5 +85,38 @@ class ImplementationToolPermissionPolicyTests {
         assertEquals(true, context.repairMode());
         assertEquals(false, context.allowReadOnlyShell());
         assertEquals(false, context.allowExistingFileWholeRewrite());
+    }
+
+    @Test
+    void permissionContextConsumesRepairPredicateFromExecutionState() {
+        ImplementationExecutionPolicy executionPolicy = new ImplementationExecutionPolicy();
+        ImplementationToolPermissionPolicy policy = new ImplementationToolPermissionPolicy(
+                new ImplementationToolPermissionProperties(List.of()),
+                executionPolicy
+        );
+        SubtaskExecutionState freshState = new SubtaskExecutionState(DeliveryMode.REWORK, false);
+        SubtaskExecutionState repairState = freshState.applyRevisionDirective(
+                SubtaskRevisionDirective.patch(List.of(new FileChange("src/app.js", ChangeAction.WRITE, "继续修复")))
+        );
+
+        ImplementationToolPermissionContext freshContext = policy.build(
+                Path.of("/tmp/project"),
+                Set.of(Path.of("src/app.js")),
+                freshState.deliveryMode(),
+                freshState.repairRound(),
+                ImplementationToolRegistry.defaultRegistry().toolNames()
+        );
+        ImplementationToolPermissionContext repairContext = policy.build(
+                Path.of("/tmp/project"),
+                Set.of(Path.of("src/app.js")),
+                repairState.deliveryMode(),
+                repairState.repairRound(),
+                ImplementationToolRegistry.defaultRegistry().toolNames()
+        );
+
+        assertEquals(false, freshContext.repairMode());
+        assertEquals(true, freshContext.allowExistingFileWholeRewrite());
+        assertEquals(true, repairContext.repairMode());
+        assertEquals(false, repairContext.allowExistingFileWholeRewrite());
     }
 }

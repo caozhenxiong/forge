@@ -29,23 +29,26 @@ public final class SubtaskExecutionState {
 
     private final DeliveryMode deliveryMode;
     private final boolean preferPreciseEditing;
+    private final boolean repairRound;
     private final LinkedHashMap<Path, FileEditAttemptState> fileProgressByPath;
     private final ArrayList<FileChange> effectiveChanges;
     private final ImplementationToolSessionState toolSessionState;
 
     public SubtaskExecutionState(DeliveryMode deliveryMode, boolean preferPreciseEditing) {
-        this(deliveryMode, preferPreciseEditing, new LinkedHashMap<>(), List.of(), new ImplementationToolSessionState());
+        this(deliveryMode, preferPreciseEditing, false, new LinkedHashMap<>(), List.of(), new ImplementationToolSessionState());
     }
 
     private SubtaskExecutionState(
             DeliveryMode deliveryMode,
             boolean preferPreciseEditing,
+            boolean repairRound,
             LinkedHashMap<Path, FileEditAttemptState> fileProgressByPath,
             List<FileChange> effectiveChanges,
             ImplementationToolSessionState toolSessionState
     ) {
         this.deliveryMode = deliveryMode;
         this.preferPreciseEditing = preferPreciseEditing;
+        this.repairRound = repairRound;
         this.fileProgressByPath = fileProgressByPath == null ? new LinkedHashMap<>() : fileProgressByPath;
         this.effectiveChanges = new ArrayList<>(normalizeChanges(effectiveChanges));
         this.toolSessionState = toolSessionState == null ? new ImplementationToolSessionState() : toolSessionState;
@@ -59,11 +62,16 @@ public final class SubtaskExecutionState {
         return preferPreciseEditing;
     }
 
+    public boolean repairRound() {
+        return repairRound;
+    }
+
     public SubtaskExecutionState withRecoveryPolicy(DeliveryPolicy policy) {
         DeliveryMode nextMode = parseMode(policy.mode(), deliveryMode);
         return new SubtaskExecutionState(
                 nextMode,
                 policy.preferPreciseEditing(),
+                true,
                 copyProgressMap(),
                 copyEffectiveChanges(),
                 copyToolSessionState()
@@ -74,6 +82,7 @@ public final class SubtaskExecutionState {
         return new SubtaskExecutionState(
                 deliveryMode,
                 preferPreciseEditing,
+                repairRound,
                 copyProgressMap(),
                 copyEffectiveChanges(),
                 copyToolSessionState()
@@ -150,6 +159,7 @@ public final class SubtaskExecutionState {
         SubtaskExecutionState nextState = new SubtaskExecutionState(
                 nextMode,
                 preferPreciseEditing,
+                true,
                 copyProgressMap(),
                 copyEffectiveChanges(),
                 copyToolSessionState()
@@ -162,10 +172,10 @@ public final class SubtaskExecutionState {
      * 文件级生成失败已经携带了 edit attempt state 时，下一轮必须冻结兄弟文件，
      * 只续跑当前失败文件，避免把局部失败又放大回整子任务重写。
      */
-    public void applyFileScopedGenerationFailure(Subtask subtask, GenerationFailureException failure) {
+    public SubtaskExecutionState applyFileScopedGenerationFailure(Subtask subtask, GenerationFailureException failure) {
         Path failedPath = resolveFailedPath(failure);
         if (failedPath == null) {
-            return;
+            return this;
         }
         List<FileChange> sourceChanges = effectiveChanges.isEmpty()
                 ? normalizeChanges(subtask == null ? List.of() : subtask.changes())
@@ -175,9 +185,18 @@ public final class SubtaskExecutionState {
                 .filter(change -> failedPath.equals(Path.of(change.path()).normalize()))
                 .toList();
         if (failedChanges.isEmpty()) {
-            return;
+            return this;
         }
-        setEffectiveChanges(failedChanges);
+        SubtaskExecutionState nextState = new SubtaskExecutionState(
+                deliveryMode,
+                preferPreciseEditing,
+                true,
+                copyProgressMap(),
+                copyEffectiveChanges(),
+                copyToolSessionState()
+        );
+        nextState.setEffectiveChanges(failedChanges);
+        return nextState;
     }
 
     public List<FileChange> effectiveChanges() {
@@ -199,6 +218,24 @@ public final class SubtaskExecutionState {
             List<FileChange> effectiveChanges,
             ImplementationToolSessionState toolSessionState
     ) {
+        return restore(
+                deliveryMode,
+                preferPreciseEditing,
+                false,
+                fileEditAttemptStates,
+                effectiveChanges,
+                toolSessionState
+        );
+    }
+
+    public static SubtaskExecutionState restore(
+            String deliveryMode,
+            boolean preferPreciseEditing,
+            boolean repairRound,
+            List<FileEditAttemptState> fileEditAttemptStates,
+            List<FileChange> effectiveChanges,
+            ImplementationToolSessionState toolSessionState
+    ) {
         DeliveryMode resolvedMode = DeliveryMode.valueOf(deliveryMode);
         LinkedHashMap<Path, FileEditAttemptState> progressByPath = new LinkedHashMap<>();
         if (fileEditAttemptStates != null) {
@@ -209,7 +246,14 @@ public final class SubtaskExecutionState {
                 progressByPath.put(progressState.relativePath(), progressState);
             }
         }
-        return new SubtaskExecutionState(resolvedMode, preferPreciseEditing, progressByPath, effectiveChanges, toolSessionState);
+        return new SubtaskExecutionState(
+                resolvedMode,
+                preferPreciseEditing,
+                repairRound,
+                progressByPath,
+                effectiveChanges,
+                toolSessionState
+        );
     }
 
     private LinkedHashMap<Path, FileEditAttemptState> copyProgressMap() {

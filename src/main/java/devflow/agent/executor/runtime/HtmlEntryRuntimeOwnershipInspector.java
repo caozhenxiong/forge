@@ -183,7 +183,6 @@ public final class HtmlEntryRuntimeOwnershipInspector {
             if (runtimePath == null) {
                 continue;
             }
-            Path parent = runtimePath.getParent() == null ? Path.of("") : runtimePath.getParent().normalize();
             java.util.Set<Path> resolvedImports = new java.util.LinkedHashSet<>();
             String source = "";
             if (projectPath != null && Files.exists(projectPath.resolve(runtimePath))) {
@@ -194,10 +193,7 @@ public final class HtmlEntryRuntimeOwnershipInspector {
                 }
             }
             for (String specifier : devflow.agent.parsing.JavaScriptLiteralScanner.extractImportSpecifiers(source)) {
-                if (specifier == null || specifier.isBlank() || ProjectPathSupport.isExternalReference(specifier)) {
-                    continue;
-                }
-                Path resolved = parent.resolve(specifier).normalize();
+                Path resolved = runtimeScriptGraphInspector.resolveProjectRelativeReference(runtimePath, specifier);
                 if (availableRuntimePaths.contains(resolved)) {
                     resolvedImports.add(resolved);
                 }

@@ -289,10 +289,6 @@ final class ImplementationPlanChangeGate {
             if (unresolvedRuntimePaths.isEmpty()) {
                 return false;
             }
-            boolean hasReachableAnchor = scopedRuntimePaths.stream().anyMatch(reachableRuntimePaths::contains);
-            if (!hasReachableAnchor) {
-                return true;
-            }
             return unresolvedRuntimePaths.stream().anyMatch(runtimeRootPaths::contains);
         }
 

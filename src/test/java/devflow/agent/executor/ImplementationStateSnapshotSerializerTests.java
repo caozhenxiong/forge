@@ -85,6 +85,7 @@ class ImplementationStateSnapshotSerializerTests {
         SubtaskExecutionState executionState = SubtaskExecutionState.restore(
                 DeliveryMode.PATCH.name(),
                 false,
+                true,
                 List.of(),
                 List.of(change),
                 sessionState
@@ -110,6 +111,7 @@ class ImplementationStateSnapshotSerializerTests {
 
         assertEquals(1, parsed.reports().size());
         assertNotNull(parsed.reports().getFirst().toolSessionState());
+        assertTrue(parsed.reports().getFirst().repairRound());
         assertEquals(1, parsed.reports().getFirst().toolSessionState().diagnostics().size());
         assertEquals("FAILED", parsed.reports().getFirst().toolSessionState().diagnostics().getFirst().status());
         assertEquals("", parsed.reports().getFirst().toolSessionState().diagnostics().getFirst().relativePath());
@@ -129,6 +131,7 @@ class ImplementationStateSnapshotSerializerTests {
                 ToolFailureCode.COMMAND_FAILED,
                 restoredReports.getFirst().executionState().toolSessionState().diagnostics().getFirst().failureCode()
         );
+        assertTrue(restoredReports.getFirst().executionState().repairRound());
         assertTrue(restoredReports.getFirst().executionState().toolSessionState().transcript().isEmpty());
     }
 }

@@ -163,6 +163,7 @@ public final class ImplementationStateSnapshotSerializer {
                                 .toList(),
                         report.executionState() == null ? null : report.executionState().deliveryMode().name(),
                         report.executionState() != null && report.executionState().preferPreciseEditing(),
+                        report.executionState() != null && report.executionState().repairRound(),
                         serializeFileEditAttemptStates(report.executionState()),
                         serializeEffectiveChanges(report.executionState()),
                         serializeToolSessionState(report.executionState())

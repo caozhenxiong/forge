@@ -61,7 +61,7 @@ public class SubtaskExecutor {
             );
             if (attemptOutcome.generationFailure() != null) {
                 GenerationFailureException generationFailure = attemptOutcome.generationFailure();
-                executionState.applyFileScopedGenerationFailure(executionContext.subtask(), generationFailure);
+                executionState = executionState.applyFileScopedGenerationFailure(executionContext.subtask(), generationFailure);
                 GenerationFailureReport failureReport = generationFailure.report();
                 GenerationRecoveryDecision recoveryDecision = decideGenerationRecovery(
                         executionContext.projectPath(),

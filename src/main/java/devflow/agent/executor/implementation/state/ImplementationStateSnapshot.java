@@ -139,6 +139,7 @@ public record ImplementationStateSnapshot(
             List<SubtaskAttemptState> attempts,
             String deliveryMode,
             boolean preferPreciseEditing,
+            boolean repairRound,
             List<FileEditAttemptStateSnapshot> fileEditAttemptStates,
             List<FileChangeState> effectiveChanges,
             ToolSessionStateSnapshot toolSessionState
@@ -148,7 +149,7 @@ public record ImplementationStateSnapshot(
                 boolean completed,
                 List<SubtaskAttemptState> attempts
         ) {
-            this(title, completed, attempts, null, false, List.of(), List.of(), null);
+            this(title, completed, attempts, null, false, false, List.of(), List.of(), null);
         }
 
         public SubtaskExecutionStateSnapshot(
@@ -159,7 +160,19 @@ public record ImplementationStateSnapshot(
                 boolean preferPreciseEditing,
                 List<FileEditAttemptStateSnapshot> fileEditAttemptStates
         ) {
-            this(title, completed, attempts, deliveryMode, preferPreciseEditing, fileEditAttemptStates, List.of(), null);
+            this(title, completed, attempts, deliveryMode, preferPreciseEditing, false, fileEditAttemptStates, List.of(), null);
+        }
+
+        public SubtaskExecutionStateSnapshot(
+                String title,
+                boolean completed,
+                List<SubtaskAttemptState> attempts,
+                String deliveryMode,
+                boolean preferPreciseEditing,
+                boolean repairRound,
+                List<FileEditAttemptStateSnapshot> fileEditAttemptStates
+        ) {
+            this(title, completed, attempts, deliveryMode, preferPreciseEditing, repairRound, fileEditAttemptStates, List.of(), null);
         }
 
         public SubtaskExecutionStateSnapshot(
@@ -171,7 +184,33 @@ public record ImplementationStateSnapshot(
                 List<FileEditAttemptStateSnapshot> fileEditAttemptStates,
                 List<FileChangeState> effectiveChanges
         ) {
-            this(title, completed, attempts, deliveryMode, preferPreciseEditing, fileEditAttemptStates, effectiveChanges, null);
+            this(title, completed, attempts, deliveryMode, preferPreciseEditing, false, fileEditAttemptStates, effectiveChanges, null);
+        }
+
+        public SubtaskExecutionStateSnapshot(
+                String title,
+                boolean completed,
+                List<SubtaskAttemptState> attempts,
+                String deliveryMode,
+                boolean preferPreciseEditing,
+                boolean repairRound,
+                List<FileEditAttemptStateSnapshot> fileEditAttemptStates,
+                List<FileChangeState> effectiveChanges
+        ) {
+            this(title, completed, attempts, deliveryMode, preferPreciseEditing, repairRound, fileEditAttemptStates, effectiveChanges, null);
+        }
+
+        public SubtaskExecutionStateSnapshot(
+                String title,
+                boolean completed,
+                List<SubtaskAttemptState> attempts,
+                String deliveryMode,
+                boolean preferPreciseEditing,
+                List<FileEditAttemptStateSnapshot> fileEditAttemptStates,
+                List<FileChangeState> effectiveChanges,
+                ToolSessionStateSnapshot toolSessionState
+        ) {
+            this(title, completed, attempts, deliveryMode, preferPreciseEditing, false, fileEditAttemptStates, effectiveChanges, toolSessionState);
         }
     }
 

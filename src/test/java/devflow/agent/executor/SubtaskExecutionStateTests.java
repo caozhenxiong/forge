@@ -57,6 +57,7 @@ class SubtaskExecutionStateTests {
                 true
         ))));
 
+        assertEquals(true, state.repairRound());
         assertEquals(List.of("index.html"), state.effectiveChanges().stream().map(FileChange::path).toList());
         assertNull(state.fileEditAttemptState(Path.of("js/game-engine.js")));
         assertEquals("<html></html>", state.fileEditAttemptState(Path.of("index.html")).workingContent());
@@ -98,7 +99,7 @@ class SubtaskExecutionStateTests {
                 )
         );
 
-        state.applyFileScopedGenerationFailure(
+        state = state.applyFileScopedGenerationFailure(
                 subtask,
                 new GenerationFailureException(
                         new GenerationFailureReport(
@@ -124,6 +125,7 @@ class SubtaskExecutionStateTests {
                 )
         );
 
+        assertEquals(true, state.repairRound());
         assertEquals(List.of("src/app.js"), state.effectiveChanges().stream().map(FileChange::path).toList());
         assertNull(state.fileEditAttemptState(Path.of("index.html")));
         FileEditAttemptState progressState = state.fileEditAttemptState(Path.of("src/app.js"));

@@ -53,8 +53,41 @@ class PlanningRuntimeFactsResolverTests {
         assertEquals(Path.of("index.html"), facts.htmlEntryPath());
         assertTrue(facts.wiredRuntimePaths().isEmpty());
         assertTrue(facts.reachableRuntimePaths().isEmpty());
-        assertEquals(List.of(Path.of("index.app.js")), facts.runtimeRootPaths());
+        assertTrue(facts.runtimeRootPaths().isEmpty());
         assertTrue(facts.runtimeContract() != null && facts.runtimeContract().inlineHost());
+    }
+
+    @Test
+    void normalizesRootRelativeRuntimePathsFromObservedHtml() throws Exception {
+        Files.writeString(
+                tempDir.resolve("index.html"),
+                """
+                        <!doctype html>
+                        <html>
+                        <body>
+                          <script type="module" src="/index.app.js"></script>
+                        </body>
+                        </html>
+                        """
+        );
+        Files.createDirectories(tempDir.resolve("src"));
+        Files.writeString(
+                tempDir.resolve("index.app.js"),
+                """
+                        import { engine } from "/src/engine.js";
+                        export const app = engine;
+                        """
+        );
+        Files.writeString(tempDir.resolve("src/engine.js"), "export const engine = true;");
+
+        PlanningRuntimeFacts facts = new PlanningRuntimeFactsResolver(new FileProjectWorkspace()).resolve(request(
+                fingerprint(Set.of("index.html", "index.app.js", "src/engine.js")),
+                ImplementationContinuationConstraints.empty()
+        ));
+
+        assertEquals(List.of(Path.of("index.app.js")), facts.wiredRuntimePaths());
+        assertEquals(List.of(Path.of("index.app.js"), Path.of("src/engine.js")), facts.reachableRuntimePaths());
+        assertEquals(List.of(Path.of("index.app.js")), facts.runtimeRootPaths());
     }
 
     @Test

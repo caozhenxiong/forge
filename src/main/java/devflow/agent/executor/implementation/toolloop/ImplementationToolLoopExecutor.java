@@ -98,7 +98,7 @@ public final class ImplementationToolLoopExecutor {
     ) {
         DeliveryMode activeDeliveryMode = activeDeliveryMode(subtask, executionState);
         List<FileChange> activeChanges = activeChanges(subtask, executionState);
-        boolean repairMode = isRepairMode(subtask, executionState, feedback);
+        boolean repairMode = isRepairMode(executionState);
         Subtask activeSubtask = scopeSubtask(subtask, activeDeliveryMode, activeChanges);
         TaskPackage activeTaskPackage = taskPackage == null ? null : taskPackage.alignToSubtask(activeSubtask);
         Set<Path> ownedPaths = collectOwnedPaths(activeSubtask);
@@ -511,11 +511,14 @@ public final class ImplementationToolLoopExecutor {
         if (currentState == null || !currentState.exists()) {
             return false;
         }
-        if (workspaceStateClosure) {
-            return true;
-        }
         if (mutationSummary == null) {
             return false;
+        }
+        if (!matchesLatestTerminalState(mutationSummary, currentState)) {
+            return false;
+        }
+        if (workspaceStateClosure) {
+            return true;
         }
         return mutationSummary.beforeExists() != currentState.exists()
                 || !mutationSummary.beforeHash().equals(currentState.contentHash());
@@ -526,10 +529,16 @@ public final class ImplementationToolLoopExecutor {
             boolean currentExists,
             boolean workspaceStateClosure
     ) {
-        if (workspaceStateClosure) {
-            return !currentExists;
+        if (mutationSummary == null) {
+            return false;
         }
-        return mutationSummary != null && mutationSummary.beforeExists() && !currentExists;
+        if (!matchesLatestTerminalState(mutationSummary, currentExists)) {
+            return false;
+        }
+        if (workspaceStateClosure) {
+            return true;
+        }
+        return mutationSummary.beforeExists() && !currentExists;
     }
 
     private String truncationContinuationPrompt(Subtask subtask) {
@@ -595,26 +604,24 @@ public final class ImplementationToolLoopExecutor {
         return executionState.effectiveChanges(declaredChanges);
     }
 
-    private boolean isRepairMode(Subtask subtask, SubtaskExecutionState executionState, String feedback) {
-        if (executionState == null) {
-            return false;
-        }
-        if (feedback != null && !feedback.isBlank()) {
-            return true;
-        }
-        if (!executionState.fileEditAttemptStates().isEmpty()) {
-            return true;
-        }
-        if (executionState.toolSessionState() != null && !executionState.toolSessionState().transcript().isEmpty()) {
-            return true;
-        }
-        List<FileChange> declaredChanges = subtask == null || subtask.changes() == null ? List.of() : subtask.changes();
-        return !executionState.effectiveChanges().isEmpty()
-                && !sameChangeSet(executionState.effectiveChanges(declaredChanges), declaredChanges);
+    private boolean isRepairMode(SubtaskExecutionState executionState) {
+        return executionState != null && executionState.repairRound();
     }
 
-    private boolean sameChangeSet(List<FileChange> left, List<FileChange> right) {
-        return summarizeDeclaredChanges(left).equals(summarizeDeclaredChanges(right));
+    private boolean matchesLatestTerminalState(PathMutationSummary mutationSummary, FileStateSnapshot currentState) {
+        if (mutationSummary == null || currentState == null) {
+            return false;
+        }
+        return mutationSummary.afterExists() == currentState.exists()
+                && mutationSummary.afterHash().equals(currentState.contentHash());
+    }
+
+    private boolean matchesLatestTerminalState(PathMutationSummary mutationSummary, boolean currentExists) {
+        if (mutationSummary == null) {
+            return false;
+        }
+        return mutationSummary.afterExists() == currentExists
+                && (!currentExists || mutationSummary.afterHash() != null);
     }
 
     private Subtask scopeSubtask(Subtask subtask, DeliveryMode deliveryMode, List<FileChange> activeChanges) {

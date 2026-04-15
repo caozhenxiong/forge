@@ -72,6 +72,7 @@ class ImplementationResumePolicyTests {
                                 List.of(),
                                 "PATCH",
                                 true,
+                                true,
                                 List.of(new ImplementationStateSnapshot.FileEditAttemptStateSnapshot(
                                         "app.js",
                                         FileEditProtocolNames.TARGETED_REWRITE,
@@ -112,6 +113,7 @@ class ImplementationResumePolicyTests {
         assertNotNull(reusableState.resumedExecutionState());
         assertEquals(DeliveryMode.PATCH, reusableState.resumedExecutionState().deliveryMode());
         assertTrue(reusableState.resumedExecutionState().preferPreciseEditing());
+        assertTrue(reusableState.resumedExecutionState().repairRound());
         FileEditAttemptState progressState = reusableState.resumedExecutionState().fileEditAttemptState(Path.of("app.js"));
         assertNotNull(progressState);
         assertEquals(FileEditStrategyNames.PRECISE_CODE, progressState.strategyName());

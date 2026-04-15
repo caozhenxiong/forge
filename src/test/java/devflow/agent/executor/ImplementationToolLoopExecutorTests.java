@@ -26,6 +26,7 @@ import devflow.agent.domain.RunConfig;
 import devflow.agent.domain.RunRecord;
 import devflow.agent.domain.RunStatus;
 import devflow.agent.domain.StageType;
+import devflow.agent.editing.precise.FileStateLedger;
 import devflow.agent.quality.QualityPlan;
 import devflow.agent.validation.ProjectFingerprint;
 import java.nio.file.Files;
@@ -423,9 +424,25 @@ class ImplementationToolLoopExecutorTests {
     }
 
     @Test
-    void toolLoopAllowsAssistantOnlyCompletionInRepairModeWhenWorkspaceAlreadyMatchesScope() throws Exception {
+    void toolLoopAllowsAssistantOnlyCompletionInRepairModeWhenMutationHistoryMatchesCurrentState() throws Exception {
         Path file = tempDir.resolve("app.js");
         Files.writeString(file, "export const ready = true;\n");
+        String beforeContent = "export const ready = false;\n";
+        String afterContent = "export const ready = true;\n";
+        SubtaskExecutionState executionState = new SubtaskExecutionState(DeliveryMode.PATCH, false)
+                .applyRevisionDirective(devflow.agent.executor.subtask.SubtaskRevisionDirective.patch(
+                        List.of(new FileChange("app.js", ChangeAction.WRITE, "继续修复 app.js"))
+                ));
+        executionState.toolSessionState().recordMutation(new FileMutationRecord(
+                ToolLoopMutationOperation.UPDATE,
+                Path.of("app.js"),
+                true,
+                hash(beforeContent),
+                true,
+                hash(afterContent),
+                List.of(),
+                1L
+        ));
 
         ImplementationToolLoopExecutor executor = newToolLoopExecutor(
                 new ScriptedChatProvider(
@@ -445,11 +462,120 @@ class ImplementationToolLoopExecutorTests {
                 "继续当前 repair round，只验证当前范围。",
                 "",
                 null,
-                new SubtaskExecutionState(DeliveryMode.PATCH, false)
+                executionState
         );
 
         assertEquals("当前修复范围已满足", result.finalResponse());
-        assertEquals(List.of(), result.touchedPaths());
+        assertEquals(List.of(Path.of("app.js")), result.touchedPaths());
+        assertEquals(afterContent, Files.readString(file));
+    }
+
+    @Test
+    void toolLoopRejectsAssistantOnlyCompletionWhenCurrentStateDriftedFromMutationTerminalState() throws Exception {
+        Path file = tempDir.resolve("app.js");
+        Files.writeString(file, "export const ready = maybe;\n");
+        String beforeContent = "export const ready = false;\n";
+        String afterContent = "export const ready = true;\n";
+        SubtaskExecutionState executionState = new SubtaskExecutionState(DeliveryMode.PATCH, false)
+                .applyRevisionDirective(devflow.agent.executor.subtask.SubtaskRevisionDirective.patch(
+                        List.of(new FileChange("app.js", ChangeAction.WRITE, "继续修复 app.js"))
+                ));
+        executionState.toolSessionState().recordMutation(new FileMutationRecord(
+                ToolLoopMutationOperation.UPDATE,
+                Path.of("app.js"),
+                true,
+                hash(beforeContent),
+                true,
+                hash(afterContent),
+                List.of(),
+                1L
+        ));
+
+        ImplementationToolLoopExecutor executor = newToolLoopExecutor(
+                new ScriptedChatProvider(
+                        new LlmChatResponse("当前修复范围已满足", List.of(), null, "stop")
+                ),
+                2
+        );
+
+        GenerationFailureException exception = assertThrows(
+                GenerationFailureException.class,
+                () -> executor.execute(
+                        tempDir,
+                        runRecord(tempDir),
+                        subtask("继续修复 app.js", "app.js"),
+                        taskPackage("继续修复 app.js", "app.js"),
+                        null,
+                        QualityPlan.empty(),
+                        fingerprint("app.js"),
+                        "继续当前 repair round，只验证当前范围。",
+                        "",
+                        null,
+                        executionState
+                )
+        );
+
+        assertEquals(GenerationFailureType.NO_MATERIAL_CHANGE, exception.report().failureType());
+        assertTrue(exception.report().evidence().contains("closureMode=workspace-state"));
+        assertTrue(exception.report().evidence().contains("path=app.js"));
+    }
+
+    @Test
+    void toolLoopKeepsFreshModeWhenFeedbackIsNonEmptyButExecutionStateIsFresh() throws Exception {
+        Path file = tempDir.resolve("app.js");
+        Files.writeString(file, "export const ready = false;\n");
+
+        ImplementationToolLoopExecutor executor = newToolLoopExecutor(
+                new ScriptedChatProvider(
+                        new LlmChatResponse(
+                                "",
+                                List.of(new LlmToolCall("tool-1", "Read", Map.of("file_path", file.toString()))),
+                                null,
+                                ""
+                        ),
+                        new LlmChatResponse(
+                                "",
+                                List.of(new LlmToolCall(
+                                        "tool-2",
+                                        "Write",
+                                        Map.of(
+                                                "file_path", file.toString(),
+                                                "content", "export const ready = true;\n"
+                                        )
+                                )),
+                                null,
+                                ""
+                        ),
+                        new LlmChatResponse("done", List.of(), null, "stop")
+                ),
+                4
+        );
+
+        ImplementationToolLoopResult result = executor.execute(
+                tempDir,
+                runRecord(tempDir),
+                new Subtask(
+                        "整文件重写 app.js",
+                        "整文件重写 app.js",
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of("完成当前文件修改"),
+                        false,
+                        DeliveryMode.REWORK,
+                        List.of(new FileChange("app.js", ChangeAction.WRITE, "整文件重写 app.js"))
+                ),
+                taskPackage("整文件重写 app.js", "app.js", DeliveryMode.REWORK),
+                null,
+                QualityPlan.empty(),
+                fingerprint("app.js"),
+                "这是一条上游 prose note，但当前还是 fresh implementation。",
+                "",
+                null,
+                new SubtaskExecutionState(DeliveryMode.REWORK, false)
+        );
+
+        assertEquals("done", result.finalResponse());
         assertEquals("export const ready = true;\n", Files.readString(file));
     }
 
@@ -681,10 +807,14 @@ class ImplementationToolLoopExecutorTests {
     }
 
     private TaskPackage taskPackage(String title, String path) {
+        return taskPackage(title, path, DeliveryMode.PATCH);
+    }
+
+    private TaskPackage taskPackage(String title, String path, DeliveryMode deliveryMode) {
         return new TaskPackage(
                 title,
                 title,
-                DeliveryMode.PATCH.name(),
+                deliveryMode.name(),
                 false,
                 List.of(path),
                 List.of(),
@@ -696,6 +826,10 @@ class ImplementationToolLoopExecutorTests {
                 "",
                 null
         );
+    }
+
+    private String hash(String content) {
+        return new FileStateLedger().capture(Path.of("app.js"), content).contentHash();
     }
 
     private ProjectFingerprint fingerprint(String... fileNames) {

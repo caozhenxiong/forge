@@ -174,13 +174,59 @@ class WebRuntimeWiringCheckTests {
                   <main id="app-root">
                     <canvas id="game-canvas"></canvas>
                   </main>
-                  <script src="./js/game-engine.js"></script>
+                  <script src="/js/game-engine.js"></script>
                 </body>
                 </html>
                 """);
         Files.writeString(projectDir.resolve("js").resolve("game-engine.js"), """
                 export function startGame() {
                   return 'started';
+                }
+                """);
+
+        TreeSitterSupport treeSitterSupport = new TreeSitterSupport();
+        HtmlStructureSnapshot snapshot = treeSitterSupport.inspectHtml(Files.readString(htmlEntry));
+        WebRuntimeWiringCheck check = new WebRuntimeWiringCheck(new FileProjectWorkspace());
+
+        WebRuntimeWiringResult result = check.inspect(
+                projectDir,
+                Path.of("index.html"),
+                snapshot,
+                Files.readString(htmlEntry)
+        );
+
+        assertTrue(result.passed());
+    }
+
+    @Test
+    void rootRelativeModuleImportsCountAsWired() throws Exception {
+        Path projectDir = tempDir.resolve("project-root-import");
+        Files.createDirectories(projectDir.resolve("js"));
+        Path htmlEntry = projectDir.resolve("index.html");
+        Files.writeString(htmlEntry, """
+                <!DOCTYPE html>
+                <html lang="zh-CN">
+                <head>
+                  <meta charset="UTF-8">
+                  <title>Tetris</title>
+                </head>
+                <body>
+                  <main id="app-root">
+                    <canvas id="game-canvas"></canvas>
+                  </main>
+                  <script type="module" src="/js/game-engine.js"></script>
+                </body>
+                </html>
+                """);
+        Files.writeString(projectDir.resolve("js").resolve("game-engine.js"), """
+                import { createCore } from "/js/core.js";
+                export function startGame() {
+                  return createCore();
+                }
+                """);
+        Files.writeString(projectDir.resolve("js").resolve("core.js"), """
+                export function createCore() {
+                  return { ready: true };
                 }
                 """);
 

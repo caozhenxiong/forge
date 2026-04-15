@@ -33,31 +33,32 @@ final class PlanningRuntimeFactsResolver {
         }
         Path htmlEntryPath = Path.of(request.fingerprint().resolvedHtmlEntryPath()).normalize();
         Path projectPath = request.runRecord() == null ? null : request.runRecord().projectPath();
-        List<Path> currentRuntimeRoots = resolveCurrentRuntimeRoots(projectPath, htmlEntryPath);
         HtmlRuntimeOwnershipContract explicitContract = request.continuationConstraints() == null
                 ? null
                 : request.continuationConstraints().protectedRuntimeContract(htmlEntryPath.toString());
         if (explicitContract != null && explicitContract.active()) {
+            List<Path> knownRuntimeRoots = resolveKnownRuntimeRoots(projectPath, explicitContract.runtimePaths());
             return new PlanningRuntimeFacts(
                     htmlEntryPath,
                     explicitContract,
                     resolveReachableRuntimePaths(projectPath, htmlEntryPath, explicitContract.runtimePaths()),
-                    currentRuntimeRoots
+                    knownRuntimeRoots
             );
         }
         String htmlSource = readHtmlSource(projectPath, htmlEntryPath);
         if (htmlSource.isBlank()) {
-            return new PlanningRuntimeFacts(htmlEntryPath, null, List.of(), currentRuntimeRoots);
+            return new PlanningRuntimeFacts(htmlEntryPath, null, List.of(), List.of());
         }
         List<Path> runtimePaths = resolveObservedRuntimePaths(htmlEntryPath, htmlSource);
         HtmlRuntimeOwnershipContract observedContract = runtimePaths.isEmpty()
                 ? HtmlRuntimeOwnershipContract.inlineHost(htmlEntryPath)
                 : HtmlRuntimeOwnershipContract.externalCompanion(htmlEntryPath, runtimePaths);
+        List<Path> knownRuntimeRoots = resolveKnownRuntimeRoots(projectPath, observedContract.runtimePaths());
         return new PlanningRuntimeFacts(
                 htmlEntryPath,
                 observedContract,
                 resolveReachableRuntimePaths(projectPath, htmlEntryPath, observedContract.runtimePaths()),
-                currentRuntimeRoots
+                knownRuntimeRoots
         );
     }
 
@@ -86,32 +87,12 @@ final class PlanningRuntimeFactsResolver {
     }
 
     private void addRuntimePath(Set<Path> resolved, Path htmlEntryPath, String rawReference) {
-        Path runtimePath = resolveRuntimePath(htmlEntryPath, rawReference);
+        Path runtimePath = runtimeScriptGraphInspector.resolveProjectRelativeReference(htmlEntryPath, rawReference);
         if (runtimePath != null) {
-            resolved.add(runtimePath);
+            if (ProjectPathSupport.isRuntimeScript(runtimePath)) {
+                resolved.add(runtimePath);
+            }
         }
-    }
-
-    private Path resolveRuntimePath(Path htmlEntryPath, String rawReference) {
-        if (htmlEntryPath == null || rawReference == null || rawReference.isBlank()) {
-            return null;
-        }
-        String normalizedReference = stripQueryAndFragment(rawReference.trim());
-        if (normalizedReference.isBlank() || ProjectPathSupport.isExternalReference(normalizedReference)) {
-            return null;
-        }
-        Path htmlParent = htmlEntryPath.getParent() == null ? Path.of("") : htmlEntryPath.getParent().normalize();
-        Path runtimePath = normalizedReference.startsWith("/")
-                ? Path.of(normalizedReference.substring(1)).normalize()
-                : htmlParent.resolve(normalizedReference).normalize();
-        return ProjectPathSupport.isRuntimeScript(runtimePath) ? runtimePath : null;
-    }
-
-    private String stripQueryAndFragment(String value) {
-        int fragmentIndex = value.indexOf('#');
-        String withoutFragment = fragmentIndex >= 0 ? value.substring(0, fragmentIndex) : value;
-        int queryIndex = withoutFragment.indexOf('?');
-        return queryIndex >= 0 ? withoutFragment.substring(0, queryIndex) : withoutFragment;
     }
 
     private List<Path> resolveReachableRuntimePaths(
@@ -138,12 +119,17 @@ final class PlanningRuntimeFactsResolver {
                 .toList();
     }
 
-    private List<Path> resolveCurrentRuntimeRoots(Path projectPath, Path htmlEntryPath) {
-        if (projectPath == null || htmlEntryPath == null) {
+    private List<Path> resolveKnownRuntimeRoots(Path projectPath, List<Path> declaredRuntimePaths) {
+        if (declaredRuntimePaths == null || declaredRuntimePaths.isEmpty()) {
             return List.of();
         }
-        RuntimeScriptGraphInspector.RuntimeScriptGraph runtimeGraph =
-                runtimeScriptGraphInspector.inspectProject(projectPath, htmlEntryPath);
-        return runtimeScriptGraphInspector.selectRootScripts(runtimeGraph.runtimeScripts(), runtimeGraph);
+        if (projectPath == null) {
+            return declaredRuntimePaths.stream()
+                    .filter(path -> path != null)
+                    .map(Path::normalize)
+                    .distinct()
+                    .toList();
+        }
+        return runtimeScriptGraphInspector.selectDeclaredRoots(projectPath, declaredRuntimePaths);
     }
 }

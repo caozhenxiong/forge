@@ -36,14 +36,28 @@ public final class RuntimeScriptGraphInspector {
         return new RuntimeScriptGraph(runtimeScripts, imports);
     }
 
+    public Path resolveProjectRelativeReference(Path ownerPath, String rawRef) {
+        if (ownerPath == null || rawRef == null || rawRef.isBlank()) {
+            return null;
+        }
+        String normalizedRef = normalizeLocalReference(rawRef);
+        if (normalizedRef.isBlank() || ProjectPathSupport.isExternalReference(normalizedRef)) {
+            return null;
+        }
+        Path ownerDirectory = ownerPath.getParent() == null ? Path.of("") : ownerPath.getParent().normalize();
+        Path resolved = normalizedRef.startsWith("/")
+                ? Path.of(normalizedRef.substring(1))
+                : ownerDirectory.resolve(normalizedRef);
+        return resolved.normalize();
+    }
+
     public Set<Path> resolveDirectHtmlRuntimeScripts(Path htmlEntryPath, String htmlSource, Set<Path> candidateScripts) {
         if (htmlEntryPath == null || candidateScripts == null || candidateScripts.isEmpty()) {
             return Set.of();
         }
-        Path htmlParent = htmlEntryPath.getParent() == null ? Path.of("") : htmlEntryPath.getParent().normalize();
         Set<Path> resolved = new LinkedHashSet<>();
         for (String rawRef : HtmlDocumentInspector.referencedScriptPaths(htmlSource)) {
-            Path candidate = resolveCandidatePath(htmlParent, rawRef, candidateScripts);
+            Path candidate = resolveCandidatePath(htmlEntryPath, rawRef, candidateScripts);
             if (candidate != null) {
                 resolved.add(candidate);
             }
@@ -55,11 +69,10 @@ public final class RuntimeScriptGraphInspector {
         if (htmlEntryPath == null || candidateScripts == null || candidateScripts.isEmpty()) {
             return Set.of();
         }
-        Path htmlParent = htmlEntryPath.getParent() == null ? Path.of("") : htmlEntryPath.getParent().normalize();
         Set<Path> resolved = new LinkedHashSet<>();
         for (String inlineBody : HtmlDocumentInspector.inlineScriptBodies(htmlSource)) {
             for (String specifier : JavaScriptLiteralScanner.extractImportSpecifiers(inlineBody)) {
-                Path candidate = resolveCandidatePath(htmlParent, specifier, candidateScripts);
+                Path candidate = resolveCandidatePath(htmlEntryPath, specifier, candidateScripts);
                 if (candidate != null) {
                     resolved.add(candidate);
                 }
@@ -146,7 +159,6 @@ public final class RuntimeScriptGraphInspector {
     private Map<Path, Set<Path>> buildImports(Path projectPath, Set<Path> runtimeScripts) {
         Map<Path, Set<Path>> imports = new LinkedHashMap<>();
         for (Path runtimeScript : runtimeScripts) {
-            Path scriptParent = runtimeScript.getParent() == null ? Path.of("") : runtimeScript.getParent().normalize();
             Set<Path> resolvedImports = new LinkedHashSet<>();
             String source = "";
             try {
@@ -155,7 +167,7 @@ public final class RuntimeScriptGraphInspector {
                 source = "";
             }
             for (String specifier : JavaScriptLiteralScanner.extractImportSpecifiers(source)) {
-                Path candidate = resolveCandidatePath(scriptParent, specifier, runtimeScripts);
+                Path candidate = resolveCandidatePath(runtimeScript, specifier, runtimeScripts);
                 if (candidate != null) {
                     resolvedImports.add(candidate);
                 }
@@ -165,19 +177,31 @@ public final class RuntimeScriptGraphInspector {
         return Map.copyOf(imports);
     }
 
-    private Path resolveCandidatePath(Path basePath, String rawRef, Set<Path> candidateScripts) {
-        if (rawRef == null || rawRef.isBlank() || candidateScripts == null || candidateScripts.isEmpty()) {
+    private Path resolveCandidatePath(Path ownerPath, String rawRef, Set<Path> candidateScripts) {
+        if (ownerPath == null || rawRef == null || rawRef.isBlank() || candidateScripts == null || candidateScripts.isEmpty()) {
             return null;
         }
-        String normalizedRef = rawRef.trim();
-        if (ProjectPathSupport.isExternalReference(normalizedRef)) {
+        Path resolved = resolveProjectRelativeReference(ownerPath, rawRef);
+        if (resolved == null) {
             return null;
         }
-        Path resolved = basePath.resolve(normalizedRef).normalize();
         if (candidateScripts.contains(resolved)) {
             return resolved;
         }
         return null;
+    }
+
+    private String normalizeLocalReference(String rawRef) {
+        String normalized = rawRef == null ? "" : rawRef.trim();
+        int fragmentIndex = normalized.indexOf('#');
+        if (fragmentIndex >= 0) {
+            normalized = normalized.substring(0, fragmentIndex);
+        }
+        int queryIndex = normalized.indexOf('?');
+        if (queryIndex >= 0) {
+            normalized = normalized.substring(0, queryIndex);
+        }
+        return normalized.trim();
     }
 
     public record RuntimeScriptGraph(
