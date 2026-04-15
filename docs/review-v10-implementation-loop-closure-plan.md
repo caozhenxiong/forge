@@ -173,10 +173,11 @@
 - 一旦当前 review / gate 已产出 concrete patch package，它必须成为以下链路的唯一输入：
   - retry feedback
   - next attempt effective changes
-  - implementation shared context
+  - execution directive payload / stage continuation note
   - implementation_state
-  - stage continuation note
+  - continuation parsing / context expansion
   - implementation resume
+- `implementation_shared_context.md` 只允许承载 repair summary，给 coder 看当前修复背景；它不是 canonical patch package 的 machine truth source。
 - 任何 concrete patch target 若没有 canonical overrideChanges：
   - 不允许 generic continue
   - 不允许 whole-file rewrite
@@ -265,7 +266,9 @@
 - `src/main/java/devflow/agent/executor/subtask/SubtaskAttemptStepExecutor.java`
 - `src/main/java/devflow/agent/executor/subtask/SubtaskExecutor.java`
 - `src/main/java/devflow/agent/executor/testing/TestExecutor.java`
+- `src/main/java/devflow/agent/protocol/ExecutionDirectivePayload.java`
 - `src/main/java/devflow/agent/orchestrator/StageContinuationNoteBuilder.java`
+- `src/main/java/devflow/agent/executor/implementation/planning/ImplementationContextResolver.java`
 - `src/main/java/devflow/agent/executor/implementation/state/ImplementationStateSnapshotSerializer.java`
 - `src/main/java/devflow/agent/executor/implementation/state/ImplementationStateArtifactSupport.java`
 - `src/main/java/devflow/agent/orchestrator/ImplementationContinuationSupport.java`
@@ -273,10 +276,16 @@
 目标：
 
 - 让 concrete patch package 从 review 产生之后，不再在任一中间层退化成 prose-only 或 `overrideChanges=[]`。
+- `implementation_shared_context.md` 保持 repair summary 角色，不承担 canonical patch package 的结构化真相源，避免与 `ExecutionDirectivePayload / implementation_state` 再长第二套协议。
 
 ### Scope 4. Implementation Continuation / Stage Attempt Classification
 
 - `src/main/java/devflow/agent/executor/gate/ImplementationStageGate.java`
+- `src/main/java/devflow/agent/protocol/ImplementationContinuationMode.java`
+- `src/main/java/devflow/agent/protocol/ImplementationStageStatusPayload.java`
+- `src/main/java/devflow/agent/executor/implementation/render/ImplementationStageStatusArtifactRenderer.java`
+- `src/main/java/devflow/agent/executor/implementation/state/ImplementationStateCodec.java`
+- `src/main/java/devflow/agent/orchestrator/StageContinuationContext.java`
 - `src/main/java/devflow/agent/orchestrator/ImplementationProgressSupport.java`
 - `src/main/java/devflow/agent/orchestrator/ImplementationRevisionFacts.java`
 - `src/main/java/devflow/agent/orchestrator/StageProgressCoordinator.java`
