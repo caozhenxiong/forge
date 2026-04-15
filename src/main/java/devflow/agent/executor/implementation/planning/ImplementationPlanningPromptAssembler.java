@@ -80,6 +80,7 @@ final class ImplementationPlanningPromptAssembler {
             FixMode fixMode,
             ImplementationPatchTarget implementationPatchTarget,
             ImplementationContinuationConstraints continuationConstraints,
+            PlanningRuntimeFacts runtimeFacts,
             ImplementationOutline outline,
             ImplementationOutlineSubtask subtask,
             String planningFeedback
@@ -96,6 +97,7 @@ final class ImplementationPlanningPromptAssembler {
                 qualityPlan,
                 language,
                 workspaceContext,
+                runtimeFacts,
                 outline,
                 subtask,
                 planningFeedback

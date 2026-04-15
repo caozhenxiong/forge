@@ -128,6 +128,38 @@ class ImplementationPlanningPayloadParserTests {
     }
 
     @Test
+    void parsesSubtaskDetailWithRuntimeScriptRole() {
+        RecordingLlmProvider llmProvider = new RecordingLlmProvider(List.of());
+        ImplementationPlanningPayloadParser parser = new ImplementationPlanningPayloadParser(
+                llmProvider,
+                new ObjectMapper(),
+                2
+        );
+
+        ImplementationPlanningPayloadParser.ParseResult<ImplementationSubtaskDetail> result = parser.parseSubtaskDetail(
+                "subtask-1",
+                """
+                {
+                  "subtaskId": "subtask-1",
+                  "changes": [
+                    {
+                      "path": "src/engine.js",
+                      "action": "WRITE",
+                      "reason": "新增运行时叶子模块",
+                      "runtimeScriptRole": "LEAF"
+                    }
+                  ]
+                }
+                """,
+                null,
+                1
+        );
+
+        assertEquals(PlanningRuntimeScriptRole.LEAF, result.payload().changes().getFirst().runtimeScriptRole());
+        assertEquals(0, llmProvider.generateCalls());
+    }
+
+    @Test
     void rejectsLegacySubtaskDetailFieldsWhenRepairCannotProduceMinimalSchema() {
         RecordingLlmProvider llmProvider = new RecordingLlmProvider(List.of("""
                 {

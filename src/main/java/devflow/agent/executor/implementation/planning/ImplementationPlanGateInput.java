@@ -37,6 +37,7 @@ public record ImplementationPlanGateInput(
         QualityPlan qualityPlan,
         ImplementationPatchTarget implementationPatchTarget,
         ImplementationContinuationConstraints continuationConstraints,
+        List<ImplementationSubtaskDetail> acceptedDetails,
         List<Subtask> subtasks
 ) {
 }

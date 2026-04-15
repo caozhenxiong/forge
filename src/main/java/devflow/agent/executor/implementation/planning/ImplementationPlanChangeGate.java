@@ -31,13 +31,14 @@ final class ImplementationPlanChangeGate {
     List<GateIssue> evaluate(
             PlanningRuntimeFacts runtimeFacts,
             ImplementationContinuationConstraints continuationConstraints,
+            List<ImplementationSubtaskDetail> acceptedDetails,
             List<Subtask> subtasks
     ) {
         if (subtasks == null || subtasks.isEmpty()) {
             return List.of();
         }
         List<GateIssue> issues = new ArrayList<>(evaluateContinuationConstraints(continuationConstraints, subtasks));
-        issues.addAll(evaluateAcceptedPackageCompleteness(runtimeFacts, subtasks));
+        issues.addAll(evaluateAcceptedPackageCompleteness(runtimeFacts, acceptedDetails));
         return List.copyOf(issues);
     }
 
@@ -77,19 +78,26 @@ final class ImplementationPlanChangeGate {
             return List.of();
         }
         ScopePaths scopePaths = ScopePaths.fromDetailChanges(changes);
-        if (!scopePaths.requiresHostEntryPatch(runtimeFacts)) {
+        List<String> findings = scopePaths.assessStructuredRuntimePackage(runtimeFacts);
+        if (findings.isEmpty()) {
             return List.of();
         }
-        return List.of(new GateIssue(
-                "PLAN_RUNTIME_1",
-                "当前子任务把新的 runtime split 拆成了不完整 package：新增 runtime 脚本时，必须在同一子任务里同步携带宿主 HTML patch。",
-                GateFailureDisposition.REPLAN_CURRENT_STAGE,
-                GateIssueContext.forPlanningUnitPaths(
-                        ImplementationPlanningUnitKind.SUBTASK_DETAIL,
-                        subtaskId == null || subtaskId.isBlank() ? OUTLINE_UNIT_ID : subtaskId,
-                        scopePaths.normalizedPathStrings()
-                )
-        ));
+        List<GateIssue> issues = new ArrayList<>();
+        int issueIndex = 1;
+        String unitId = subtaskId == null || subtaskId.isBlank() ? OUTLINE_UNIT_ID : subtaskId;
+        for (String finding : findings) {
+            issues.add(new GateIssue(
+                    "PLAN_RUNTIME_" + issueIndex++,
+                    finding,
+                    GateFailureDisposition.REPLAN_CURRENT_STAGE,
+                    GateIssueContext.forPlanningUnitPaths(
+                            ImplementationPlanningUnitKind.SUBTASK_DETAIL,
+                            unitId,
+                            scopePaths.normalizedPathStrings()
+                    )
+            ));
+        }
+        return List.copyOf(issues);
     }
 
     private List<GateIssue> evaluateContinuationConstraints(
@@ -123,25 +131,34 @@ final class ImplementationPlanChangeGate {
 
     private List<GateIssue> evaluateAcceptedPackageCompleteness(
             PlanningRuntimeFacts runtimeFacts,
-            List<Subtask> subtasks
+            List<ImplementationSubtaskDetail> acceptedDetails
     ) {
+        if (acceptedDetails == null || acceptedDetails.isEmpty()) {
+            return List.of();
+        }
         List<GateIssue> issues = new ArrayList<>();
         int issueIndex = 1;
-        for (Subtask subtask : subtasks) {
-            ScopePaths scopePaths = ScopePaths.fromSubtask(subtask);
-            if (!scopePaths.requiresHostEntryPatch(runtimeFacts)) {
+        for (ImplementationSubtaskDetail detail : acceptedDetails) {
+            ScopePaths scopePaths = ScopePaths.fromDetail(detail);
+            List<String> findings = scopePaths.assessStructuredRuntimePackage(runtimeFacts);
+            if (findings.isEmpty()) {
                 continue;
             }
-            issues.add(new GateIssue(
-                    "PLAN_RUNTIME_" + issueIndex++,
-                    "当前 implementation plan 把新的 runtime split 拆成了不完整 package：新增 runtime 脚本时，必须在同一子任务里同步携带宿主 HTML patch。",
-                    GateFailureDisposition.REPLAN_CURRENT_STAGE,
-                    GateIssueContext.forPlanningUnitPaths(
-                            ImplementationPlanningUnitKind.OUTLINE,
-                            OUTLINE_UNIT_ID,
-                            scopePaths.normalizedPathStrings()
-                    )
-            ));
+            String unitId = detail == null || detail.subtaskId() == null || detail.subtaskId().isBlank()
+                    ? OUTLINE_UNIT_ID
+                    : detail.subtaskId();
+            for (String finding : findings) {
+                issues.add(new GateIssue(
+                        "PLAN_RUNTIME_" + issueIndex++,
+                        finding,
+                        GateFailureDisposition.REPLAN_CURRENT_STAGE,
+                        GateIssueContext.forPlanningUnitPaths(
+                                ImplementationPlanningUnitKind.SUBTASK_DETAIL,
+                                unitId,
+                                scopePaths.normalizedPathStrings()
+                        )
+                ));
+            }
         }
         return List.copyOf(issues);
     }
@@ -208,16 +225,7 @@ final class ImplementationPlanChangeGate {
         return issueIndex;
     }
 
-    private record ScopePaths(List<Path> normalizedPaths) {
-
-        static ScopePaths fromSubtask(Subtask subtask) {
-            if (subtask == null || subtask.changes() == null) {
-                return new ScopePaths(List.of());
-            }
-            return fromPaths(subtask.changes().stream()
-                    .map(FileChange::path)
-                    .toList());
-        }
+    private record ScopePaths(List<ScopedPath> normalizedPaths) {
 
         static ScopePaths fromOutlineSubtask(ImplementationOutlineSubtask subtask) {
             if (subtask == null) {
@@ -227,9 +235,22 @@ final class ImplementationPlanChangeGate {
         }
 
         static ScopePaths fromDetailChanges(List<ImplementationSubtaskDetailChange> changes) {
-            return fromPaths(changes.stream()
-                    .map(ImplementationSubtaskDetailChange::path)
+            if (changes == null || changes.isEmpty()) {
+                return new ScopePaths(List.of());
+            }
+            return new ScopePaths(changes.stream()
+                    .filter(change -> change != null && change.path() != null && !change.path().isBlank())
+                    .map(change -> new ScopedPath(
+                            Path.of(change.path()).normalize(),
+                            change.action(),
+                            change.runtimeScriptRole()
+                    ))
+                    .distinct()
                     .toList());
+        }
+
+        static ScopePaths fromDetail(ImplementationSubtaskDetail detail) {
+            return detail == null ? new ScopePaths(List.of()) : fromDetailChanges(detail.changes());
         }
 
         private static ScopePaths fromPaths(List<String> rawPaths) {
@@ -238,7 +259,7 @@ final class ImplementationPlanChangeGate {
             }
             return new ScopePaths(rawPaths.stream()
                     .filter(path -> path != null && !path.isBlank())
-                    .map(path -> Path.of(path).normalize())
+                    .map(path -> new ScopedPath(Path.of(path).normalize(), null, null))
                     .distinct()
                     .toList());
         }
@@ -248,11 +269,12 @@ final class ImplementationPlanChangeGate {
                 return false;
             }
             Path htmlEntryPath = runtimeFacts.htmlEntryPath();
-            if (normalizedPaths.stream().anyMatch(runtimeFacts::matchesHtmlEntry)) {
+            if (normalizedPaths.stream().map(ScopedPath::path).anyMatch(runtimeFacts::matchesHtmlEntry)) {
                 return false;
             }
             Path htmlParent = htmlEntryPath.getParent() == null ? Path.of("") : htmlEntryPath.getParent().normalize();
             List<Path> scopedRuntimePaths = normalizedPaths.stream()
+                    .map(ScopedPath::path)
                     .filter(ProjectPathSupport::isRuntimeScript)
                     .filter(path -> isUnderHtmlEntryTree(path, htmlParent))
                     .toList();
@@ -274,9 +296,82 @@ final class ImplementationPlanChangeGate {
             return unresolvedRuntimePaths.stream().anyMatch(runtimeRootPaths::contains);
         }
 
+        List<String> assessStructuredRuntimePackage(PlanningRuntimeFacts runtimeFacts) {
+            if (runtimeFacts == null || !runtimeFacts.hasResolvedHtmlEntry() || normalizedPaths.isEmpty()) {
+                return List.of();
+            }
+            Path htmlEntryPath = runtimeFacts.htmlEntryPath();
+            boolean hasHostHtmlPatch = normalizedPaths.stream().map(ScopedPath::path).anyMatch(runtimeFacts::matchesHtmlEntry);
+            Path htmlParent = htmlEntryPath.getParent() == null ? Path.of("") : htmlEntryPath.getParent().normalize();
+            List<String> issues = new ArrayList<>();
+            for (ScopedPath scopedPath : normalizedPaths) {
+                if (scopedPath.runtimeScriptRole() == null) {
+                    continue;
+                }
+                Path path = scopedPath.path();
+                if (runtimeFacts.matchesHtmlEntry(path)
+                        || !ProjectPathSupport.isRuntimeScript(path)
+                        || !isUnderHtmlEntryTree(path, htmlParent)) {
+                    issues.add("runtimeScriptRole 只能用于当前 HTML 入口树下的新增 runtime 脚本: " + path);
+                }
+            }
+            List<ScopedPath> scopedRuntimePaths = normalizedPaths.stream()
+                    .filter(scopedPath -> ProjectPathSupport.isRuntimeScript(scopedPath.path()))
+                    .filter(scopedPath -> isUnderHtmlEntryTree(scopedPath.path(), htmlParent))
+                    .toList();
+            if (scopedRuntimePaths.isEmpty()) {
+                return issues.stream().distinct().toList();
+            }
+            List<Path> reachableRuntimePaths = runtimeFacts.reachableRuntimePaths();
+            List<Path> runtimeRootPaths = runtimeFacts.runtimeRootPaths();
+            boolean hasReachableAnchor = scopedRuntimePaths.stream()
+                    .map(ScopedPath::path)
+                    .anyMatch(reachableRuntimePaths::contains);
+            boolean requiresHostEntryPatch = false;
+            for (ScopedPath scopedPath : scopedRuntimePaths) {
+                Path path = scopedPath.path();
+                if (scopedPath.action() == ChangeAction.DELETE) {
+                    if (scopedPath.runtimeScriptRole() != null) {
+                        issues.add("删除 runtime 脚本时不允许声明 runtimeScriptRole: " + path);
+                    }
+                    continue;
+                }
+                PlanningRuntimeScriptRole runtimeScriptRole = scopedPath.runtimeScriptRole();
+                boolean reachable = reachableRuntimePaths.contains(path);
+                boolean knownRoot = runtimeRootPaths.contains(path);
+                if (reachable) {
+                    if (runtimeScriptRole != null) {
+                        issues.add("当前子任务把已存在于 reachable runtime graph 的脚本声明了 runtimeScriptRole，只有新增 runtime 脚本才允许声明角色: " + path);
+                    }
+                    continue;
+                }
+                if (runtimeScriptRole == null) {
+                    issues.add("当前子任务新增了 runtime 脚本，但没有声明 runtimeScriptRole=ROOT|LEAF: " + path);
+                    continue;
+                }
+                if (runtimeScriptRole == PlanningRuntimeScriptRole.LEAF) {
+                    if (!hasReachableAnchor) {
+                        issues.add("当前子任务把 runtime 脚本标记为 LEAF，但同包没有当前 reachable runtime anchor: " + path);
+                        continue;
+                    }
+                    if (knownRoot) {
+                        issues.add("当前子任务把已知 runtime root 标记为 LEAF，这是不合法的: " + path);
+                    }
+                    continue;
+                }
+                if (runtimeScriptRole == PlanningRuntimeScriptRole.ROOT) {
+                    requiresHostEntryPatch = true;
+                }
+            }
+            if (requiresHostEntryPatch && !hasHostHtmlPatch) {
+                issues.add("当前子任务把新的 runtime root 拆成了不完整 package：新增 runtime root 时，必须在同一子任务里同步携带宿主 HTML patch。");
+            }
+            return issues.stream().distinct().toList();
+        }
+
         List<String> normalizedPathStrings() {
             return normalizedPaths.stream()
-                    .map(path -> path.toString().replace('\\', '/'))
+                    .map(scopedPath -> scopedPath.path().toString().replace('\\', '/'))
                     .toList();
         }
 
@@ -285,6 +380,13 @@ final class ImplementationPlanChangeGate {
             return htmlParent.toString().isBlank()
                     || candidateParent.equals(htmlParent)
                     || candidateParent.startsWith(htmlParent);
+        }
+
+        private record ScopedPath(
+                Path path,
+                ChangeAction action,
+                PlanningRuntimeScriptRole runtimeScriptRole
+        ) {
         }
     }
 }

@@ -144,6 +144,7 @@ public class ImplementationPlanner {
                             request.qualityPlan(),
                             request.implementationPatchTarget(),
                             request.continuationConstraints(),
+                            acceptedDetails.values().stream().toList(),
                             finalPlan
                     )
             );
@@ -341,6 +342,7 @@ public class ImplementationPlanner {
                     fixMode,
                     implementationPatchTarget,
                     continuationConstraints,
+                    runtimeFacts,
                     outline,
                     subtask,
                     feedback

@@ -41,6 +41,7 @@ class ImplementationPlanGateTests {
                 null,
                 ImplementationPatchTarget.NONE,
                 ImplementationContinuationConstraints.empty(),
+                List.of(),
                 List.of(
                         new Subtask(
                                 "建立入口",
@@ -89,6 +90,7 @@ class ImplementationPlanGateTests {
                         List.of("src/app.js"),
                         List.of()
                 ),
+                List.of(),
                 List.of(new Subtask(
                         "继续修复脚本",
                         "错误地把已有文件退回骨架",
@@ -130,6 +132,7 @@ class ImplementationPlanGateTests {
                         List.of("index.html"),
                         List.of(new ImplementationContinuationConstraints.ProtectedHtmlEntryConstraint("index.html"))
                 ),
+                List.of(),
                 List.of(new Subtask(
                         "继续修复入口",
                         "错误地整页重写已有入口",
@@ -168,6 +171,8 @@ class ImplementationPlanGateTests {
                 null,
                 ImplementationPatchTarget.NONE,
                 ImplementationContinuationConstraints.empty(),
+                List.of(detail("拆 runtime",
+                        new ImplementationSubtaskDetailChange("src/engine.js", ChangeAction.WRITE, "新增 runtime root", PlanningRuntimeScriptRole.ROOT))),
                 List.of(new Subtask(
                         "拆 runtime",
                         "只新增 companion runtime",
@@ -201,6 +206,7 @@ class ImplementationPlanGateTests {
                 null,
                 ImplementationPatchTarget.NONE,
                 ImplementationContinuationConstraints.empty(),
+                List.of(),
                 List.of(new Subtask(
                         "建立入口",
                         "创建页面入口",
@@ -234,6 +240,7 @@ class ImplementationPlanGateTests {
                 null,
                 ImplementationPatchTarget.NONE,
                 ImplementationContinuationConstraints.empty(),
+                List.of(),
                 List.of(
                         new Subtask(
                                 "建立入口",
@@ -280,6 +287,7 @@ class ImplementationPlanGateTests {
                 null,
                 ImplementationPatchTarget.NONE,
                 ImplementationContinuationConstraints.empty(),
+                List.of(),
                 List.of(
                         new Subtask(
                                 "建立入口",
@@ -334,6 +342,9 @@ class ImplementationPlanGateTests {
                 null,
                 ImplementationPatchTarget.NONE,
                 ImplementationContinuationConstraints.empty(),
+                List.of(detail("扩展已有 runtime",
+                        new ImplementationSubtaskDetailChange("index.app.js", ChangeAction.WRITE, "扩展已有 root"),
+                        new ImplementationSubtaskDetailChange("src/engine.js", ChangeAction.WRITE, "新增 leaf module", PlanningRuntimeScriptRole.LEAF))),
                 List.of(new Subtask(
                         "扩展已有 runtime",
                         "在当前 reachable runtime 模块下新增 leaf module",
@@ -351,6 +362,53 @@ class ImplementationPlanGateTests {
         ));
 
         assertTrue(report.passed(), report.issues().toString());
+    }
+
+    @Test
+    void failsWhenNewRuntimeScriptOmitsRoleEvenWithReachableAnchor() {
+        ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
+        GateReport report = gate.evaluate(new ImplementationPlanGateInput(
+                new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html", "index.app.js", "src/engine.js"), List.of()),
+                contractView(),
+                new PlanningRuntimeFacts(
+                        java.nio.file.Path.of("index.html"),
+                        HtmlRuntimeOwnershipContract.externalCompanion(
+                                java.nio.file.Path.of("index.html"),
+                                List.of(java.nio.file.Path.of("index.app.js"))
+                        ),
+                        List.of(java.nio.file.Path.of("index.app.js")),
+                        List.of(java.nio.file.Path.of("index.app.js"))
+                ),
+                List.of("index.html", "index.app.js", "src/engine.js"),
+                List.of("扩展已有 runtime"),
+                List.of("CAP-1"),
+                List.of("PATCH"),
+                true,
+                true,
+                null,
+                ImplementationPatchTarget.NONE,
+                ImplementationContinuationConstraints.empty(),
+                List.of(detail("扩展已有 runtime",
+                        new ImplementationSubtaskDetailChange("index.app.js", ChangeAction.WRITE, "扩展已有 root"),
+                        new ImplementationSubtaskDetailChange("src/engine.js", ChangeAction.WRITE, "新增 leaf module"))),
+                List.of(new Subtask(
+                        "扩展已有 runtime",
+                        "在当前 reachable runtime 模块下新增 leaf module",
+                        List.of("CAP-1"),
+                        List.of("runtime wiring"),
+                        List.of(),
+                        List.of("入口可运行"),
+                        false,
+                        DeliveryMode.PATCH,
+                        List.of(
+                                new FileChange("index.app.js", ChangeAction.WRITE, "扩展已有 root"),
+                                new FileChange("src/engine.js", ChangeAction.WRITE, "新增 leaf module")
+                        )
+                ))
+        ));
+
+        assertFalse(report.passed());
+        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("runtimeScriptRole=ROOT|LEAF")));
     }
 
     @Test
@@ -377,6 +435,9 @@ class ImplementationPlanGateTests {
                 null,
                 ImplementationPatchTarget.NONE,
                 ImplementationContinuationConstraints.empty(),
+                List.of(detail("混合 runtime root",
+                        new ImplementationSubtaskDetailChange("index.app.js", ChangeAction.WRITE, "扩展已有 root"),
+                        new ImplementationSubtaskDetailChange("admin.app.js", ChangeAction.WRITE, "引入另一条 root", PlanningRuntimeScriptRole.ROOT))),
                 List.of(new Subtask(
                         "混合 runtime root",
                         "在当前 wired root 旁引入另一个已知 orphan root",
@@ -412,5 +473,12 @@ class ImplementationPlanGateTests {
                 new ExecutionContract(true, "html-entry", true, true, List.of("page-opens", "input-works")),
                 null
         );
+    }
+
+    private ImplementationSubtaskDetail detail(
+            String subtaskId,
+            ImplementationSubtaskDetailChange... changes
+    ) {
+        return new ImplementationSubtaskDetail(subtaskId, List.of(changes));
     }
 }

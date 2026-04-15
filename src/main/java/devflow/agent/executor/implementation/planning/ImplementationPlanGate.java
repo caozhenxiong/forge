@@ -66,6 +66,7 @@ public class ImplementationPlanGate implements DeterministicGate<ImplementationP
         issues.addAll(changeGate.evaluate(
                 input.runtimeFacts(),
                 input.continuationConstraints(),
+                input.acceptedDetails(),
                 input.subtasks()
         ));
         if (coverageResult.passed() && capabilityPartitionResult.passed() && runnableMilestoneResult.passed() && issues.isEmpty()) {

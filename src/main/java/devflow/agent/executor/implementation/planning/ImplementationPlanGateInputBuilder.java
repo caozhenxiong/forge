@@ -34,6 +34,7 @@ final class ImplementationPlanGateInputBuilder {
             QualityPlan qualityPlan,
             ImplementationPatchTarget implementationPatchTarget,
             ImplementationContinuationConstraints continuationConstraints,
+            List<ImplementationSubtaskDetail> acceptedDetails,
             ImplementationPlan plan
     ) {
         return new ImplementationPlanGateInput(
@@ -66,6 +67,7 @@ final class ImplementationPlanGateInputBuilder {
                 qualityPlan,
                 implementationPatchTarget,
                 continuationConstraints,
+                acceptedDetails == null ? List.of() : List.copyOf(acceptedDetails),
                 plan.subtasks()
         );
     }

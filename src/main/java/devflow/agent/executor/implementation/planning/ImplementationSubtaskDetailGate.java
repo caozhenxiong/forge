@@ -34,6 +34,7 @@ public final class ImplementationSubtaskDetailGate {
             2. 不要改动当前子任务 targetPaths 之外的文件
             3. 只返回当前子任务自己的结构化 detail JSON
             4. 不要试图在 detail 阶段改 deliveryMode、targetPaths 或其他 outline 字段
+            5. 若新增当前 HTML 入口树下的 runtime 脚本，必须显式声明 runtimeScriptRole=ROOT|LEAF
             """;
 
     public GateReport evaluate(

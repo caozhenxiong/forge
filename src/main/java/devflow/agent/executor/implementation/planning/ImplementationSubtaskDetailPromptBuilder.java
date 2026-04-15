@@ -49,7 +49,8 @@ final class ImplementationSubtaskDetailPromptBuilder {
                     {
                       "path": "相对路径",
                       "action": "WRITE|DELETE",
-                      "reason": "为什么要改这个文件"
+                      "reason": "为什么要改这个文件",
+                      "runtimeScriptRole": "ROOT|LEAF|null"
                     }
                   ]
                 }
@@ -59,9 +60,13 @@ final class ImplementationSubtaskDetailPromptBuilder {
                 2. changes 只允许覆盖当前子任务自己的 targetPaths
                 3. 不要新增不在 targetPaths 内的文件
                 4. changes 至少 1 个，最多 %d 个
-                5. 只返回最小文件变更声明，不要返回 editScope、runtimeOwnership、hostHtmlPatchRequired 等高层结构字段
+                5. 只返回最小文件变更声明，不要返回 editScope、runtimeOwnership、hostHtmlPatchRequired 等旧字段
                 6. 不要改动当前子任务 targetPaths 之外的路径
                 7. 不要试图修改 deliveryMode、targetPaths 或其他 outline 字段
+                8. runtimeScriptRole 只允许用于当前 HTML 入口树下、且不在当前 reachable runtime graph 内的新增 runtime 脚本
+                9. 若新增脚本本身会成为新的 runtime root，标记为 ROOT，并在同一子任务里携带宿主 HTML patch
+                10. 若新增脚本只是挂在当前 reachable runtime anchor 下的 leaf/module，标记为 LEAF
+                11. 非 runtime 文件、宿主 HTML、以及当前已 reachable 的 runtime 文件，不要填写 runtimeScriptRole
                 """.formatted(maxFilesPerSubtask));
         if (deliveryPolicy != null) {
             builder.append("""
@@ -110,6 +115,7 @@ final class ImplementationSubtaskDetailPromptBuilder {
             QualityPlan qualityPlan,
             DocumentLanguage language,
             String workspaceContext,
+            PlanningRuntimeFacts runtimeFacts,
             ImplementationOutline outline,
             ImplementationOutlineSubtask subtask,
             String feedback
@@ -136,6 +142,11 @@ final class ImplementationSubtaskDetailPromptBuilder {
                 结构化契约：
                 %s
 
+                当前 runtime 事实：
+                - htmlEntryPath: %s
+                - reachableRuntimePaths: %s
+                - runtimeRootPaths: %s
+
                 质量计划：
                 %s
 
@@ -158,6 +169,9 @@ final class ImplementationSubtaskDetailPromptBuilder {
                 safeList(subtask.acceptanceCriteria()),
                 outline == null ? "" : outline.summary(),
                 contractView == null ? PlaceholderValues.none(language) : contractView.toMarkdown(language),
+                runtimeFacts == null || !runtimeFacts.hasResolvedHtmlEntry() ? PlaceholderValues.none(language) : runtimeFacts.htmlEntryPath(),
+                runtimeFacts == null ? "[]" : safePathList(runtimeFacts.reachableRuntimePaths()),
+                runtimeFacts == null ? "[]" : safePathList(runtimeFacts.runtimeRootPaths()),
                 qualityPlan == null ? PlaceholderValues.none(language) : qualityPlan.toMarkdown(language),
                 workspaceContext,
                 feedback == null || feedback.isBlank() ? PlaceholderValues.none(language) : feedback
@@ -166,5 +180,11 @@ final class ImplementationSubtaskDetailPromptBuilder {
 
     private String safeList(java.util.List<String> values) {
         return values == null || values.isEmpty() ? "[]" : values.toString();
+    }
+
+    private String safePathList(java.util.List<java.nio.file.Path> values) {
+        return values == null || values.isEmpty()
+                ? "[]"
+                : values.stream().map(java.nio.file.Path::toString).toList().toString();
     }
 }
