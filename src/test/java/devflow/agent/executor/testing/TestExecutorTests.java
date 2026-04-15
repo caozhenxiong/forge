@@ -267,6 +267,44 @@ class TestExecutorTests {
     }
 
     @Test
+    void implementationVerificationOutcomeRequestsHumanWhenRuntimeWiringLacksCanonicalRepairPackage() {
+        LlmProvider provider = new devflow.agent.testsupport.RequestBackedLlmProvider() {
+            @Override
+            public ReviewResult review(String systemPrompt, String candidateContent, Map<String, Object> options) {
+                return new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "");
+            }
+        };
+        TestExecutor executor = devflow.agent.executor.testing.TestExecutorTestSupport.create(
+                new FileProjectWorkspace(),
+                provider,
+                new com.fasterxml.jackson.databind.ObjectMapper()
+        );
+
+        SubtaskVerificationOutcome outcome = executor.toImplementationVerificationOutcome(
+                new ExperienceFailureDisposition(
+                        ExperienceFailureKind.IMPLEMENTATION_CAPABILITY_GAP,
+                        "runtime wiring gap",
+                        "fix runtime wiring",
+                        "missing canonical runtime repair package",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                        List.of(),
+                        List.of("TC-001"),
+                        List.of("runtime-wiring"),
+                        List.of("runtime-wiring"),
+                        ReviewRevisionRoute.PATCH_CURRENT_STAGE,
+                        ReviewReasonCode.RUNTIME_WIRING_GAP
+                ),
+                devflow.agent.i18n.DocumentLanguage.ZH
+        );
+
+        assertNotNull(outcome);
+        assertEquals(ReviewRevisionRoute.REQUEST_HUMAN, outcome.review().revisionRoute());
+        assertEquals(ImplementationPatchTarget.NONE, outcome.review().implementationPatchTarget());
+        assertTrue(outcome.review().changeRequest().contains("canonical runtime repair package"));
+        assertTrue(outcome.revisionDirective().retryChanges().isEmpty());
+    }
+
+    @Test
     void implementationVerificationBlocksForHumanWhenTargetedTestEvidenceIsInvalid() {
         TestExecutor executor = devflow.agent.executor.testing.TestExecutorTestSupport.create(new FileProjectWorkspace(), noopProvider(), new com.fasterxml.jackson.databind.ObjectMapper());
 

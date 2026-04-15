@@ -57,7 +57,7 @@ class ImplementationPlanGateTests {
                                 "补齐脚本",
                                 "补齐运行脚本",
                                 List.of("CAP-2"),
-                                List.of("输入可工作"),
+                                List.of("补齐脚本"),
                                 List.of(),
                                 List.of("输入可工作"),
                                 false,
@@ -182,7 +182,132 @@ class ImplementationPlanGateTests {
     }
 
     @Test
-    void allowsRuntimeLeafWhenScopeAlsoPatchesCurrentlyWiredRoot() {
+    void failsWhenCapabilityOwnedAndDeferredOverlap() {
+        ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
+        GateReport report = gate.evaluate(new ImplementationPlanGateInput(
+                new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html"), List.of()),
+                contractView(),
+                PlanningRuntimeFacts.empty(),
+                List.of("index.html"),
+                List.of("建立入口"),
+                List.of("CAP-1"),
+                List.of("PATCH"),
+                true,
+                true,
+                null,
+                ImplementationPatchTarget.NONE,
+                ImplementationContinuationConstraints.empty(),
+                List.of(new Subtask(
+                        "建立入口",
+                        "创建页面入口",
+                        List.of("CAP-1"),
+                        List.of("页面可打开"),
+                        List.of("页面可打开"),
+                        List.of("页面可打开"),
+                        true,
+                        DeliveryMode.PATCH,
+                        List.of(new FileChange("index.html", ChangeAction.WRITE, "创建入口"))
+                ))
+        ));
+
+        assertFalse(report.passed());
+        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("不能重叠")));
+    }
+
+    @Test
+    void failsWhenCapabilityHasMultipleOwnedSubtasks() {
+        ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
+        GateReport report = gate.evaluate(new ImplementationPlanGateInput(
+                new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html", "src/app.js"), List.of()),
+                contractView(),
+                PlanningRuntimeFacts.empty(),
+                List.of("index.html", "src/app.js"),
+                List.of("建立入口", "补齐脚本"),
+                List.of("CAP-1", "CAP-2"),
+                List.of("PATCH", "PATCH"),
+                true,
+                true,
+                null,
+                ImplementationPatchTarget.NONE,
+                ImplementationContinuationConstraints.empty(),
+                List.of(
+                        new Subtask(
+                                "建立入口",
+                                "创建页面入口",
+                                List.of("CAP-1"),
+                                List.of("页面可打开"),
+                                List.of(),
+                                List.of("页面可打开"),
+                                true,
+                                DeliveryMode.PATCH,
+                                List.of(new FileChange("index.html", ChangeAction.WRITE, "创建入口"))
+                        ),
+                        new Subtask(
+                                "补齐脚本",
+                                "补齐运行脚本",
+                                List.of("CAP-2"),
+                                List.of("页面可打开"),
+                                List.of(),
+                                List.of("输入可工作"),
+                                false,
+                                DeliveryMode.PATCH,
+                                List.of(new FileChange("src/app.js", ChangeAction.WRITE, "补齐脚本"))
+                        )
+                )
+        ));
+
+        assertFalse(report.passed());
+        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("多个子任务同时声明为 ownedCapabilities")));
+    }
+
+    @Test
+    void failsWhenDeferredCapabilityDoesNotHaveUniqueFutureOwner() {
+        ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
+        GateReport report = gate.evaluate(new ImplementationPlanGateInput(
+                new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html", "src/app.js"), List.of()),
+                contractView(),
+                PlanningRuntimeFacts.empty(),
+                List.of("index.html", "src/app.js"),
+                List.of("建立入口", "补齐脚本"),
+                List.of("CAP-1", "CAP-2"),
+                List.of("PATCH", "PATCH"),
+                true,
+                true,
+                null,
+                ImplementationPatchTarget.NONE,
+                ImplementationContinuationConstraints.empty(),
+                List.of(
+                        new Subtask(
+                                "建立入口",
+                                "创建页面入口",
+                                List.of("CAP-1"),
+                                List.of("页面可打开"),
+                                List.of("输入可工作"),
+                                List.of("页面可打开"),
+                                true,
+                                DeliveryMode.PATCH,
+                                List.of(new FileChange("index.html", ChangeAction.WRITE, "创建入口"))
+                        ),
+                        new Subtask(
+                                "补齐脚本",
+                                "补齐运行脚本",
+                                List.of("CAP-2"),
+                                List.of(),
+                                List.of(),
+                                List.of("输入可工作"),
+                                false,
+                                DeliveryMode.PATCH,
+                                List.of(new FileChange("src/app.js", ChangeAction.WRITE, "补齐脚本"))
+                        )
+                )
+        ));
+
+        assertFalse(report.passed());
+        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("必须由后续唯一子任务接手")));
+    }
+
+    @Test
+    void failsWhenRuntimeSplitMixesWiredAndUnwiredRootsWithoutHostPatch() {
         ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
         GateReport report = gate.evaluate(new ImplementationPlanGateInput(
                 new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html", "index.app.js", "src/engine.js"), List.of()),
@@ -204,8 +329,8 @@ class ImplementationPlanGateTests {
                 ImplementationPatchTarget.NONE,
                 ImplementationContinuationConstraints.empty(),
                 List.of(new Subtask(
-                        "扩展已有 runtime",
-                        "在现有 runtime root 下引入新模块",
+                        "混合 runtime root",
+                        "在已接线 root 旁新增未接线 runtime root",
                         List.of("CAP-1"),
                         List.of("runtime wiring"),
                         List.of(),
@@ -219,7 +344,8 @@ class ImplementationPlanGateTests {
                 ))
         ));
 
-        assertTrue(report.passed(), report.issues().toString());
+        assertFalse(report.passed());
+        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("宿主 HTML patch")));
     }
 
     private ContractView contractView() {

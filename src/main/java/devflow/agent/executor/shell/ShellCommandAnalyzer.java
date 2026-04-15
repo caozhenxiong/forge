@@ -152,11 +152,11 @@ public final class ShellCommandAnalyzer {
                         "Read-only Bash exploration is not allowed during repair/resume. Use Read/Grep/Glob instead.",
                         true,
                         List.of("repairMode=true"),
-                        List.of()
+                        List.copyOf(pathIntents)
                 );
             }
             return writeSegments == 0
-                    ? ShellCommandDecision.allowReadOnly(summary, List.copyOf(evidence))
+                    ? ShellCommandDecision.allowReadOnly(summary, List.copyOf(evidence), List.copyOf(pathIntents))
                     : ShellCommandDecision.allowWrite(summary, List.copyOf(evidence), List.copyOf(pathIntents));
         } catch (ShellAnalysisException exception) {
             return ShellCommandDecision.deny(
@@ -534,10 +534,13 @@ public final class ShellCommandAnalyzer {
             roots.add(".");
         }
         ArrayList<String> validatedRoots = new ArrayList<>();
+        ArrayList<ShellPathIntent> pathIntents = new ArrayList<>();
         for (String root : roots) {
-            validatedRoots.add(renderRelativePath(resolveProjectRelativePath(root, context, currentDirectory)));
+            Path resolved = resolveProjectRelativePath(root, context, currentDirectory);
+            validatedRoots.add(renderRelativePath(resolved));
+            pathIntents.add(new ShellPathIntent(resolved, ShellPathIntentKind.READ_FILE));
         }
-        return SegmentAnalysis.allowReadOnly("find -> " + validatedRoots);
+        return SegmentAnalysis.allowReadOnly("find -> " + validatedRoots, pathIntents);
     }
 
     private SegmentAnalysis analyzeReadOnlyPathCommand(
@@ -557,15 +560,22 @@ public final class ShellCommandAnalyzer {
                 );
             }
             if ("ls".equals(commandName)) {
-                resolveProjectRelativePath(".", context, currentDirectory);
+                Path resolved = resolveProjectRelativePath(".", context, currentDirectory);
+                return SegmentAnalysis.allowReadOnly(
+                        "read-only command: " + summarizeWords(words),
+                        List.of(new ShellPathIntent(resolved, ShellPathIntentKind.READ_FILE))
+                );
             }
             return SegmentAnalysis.allowReadOnly("read-only command: " + summarizeWords(words));
         }
         ArrayList<String> validatedPaths = new ArrayList<>();
+        ArrayList<ShellPathIntent> pathIntents = new ArrayList<>();
         for (String argument : arguments) {
-            validatedPaths.add(renderRelativePath(resolveProjectRelativePath(argument, context, currentDirectory)));
+            Path resolved = resolveProjectRelativePath(argument, context, currentDirectory);
+            validatedPaths.add(renderRelativePath(resolved));
+            pathIntents.add(new ShellPathIntent(resolved, ShellPathIntentKind.READ_FILE));
         }
-        return SegmentAnalysis.allowReadOnly(commandName + " -> " + validatedPaths);
+        return SegmentAnalysis.allowReadOnly(commandName + " -> " + validatedPaths, pathIntents);
     }
 
     private NormalizedShellCommand normalizeCommand(SimpleShellCommand shellCommand) throws ShellAnalysisException {
@@ -1100,7 +1110,19 @@ public final class ShellCommandAnalyzer {
             List<ShellPathIntent> pathIntents
     ) {
         static SegmentAnalysis allowReadOnly(String evidence) {
-            return new SegmentAnalysis(true, false, "", "", true, evidence == null ? "" : evidence, List.of());
+            return allowReadOnly(evidence, List.of());
+        }
+
+        static SegmentAnalysis allowReadOnly(String evidence, List<ShellPathIntent> pathIntents) {
+            return new SegmentAnalysis(
+                    true,
+                    false,
+                    "",
+                    "",
+                    true,
+                    evidence == null ? "" : evidence,
+                    pathIntents == null ? List.of() : List.copyOf(pathIntents)
+            );
         }
 
         static SegmentAnalysis allowWrite(List<ShellPathIntent> pathIntents, String evidence) {

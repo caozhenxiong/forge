@@ -45,6 +45,7 @@ public class ImplementationPlanGate implements DeterministicGate<ImplementationP
 
     @Override
     public GateReport evaluate(ImplementationPlanGateInput input) {
+        CoverageResult capabilityPartitionResult = coverageAnalyzer.analyzeCapabilityPartition(input.subtasks());
         CoverageResult coverageResult = coverageAnalyzer.analyze(
                 input.fingerprint(),
                 input.contractView(),
@@ -59,6 +60,7 @@ public class ImplementationPlanGate implements DeterministicGate<ImplementationP
         CoverageResult runnableMilestoneResult =
                 coverageAnalyzer.analyzeRunnableMilestones(input.contractView(), input.subtasks());
         List<GateIssue> issues = new ArrayList<>();
+        issues.addAll(toIssues("PLAN_CAPABILITY_PARTITION", capabilityPartitionResult));
         issues.addAll(toIssues("PLAN_EXECUTION_CONTRACT", coverageResult));
         issues.addAll(toIssues("PLAN_RUNNABLE_MILESTONE", runnableMilestoneResult));
         issues.addAll(changeGate.evaluate(
@@ -66,12 +68,13 @@ public class ImplementationPlanGate implements DeterministicGate<ImplementationP
                 input.continuationConstraints(),
                 input.subtasks()
         ));
-        if (coverageResult.passed() && runnableMilestoneResult.passed() && issues.isEmpty()) {
+        if (coverageResult.passed() && capabilityPartitionResult.passed() && runnableMilestoneResult.passed() && issues.isEmpty()) {
             return GateReport.success();
         }
 
         return GateReport.failure(
                 mergeSummaries(
+                        capabilityPartitionResult,
                         coverageResult,
                         runnableMilestoneResult,
                         summarizeChangeIssues(issues)

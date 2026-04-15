@@ -25,6 +25,10 @@ public record ShellCommandDecision(
     }
 
     static ShellCommandDecision allowReadOnly(String commandSummary, List<String> evidence) {
+        return allowReadOnly(commandSummary, evidence, List.of());
+    }
+
+    static ShellCommandDecision allowReadOnly(String commandSummary, List<String> evidence, List<ShellPathIntent> pathIntents) {
         return new ShellCommandDecision(
                 ShellCommandDisposition.ALLOW_READ_ONLY,
                 "",
@@ -32,7 +36,7 @@ public record ShellCommandDecision(
                 true,
                 commandSummary,
                 evidence,
-                List.of()
+                pathIntents
         );
     }
 

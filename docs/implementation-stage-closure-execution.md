@@ -145,10 +145,10 @@
 
 ## Current Status
 
-- 当前阶段：`PHASE_7_REOPENED_BY_REVIEW_V7`
-- 当前 blocker：`review-v7 指出的 4 个缺口尚未收口：capability partition gate、mixed runtime-root package completeness、PATCH_RUNTIME_WIRING retry scope、repair-mode shell deny pathIntents`
+- 当前阶段：`REVIEW_V7_IMPLEMENTED_SELF_TESTED`
+- 当前 blocker：`无代码 blocker；待 code review 后再恢复 Phase 8 集成测试`
 - 当前约束：`禁止兼容层、禁止 fallback、禁止双轨并存、禁止“后续再清理”`
-- 当前执行入口：`先完成 docs/review-v7-remediation-plan.md，再恢复 Phase 8：golden path integration`
+- 当前执行入口：`review-v7 代码审阅通过后，恢复 Phase 8：golden path integration`
 
 ## Evidence Log
 
@@ -207,6 +207,13 @@
 - self-test：`待开始`
 - code review：`待开始`
 - docs：`待开始`
+
+### Review V7 Follow-up
+
+- commit：`待提交`
+- self-test：`mvn -q -Dtest=ImplementationPlanGateTests,TestExecutorTests,SubtaskVerificationSupportTests,BashToolFailureDiagnosticsTests test`；`mvn -q -Dtest=ImplementationPlanNormalizationSupportTests,ImplementationPlanGateTests,ImplementationPlannerTests,ImplementationSubtaskDetailGateTests,TestExecutorTests,SubtaskRuntimeWiringGuardTests,SubtaskVerificationSupportTests,BashToolTests,BashToolFailureDiagnosticsTests test`
+- code review：`已完成自查；确认 capability partition 进入 outline + final plan gate，PATCH_RUNTIME_WIRING 不再回填旧 accepted package，repair-mode shell deny 保留 pathIntents，mixed runtime-root package 不再被 wired root 掩护放过`
+- docs：`docs/review-v7-remediation-plan.md` 与本文档已同步更新
 
 ## Completion Gate
 

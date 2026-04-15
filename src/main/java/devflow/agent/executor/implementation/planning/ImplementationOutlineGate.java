@@ -69,6 +69,7 @@ final class ImplementationOutlineGate {
         issues.addAll(validateTargetPaths(deliveryPolicy, outline.subtasks()));
         issues.addAll(validateRunnableMilestones(contractView, outline.subtasks()));
         issues.addAll(changeGate.evaluateOutlineContinuationConstraints(runtimeFacts, continuationConstraints, outline.subtasks()));
+        CoverageResult capabilityPartitionResult = coverageAnalyzer.analyzeCapabilityPartitionOutline(outline.subtasks());
         CoverageResult coverageResult = coverageAnalyzer.analyze(
                 fingerprint,
                 contractView,
@@ -81,12 +82,16 @@ final class ImplementationOutlineGate {
                         subtask.runnableMilestone() && subtask.deliveryMode() != DeliveryMode.SKELETON),
                 qualityPlan
         );
+        issues.addAll(toIssues("PLAN_CAPABILITY_PARTITION", capabilityPartitionResult));
         issues.addAll(toIssues("PLAN_EXECUTION_CONTRACT", coverageResult));
-        if (coverageResult.passed() && issues.isEmpty()) {
+        if (coverageResult.passed() && capabilityPartitionResult.passed() && issues.isEmpty()) {
             return GateReport.success();
         }
         return GateReport.failure(
-                mergeSummaries(coverageResult.summary(), outlineIssueSummary(issues)),
+                mergeSummaries(
+                        mergeSummaries(capabilityPartitionResult.summary(), coverageResult.summary()),
+                        outlineIssueSummary(issues)
+                ),
                 issues
         );
     }

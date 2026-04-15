@@ -37,6 +37,7 @@ import org.springframework.stereotype.Component;
 import devflow.agent.executor.subtask.Subtask;
 import devflow.agent.executor.subtask.SubtaskRevisionDirective;
 import devflow.agent.executor.subtask.SubtaskVerificationOutcome;
+import devflow.agent.review.ReviewReasonCode;
 
 @Component
 /**
@@ -203,12 +204,16 @@ public class TestExecutor {
         List<FileChange> overrideChanges = !currentFailure.overrideChanges().isEmpty()
                 ? currentFailure.overrideChanges()
                 : previousFailure.overrideChanges();
+        String evidence = buildTargetedVerificationEvidence(previousFailure, unresolvedCases, unresolvedSurfaces, currentFailure);
+        if (requiresCanonicalPatchScope(patchTarget) && overrideChanges.isEmpty()) {
+            return missingCanonicalPatchScopeReview(patchTarget, evidence, currentFailure.reasonCode(), resolvedLanguage);
+        }
         return new devflow.agent.review.ReviewResult(
                 devflow.agent.review.ReviewDecision.REVISION_REQUIRED,
                 devflow.agent.review.FixMode.PATCH,
                 "当前实现尚未用针对性复核关闭上一轮 TEST 失败项。",
                 buildTargetedVerificationChangeRequest(previousFailure, unresolvedCases, unresolvedSurfaces, currentFailure),
-                buildTargetedVerificationEvidence(previousFailure, unresolvedCases, unresolvedSurfaces, currentFailure),
+                evidence,
                 resolvedLanguage.choose(
                         "1. 先修复上一轮失败 case/capability 对应的实现缺口。 2. 重新执行针对性验证，确认这些目标全部通过。 3. 只有当前失败项闭环后才能批准 implementation。",
                         "1. Fix the implementation gap behind the previously failing case or capability. 2. Rerun targeted verification until those targets pass. 3. Approve implementation only after the active failure targets are closed."
@@ -291,22 +296,27 @@ public class TestExecutor {
         }
         if (disposition.implementationPatchTarget() == devflow.agent.review.ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
                 && disposition.overrideChanges().isEmpty()) {
-            devflow.agent.review.ReviewResult review = new devflow.agent.review.ReviewResult(
-                    devflow.agent.review.ReviewDecision.REVISION_REQUIRED,
-                    devflow.agent.review.FixMode.PATCH,
-                    "当前实现需要继续 patch，但测试侧没有给出结构化文件范围。",
-                    "请先明确本轮需要修补的实现文件范围，确认 owner 后再继续自动修复。",
-                    disposition.evidence(),
-                    language.choose(
-                            "1. 先补齐结构化 overrideChanges。 2. 确认这些文件仍归当前 implementation 子任务负责。 3. 没有确定范围前不要继续自动续跑。",
-                            "1. Provide structured overrideChanges first. 2. Confirm the files still belong to the current implementation subtask. 3. Do not continue automatic retry without a deterministic scope."
+            return SubtaskVerificationOutcome.of(
+                    missingCanonicalPatchScopeReview(
+                            disposition.implementationPatchTarget(),
+                            disposition.evidence(),
+                            disposition.reasonCode(),
+                            language
                     ),
-                    devflow.agent.review.ImplementationPatchTarget.NONE,
-                    List.of(),
-                    devflow.agent.review.ReviewRevisionRoute.REQUEST_HUMAN,
-                    disposition.reasonCode()
+                    SubtaskRevisionDirective.empty()
             );
-            return SubtaskVerificationOutcome.of(review, SubtaskRevisionDirective.empty());
+        }
+        if (disposition.implementationPatchTarget() == devflow.agent.review.ImplementationPatchTarget.PATCH_RUNTIME_WIRING
+                && disposition.overrideChanges().isEmpty()) {
+            return SubtaskVerificationOutcome.of(
+                    missingCanonicalPatchScopeReview(
+                            disposition.implementationPatchTarget(),
+                            disposition.evidence(),
+                            disposition.reasonCode(),
+                            language
+                    ),
+                    SubtaskRevisionDirective.empty()
+            );
         }
         devflow.agent.review.ReviewResult review = new devflow.agent.review.ReviewResult(
                 devflow.agent.review.ReviewDecision.REVISION_REQUIRED,
@@ -324,6 +334,51 @@ public class TestExecutor {
                 disposition.reasonCode()
         );
         return SubtaskVerificationOutcome.of(review);
+    }
+
+    private boolean requiresCanonicalPatchScope(devflow.agent.review.ImplementationPatchTarget patchTarget) {
+        return patchTarget == devflow.agent.review.ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION
+                || patchTarget == devflow.agent.review.ImplementationPatchTarget.PATCH_RUNTIME_WIRING;
+    }
+
+    private devflow.agent.review.ReviewResult missingCanonicalPatchScopeReview(
+            devflow.agent.review.ImplementationPatchTarget patchTarget,
+            String evidence,
+            ReviewReasonCode reasonCode,
+            DocumentLanguage language
+    ) {
+        if (patchTarget == devflow.agent.review.ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
+            return new devflow.agent.review.ReviewResult(
+                    devflow.agent.review.ReviewDecision.REVISION_REQUIRED,
+                    devflow.agent.review.FixMode.PATCH,
+                    "当前实现需要继续修复 runtime wiring，但测试侧没有给出 canonical runtime repair package。",
+                    "请先由 runtime wiring contract 链产出当前轮的 canonical runtime repair package，再继续自动修复。",
+                    evidence,
+                    language.choose(
+                            "1. 先补齐 canonical runtime repair package。 2. 确认 host entry 与 companion runtime 的结构化修复范围。 3. 缺少这份 package 时转人工，不要自动续跑。",
+                            "1. Provide a canonical runtime repair package first. 2. Confirm the structured repair scope for the host entry and companion runtime. 3. Route to human review instead of auto-retrying when the package is missing."
+                    ),
+                    devflow.agent.review.ImplementationPatchTarget.NONE,
+                    List.of(),
+                    devflow.agent.review.ReviewRevisionRoute.REQUEST_HUMAN,
+                    reasonCode
+            );
+        }
+        return new devflow.agent.review.ReviewResult(
+                devflow.agent.review.ReviewDecision.REVISION_REQUIRED,
+                devflow.agent.review.FixMode.PATCH,
+                "当前实现需要继续 patch，但测试侧没有给出结构化文件范围。",
+                "请先明确本轮需要修补的实现文件范围，确认 owner 后再继续自动修复。",
+                evidence,
+                language.choose(
+                        "1. 先补齐结构化 overrideChanges。 2. 确认这些文件仍归当前 implementation 子任务负责。 3. 没有确定范围前不要继续自动续跑。",
+                        "1. Provide structured overrideChanges first. 2. Confirm the files still belong to the current implementation subtask. 3. Do not continue automatic retry without a deterministic scope."
+                ),
+                devflow.agent.review.ImplementationPatchTarget.NONE,
+                List.of(),
+                devflow.agent.review.ReviewRevisionRoute.REQUEST_HUMAN,
+                reasonCode
+        );
     }
 
     private TestExecutionSnapshot buildExecutionSnapshot(

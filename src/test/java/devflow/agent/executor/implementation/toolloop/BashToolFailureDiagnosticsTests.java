@@ -164,7 +164,33 @@ class BashToolFailureDiagnosticsTests {
         assertEquals(ToolFailureCode.COMMAND_FAILED, diagnostic.failureCode());
     }
 
+    @Test
+    void repairModeReadOnlyDenyKeepsStructuredTargetPath() throws Exception {
+        Files.writeString(tempDir.resolve("app.js"), "export const ready = true;\n");
+        BashTool bashTool = new BashTool();
+        ImplementationToolContext context = newContext(Set.of(Path.of("app.js")), true);
+
+        ToolInvocationResult result = bashTool.invoke(
+                new LlmToolCall(
+                        "call-repair-read-only",
+                        "Bash",
+                        Map.of("command", "cat app.js")
+                ),
+                context
+        );
+
+        assertFalse(result.success());
+        assertEquals(1, context.diagnostics().size());
+        ImplementationDiagnosticRecord diagnostic = context.diagnostics().getFirst();
+        assertEquals(Path.of("app.js"), diagnostic.relativePath());
+        assertEquals(ToolFailureCode.COMMAND_FAILED, diagnostic.failureCode());
+    }
+
     private ImplementationToolContext newContext(Set<Path> ownedPaths) {
+        return newContext(ownedPaths, false);
+    }
+
+    private ImplementationToolContext newContext(Set<Path> ownedPaths, boolean repairMode) {
         return new ImplementationToolContext(
                 tempDir,
                 new RunRecord(
@@ -192,8 +218,8 @@ class BashToolFailureDiagnosticsTests {
                         5_000L,
                         5_000L,
                         DeliveryMode.PATCH,
-                        false,
-                        true,
+                        repairMode,
+                        !repairMode,
                         false
                 ),
                 new ImplementationToolPermissionPolicy(

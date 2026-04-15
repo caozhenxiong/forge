@@ -18,12 +18,45 @@ import devflow.agent.quality.QualityPlan;
 import devflow.agent.util.ProjectPathSupport;
 import devflow.agent.validation.ProjectFingerprint;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.stream.IntStream;
 
 import devflow.agent.executor.subtask.Subtask;
 public class ImplementationPlanCoverageAnalyzer {
+
+    public CoverageResult analyzeCapabilityPartition(List<Subtask> subtasks) {
+        if (subtasks == null || subtasks.isEmpty()) {
+            return CoverageResult.success();
+        }
+        return analyzeCapabilityPartitionUnits(
+                subtasks.stream()
+                        .map(subtask -> new CapabilityPartitionUnit(
+                                subtask == null ? "" : blank(subtask.title()),
+                                subtask == null ? List.of() : safeCapabilities(subtask.ownedCapabilities()),
+                                subtask == null ? List.of() : safeCapabilities(subtask.deferredCapabilities())
+                        ))
+                        .toList()
+        );
+    }
+
+    public CoverageResult analyzeCapabilityPartitionOutline(List<ImplementationOutlineSubtask> subtasks) {
+        if (subtasks == null || subtasks.isEmpty()) {
+            return CoverageResult.success();
+        }
+        return analyzeCapabilityPartitionUnits(
+                subtasks.stream()
+                        .map(subtask -> new CapabilityPartitionUnit(
+                                subtask == null ? "" : blank(subtask.id()).isBlank() ? blank(subtask.title()) : blank(subtask.id()),
+                                subtask == null ? List.of() : safeCapabilities(subtask.ownedCapabilities()),
+                                subtask == null ? List.of() : safeCapabilities(subtask.deferredCapabilities())
+                        ))
+                        .toList()
+        );
+    }
 
     public CoverageResult analyze(
             ProjectFingerprint fingerprint,
@@ -215,5 +248,76 @@ public class ImplementationPlanCoverageAnalyzer {
         return fingerprint.fileNames().stream()
                 .map(path -> path == null ? "" : path.toLowerCase())
                 .anyMatch(executionContract.normalizedEntryKindEnum()::matchesProjectPath);
+    }
+
+    private CoverageResult analyzeCapabilityPartitionUnits(List<CapabilityPartitionUnit> units) {
+        if (units == null || units.isEmpty()) {
+            return CoverageResult.success();
+        }
+        List<String> issues = new ArrayList<>();
+        Map<String, List<String>> ownedByCapability = new LinkedHashMap<>();
+        for (CapabilityPartitionUnit unit : units) {
+            LinkedHashSet<String> overlap = new LinkedHashSet<>(unit.ownedCapabilities());
+            overlap.retainAll(unit.deferredCapabilities());
+            if (!overlap.isEmpty()) {
+                issues.add("子任务 " + renderUnitId(unit.id()) + " 的 ownedCapabilities 与 deferredCapabilities 不能重叠：" + String.join("、", overlap));
+            }
+            for (String capability : unit.ownedCapabilities()) {
+                ownedByCapability.computeIfAbsent(capability, ignored -> new ArrayList<>()).add(renderUnitId(unit.id()));
+            }
+        }
+        for (Map.Entry<String, List<String>> entry : ownedByCapability.entrySet()) {
+            if (entry.getValue().size() > 1) {
+                issues.add("能力 " + entry.getKey() + " 不能被多个子任务同时声明为 ownedCapabilities：" + String.join("、", entry.getValue()));
+            }
+        }
+        for (int index = 0; index < units.size(); index++) {
+            CapabilityPartitionUnit unit = units.get(index);
+            for (String capability : unit.deferredCapabilities()) {
+                List<String> futureOwners = new ArrayList<>();
+                for (int futureIndex = index + 1; futureIndex < units.size(); futureIndex++) {
+                    CapabilityPartitionUnit futureUnit = units.get(futureIndex);
+                    if (futureUnit.ownedCapabilities().contains(capability)) {
+                        futureOwners.add(renderUnitId(futureUnit.id()));
+                    }
+                }
+                if (futureOwners.size() != 1) {
+                    issues.add("子任务 " + renderUnitId(unit.id()) + " 标记为 deferred 的能力 " + capability + " 必须由后续唯一子任务接手。");
+                }
+            }
+        }
+        if (issues.isEmpty()) {
+            return CoverageResult.success();
+        }
+        return CoverageResult.failure("当前实现计划的 capability partition 未通过结构校验。", issues);
+    }
+
+    private List<String> safeCapabilities(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<String> normalized = new LinkedHashSet<>();
+        for (String value : values) {
+            String candidate = blank(value);
+            if (!candidate.isBlank()) {
+                normalized.add(candidate);
+            }
+        }
+        return List.copyOf(normalized);
+    }
+
+    private String renderUnitId(String value) {
+        return blank(value).isBlank() ? "<unknown>" : blank(value);
+    }
+
+    private String blank(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private record CapabilityPartitionUnit(
+            String id,
+            List<String> ownedCapabilities,
+            List<String> deferredCapabilities
+    ) {
     }
 }

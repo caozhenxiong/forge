@@ -260,9 +260,6 @@ final class ImplementationPlanChangeGate {
                 return false;
             }
             List<Path> wiredRuntimePaths = runtimeFacts.wiredRuntimePaths();
-            if (!wiredRuntimePaths.isEmpty() && scopedRuntimePaths.stream().anyMatch(wiredRuntimePaths::contains)) {
-                return false;
-            }
             return scopedRuntimePaths.stream().anyMatch(path -> !wiredRuntimePaths.contains(path));
         }
 

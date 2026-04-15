@@ -261,6 +261,20 @@ public final class SubtaskVerificationSupport {
                 || !review.overrideChanges().isEmpty()) {
             return review;
         }
+        if (review.implementationPatchTarget() == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
+            return new ReviewResult(
+                    review.decision(),
+                    review.fixMode(),
+                    "当前子任务需要继续修复 runtime wiring，但 review 没有给出 canonical runtime repair package。",
+                    "请先由 runtime wiring contract 链生成当前子任务的 canonical runtime repair package；缺少结构化 repair package 时不要继续自动续跑。",
+                    review.evidence(),
+                    review.actionItems(),
+                    ImplementationPatchTarget.NONE,
+                    List.of(),
+                    ReviewRevisionRoute.REQUEST_HUMAN,
+                    review.reasonCode()
+            );
+        }
         List<FileChange> effectiveChanges = subtask == null || subtask.changes() == null
                 ? List.of()
                 : List.copyOf(subtask.changes());
