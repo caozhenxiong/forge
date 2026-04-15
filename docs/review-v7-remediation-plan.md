@@ -112,7 +112,9 @@
 涉及：
 
 - [ImplementationPlanNormalizationSupport.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/ImplementationPlanNormalizationSupport.java)
+- [ImplementationPlanGateInputBuilder.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/ImplementationPlanGateInputBuilder.java)
 - [ImplementationOutlineGate.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/ImplementationOutlineGate.java)
+- [ImplementationPlanGate.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/ImplementationPlanGate.java)
 - [ImplementationPlanCoverageAnalyzer.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/ImplementationPlanCoverageAnalyzer.java)
 - 相关 planning gate tests
 
@@ -120,6 +122,8 @@
 
 - normalization 继续只负责清洗，不偷偷修正 owner 冲突
 - owner 冲突必须由 gate 明确失败
+- `ImplementationPlanGateInputBuilder` 继续作为 final assembled plan gate 输入的唯一展平装配点
+- `ImplementationPlanGate` 必须和 outline gate 一样消费同一份 canonical capability partition，而不是只靠 flatten 后的 coverage 语料放行
 - canonical capability partition 只保留一套 owner 解释
 
 ### Scope 2. runtime package completeness gate
@@ -140,12 +144,15 @@
 
 - [SubtaskVerificationSupport.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/subtask/SubtaskVerificationSupport.java)
 - [SubtaskExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/subtask/SubtaskExecutor.java)
+- [TestExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/testing/TestExecutor.java)
 - runtime wiring / subtask verification tests
 
 要求：
 
 - `PATCH_RUNTIME_WIRING` 与 `PATCH_EXISTING_IMPLEMENTATION` 分开处理
 - runtime wiring retry scope 继续只认 canonical runtime repair package
+- `TestExecutor` 产出的 `PATCH_RUNTIME_WIRING` 也必须走同一条 canonical runtime repair package 约束
+- 测试侧若没有 canonical runtime repair package，必须转 `REQUEST_HUMAN`
 - 不允许 reviewer fallback 再造第二套 patch scope
 
 ### Scope 4. repair-mode shell diagnostics
@@ -191,11 +198,13 @@
   - `ownedCapabilities` 与 `deferredCapabilities` 重叠时失败
   - 同一 capability 被多个 subtasks 同时声明为 owned 时失败
   - deferred capability 没有形成唯一后续 owner 时失败
+  - final assembled plan 进入 `ImplementationPlanGate` 时仍会按 canonical capability partition 驳回，不允许只在 outline gate 收紧
 - mixed runtime-root completeness:
   - scope 同时包含一个 wired root 和一个 unwired root，但没有 host patch 时失败
 - runtime wiring retry scope:
   - reviewer 给出 `PATCH_RUNTIME_WIRING` 且 `overrideChanges` 为空时，不能回填 `subtask.changes()`
   - 无 canonical runtime repair package 时应转 `REQUEST_HUMAN`
+  - 测试侧产出 `PATCH_RUNTIME_WIRING` 且缺少 canonical runtime repair package 时，也必须转 `REQUEST_HUMAN`
 - repair-mode shell diagnostics:
   - repair mode 下 `cat app.js` 被 deny，但 diagnostics 仍落到 `app.js`
 
