@@ -58,7 +58,9 @@ class ImplementationSubtaskDetailGateTests {
                 new DeliveryPolicyEnvelope(DeliveryMode.PATCH, 2, 4, true, false, true, List.of()),
                 new PlanningRuntimeFacts(
                         java.nio.file.Path.of("index.html"),
-                        HtmlRuntimeOwnershipContract.inlineHost(java.nio.file.Path.of("index.html"))
+                        HtmlRuntimeOwnershipContract.inlineHost(java.nio.file.Path.of("index.html")),
+                        List.of(),
+                        List.of()
                 ),
                 new ImplementationOutlineSubtask(
                         "subtask-2",

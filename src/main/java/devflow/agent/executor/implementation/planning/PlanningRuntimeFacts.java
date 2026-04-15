@@ -2,6 +2,7 @@ package devflow.agent.executor.implementation.planning;
 
 import devflow.agent.executor.runtime.HtmlRuntimeOwnershipContract;
 import java.nio.file.Path;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 /**
@@ -9,7 +10,9 @@ import java.util.List;
  */
 public record PlanningRuntimeFacts(
         Path htmlEntryPath,
-        HtmlRuntimeOwnershipContract runtimeContract
+        HtmlRuntimeOwnershipContract runtimeContract,
+        List<Path> reachableRuntimePaths,
+        List<Path> runtimeRootPaths
 ) {
 
     public PlanningRuntimeFacts {
@@ -21,10 +24,12 @@ public record PlanningRuntimeFacts(
                     runtimeContract.runtimePaths()
             );
         }
+        reachableRuntimePaths = normalizePaths(reachableRuntimePaths);
+        runtimeRootPaths = normalizePaths(runtimeRootPaths);
     }
 
     public static PlanningRuntimeFacts empty() {
-        return new PlanningRuntimeFacts(null, null);
+        return new PlanningRuntimeFacts(null, null, List.of(), List.of());
     }
 
     public boolean hasResolvedHtmlEntry() {
@@ -37,5 +42,18 @@ public record PlanningRuntimeFacts(
 
     public List<Path> wiredRuntimePaths() {
         return runtimeContract == null ? List.of() : runtimeContract.runtimePaths();
+    }
+
+    private static List<Path> normalizePaths(List<Path> values) {
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<Path> normalized = new LinkedHashSet<>();
+        for (Path value : values) {
+            if (value != null) {
+                normalized.add(value.normalize());
+            }
+        }
+        return List.copyOf(normalized);
     }
 }

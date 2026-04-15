@@ -259,8 +259,19 @@ final class ImplementationPlanChangeGate {
             if (scopedRuntimePaths.isEmpty()) {
                 return false;
             }
-            List<Path> wiredRuntimePaths = runtimeFacts.wiredRuntimePaths();
-            return scopedRuntimePaths.stream().anyMatch(path -> !wiredRuntimePaths.contains(path));
+            List<Path> reachableRuntimePaths = runtimeFacts.reachableRuntimePaths();
+            List<Path> runtimeRootPaths = runtimeFacts.runtimeRootPaths();
+            List<Path> unresolvedRuntimePaths = scopedRuntimePaths.stream()
+                    .filter(path -> !reachableRuntimePaths.contains(path))
+                    .toList();
+            if (unresolvedRuntimePaths.isEmpty()) {
+                return false;
+            }
+            boolean hasReachableAnchor = scopedRuntimePaths.stream().anyMatch(reachableRuntimePaths::contains);
+            if (!hasReachableAnchor) {
+                return true;
+            }
+            return unresolvedRuntimePaths.stream().anyMatch(runtimeRootPaths::contains);
         }
 
         List<String> normalizedPathStrings() {

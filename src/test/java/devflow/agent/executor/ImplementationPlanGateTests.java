@@ -114,7 +114,9 @@ class ImplementationPlanGateTests {
                 contractView(),
                 new PlanningRuntimeFacts(
                         java.nio.file.Path.of("index.html"),
-                        HtmlRuntimeOwnershipContract.inlineHost(java.nio.file.Path.of("index.html"))
+                        HtmlRuntimeOwnershipContract.inlineHost(java.nio.file.Path.of("index.html")),
+                        List.of(),
+                        List.of()
                 ),
                 List.of("index.html"),
                 List.of("继续修复入口"),
@@ -153,7 +155,9 @@ class ImplementationPlanGateTests {
                 contractView(),
                 new PlanningRuntimeFacts(
                         java.nio.file.Path.of("index.html"),
-                        HtmlRuntimeOwnershipContract.inlineHost(java.nio.file.Path.of("index.html"))
+                        HtmlRuntimeOwnershipContract.inlineHost(java.nio.file.Path.of("index.html")),
+                        List.of(),
+                        List.of()
                 ),
                 List.of("src/engine.js"),
                 List.of("新增 companion runtime"),
@@ -307,7 +311,7 @@ class ImplementationPlanGateTests {
     }
 
     @Test
-    void failsWhenRuntimeSplitMixesWiredAndUnwiredRootsWithoutHostPatch() {
+    void allowsRuntimeLeafWhenScopeAlsoPatchesCurrentlyReachableRuntimeModule() {
         ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
         GateReport report = gate.evaluate(new ImplementationPlanGateInput(
                 new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html", "index.app.js", "src/engine.js"), List.of()),
@@ -317,7 +321,9 @@ class ImplementationPlanGateTests {
                         HtmlRuntimeOwnershipContract.externalCompanion(
                                 java.nio.file.Path.of("index.html"),
                                 List.of(java.nio.file.Path.of("index.app.js"))
-                        )
+                        ),
+                        List.of(java.nio.file.Path.of("index.app.js")),
+                        List.of(java.nio.file.Path.of("index.app.js"))
                 ),
                 List.of("index.html", "index.app.js", "src/engine.js"),
                 List.of("扩展已有 runtime"),
@@ -329,8 +335,8 @@ class ImplementationPlanGateTests {
                 ImplementationPatchTarget.NONE,
                 ImplementationContinuationConstraints.empty(),
                 List.of(new Subtask(
-                        "混合 runtime root",
-                        "在已接线 root 旁新增未接线 runtime root",
+                        "扩展已有 runtime",
+                        "在当前 reachable runtime 模块下新增 leaf module",
                         List.of("CAP-1"),
                         List.of("runtime wiring"),
                         List.of(),
@@ -340,6 +346,49 @@ class ImplementationPlanGateTests {
                         List.of(
                                 new FileChange("index.app.js", ChangeAction.WRITE, "扩展已有 root"),
                                 new FileChange("src/engine.js", ChangeAction.WRITE, "新增 leaf module")
+                        )
+                ))
+        ));
+
+        assertTrue(report.passed(), report.issues().toString());
+    }
+
+    @Test
+    void failsWhenKnownOrphanRuntimeRootIsAddedWithoutHostPatch() {
+        ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
+        GateReport report = gate.evaluate(new ImplementationPlanGateInput(
+                new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html", "index.app.js", "admin.app.js"), List.of()),
+                contractView(),
+                new PlanningRuntimeFacts(
+                        java.nio.file.Path.of("index.html"),
+                        HtmlRuntimeOwnershipContract.externalCompanion(
+                                java.nio.file.Path.of("index.html"),
+                                List.of(java.nio.file.Path.of("index.app.js"))
+                        ),
+                        List.of(java.nio.file.Path.of("index.app.js")),
+                        List.of(java.nio.file.Path.of("index.app.js"), java.nio.file.Path.of("admin.app.js"))
+                ),
+                List.of("index.app.js", "admin.app.js"),
+                List.of("混合 runtime root"),
+                List.of("CAP-1"),
+                List.of("PATCH"),
+                true,
+                true,
+                null,
+                ImplementationPatchTarget.NONE,
+                ImplementationContinuationConstraints.empty(),
+                List.of(new Subtask(
+                        "混合 runtime root",
+                        "在当前 wired root 旁引入另一个已知 orphan root",
+                        List.of("CAP-1"),
+                        List.of("runtime wiring"),
+                        List.of(),
+                        List.of("入口可运行"),
+                        false,
+                        DeliveryMode.PATCH,
+                        List.of(
+                                new FileChange("index.app.js", ChangeAction.WRITE, "扩展已有 root"),
+                                new FileChange("admin.app.js", ChangeAction.WRITE, "引入另一条 root")
                         )
                 ))
         ));
