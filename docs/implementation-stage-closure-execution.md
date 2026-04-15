@@ -138,14 +138,14 @@
 
 ### Phase 8. Golden Path Integration
 
-- [ ] 跑黄金路径集成测试
+- [x] 跑黄金路径集成测试（`v176`，run id: `88babec8-79e0-4431-9c34-cafbb4997d4d`）
 - [ ] 根据结果更新 `docs/current-state.md`
-- [ ] 根据结果更新本文档
+- [x] 根据结果更新本文档
 - [ ] 根据结果更新 `docs/active-work-items.md`（若主线状态发生变化）
 
 ## Current Status
 
-- 当前阶段：`PHASE_8_PARTIAL_INTEGRATION_REPRODUCED`
+- 当前阶段：`PHASE_8_BLOCKER_REPRODUCED`
 - 当前 blocker：`tool loop completion 已收口；当前新 blocker 是 subtask review / revision feedback 未稳定收敛到 patch-first repair`
 - 当前约束：`禁止兼容层、禁止 fallback、禁止双轨并存、禁止“后续再清理”`
 - 当前执行入口：`reviewer 先看 docs/review-v8-tool-loop-closure-note.md；下一轮直接收 subtask review / revision repair 主线`
@@ -204,7 +204,7 @@
 ### Phase 8
 
 - commit：`dbbc80c close tool loop when declared changes are satisfied`
-- self-test：`mvn -q -Dtest=ImplementationToolLoopExecutorTests test`；`mvn -q -Dtest=ImplementationToolLoopExecutorTests,ImplementationStageGateTests test`；`mvn -q -DskipTests package`
+- self-test：`mvn -q -Dtest=ImplementationToolLoopExecutorTests test`；`mvn -q -Dtest=ImplementationToolLoopExecutorTests,ImplementationStageGateTests test`；`mvn -q -DskipTests package`；黄金路径集成：`v176`（run id: `88babec8-79e0-4431-9c34-cafbb4997d4d`）
 - code review：`待 reviewer 检查 docs/review-v8-tool-loop-closure-note.md`
 - docs：`docs/review-v8-tool-loop-closure-note.md`
 
@@ -225,6 +225,7 @@
 - [x] `T6` repair reroute 的状态、artifact、event、re-entry 已全链一致
 - [x] `R1 ~ R7` 全部通过
 - [x] `self-test + code review + docs` 全部补齐
-- [ ] 黄金路径集成测试已执行
+- [x] 黄金路径集成测试已执行
+- [ ] 黄金路径集成 blocker 已收口
 
-结果：`READY_FOR_PHASE_8`
+结果：`PHASE_8_BLOCKER_REPRODUCED`
