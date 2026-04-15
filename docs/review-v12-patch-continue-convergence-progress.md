@@ -110,16 +110,16 @@
 
 ### Scope 4. Runnable Milestone Quality Closure
 
-- [ ] `SubtaskRunnableMilestoneGuard` 不再只靠 smoke/resource/syntax 放行
-- [ ] `SubtaskVerificationSupport` 对当前 milestone 的运行态证据使用更强 gate
-- [ ] `ImplementationSelfCheckReviewResolver` 与 runnable milestone 新口径保持一致
-- [ ] `TestExecutor.shouldRunImplementationFunctionalVerification()` 对 runnable milestone 正确触发更强验证
-- [ ] `TestExecutor.scopedImplementationVerificationPlan()` 对 runnable milestone 使用足够强的验证面
-- [ ] `ValidationExecutor` / `WebRuntimeWiringValidationSupport` / `WebResourceValidationSupport` 与上面口径一致
-- [ ] 弱壳页面在当前子任务内被打回，不再提前推进
-- [ ] Scope 4 `self-test`
-- [ ] Scope 4 `code review`
-- [ ] Scope 4 `docs`
+- [x] `SubtaskRunnableMilestoneGuard` 不再只靠 smoke/resource/syntax 放行
+- [x] `SubtaskVerificationSupport` 对当前 milestone 的运行态证据使用更强 gate
+- [x] `ImplementationSelfCheckReviewResolver` 与 runnable milestone 新口径保持一致
+- [x] `TestExecutor.shouldRunImplementationFunctionalVerification()` 对 runnable milestone 正确触发更强验证
+- [x] `TestExecutor.scopedImplementationVerificationPlan()` 对 runnable milestone 使用足够强的验证面
+- [x] `ValidationExecutor` / `WebRuntimeWiringValidationSupport` / `WebResourceValidationSupport` 与上面口径一致
+- [x] 弱壳页面在当前子任务内被打回，不再提前推进
+- [x] Scope 4 `self-test`
+- [x] Scope 4 `code review`
+- [x] Scope 4 `docs`
 
 ### Scope 5. Regression Matrix And Golden Path Integration
 
@@ -143,7 +143,7 @@
 
 ## Current Status
 
-- 当前阶段：`SCOPE_4_IN_PROGRESS`
+- 当前阶段：`SCOPE_5_IN_PROGRESS`
 - 当前 blocker：`无`
 - 当前约束：`禁止兼容层、禁止双轨并存、禁止“后续再清理”`
 
@@ -172,10 +172,10 @@
 
 ### Scope 4
 
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`待开始`
+- commit：`待本轮提交`
+- self-test：`mvn -q -Dtest=TestExecutorTests,ImplementationSelfCheckReviewResolverTests,SubtaskVerificationSupportTests test`
+- code review：`本地静态自审通过；runnable milestone 已不再依赖 html owner touch 才触发功能验证，scoped plan 已保留 timed/observable 能力`
+- docs：`tracker 已回填 Scope 4 状态与证据`
 
 ### Scope 5
 
@@ -189,7 +189,7 @@
 - [x] `S1` tool loop closure 已改成 workspace-state based，repair-mode tool surface 已与权限完全一致
 - [x] `S2` canonical patch package 已在 `revision note -> directive parser -> resumed execution state -> active execution state` 单轨收口
 - [x] `S3` stage gate / TEST 对 patch scope 已只允许 fail-fast 或安全 canonical scope
-- [ ] `S4` runnable milestone 已只在当前里程碑运行态证据达标时放行
+- [x] `S4` runnable milestone 已只在当前里程碑运行态证据达标时放行
 - [ ] `S5` 回归矩阵与黄金路径集成测试已全部通过
 - [x] active patch package machine owner 已只剩 `SubtaskExecutionState.effectiveChanges`
 - [ ] `TaskPackage` 已只保留派生视图职责

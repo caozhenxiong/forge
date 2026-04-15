@@ -233,7 +233,7 @@ public class TestExecutor {
             return null;
         }
         RuntimeSnapshot runtimeSnapshot = testRunner.captureRuntimeSnapshotDetailed(projectPath, toolSelection).runtimeSnapshot();
-        QualityPlan scopedQualityPlan = scopedImplementationVerificationPlan(qualityPlan, finalSubtask);
+        QualityPlan scopedQualityPlan = scopedImplementationVerificationPlan(qualityPlan, subtask, finalSubtask);
         TestCasePlan testCasePlan = testCasePlanner.planForImplementationVerification(
                 projectPath,
                 fingerprint,
@@ -452,7 +452,7 @@ public class TestExecutor {
         return List.copyOf(merged);
     }
 
-    private boolean shouldRunImplementationFunctionalVerification(
+    boolean shouldRunImplementationFunctionalVerification(
             Subtask subtask,
             QualityPlan qualityPlan,
             ProjectFingerprint fingerprint,
@@ -465,11 +465,11 @@ public class TestExecutor {
                 || subtask.changes().isEmpty()) {
             return false;
         }
-        if (!touchesHtmlRuntimeOwner(subtask, fingerprint)) {
-            return false;
-        }
         if (finalSubtask || subtask.runnableMilestone()) {
             return true;
+        }
+        if (!touchesHtmlRuntimeOwner(subtask, fingerprint)) {
+            return false;
         }
         if (qualityPlan == null) {
             return false;
@@ -501,9 +501,28 @@ public class TestExecutor {
         return false;
     }
 
-    private QualityPlan scopedImplementationVerificationPlan(QualityPlan qualityPlan, boolean finalSubtask) {
+    QualityPlan scopedImplementationVerificationPlan(QualityPlan qualityPlan, Subtask subtask, boolean finalSubtask) {
         if (qualityPlan == null || finalSubtask) {
             return qualityPlan == null ? QualityPlan.empty() : qualityPlan;
+        }
+        if (subtask != null && subtask.runnableMilestone()) {
+            LinkedHashSet<String> allowed = new LinkedHashSet<>();
+            allowed.add(CapabilityIds.PAGE_LOAD);
+            allowed.add(CapabilityIds.RUNTIME_STABILITY);
+            allowed.add(CapabilityIds.PRIMARY_VISUAL_SURFACE);
+            if (qualityPlan.featureProfile().hasDiscreteUserInput()) {
+                allowed.add(CapabilityIds.PRIMARY_INTERACTION);
+            }
+            if (qualityPlan.featureProfile().hasTimedProgression()) {
+                allowed.add(CapabilityIds.TIMED_STATE_PROGRESSION);
+            }
+            qualityPlan.capabilityMatrix().entries().stream()
+                    .filter(entry -> entry != null && entry.required())
+                    .filter(entry -> entry.requiresObservationTarget() || entry.requiresObservableStateChange())
+                    .map(CapabilityMatrixEntry::capabilityId)
+                    .filter(capabilityId -> capabilityId != null && !capabilityId.isBlank())
+                    .forEach(allowed::add);
+            return scopedImplementationVerificationPlan(qualityPlan, allowed);
         }
         LinkedHashSet<String> allowed = new LinkedHashSet<>();
         allowed.add(CapabilityIds.PAGE_LOAD);
@@ -512,6 +531,10 @@ public class TestExecutor {
         if (qualityPlan.featureProfile().hasDiscreteUserInput()) {
             allowed.add(CapabilityIds.PRIMARY_INTERACTION);
         }
+        return scopedImplementationVerificationPlan(qualityPlan, allowed);
+    }
+
+    private QualityPlan scopedImplementationVerificationPlan(QualityPlan qualityPlan, LinkedHashSet<String> allowed) {
         List<CapabilityMatrixEntry> scopedEntries = qualityPlan.capabilityMatrix().entries().stream()
                 .filter(entry -> entry != null && !entry.capabilityId().isBlank() && allowed.contains(entry.capabilityId()))
                 .toList();

@@ -12,17 +12,32 @@ import devflow.agent.executor.subtask.Subtask;
 import devflow.agent.executor.subtask.SubtaskVerificationOutcome;
 
 import devflow.agent.project.FileProjectWorkspace;
+import devflow.agent.quality.CapabilityExpectation;
+import devflow.agent.quality.CapabilityIds;
+import devflow.agent.quality.CapabilityMatrix;
+import devflow.agent.quality.CapabilityMatrixEntry;
+import devflow.agent.quality.CoveragePolicy;
+import devflow.agent.quality.ExperiencePolicy;
+import devflow.agent.quality.FeatureProfile;
+import devflow.agent.quality.QualityChecklist;
+import devflow.agent.quality.QualityIntent;
+import devflow.agent.quality.QualityPlan;
+import devflow.agent.quality.StructurePolicy;
+import devflow.agent.quality.StructureRiskLevel;
+import devflow.agent.quality.StructureRiskReport;
 import devflow.agent.review.ImplementationPatchTarget;
 import devflow.agent.review.FixMode;
 import devflow.agent.review.ReviewDecision;
 import devflow.agent.review.ReviewReasonCode;
 import devflow.agent.review.ReviewResult;
 import devflow.agent.review.ReviewRevisionRoute;
+import devflow.agent.validation.ProjectFingerprint;
 import devflow.agent.validation.ProjectInspector;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -558,6 +573,68 @@ class TestExecutorTests {
     }
 
     @Test
+    void runnableMilestoneTriggersFunctionalVerificationWithoutDirectHtmlOwnerTouch() {
+        TestExecutor executor = devflow.agent.executor.testing.TestExecutorTestSupport.create(
+                new FileProjectWorkspace(),
+                noopProvider(),
+                new com.fasterxml.jackson.databind.ObjectMapper()
+        );
+
+        boolean shouldRun = executor.shouldRunImplementationFunctionalVerification(
+                new Subtask(
+                        "补运行态",
+                        "补齐引擎逻辑",
+                        List.of(),
+                        List.of("runtime"),
+                        List.of(),
+                        List.of("里程碑可运行"),
+                        true,
+                        DeliveryMode.PATCH,
+                        List.of(new FileChange("src/engine.js", ChangeAction.WRITE, "补齐引擎逻辑"))
+                ),
+                milestoneQualityPlan(),
+                webFingerprint("index.html", "index.html", "src/engine.js"),
+                false
+        );
+
+        assertTrue(shouldRun);
+    }
+
+    @Test
+    void runnableMilestoneScopedPlanKeepsTimedAndObservableCapabilities() {
+        TestExecutor executor = devflow.agent.executor.testing.TestExecutorTestSupport.create(
+                new FileProjectWorkspace(),
+                noopProvider(),
+                new com.fasterxml.jackson.databind.ObjectMapper()
+        );
+
+        QualityPlan scoped = executor.scopedImplementationVerificationPlan(
+                milestoneQualityPlan(),
+                new Subtask(
+                        "补运行态",
+                        "补齐引擎逻辑",
+                        List.of(),
+                        List.of("runtime"),
+                        List.of(),
+                        List.of("里程碑可运行"),
+                        true,
+                        DeliveryMode.PATCH,
+                        List.of(new FileChange("src/engine.js", ChangeAction.WRITE, "补齐引擎逻辑"))
+                ),
+                false
+        );
+
+        List<String> capabilityIds = scoped.capabilityMatrix().entries().stream()
+                .map(CapabilityMatrixEntry::capabilityId)
+                .toList();
+
+        assertTrue(capabilityIds.contains(CapabilityIds.PAGE_LOAD));
+        assertTrue(capabilityIds.contains(CapabilityIds.PRIMARY_INTERACTION));
+        assertTrue(capabilityIds.contains(CapabilityIds.TIMED_STATE_PROGRESSION));
+        assertFalse(capabilityIds.contains("non-runtime-capability"));
+    }
+
+    @Test
     void missingHtmlEntryIsReportedAsExecutionContractFailure() throws Exception {
         Files.writeString(tempDir.resolve("game.js"), "export const boot = () => 'ok';");
 
@@ -913,6 +990,42 @@ class TestExecutorTests {
                 java.util.Arrays.stream(paths)
                         .map(path -> new FileChange(path, ChangeAction.WRITE, "当前子任务负责文件"))
                         .toList()
+        );
+    }
+
+    private QualityPlan milestoneQualityPlan() {
+        return new QualityPlan(
+                new FeatureProfile(true, true, false, true, true, true, true, true, false),
+                QualityIntent.empty(),
+                StructureRiskReport.low(),
+                new StructurePolicy(true, true, StructureRiskLevel.MEDIUM),
+                new CoveragePolicy(3, true, true),
+                new ExperiencePolicy(true, true),
+                new CapabilityMatrix(List.of(
+                        new CapabilityMatrixEntry(CapabilityIds.PAGE_LOAD, CapabilityExpectation.REQUIRED, false, ""),
+                        new CapabilityMatrixEntry(CapabilityIds.PRIMARY_VISUAL_SURFACE, CapabilityExpectation.REQUIRED, false, ""),
+                        new CapabilityMatrixEntry(CapabilityIds.PRIMARY_INTERACTION, CapabilityExpectation.REQUIRED, true, ""),
+                        new CapabilityMatrixEntry(CapabilityIds.TIMED_STATE_PROGRESSION, CapabilityExpectation.REQUIRED, true, ""),
+                        new CapabilityMatrixEntry("non-runtime-capability", CapabilityExpectation.REQUIRED, false, "")
+                )),
+                QualityChecklist.empty()
+        );
+    }
+
+    private ProjectFingerprint webFingerprint(String htmlEntry, String... fileNames) {
+        return new ProjectFingerprint(
+                "web-static",
+                "none",
+                false,
+                false,
+                false,
+                false,
+                true,
+                true,
+                false,
+                htmlEntry,
+                Set.of(fileNames),
+                List.of()
         );
     }
 }
