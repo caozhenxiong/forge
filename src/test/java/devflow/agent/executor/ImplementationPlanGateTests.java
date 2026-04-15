@@ -319,6 +319,168 @@ class ImplementationPlanGateTests {
     }
 
     @Test
+    void failsWhenSharedFileIncrementalSubtaskOmitsDeferredCapabilities() {
+        ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
+        GateReport report = gate.evaluate(new ImplementationPlanGateInput(
+                new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html", "src/game.js"), List.of()),
+                contractView(),
+                PlanningRuntimeFacts.empty(),
+                List.of("index.html", "src/game.js", "src/game.js"),
+                List.of("建立入口和画布", "继续补 gameplay"),
+                List.of("CAP-1", "CAP-2"),
+                List.of("PATCH", "PATCH"),
+                true,
+                true,
+                null,
+                ImplementationPatchTarget.NONE,
+                ImplementationContinuationConstraints.empty(),
+                List.of(),
+                List.of(
+                        new Subtask(
+                                "建立入口和画布",
+                                "创建页面入口和基础画布",
+                                List.of("CAP-1"),
+                                List.of("画布壳层"),
+                                List.of(),
+                                List.of("页面可打开"),
+                                true,
+                                DeliveryMode.PATCH,
+                                List.of(
+                                        new FileChange("index.html", ChangeAction.WRITE, "创建入口"),
+                                        new FileChange("src/game.js", ChangeAction.WRITE, "创建基础画布")
+                                )
+                        ),
+                        new Subtask(
+                                "继续补 gameplay",
+                                "在同一文件里补充后续玩法能力",
+                                List.of("CAP-2"),
+                                List.of("gameplay"),
+                                List.of(),
+                                List.of("玩法可工作"),
+                                false,
+                                DeliveryMode.PATCH,
+                                List.of(new FileChange("src/game.js", ChangeAction.WRITE, "补充玩法逻辑"))
+                        )
+                )
+        ));
+
+        assertFalse(report.passed());
+        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("deferredCapabilities")));
+        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("src/game.js")));
+    }
+
+    @Test
+    void allowsSharedFileIncrementalSubtaskWhenDeferredCapabilitiesAreExplicit() {
+        ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
+        GateReport report = gate.evaluate(new ImplementationPlanGateInput(
+                new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html", "src/game.js"), List.of()),
+                contractView(),
+                PlanningRuntimeFacts.empty(),
+                List.of("index.html", "src/game.js", "src/game.js"),
+                List.of("建立入口和画布", "继续补 gameplay"),
+                List.of("CAP-1", "CAP-2"),
+                List.of("PATCH", "PATCH"),
+                true,
+                true,
+                null,
+                ImplementationPatchTarget.NONE,
+                ImplementationContinuationConstraints.empty(),
+                List.of(),
+                List.of(
+                        new Subtask(
+                                "建立入口和画布",
+                                "创建页面入口和基础画布",
+                                List.of("CAP-1"),
+                                List.of("画布壳层"),
+                                List.of("gameplay"),
+                                List.of("页面可打开"),
+                                true,
+                                DeliveryMode.PATCH,
+                                List.of(
+                                        new FileChange("index.html", ChangeAction.WRITE, "创建入口"),
+                                        new FileChange("src/game.js", ChangeAction.WRITE, "创建基础画布")
+                                )
+                        ),
+                        new Subtask(
+                                "继续补 gameplay",
+                                "在同一文件里补充后续玩法能力",
+                                List.of("CAP-2"),
+                                List.of("gameplay"),
+                                List.of(),
+                                List.of("玩法可工作"),
+                                false,
+                                DeliveryMode.PATCH,
+                                List.of(new FileChange("src/game.js", ChangeAction.WRITE, "补充玩法逻辑"))
+                        )
+                )
+        ));
+
+        assertTrue(report.passed(), report.issues().toString());
+    }
+
+    @Test
+    void failsWhenSharedFileDeferredCapabilitiesDoNotAnchorToFutureOwner() {
+        ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
+        GateReport report = gate.evaluate(new ImplementationPlanGateInput(
+                new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html", "src/game.js"), List.of()),
+                contractView(),
+                PlanningRuntimeFacts.empty(),
+                List.of("index.html", "src/game.js", "src/game.js", "src/admin.js"),
+                List.of("建立入口和画布", "继续补 gameplay", "补管理功能"),
+                List.of("CAP-1", "CAP-2", "CAP-3"),
+                List.of("PATCH", "PATCH", "PATCH"),
+                true,
+                true,
+                null,
+                ImplementationPatchTarget.NONE,
+                ImplementationContinuationConstraints.empty(),
+                List.of(),
+                List.of(
+                        new Subtask(
+                                "建立入口和画布",
+                                "创建页面入口和基础画布",
+                                List.of("CAP-1"),
+                                List.of("画布壳层"),
+                                List.of("admin"),
+                                List.of("页面可打开"),
+                                true,
+                                DeliveryMode.PATCH,
+                                List.of(
+                                        new FileChange("index.html", ChangeAction.WRITE, "创建入口"),
+                                        new FileChange("src/game.js", ChangeAction.WRITE, "创建基础画布")
+                                )
+                        ),
+                        new Subtask(
+                                "继续补 gameplay",
+                                "在同一文件里补充后续玩法能力",
+                                List.of("CAP-2"),
+                                List.of("gameplay"),
+                                List.of(),
+                                List.of("玩法可工作"),
+                                false,
+                                DeliveryMode.PATCH,
+                                List.of(new FileChange("src/game.js", ChangeAction.WRITE, "补充玩法逻辑"))
+                        ),
+                        new Subtask(
+                                "补管理功能",
+                                "补充不共享文件的能力",
+                                List.of("CAP-3"),
+                                List.of("admin"),
+                                List.of(),
+                                List.of("管理功能可工作"),
+                                false,
+                                DeliveryMode.PATCH,
+                                List.of(new FileChange("src/admin.js", ChangeAction.WRITE, "补充管理逻辑"))
+                        )
+                )
+        ));
+
+        assertFalse(report.passed());
+        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("下游能力")));
+        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("gameplay")));
+    }
+
+    @Test
     void allowsRuntimeLeafWhenScopeAlsoPatchesCurrentlyReachableRuntimeModule() {
         ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
         GateReport report = gate.evaluate(new ImplementationPlanGateInput(

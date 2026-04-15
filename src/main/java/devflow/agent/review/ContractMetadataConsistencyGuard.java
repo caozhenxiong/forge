@@ -1,7 +1,10 @@
 package devflow.agent.review;
 
 import devflow.agent.context.ContractMetadataKeys;
+import devflow.agent.context.ContractRuntimeOwnershipMode;
+import devflow.agent.context.EntryPackagingMode;
 import devflow.agent.context.ExecutionContract;
+import devflow.agent.context.ExecutionEntryKind;
 import devflow.agent.i18n.ArtifactLabels;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.i18n.PlaceholderValues;
@@ -59,6 +62,14 @@ final class ContractMetadataConsistencyGuard {
         if (normalized.normalizedEntryPackagingModeEnum() == devflow.agent.context.EntryPackagingMode.SELF_CONTAINED_ENTRY
                 && normalized.normalizedRuntimeOwnershipModeEnum() == devflow.agent.context.ContractRuntimeOwnershipMode.COMPANION_OWNED) {
             return "%s=SELF_CONTAINED_ENTRY 与 %s=COMPANION_OWNED 不能同时成立。".formatted(
+                    ContractMetadataKeys.RUNTIME_ENTRY_PACKAGING_MODE,
+                    ContractMetadataKeys.RUNTIME_RUNTIME_OWNERSHIP_MODE
+            );
+        }
+        if (normalized.normalizedEntryKindEnum() == ExecutionEntryKind.HTML_ENTRY
+                && normalized.normalizedEntryPackagingModeEnum() == EntryPackagingMode.ENTRY_WITH_LOCAL_DEPENDENCIES
+                && normalized.normalizedRuntimeOwnershipModeEnum() == ContractRuntimeOwnershipMode.ENTRY_OWNED) {
+            return "%s=ENTRY_WITH_LOCAL_DEPENDENCIES 时，%s 不能收紧为 ENTRY_OWNED；普通网页入口默认应使用 NOT_APPLICABLE，只有入口自包含时才允许 SELF_CONTAINED_ENTRY + ENTRY_OWNED。".formatted(
                     ContractMetadataKeys.RUNTIME_ENTRY_PACKAGING_MODE,
                     ContractMetadataKeys.RUNTIME_RUNTIME_OWNERSHIP_MODE
             );

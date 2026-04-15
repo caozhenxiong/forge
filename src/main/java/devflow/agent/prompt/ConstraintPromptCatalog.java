@@ -16,8 +16,8 @@ final class ConstraintPromptCatalog {
 
     String directLaunchClarification(DocumentLanguage language) {
         return language.choose(
-                "如果约束写的是“可直接打开运行”“无需编译或打包”或类似表述，只能把它解释为需要可启动的入口与可运行交付物。默认使用 runtime.entryPackagingMode=entry-with-local-dependencies，不要在用户未明确提出时额外收紧为 self-contained-entry，也不要擅自收紧资源组织、文件数量、实现组织或交付形态；未经来源支撑的实现细节只能作为建议、设计选择或待确认问题。",
-                "If constraints say the project should open directly or run without build/packaging, interpret that only as requiring a launchable entry and a runnable deliverable. Default to runtime.entryPackagingMode=entry-with-local-dependencies; do not tighten it to self-contained-entry unless the user explicitly requires that shape, and do not further tighten resource organization, file count, implementation organization, or delivery shape without source support. Unsupported implementation details must remain recommendations, design choices, or open questions."
+                "如果约束写的是“可直接打开运行”“无需编译或打包”或类似表述，只能把它解释为需要可启动的入口与可运行交付物。对 html-entry，默认使用 runtime.entryPackagingMode=entry-with-local-dependencies 且 runtime.runtimeOwnershipMode=not-applicable；不要在用户未明确提出时额外收紧为 self-contained-entry / entry-owned，也不要擅自收紧资源组织、文件数量、实现组织或交付形态。只有当来源明确要求入口自包含且主运行时由入口自身持有时，才允许 self-contained-entry + entry-owned；未经来源支撑的实现细节只能作为建议、设计选择或待确认问题。",
+                "If constraints say the project should open directly or run without build/packaging, interpret that only as requiring a launchable entry and a runnable deliverable. For html-entry, default to runtime.entryPackagingMode=entry-with-local-dependencies and runtime.runtimeOwnershipMode=not-applicable; do not tighten that into self-contained-entry / entry-owned unless the source explicitly requires the entry to be self-contained and to own the primary runtime. Do not further tighten resource organization, file count, implementation organization, or delivery shape without source support. Unsupported implementation details must remain recommendations, design choices, or open questions."
         );
     }
 
@@ -128,8 +128,14 @@ final class ConstraintPromptCatalog {
                 ContractMetadataKeys.VALIDATION_INTERACTION_MAX_MS
         ).trim();
         return language.choose(
-                "必须填写“%s”章节，并严格使用以下英文键：\n%s".formatted(heading, keyLines),
-                "You must fill the “%s” section using these exact English keys:\n%s".formatted(heading, keyLines)
+                ("必须填写“%s”章节，并严格使用以下英文键：\n%s\n" +
+                        "若 entryKind=html-entry，默认组合应为 runtime.entryPackagingMode=entry-with-local-dependencies 且 " +
+                        "runtime.runtimeOwnershipMode=not-applicable；只有来源明确要求入口自包含并由入口自身持有主运行时，才允许 self-contained-entry + entry-owned。")
+                        .formatted(heading, keyLines),
+                ("You must fill the “%s” section using these exact English keys:\n%s\n" +
+                        "When entryKind=html-entry, the default pair should be runtime.entryPackagingMode=entry-with-local-dependencies and " +
+                        "runtime.runtimeOwnershipMode=not-applicable; only use self-contained-entry + entry-owned when the source explicitly requires the entry to be self-contained and to own the primary runtime.")
+                        .formatted(heading, keyLines)
         );
     }
 
@@ -146,6 +152,8 @@ final class ConstraintPromptCatalog {
         String enKeys = String.join(", ",
                 ContractMetadataKeys.RUNTIME_ENTRY_REQUIRED,
                 ContractMetadataKeys.RUNTIME_ENTRY_KIND,
+                ContractMetadataKeys.RUNTIME_ENTRY_PACKAGING_MODE,
+                ContractMetadataKeys.RUNTIME_RUNTIME_OWNERSHIP_MODE,
                 ContractMetadataKeys.RUNTIME_LAUNCH_REQUIRED,
                 ContractMetadataKeys.RUNTIME_SURFACE_REQUIRED,
                 ContractMetadataKeys.RUNTIME_ACCEPTANCE_SIGNALS

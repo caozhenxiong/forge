@@ -89,6 +89,53 @@ class DocumentStructureGuardTests {
     }
 
     @Test
+    void rejectsHtmlEntryContractThatTightensEntryOwnedWithoutSelfContainedEntry() {
+        ReviewResult result = guard.enforce(
+                dummyRun(),
+                StageType.DESIGN,
+                """
+                # 技术方案设计
+
+                ## 1. 技术目标
+                - 保持网页可直接打开运行
+
+                ## 2. 系统边界与模块划分
+                - 页面层与脚本层分离
+
+                ## 3. 核心数据模型
+                - 记录页面状态
+
+                ## 4. 关键流程
+                - 页面打开后直接进入运行界面
+
+                ## 5. 接口、页面或命令设计
+                - 提供浏览器入口
+
+                ## 6. 测试与验证策略
+                - 验证页面可打开
+
+                ## 7. 风险与取舍
+                - 先保证可运行
+
+                ## 8. Contract Metadata
+                - runtime.entryRequired: true
+                - runtime.entryKind: html-entry
+                - runtime.entryPackagingMode: entry-with-local-dependencies
+                - runtime.runtimeOwnershipMode: entry-owned
+                - runtime.launchRequired: true
+                - runtime.surfaceRequired: true
+                - runtime.acceptanceSignals: page-opens
+                """,
+                "DESIGN",
+                new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "")
+        );
+
+        assertEquals(ReviewDecision.REVISION_REQUIRED, result.decision());
+        assertTrue(result.summary().contains("Contract Metadata 不自洽"));
+        assertTrue(result.changeRequest().contains("ENTRY_WITH_LOCAL_DEPENDENCIES"));
+    }
+
+    @Test
     void rejectsInconsistentProductContractBlock() {
         ReviewResult result = guard.enforce(
                 dummyRun(),

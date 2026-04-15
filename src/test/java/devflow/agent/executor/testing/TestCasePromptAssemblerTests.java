@@ -64,7 +64,7 @@ class TestCasePromptAssemblerTests {
                 - runtime.entryRequired: true
                 - runtime.entryKind: html-entry
                 - runtime.entryPackagingMode: entry-with-local-dependencies
-                - runtime.runtimeOwnershipMode: entry-owned
+                - runtime.runtimeOwnershipMode: not-applicable
                 - runtime.launchRequired: true
                 - runtime.surfaceRequired: true
                 - runtime.acceptanceSignals: page-opens, runtime-surface-renders

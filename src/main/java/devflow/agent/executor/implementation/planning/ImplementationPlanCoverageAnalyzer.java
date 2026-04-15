@@ -37,7 +37,8 @@ public class ImplementationPlanCoverageAnalyzer {
                         .map(subtask -> new CapabilityPartitionUnit(
                                 subtask == null ? "" : blank(subtask.title()),
                                 subtask == null ? List.of() : safeCapabilities(subtask.ownedCapabilities()),
-                                subtask == null ? List.of() : safeCapabilities(subtask.deferredCapabilities())
+                                subtask == null ? List.of() : safeCapabilities(subtask.deferredCapabilities()),
+                                subtask == null ? List.of() : safePathsFromChanges(subtask.changes())
                         ))
                         .toList()
         );
@@ -52,7 +53,8 @@ public class ImplementationPlanCoverageAnalyzer {
                         .map(subtask -> new CapabilityPartitionUnit(
                                 subtask == null ? "" : blank(subtask.id()).isBlank() ? blank(subtask.title()) : blank(subtask.id()),
                                 subtask == null ? List.of() : safeCapabilities(subtask.ownedCapabilities()),
-                                subtask == null ? List.of() : safeCapabilities(subtask.deferredCapabilities())
+                                subtask == null ? List.of() : safeCapabilities(subtask.deferredCapabilities()),
+                                subtask == null ? List.of() : safePaths(subtask.targetPaths())
                         ))
                         .toList()
         );
@@ -286,6 +288,7 @@ public class ImplementationPlanCoverageAnalyzer {
                 }
             }
         }
+        issues.addAll(validateSharedFileDeferredBoundary(units));
         if (issues.isEmpty()) {
             return CoverageResult.success();
         }
@@ -306,6 +309,82 @@ public class ImplementationPlanCoverageAnalyzer {
         return List.copyOf(normalized);
     }
 
+    private List<String> safePathsFromChanges(List<FileChange> changes) {
+        if (changes == null || changes.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<String> normalized = new LinkedHashSet<>();
+        for (FileChange change : changes) {
+            if (change == null) {
+                continue;
+            }
+            String candidate = normalizePath(change.path());
+            if (!candidate.isBlank()) {
+                normalized.add(candidate);
+            }
+        }
+        return List.copyOf(normalized);
+    }
+
+    private List<String> safePaths(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<String> normalized = new LinkedHashSet<>();
+        for (String value : values) {
+            String candidate = normalizePath(value);
+            if (!candidate.isBlank()) {
+                normalized.add(candidate);
+            }
+        }
+        return List.copyOf(normalized);
+    }
+
+    private List<String> validateSharedFileDeferredBoundary(List<CapabilityPartitionUnit> units) {
+        List<String> issues = new ArrayList<>();
+        for (int index = 0; index < units.size(); index++) {
+            CapabilityPartitionUnit unit = units.get(index);
+            LinkedHashSet<String> sharedPaths = new LinkedHashSet<>();
+            LinkedHashSet<String> futureOwnedCapabilities = new LinkedHashSet<>();
+            for (int futureIndex = index + 1; futureIndex < units.size(); futureIndex++) {
+                CapabilityPartitionUnit futureUnit = units.get(futureIndex);
+                LinkedHashSet<String> overlap = new LinkedHashSet<>(unit.scopedPaths());
+                overlap.retainAll(futureUnit.scopedPaths());
+                if (overlap.isEmpty()) {
+                    continue;
+                }
+                sharedPaths.addAll(overlap);
+                futureOwnedCapabilities.addAll(futureUnit.ownedCapabilities());
+            }
+            if (sharedPaths.isEmpty() || futureOwnedCapabilities.isEmpty()) {
+                continue;
+            }
+            if (unit.deferredCapabilities().isEmpty()) {
+                issues.add("子任务 " + renderUnitId(unit.id())
+                        + " 与后续子任务共享文件 " + String.join("、", sharedPaths)
+                        + "，必须显式声明 deferredCapabilities 来锁定当前与下游 capability boundary。");
+                continue;
+            }
+            LinkedHashSet<String> anchoredDeferredCapabilities = new LinkedHashSet<>(unit.deferredCapabilities());
+            anchoredDeferredCapabilities.retainAll(futureOwnedCapabilities);
+            if (anchoredDeferredCapabilities.isEmpty()) {
+                issues.add("子任务 " + renderUnitId(unit.id())
+                        + " 虽然声明了 deferredCapabilities，但没有覆盖共享文件 "
+                        + String.join("、", sharedPaths)
+                        + " 对应的下游能力：" + String.join("、", futureOwnedCapabilities));
+            }
+        }
+        return issues;
+    }
+
+    private String normalizePath(String value) {
+        String candidate = blank(value);
+        if (candidate.isBlank()) {
+            return "";
+        }
+        return java.nio.file.Path.of(candidate).normalize().toString().replace('\\', '/');
+    }
+
     private String renderUnitId(String value) {
         return blank(value).isBlank() ? "<unknown>" : blank(value);
     }
@@ -317,7 +396,8 @@ public class ImplementationPlanCoverageAnalyzer {
     private record CapabilityPartitionUnit(
             String id,
             List<String> ownedCapabilities,
-            List<String> deferredCapabilities
+            List<String> deferredCapabilities,
+            List<String> scopedPaths
     ) {
     }
 }
