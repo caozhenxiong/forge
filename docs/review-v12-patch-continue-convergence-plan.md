@@ -161,10 +161,16 @@
   - 当前 reroute note / 当前 TEST / 当前 review 产出的 canonical patch package 优先级最高
   - persisted continuation 只在当前轮没有新 concrete package 时才允许生效
   - feedback merge 在 fresh feedback 没有 concrete package 时，不得把旧 concrete package 继续偷带进下一轮
+- active round 的 patch package owner 必须单一：
+  - stage-level fresh package 只允许沿 `revision note -> directive parser -> resumed execution state` 进入 implementation
+  - 一旦进入当前 active subtask，唯一 machine owner 立刻切换为 `SubtaskExecutionState.effectiveChanges`
+  - `SubtaskRevisionDirective` 是唯一把 fresh patch package 写入当前 active execution state 的结构化入口
+  - `TaskPackage` / scoped task package 只允许作为从当前 active scope 派生出来的 coder/reviewer 视图，不再承担 machine owner
+  - feedback channel 只承载 prose 与辅助约束；fresh feedback 没有 concrete package 时，merge 结果允许不带 package
 - revision note producer / parser / feedback merge / resume 必须使用同一份 canonical patch package 口径：
   - revision note 负责落盘当前 fresh package
   - directive parser 只解析这份 package，不再从其他路径补第二份 owner
-  - feedback merge 只能保留当前 fresh package，不能把 base concrete package 复活
+  - feedback merge 不再承担 active patch package owner，不能把 base concrete package 复活
   - resume 只消费收口后的 canonical package
 - `TestExecutor` 不再回退使用上轮 `overrideChanges` 或 patch target。
 - 当前 failure 如果没有安全 canonical scope：
@@ -231,6 +237,7 @@
 
 - repair / continuation 回合的 closure 只看“当前工作区是否满足 canonical patch package”，不再要求本轮必须再产生 mutation。
 - 当前 reroute note / TEST / review 产出的 canonical patch package 成为实现续跑的唯一最高优先级真相源。
+- 当前 active subtask 的 patch package machine owner 固定为 `SubtaskExecutionState.effectiveChanges`；`TaskPackage` 只保留派生视图职责。
 - 空 scope、错 scope、无法解析的 scope 不再被自动放大成整份 `allowedScope`。
 - repair-mode tool surface 与真实权限严格一致；模型不会再被引导去尝试注定被拒的 Bash 或 whole-file rewrite 路径。
 - runnable milestone 不再批准弱占位页；只有当前里程碑的运行态证据达标，才允许推进下一子任务。
@@ -247,6 +254,7 @@
 - `ImplementationToolLoopExecutor` 中“declared changes satisfied 必须来自本轮 mutation”的旧语义。
 - `ImplementationResumePolicy` 中“persisted PATCH_CONTINUE 优先于当前 reroute patch package”的旧语义。
 - `ExecutionDirectivePayload` / `ExecutionDirectiveFeedbackSupport` / `ImplementationPlanRunner` / `SubtaskRecoverySupport` 中“旧 concrete package 可在 feedback merge 后继续残留”的旧语义。
+- feedback channel / merged feedback 继续承担 active patch package owner 的旧语义。
 - `TestExecutor` 中对 `previousFailure.overrideChanges()` / 旧 patch target 的回退复用。
 - `ImplementationStageGate` 中“空 scope / 完全不相交 scope 自动退回 allowedScope”的旧 fallback。
 - repair mode 中只会被拒绝的 Bash / whole-file rewrite 伪可用路径。
@@ -285,12 +293,18 @@
 - `src/main/java/devflow/agent/executor/implementation/ImplementationResumePolicy.java`
 - `src/main/java/devflow/agent/executor/implementation/CoderTurnCoordinator.java`
 - `src/main/java/devflow/agent/artifact/ImplementationStageComposer.java`
+- `src/main/java/devflow/agent/executor/subtask/SubtaskRevisionDirective.java`
+- `src/main/java/devflow/agent/executor/subtask/SubtaskExecutionState.java`
+- `src/main/java/devflow/agent/executor/subtask/TaskPackage.java`
 
 收口要求：
 
 - 当前 reroute note 的 concrete patch package 优先于 persisted continuation
 - revision note 生成、directive 解析、feedback merge、resume 消费必须使用同一份 fresh canonical package
-- feedback merge 不得在 fresh feedback 缺少 concrete package 时复活 base concrete package
+- 当前 active subtask 的 patch package owner 固定为 `SubtaskExecutionState.effectiveChanges`
+- `SubtaskRevisionDirective` 是 active execution state 的唯一结构化写入口
+- `TaskPackage` 只从当前 active scope 派生，不再承担 machine owner
+- feedback merge 不得在 fresh feedback 缺少 concrete package 时复活 base concrete package；fresh feedback 没有 package 时，merge 结果允许不带 package
 - persisted continuation 只在当前轮没有新 concrete package 时才允许生效
 - resume 不能继续沿用旧 patch scope 修旧问题
 
@@ -338,11 +352,15 @@
 - `src/test/java/devflow/agent/executor/implementation/toolloop/BashToolFailureDiagnosticsTests.java`
   - repair-mode Bash 不再承担伪回退角色
 - `src/test/java/devflow/agent/protocol/ExecutionDirectiveFeedbackSupportTests.java`
-  - fresh feedback 缺少 concrete package 时，不再复活 base concrete package
+  - fresh feedback 缺少 concrete package 时，不再复活 base concrete package，active scope 由 execution state 持有
 - `src/test/java/devflow/agent/executor/implementation/ImplementationPlanRunnerTests.java`
   - intra-stage feedback merge 不再把旧 concrete patch package 带入后续 active subtask
 - `src/test/java/devflow/agent/executor/ImplementationResumePolicyTests.java`
   - 当前 reroute patch package 覆盖 persisted continuation
+- `src/test/java/devflow/agent/executor/SubtaskExecutionStateTests.java`
+  - `SubtaskRevisionDirective` 写入的 active patch package 只由 `effectiveChanges` 持有
+- `src/test/java/devflow/agent/executor/subtask/TaskPackageTests.java`
+  - scoped task package 只从当前 active scope 派生，不从 merged feedback 回捞 concrete package
 - 新增 revision note render / parse round-trip 回归
   - fresh patch package 经 `StageRevisionNoteBuilder -> ImplementationDirectiveResolver` 后仍保持同一份 machine truth
 - `src/test/java/devflow/agent/executor/ImplementationStageGateTests.java`
