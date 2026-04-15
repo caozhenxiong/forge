@@ -260,6 +260,7 @@
 ### Scope 3. Canonical Repair Package Single Owner
 
 - `src/main/java/devflow/agent/executor/subtask/SubtaskRepairDirectiveResolver.java`
+- `src/main/java/devflow/agent/executor/subtask/SubtaskRecoverySupport.java`
 - `src/main/java/devflow/agent/executor/subtask/SubtaskVerificationSupport.java`
 - `src/main/java/devflow/agent/executor/subtask/SubtaskRetryFeedbackRenderer.java`
 - `src/main/java/devflow/agent/executor/subtask/SubtaskExecutionState.java`
@@ -268,6 +269,7 @@
 - `src/main/java/devflow/agent/executor/testing/TestExecutor.java`
 - `src/main/java/devflow/agent/protocol/ExecutionDirectivePayload.java`
 - `src/main/java/devflow/agent/executor/implementation/planning/ImplementationDirectiveResolver.java`
+- `src/main/java/devflow/agent/executor/implementation/ImplementationPlanRunner.java`
 - `src/main/java/devflow/agent/orchestrator/StageContinuationNoteBuilder.java`
 - `src/main/java/devflow/agent/executor/implementation/planning/ImplementationContextResolver.java`
 - `src/main/java/devflow/agent/executor/implementation/state/ImplementationStateSnapshotSerializer.java`
@@ -277,6 +279,7 @@
 目标：
 
 - 让 concrete patch package 从 review 产生之后，不再在任一中间层退化成 prose-only 或 `overrideChanges=[]`。
+- `SubtaskRecoverySupport` 与 `ImplementationPlanRunner` 必须一起收住 retry feedback / persistent repair feedback 的 merge owner，避免 canonical package 在反馈合并层被折叠、拼接或降级。
 - `implementation_shared_context.md` 保持 repair summary 角色，不承担 canonical patch package 的结构化真相源，避免与 `ExecutionDirectivePayload / implementation_state` 再长第二套协议。
 
 ### Scope 4. Implementation Continuation / Stage Attempt Classification
