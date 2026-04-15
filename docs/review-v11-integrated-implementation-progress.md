@@ -164,7 +164,7 @@
 
 ### Scope 3
 
-- commit：`待本次提交回填`
+- commit：`9bf93d4 Separate implementation continuation modes in flow`
 - self-test：`mvn -q -Dtest=FlowControllerTests,StageProgressCoordinatorTests,ImplementationContinuationSupportTests,StageTransitionSupportTests,StageStatusSupportTests test`
 - code review：`本地静态自审通过；implementation continuation 不再走 generic STAGE_CONTINUE 活路径`
 - docs：`tracker 已回填 Scope 3 状态与证据`
