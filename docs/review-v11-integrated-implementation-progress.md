@@ -75,6 +75,7 @@
 
 - [ ] `ImplementationStageGate` / `ImplementationStageStatus` 不再把 exhausted subtask 与 patch continuation 混成 generic continue
 - [ ] `ImplementationContinuationMode` / `ImplementationStageStatusPayload` / `ImplementationStateCodec` 对三分类保持单一协议
+- [ ] `ImplementationStageStatusArtifactRenderer` / `StageContinuationContext` 对三分类保持同一 artifact/context bridge，不再在桥接层退回旧二元语义
 - [ ] `ImplementationProgressSupport` / `ImplementationProgressState` / `ImplementationRevisionFacts` 不再只按 blocked/not-blocked 处理
 - [ ] `StageProgressCoordinator` / `FlowController` / `FlowDecisionExecutor` / `StageTransitionSupport` / `StageEntryExecutor` 对三分类保持单一路由
 - [ ] `TransitionReason` 不再用单一 `STAGE_CONTINUE` 覆盖所有 implementation continuation
@@ -91,6 +92,7 @@
 - [ ] `ImplementationDirectiveResolver` / `ImplementationContextResolver` / `ImplementationPlanRunner` 对 repair package 只消费 canonical owner
 - [ ] `StageContinuationNoteBuilder` / `StageRevisionRepairSupport` / `StageRevisionNoteBuilder` / `RepairAgent` 不再形成 reroute-to-repair 的并行 directive producer 第二轨
 - [ ] `ImplementationStateSnapshot` / `ImplementationStateSnapshotSerializer` / `ImplementationStateArtifactSupport` 让 canonical repair package 进入 `implementation_state` 单一真相源
+- [ ] `SubtaskAttemptStepExecutor` / `SubtaskExecutor` / `ImplementationContinuationSupport` 作为 repair package 的执行消费链与 continuation bridge，不再游离在 canonical owner 之外
 - [ ] `ImplementationSnapshotRestorer` / `ImplementationResumePolicy` 不再从旧 report / narrowed scope / 旧 delivery mode 反推 continuation
 - [ ] Scope 4 `self-test`
 - [ ] Scope 4 `code review`
