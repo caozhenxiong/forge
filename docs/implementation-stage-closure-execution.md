@@ -145,10 +145,10 @@
 
 ## Current Status
 
-- 当前阶段：`REVIEW_V7_IMPLEMENTED_SELF_TESTED`
-- 当前 blocker：`无代码 blocker；待 code review 后再恢复 Phase 8 集成测试`
+- 当前阶段：`PHASE_8_PARTIAL_INTEGRATION_REPRODUCED`
+- 当前 blocker：`tool loop completion 已收口；当前新 blocker 是 subtask review / revision feedback 未稳定收敛到 patch-first repair`
 - 当前约束：`禁止兼容层、禁止 fallback、禁止双轨并存、禁止“后续再清理”`
-- 当前执行入口：`review-v7 代码审阅通过后，恢复 Phase 8：golden path integration`
+- 当前执行入口：`reviewer 先看 docs/review-v8-tool-loop-closure-note.md；下一轮直接收 subtask review / revision repair 主线`
 
 ## Evidence Log
 
@@ -203,10 +203,10 @@
 
 ### Phase 8
 
-- commit：`待开始`
-- self-test：`待开始`
-- code review：`待开始`
-- docs：`待开始`
+- commit：`dbbc80c close tool loop when declared changes are satisfied`
+- self-test：`mvn -q -Dtest=ImplementationToolLoopExecutorTests test`；`mvn -q -Dtest=ImplementationToolLoopExecutorTests,ImplementationStageGateTests test`；`mvn -q -DskipTests package`
+- code review：`待 reviewer 检查 docs/review-v8-tool-loop-closure-note.md`
+- docs：`docs/review-v8-tool-loop-closure-note.md`
 
 ### Review V7 Follow-up
 
