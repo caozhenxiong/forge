@@ -722,6 +722,60 @@ class ImplementationStageGateTests {
         assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
     }
 
+    @Test
+    void blocksStageCompletionRuntimeWiringWhenMultipleCompletedSubtasksDeclareSameRuntimeRoot() {
+        ImplementationStageGate gate = new ImplementationStageGate();
+        Subtask first = new Subtask(
+                "入口",
+                "入口",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("入口完成"),
+                true,
+                DeliveryMode.PATCH,
+                List.of(
+                        new FileChange("index.html", ChangeAction.WRITE, "入口 owner"),
+                        new FileChange("index.app.js", ChangeAction.WRITE, "shared runtime root")
+                )
+        );
+        Subtask second = new Subtask(
+                "动效",
+                "动效",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("动效完成"),
+                false,
+                DeliveryMode.PATCH,
+                List.of(
+                        new FileChange("landing.html", ChangeAction.WRITE, "另一个入口"),
+                        new FileChange("index.app.js", ChangeAction.WRITE, "重复声明同一个 runtime root")
+                )
+        );
+
+        ImplementationStageStatus stageStatus = gate.summarizeStageStatus(
+                new ImplementationPlan("summary", List.of(first, second)),
+                List.of(completedReport(first), completedReport(second)),
+                ArchitectIntegrationCheckResult.failure(
+                        ArchitectIntegrationCheckScope.STAGE_COMPLETION,
+                        ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID,
+                        "multiple completed subtasks declare the same runtime root",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                        HtmlRuntimeOwnershipContract.externalCompanion(
+                                Path.of("index.html"),
+                                List.of(Path.of("index.app.js"))
+                        )
+                )
+        );
+
+        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
+        assertTrue(stageStatus.continuationSummary().contains("唯一 completed owner"));
+        assertTrue(stageStatus.continuationEvidence().contains("index.app.js"));
+        assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
+    }
+
     private Subtask subtask(String title, boolean runnableMilestone, String path) {
         return new Subtask(
                 title,

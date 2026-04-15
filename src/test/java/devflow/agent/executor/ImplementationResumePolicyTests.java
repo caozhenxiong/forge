@@ -935,4 +935,85 @@ class ImplementationResumePolicyTests {
 
         assertTrue(exception.getMessage().contains("could not find an owning subtask"));
     }
+
+    @Test
+    void runtimeWiringPatchRejectsWhenMultipleCompletedSubtasksDeclareSameRuntimeRoot() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        ImplementationResumePolicy policy = new ImplementationResumePolicy(objectMapper);
+        String previousStateJson = objectMapper.writeValueAsString(new ImplementationStateSnapshot(
+                "修复 runtime wiring",
+                List.of(
+                        new ImplementationStateSnapshot.PlannedSubtaskState(
+                                "入口",
+                                "修入口",
+                                List.of(),
+                                List.of(),
+                                List.of(),
+                                List.of("入口完成"),
+                                true,
+                                "PATCH",
+                                List.of(
+                                        new ImplementationStateSnapshot.FileChangeState("index.html", "WRITE", "入口 owner"),
+                                        new ImplementationStateSnapshot.FileChangeState("index.app.js", "WRITE", "shared runtime root")
+                                )
+                        ),
+                        new ImplementationStateSnapshot.PlannedSubtaskState(
+                                "动效",
+                                "修动效",
+                                List.of(),
+                                List.of(),
+                                List.of(),
+                                List.of("动效完成"),
+                                false,
+                                "PATCH",
+                                List.of(
+                                        new ImplementationStateSnapshot.FileChangeState("landing.html", "WRITE", "另一个入口"),
+                                        new ImplementationStateSnapshot.FileChangeState("index.app.js", "WRITE", "重复声明同一个 runtime root")
+                                )
+                        )
+                ),
+                List.of(
+                        new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot("入口", true, List.of()),
+                        new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot("动效", true, List.of())
+                ),
+                List.of(),
+                null,
+                true,
+                false,
+                new ImplementationStateSnapshot.ContractGateState(
+                        ArchitectIntegrationCheckScope.STAGE_COMPLETION.name(),
+                        false,
+                        ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID.name(),
+                        "multiple completed subtasks declare the same runtime root",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(),
+                        new ImplementationStateSnapshot.RuntimeContractState(
+                                "index.html",
+                                RuntimeOwnershipMode.EXTERNAL_COMPANION.name(),
+                                List.of("index.app.js")
+                        )
+                ),
+                "",
+                "",
+                "",
+                "",
+                "",
+                List.of(),
+                "",
+                "",
+                List.of()
+        ));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> policy.loadReusableImplementationState(
+                        previousStateJson,
+                        FixMode.PATCH,
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                        List.of(),
+                        DocumentLanguage.ZH
+                )
+        );
+
+        assertTrue(exception.getMessage().contains("could not find an owning subtask"));
+    }
 }
