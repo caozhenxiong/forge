@@ -150,7 +150,7 @@
 
 ### Scope 1
 
-- commit：`待本次提交回填`
+- commit：`e2ca4f8 Close planning boundary contract scope 1`
 - self-test：`mvn -q -Dtest=ImplementationPlannerTests,ImplementationPlanGateTests,ImplementationPlanCoverageAnalyzerTests,ImplementationPlanningFeedbackRouterTests,ImplementationPlanningPayloadParserTests,ImplementationPlanNormalizationSupportTests,ImplementationPlanningPromptBuilderTests test`
 - code review：`本地静态自审通过；未发现 Scope 1 新双轨或 fallback`
 - docs：`tracker 已回填 Scope 1 状态与证据`
