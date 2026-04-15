@@ -155,4 +155,54 @@ class ExecutionDirectiveFeedbackSupportTests {
         assertFalse(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage("plain prose only"));
         assertTrue(ExecutionDirectiveFeedbackSupport.persistentRetryFeedback("plain prose only").isBlank());
     }
+
+    @Test
+    void repairBriefFeedbackStripsConcretePatchPackageFromEnforcedRepairBrief() {
+        String note = ExecutionDirectiveNarrativeRenderer.renderRevisionNote(
+                new ExecutionDirectivePayload(
+                        FixMode.PATCH.name(),
+                        ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION.name(),
+                        List.of(new FileChangePayload("src/game.js", ChangeAction.WRITE.name(), "repair gameplay", "AUTO", null, false)),
+                        true,
+                        true,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        List.of("runtime proof"),
+                        List.of("fix gameplay"),
+                        List.of("不要重写入口"),
+                        List.of("玩法可运行"),
+                        List.of(),
+                        List.of(),
+                        "继续修 gameplay",
+                        "只修当前 gameplay scope",
+                        "evidence",
+                        "action",
+                        null,
+                        null,
+                        List.of(),
+                        List.of(),
+                        null,
+                        null,
+                        null,
+                        null
+                ),
+                "继续修 gameplay",
+                "只修当前 gameplay scope",
+                "evidence",
+                "action"
+        );
+
+        String repairBrief = ExecutionDirectiveFeedbackSupport.repairBriefFeedback(note);
+        ExecutionDirectivePayload directives = ExecutionDirectiveProtocol.parseMerged(repairBrief);
+
+        assertFalse(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage(repairBrief));
+        assertTrue(Boolean.TRUE.equals(directives.repairBriefEnforced()));
+        assertEquals(0, directives.overrideChanges().size());
+        assertEquals(List.of("fix gameplay"), directives.mustFixFirst());
+        assertEquals(List.of("不要重写入口"), directives.forbiddenDirections());
+    }
 }

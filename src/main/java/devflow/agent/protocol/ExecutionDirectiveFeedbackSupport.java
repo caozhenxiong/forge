@@ -62,7 +62,12 @@ public final class ExecutionDirectiveFeedbackSupport {
             return "";
         }
         ExecutionDirectivePayload directives = ExecutionDirectiveProtocol.parseMerged(normalized);
-        return Boolean.TRUE.equals(directives.repairBriefEnforced()) ? normalized : "";
+        if (!Boolean.TRUE.equals(directives.repairBriefEnforced())) {
+            return "";
+        }
+        LinkedHashSet<String> proseParts = new LinkedHashSet<>();
+        addProse(proseParts, normalized);
+        return joinPayloadAndProse(repairBriefOnly(directives), proseParts);
     }
 
     public static boolean carriesConcretePatchPackage(String feedback) {
@@ -81,6 +86,40 @@ public final class ExecutionDirectiveFeedbackSupport {
         return patchTarget.concretePatch()
                 && directives.overrideChanges() != null
                 && !directives.overrideChanges().isEmpty();
+    }
+
+    private static ExecutionDirectivePayload repairBriefOnly(ExecutionDirectivePayload directives) {
+        return new ExecutionDirectivePayload(
+                null,
+                null,
+                List.of(),
+                directives.repairBriefPresent(),
+                directives.repairBriefEnforced(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                directives.requiredEvidence(),
+                directives.mustFixFirst(),
+                directives.forbiddenDirections(),
+                directives.acceptanceChecks(),
+                directives.requiredCapabilitySurfaces(),
+                directives.targetSections(),
+                directives.summary(),
+                directives.changeRequest(),
+                directives.evidence(),
+                directives.actionItems(),
+                null,
+                null,
+                directives.focus(),
+                directives.constraints(),
+                directives.generationFailureSummary(),
+                directives.generationFailureType(),
+                directives.generationFailureEvidence(),
+                directives.generationFailureRetryHint()
+        );
     }
 
     private static String joinPayloadAndProse(ExecutionDirectivePayload payload, LinkedHashSet<String> proseParts) {

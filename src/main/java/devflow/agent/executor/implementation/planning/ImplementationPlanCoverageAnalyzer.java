@@ -344,8 +344,7 @@ public class ImplementationPlanCoverageAnalyzer {
         List<String> issues = new ArrayList<>();
         for (int index = 0; index < units.size(); index++) {
             CapabilityPartitionUnit unit = units.get(index);
-            LinkedHashSet<String> sharedPaths = new LinkedHashSet<>();
-            LinkedHashSet<String> futureOwnedCapabilities = new LinkedHashSet<>();
+            List<SharedFileFutureBoundary> futureBoundaries = new ArrayList<>();
             for (int futureIndex = index + 1; futureIndex < units.size(); futureIndex++) {
                 CapabilityPartitionUnit futureUnit = units.get(futureIndex);
                 LinkedHashSet<String> overlap = new LinkedHashSet<>(unit.scopedPaths());
@@ -353,25 +352,36 @@ public class ImplementationPlanCoverageAnalyzer {
                 if (overlap.isEmpty()) {
                     continue;
                 }
-                sharedPaths.addAll(overlap);
-                futureOwnedCapabilities.addAll(futureUnit.ownedCapabilities());
+                if (futureUnit.ownedCapabilities().isEmpty()) {
+                    continue;
+                }
+                futureBoundaries.add(new SharedFileFutureBoundary(
+                        renderUnitId(futureUnit.id()),
+                        List.copyOf(overlap),
+                        futureUnit.ownedCapabilities()
+                ));
             }
-            if (sharedPaths.isEmpty() || futureOwnedCapabilities.isEmpty()) {
+            if (futureBoundaries.isEmpty()) {
                 continue;
             }
             if (unit.deferredCapabilities().isEmpty()) {
+                LinkedHashSet<String> sharedPaths = new LinkedHashSet<>();
+                futureBoundaries.forEach(boundary -> sharedPaths.addAll(boundary.overlapPaths()));
                 issues.add("子任务 " + renderUnitId(unit.id())
                         + " 与后续子任务共享文件 " + String.join("、", sharedPaths)
                         + "，必须显式声明 deferredCapabilities 来锁定当前与下游 capability boundary。");
                 continue;
             }
-            LinkedHashSet<String> anchoredDeferredCapabilities = new LinkedHashSet<>(unit.deferredCapabilities());
-            anchoredDeferredCapabilities.retainAll(futureOwnedCapabilities);
-            if (anchoredDeferredCapabilities.isEmpty()) {
-                issues.add("子任务 " + renderUnitId(unit.id())
-                        + " 虽然声明了 deferredCapabilities，但没有覆盖共享文件 "
-                        + String.join("、", sharedPaths)
-                        + " 对应的下游能力：" + String.join("、", futureOwnedCapabilities));
+            for (SharedFileFutureBoundary boundary : futureBoundaries) {
+                LinkedHashSet<String> missingCapabilities = new LinkedHashSet<>(boundary.ownedCapabilities());
+                missingCapabilities.removeAll(unit.deferredCapabilities());
+                if (!missingCapabilities.isEmpty()) {
+                    issues.add("子任务 " + renderUnitId(unit.id())
+                            + " 与后续子任务 " + boundary.futureUnitId()
+                            + " 共享文件 " + String.join("、", boundary.overlapPaths())
+                            + "，必须把该下游 owner 的能力显式声明为 deferredCapabilities："
+                            + String.join("、", missingCapabilities));
+                }
             }
         }
         return issues;
@@ -398,6 +408,13 @@ public class ImplementationPlanCoverageAnalyzer {
             List<String> ownedCapabilities,
             List<String> deferredCapabilities,
             List<String> scopedPaths
+    ) {
+    }
+
+    private record SharedFileFutureBoundary(
+            String futureUnitId,
+            List<String> overlapPaths,
+            List<String> ownedCapabilities
     ) {
     }
 }
