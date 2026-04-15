@@ -52,7 +52,20 @@ class ImplementationStageGateTests {
     @Test
     void generatesRuntimeWiringContinuationFromContractGate() {
         ImplementationStageGate gate = new ImplementationStageGate();
-        Subtask subtask = subtask("修接线", false, "index.html");
+        Subtask subtask = new Subtask(
+                "修接线",
+                "修接线",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("完成当前子任务"),
+                false,
+                DeliveryMode.PATCH,
+                List.of(
+                        new FileChange("index.html", ChangeAction.WRITE, "修宿主接线"),
+                        new FileChange("index.app.js", ChangeAction.WRITE, "保留 companion runtime")
+                )
+        );
         HtmlRuntimeOwnershipContract runtimeContract = HtmlRuntimeOwnershipContract.externalCompanion(
                 Path.of("index.html"),
                 List.of(Path.of("index.app.js"))
@@ -643,6 +656,57 @@ class ImplementationStageGateTests {
                         ArchitectIntegrationCheckScope.STAGE_COMPLETION,
                         ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID,
                         "runtime owner is not resolvable",
+                        ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
+                        HtmlRuntimeOwnershipContract.externalCompanion(
+                                Path.of("index.html"),
+                                List.of(Path.of("index.app.js"))
+                        )
+                )
+        );
+
+        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING, stageStatus.continuationPatchTarget());
+        assertTrue(stageStatus.continuationSummary().contains("唯一 completed owner"));
+        assertTrue(stageStatus.continuationEvidence().contains("index.app.js"));
+        assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
+    }
+
+    @Test
+    void blocksStageCompletionRuntimeWiringWhenRuntimeRootsExistButOnlyHtmlOwnerIsResolvable() {
+        ImplementationStageGate gate = new ImplementationStageGate();
+        Subtask first = new Subtask(
+                "入口",
+                "入口",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("入口完成"),
+                true,
+                DeliveryMode.PATCH,
+                List.of(
+                        new FileChange("index.html", ChangeAction.WRITE, "入口 owner"),
+                        new FileChange("styles.css", ChangeAction.WRITE, "样式")
+                )
+        );
+        Subtask second = new Subtask(
+                "逻辑",
+                "逻辑",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("逻辑完成"),
+                false,
+                DeliveryMode.PATCH,
+                List.of(new FileChange("src/panel.js", ChangeAction.WRITE, "局部逻辑"))
+        );
+
+        ImplementationStageStatus stageStatus = gate.summarizeStageStatus(
+                new ImplementationPlan("summary", List.of(first, second)),
+                List.of(completedReport(first), completedReport(second)),
+                ArchitectIntegrationCheckResult.failure(
+                        ArchitectIntegrationCheckScope.STAGE_COMPLETION,
+                        ArchitectIntegrationFailureReason.RUNTIME_WIRING_INVALID,
+                        "runtime roots exist but have no completed owner",
                         ImplementationPatchTarget.PATCH_RUNTIME_WIRING,
                         HtmlRuntimeOwnershipContract.externalCompanion(
                                 Path.of("index.html"),

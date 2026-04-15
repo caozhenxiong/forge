@@ -13,7 +13,8 @@ import java.util.Set;
  *
  * <p>completed-plan PATCH 能否自动续跑，只允许由这层判断：
  * PATCH_EXISTING_IMPLEMENTATION 必须完整落在单个 completed subtask 的 declared owner 内；
- * PATCH_RUNTIME_WIRING 必须能映射到确定的 runtime-root owner，或唯一的 html owner。
+ * PATCH_RUNTIME_WIRING 在 runtime roots 非空时必须命中确定的 runtime-root owner；
+ * 只有 runtime roots 为空时，才允许退回唯一的 html owner。
  */
 public final class CompletedPlanPatchOwnerResolver {
 
@@ -71,6 +72,9 @@ public final class CompletedPlanPatchOwnerResolver {
         int runtimeRootOwnerIndex = findLatestOwnerIndex(reports, runtimeRootPaths);
         if (runtimeRootOwnerIndex >= 0) {
             return runtimeRootOwnerIndex;
+        }
+        if (!runtimeRootPaths.isEmpty()) {
+            return -1;
         }
         Path htmlEntryPath = runtimeContract.htmlEntryPath();
         if (htmlEntryPath == null) {
