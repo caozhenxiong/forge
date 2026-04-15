@@ -67,6 +67,7 @@ public class ImplementationStageGate {
                 remainingSubtasks,
                 contractGateResult
         );
+        continuationDisposition = enforceCompletedPlanPatchOwnership(planCompleted, reports, continuationDisposition);
         return new ImplementationStageStatus(
                 plannedSubtasks,
                 executedSubtasks,
@@ -178,6 +179,41 @@ public class ImplementationStageGate {
         return null;
     }
 
+    private ContinuationDisposition enforceCompletedPlanPatchOwnership(
+            boolean planCompleted,
+            List<SubtaskExecutionReport> reports,
+            ContinuationDisposition continuationDisposition
+    ) {
+        if (!planCompleted
+                || continuationDisposition == null
+                || continuationDisposition.mode() != ImplementationContinuationMode.CONTINUE_SUBTASKS
+                || continuationDisposition.implementationPatchTarget() != ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION) {
+            return continuationDisposition;
+        }
+        if (hasSingleCompletedOwner(reports, continuationDisposition.overrideChanges())) {
+            return continuationDisposition;
+        }
+        String evidence = continuationDisposition.overrideChanges().isEmpty()
+                ? "continuationOverrideChanges=(none)"
+                : "continuationOverrideChanges="
+                + continuationDisposition.overrideChanges().stream()
+                        .filter(change -> change != null && change.path() != null && !change.path().isBlank())
+                        .map(FileChange::path)
+                        .distinct()
+                        .reduce((left, right) -> left + "," + right)
+                        .orElse("(none)");
+        return new ContinuationDisposition(
+                ImplementationContinuationMode.BLOCK_STAGE,
+                "当前 patch package 跨越多个已完成子任务 owner，不能自动续跑。",
+                "请先把 overrideChanges 收敛到单个 completed subtask 的 declared owner 文件范围，再恢复 implementation 续跑。",
+                evidence,
+                "1. 按单个 completed subtask 的 declared owner files 收敛 patch package。 2. 无法收敛时转人工。 3. 收口后再恢复 implementation。",
+                List.of(),
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                continuationDisposition.reasonCode() == null ? ReviewReasonCode.IMPLEMENTATION_GAP : continuationDisposition.reasonCode()
+        );
+    }
+
     private ReviewResult canonicalizeContinuationReview(
             SubtaskExecutionReport report,
             ReviewResult review,
@@ -266,6 +302,48 @@ public class ImplementationStageGate {
         return !structuredRepairScope(report).isEmpty();
     }
 
+    private boolean hasSingleCompletedOwner(List<SubtaskExecutionReport> reports, List<FileChange> overrideChanges) {
+        if (reports == null || reports.isEmpty() || overrideChanges == null || overrideChanges.isEmpty()) {
+            return false;
+        }
+        java.util.LinkedHashSet<java.nio.file.Path> targetPaths = new java.util.LinkedHashSet<>();
+        for (FileChange change : overrideChanges) {
+            if (change == null || change.path() == null || change.path().isBlank()) {
+                continue;
+            }
+            targetPaths.add(java.nio.file.Path.of(change.path()).normalize());
+        }
+        if (targetPaths.isEmpty()) {
+            return false;
+        }
+        Integer matchedIndex = null;
+        for (int index = 0; index < reports.size(); index++) {
+            SubtaskExecutionReport report = reports.get(index);
+            if (report == null || !report.completed()) {
+                continue;
+            }
+            List<FileChange> declaredOwnerScope = declaredOwnerScope(report);
+            if (declaredOwnerScope.isEmpty()) {
+                continue;
+            }
+            java.util.LinkedHashSet<java.nio.file.Path> declaredPaths = new java.util.LinkedHashSet<>();
+            for (FileChange change : declaredOwnerScope) {
+                if (change == null || change.path() == null || change.path().isBlank()) {
+                    continue;
+                }
+                declaredPaths.add(java.nio.file.Path.of(change.path()).normalize());
+            }
+            if (!declaredPaths.containsAll(targetPaths)) {
+                continue;
+            }
+            if (matchedIndex != null) {
+                return false;
+            }
+            matchedIndex = index;
+        }
+        return matchedIndex != null;
+    }
+
     private boolean hasResolvedRuntimeContract(ArchitectIntegrationCheckResult contractGateResult) {
         HtmlRuntimeOwnershipContract runtimeContract = contractGateResult == null ? null : contractGateResult.runtimeContract();
         return runtimeContract != null && runtimeContract.hasResolvedWiringRepairScope();
@@ -276,6 +354,15 @@ public class ImplementationStageGate {
             return List.of();
         }
         return report.effectiveChanges().stream()
+                .filter(change -> change != null && change.path() != null && !change.path().isBlank())
+                .toList();
+    }
+
+    private List<FileChange> declaredOwnerScope(SubtaskExecutionReport report) {
+        if (report == null || report.subtask() == null || report.subtask().changes() == null || report.subtask().changes().isEmpty()) {
+            return List.of();
+        }
+        return report.subtask().changes().stream()
                 .filter(change -> change != null && change.path() != null && !change.path().isBlank())
                 .toList();
     }

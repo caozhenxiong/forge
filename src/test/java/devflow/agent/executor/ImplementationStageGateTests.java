@@ -503,6 +503,57 @@ class ImplementationStageGateTests {
         assertTrue(stageStatus.continuationOverrideChanges().getFirst().hostHtmlPatchRequired());
     }
 
+    @Test
+    void blocksCompletedPlanContinuationWhenPatchPackageSpansMultipleCompletedOwners() {
+        ImplementationStageGate gate = new ImplementationStageGate();
+        Subtask first = subtask("入口", true, "index.html");
+        Subtask second = subtask("逻辑", true, "src/app.js");
+        SubtaskExecutionState crossScopedState = new SubtaskExecutionState(DeliveryMode.PATCH, true);
+        crossScopedState.setEffectiveChanges(List.of(
+                new FileChange("index.html", ChangeAction.WRITE, "跨 owner package"),
+                new FileChange("src/app.js", ChangeAction.WRITE, "跨 owner package")
+        ));
+        ReviewResult patchReview = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.PATCH,
+                "需要继续修补",
+                "继续修复当前实现",
+                "completed-plan review returned a cross-subtask patch package",
+                "继续修复",
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                List.of(
+                        new FileChange("index.html", ChangeAction.WRITE, "跨 owner package"),
+                        new FileChange("src/app.js", ChangeAction.WRITE, "跨 owner package")
+                ),
+                ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET,
+                ReviewReasonCode.IMPLEMENTATION_GAP
+        );
+
+        ImplementationStageStatus stageStatus = gate.summarizeStageStatus(
+                new ImplementationPlan("summary", List.of(first, second)),
+                List.of(
+                        completedReport(first),
+                        new SubtaskExecutionReport(
+                                second,
+                                true,
+                                List.of(SubtaskAttemptReport.fromVerification(
+                                        1,
+                                        new SelfCheckResult(true, "ok", ""),
+                                        List.of(),
+                                        patchReview
+                                )),
+                                crossScopedState
+                        )
+                ),
+                null
+        );
+
+        assertEquals(ImplementationContinuationMode.BLOCK_STAGE, stageStatus.continuationMode());
+        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, stageStatus.continuationPatchTarget());
+        assertTrue(stageStatus.continuationSummary().contains("多个已完成子任务 owner"));
+        assertTrue(stageStatus.continuationOverrideChanges().isEmpty());
+    }
+
     private Subtask subtask(String title, boolean runnableMilestone, String path) {
         return new Subtask(
                 title,
