@@ -139,6 +139,23 @@
 - 需要继续验证后续阶段不会因为 artifact 结构变化又回退到 prose 猜测
 - 需要继续验证集成日志、状态产物与真实执行路径一致
 
+## 后续待办
+
+以下不是当前黄金路径主线 blocker，但已经明确属于后续协议升级待办：
+
+### 1. shared-file capability boundary 升级到 path 级 ownership
+
+- 当前 shared-file boundary gate 仍按 `future subtask owner` 粒度收口，不是按 `path -> capability` 的精确协议裁决
+- 这意味着：如果后续某个 subtask 同时拥有共享文件能力和非共享文件能力，当前 gate 会保守地要求当前 subtask 把该 future owner 的整组 `ownedCapabilities` 都列进 `deferredCapabilities`
+- 这是当前刻意保守的 deterministic gate，不是 path 级真相；在缺少结构化 `path -> capability` ownership 之前，不能靠 heuristic 假装精确到 path 级
+- 真正要收这条，必须作为单独协议升级任务处理，并联动修改：
+  - planning / outline / detail 的结构化输出
+  - capability partition gate 输入与 analyzer
+  - prompt / parser / round-trip regression
+- 触发条件：
+  - 黄金路径集成或后续真实 case 证明当前保守 gate 误杀合法 plan
+  - 或明确决定推进 `path -> capability` ownership 协议升级
+
 ## 当前判断
 
 当前结论已经变成：
