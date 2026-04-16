@@ -525,6 +525,68 @@ class ImplementationToolLoopExecutorTests {
     }
 
     @Test
+    void toolLoopRejectsPatchExistingCompletionWhenFileWasDeletedAndRecreated() throws Exception {
+        Path file = tempDir.resolve("app.js");
+        Files.writeString(file, "export const ready = true;\n");
+        String beforeContent = "export const ready = false;\n";
+        String afterContent = "export const ready = true;\n";
+        SubtaskExecutionState executionState = new SubtaskExecutionState(DeliveryMode.PATCH, false)
+                .applyRevisionDirective(devflow.agent.executor.subtask.SubtaskRevisionDirective.patch(
+                        List.of(new FileChange("app.js", ChangeAction.WRITE, "继续修复 app.js"))
+                ));
+        executionState.toolSessionState().recordMutation(new FileMutationRecord(
+                ToolLoopMutationOperation.DELETE,
+                Path.of("app.js"),
+                true,
+                hash(beforeContent),
+                false,
+                "",
+                List.of(),
+                1L
+        ));
+        executionState.toolSessionState().recordMutation(new FileMutationRecord(
+                ToolLoopMutationOperation.CREATE,
+                Path.of("app.js"),
+                false,
+                "",
+                true,
+                hash(afterContent),
+                List.of(),
+                2L
+        ));
+
+        ImplementationToolLoopExecutor executor = newToolLoopExecutor(
+                new ScriptedChatProvider(
+                        new LlmChatResponse("当前修复范围已满足", List.of(), null, "stop")
+                ),
+                2
+        );
+
+        GenerationFailureException exception = assertThrows(
+                GenerationFailureException.class,
+                () -> executor.execute(
+                        tempDir,
+                        runRecord(tempDir),
+                        subtask("继续修复 app.js", "app.js"),
+                        taskPackage("继续修复 app.js", "app.js"),
+                        null,
+                        QualityPlan.empty(),
+                        fingerprint("app.js"),
+                        "继续当前 repair round，只验证当前范围。",
+                        "",
+                        null,
+                        executionState
+                )
+        );
+
+        assertEquals(GenerationFailureType.NO_MATERIAL_CHANGE, exception.report().failureType());
+        assertTrue(exception.report().evidence().contains("path=app.js"));
+        assertTrue(exception.report().evidence().contains("mutations="));
+        assertTrue(exception.report().evidence().contains("CREATE"));
+        assertTrue(exception.report().evidence().contains("DELETE"));
+    }
+
+    @Test
     void toolLoopRejectsAssistantOnlyCompletionWhenCurrentStateDriftedFromMutationTerminalState() throws Exception {
         Path file = tempDir.resolve("app.js");
         Files.writeString(file, "export const ready = maybe;\n");

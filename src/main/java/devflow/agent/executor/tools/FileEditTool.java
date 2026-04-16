@@ -46,6 +46,7 @@ public final class FileEditTool implements ImplementationTool {
             context.assertWritable(absolutePath);
             boolean exists = context.exists(absolutePath);
             if (!exists) {
+                context.assertCreateAllowed(absolutePath, "Edit");
                 if (input.oldString() == null || !input.oldString().isEmpty()) {
                     return error("File does not exist. Use Write for new files or Read to verify the path.");
                 }

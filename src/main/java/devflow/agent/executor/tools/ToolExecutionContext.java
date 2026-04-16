@@ -45,6 +45,10 @@ public interface ToolExecutionContext {
 
     void assertWritable(Path absolutePath);
 
+    void assertCreateAllowed(Path absolutePath, String toolName);
+
+    void assertDeleteAllowed(Path absolutePath, String toolName);
+
     void assertFreshReadBeforeOverwrite(Path absolutePath);
 
     void assertExistingFileWholeRewriteAllowed(Path absolutePath, String toolName);

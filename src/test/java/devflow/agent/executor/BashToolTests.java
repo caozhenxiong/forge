@@ -151,6 +151,60 @@ class BashToolTests {
     }
 
     @Test
+    void bashToolRejectsDeletingPatchExistingFile() throws Exception {
+        Files.writeString(tempDir.resolve("app.js"), "export const ready = true;\n");
+        BashTool bashTool = new BashTool();
+
+        ToolInvocationResult result = bashTool.invoke(
+                new LlmToolCall(
+                        "call-rm-existing",
+                        "Bash",
+                        Map.of("command", "rm app.js")
+                ),
+                newContext(Set.of(Path.of("app.js")))
+        );
+
+        assertFalse(result.success());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> payload = (Map<String, Object>) result.payload();
+        assertEquals("SHELL_COMMAND_DENIED", payload.get("code"));
+        assertEquals("PRE_EXEC_VALIDATION_FAILED", payload.get("reasonCode"));
+        assertEquals(
+                "Bash delete is only allowed for files whose current execution contract is delete. Current contract: patch-existing.",
+                payload.get("message")
+        );
+        assertTrue(Files.exists(tempDir.resolve("app.js")));
+    }
+
+    @Test
+    void bashToolAllowsRepeatedWholeFileWritesForCreateNewContractWithinSameAttempt() throws Exception {
+        BashTool bashTool = new BashTool();
+        ImplementationToolContext context = newContext(Set.of(Path.of("app.js")));
+
+        ToolInvocationResult first = bashTool.invoke(
+                new LlmToolCall(
+                        "call-bash-create-first",
+                        "Bash",
+                        Map.of("command", "printf 'export const ready = false;\\n' > app.js")
+                ),
+                context
+        );
+        ToolInvocationResult second = bashTool.invoke(
+                new LlmToolCall(
+                        "call-bash-create-second",
+                        "Bash",
+                        Map.of("command", "printf 'export const ready = true;\\n' > app.js")
+                ),
+                context
+        );
+
+        assertTrue(first.success());
+        assertTrue(second.success());
+        assertEquals("export const ready = true;\n", Files.readString(tempDir.resolve("app.js")));
+        assertEquals(2, context.mutationRecords().size());
+    }
+
+    @Test
     void bashToolRejectsShellStateCommands() {
         BashTool bashTool = new BashTool();
         ToolInvocationResult result = bashTool.invoke(

@@ -50,6 +50,8 @@ public final class FileWriteTool implements ImplementationTool {
                     return wholeFileRewriteDenied(exception.getMessage());
                 }
                 context.assertFreshReadBeforeOverwrite(absolutePath);
+            } else {
+                context.assertCreateAllowed(absolutePath, "Write");
             }
             String previous = exists ? context.readFile(absolutePath) : "";
             String content = input.content() == null ? "" : input.content();

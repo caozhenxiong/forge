@@ -32,6 +32,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import devflow.agent.executor.subtask.ExecutionFileContractMaterializer;
 import devflow.agent.executor.implementation.toolloop.CoderReadFileState;
@@ -123,6 +124,70 @@ class FileWriteToolTests {
         assertEquals("READ_THEN_LOCAL_EDIT", payload.get("requiredAction"));
     }
 
+    @Test
+    void writeToolAllowsRepeatedWholeFileWritesForCreateNewContractWithinSameAttempt() throws Exception {
+        Path file = tempDir.resolve("app.js");
+        ImplementationToolContext context = newContext(file, DeliveryMode.PATCH, false);
+        FileWriteTool tool = new FileWriteTool();
+
+        ToolInvocationResult first = tool.invoke(
+                new LlmToolCall(
+                        "call-create-first",
+                        "Write",
+                        Map.of(
+                                "file_path", file.toString(),
+                                "content", "export const ready = false;\n"
+                        )
+                ),
+                context
+        );
+        ToolInvocationResult second = tool.invoke(
+                new LlmToolCall(
+                        "call-create-second",
+                        "Write",
+                        Map.of(
+                                "file_path", file.toString(),
+                                "content", "export const ready = true;\n"
+                        )
+                ),
+                context
+        );
+
+        assertTrue(first.success());
+        assertTrue(second.success());
+        assertEquals("export const ready = true;\n", Files.readString(file));
+        assertEquals(2, context.mutationRecords().size());
+    }
+
+    @Test
+    void writeToolRejectsRecreatingPatchExistingFileAfterDeletion() throws Exception {
+        Path file = tempDir.resolve("app.js");
+        Files.writeString(file, "export const ready = false;\n");
+        ImplementationToolContext context = newContext(file, DeliveryMode.PATCH, false);
+        Files.delete(file);
+        context.clearReadState(file);
+
+        ToolInvocationResult result = new FileWriteTool().invoke(
+                new LlmToolCall(
+                        "call-recreate-patch-existing",
+                        "Write",
+                        Map.of(
+                                "file_path", file.toString(),
+                                "content", "export const ready = true;\n"
+                        )
+                ),
+                context
+        );
+
+        assertFalse(result.success());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> payload = (Map<String, Object>) result.payload();
+        assertEquals(
+                "Write is only allowed for files whose current execution contract is create-new. Current contract: patch-existing.",
+                payload.get("message")
+        );
+    }
+
     private ImplementationToolContext newContext(Path file, DeliveryMode deliveryMode, boolean repairMode) throws Exception {
         ImplementationToolContext context = new ImplementationToolContext(
                 tempDir,
@@ -164,10 +229,12 @@ class FileWriteToolTests {
                 ),
                 deliveryMode
         );
-        context.readFileStateLedger().put(
-                file,
-                new CoderReadFileState(Files.readString(file), Files.getLastModifiedTime(file).toMillis(), null, null, false)
-        );
+        if (Files.exists(file)) {
+            context.readFileStateLedger().put(
+                    file,
+                    new CoderReadFileState(Files.readString(file), Files.getLastModifiedTime(file).toMillis(), null, null, false)
+            );
+        }
         return context;
     }
 }

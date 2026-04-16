@@ -154,6 +154,73 @@ class FileEditToolTests {
         assertEquals("READ_THEN_LOCAL_EDIT", payload.get("requiredAction"));
     }
 
+    @Test
+    void editToolAllowsWholeFileReplacementForFileCreatedEarlierInCreateNewAttempt() throws Exception {
+        Path file = tempDir.resolve("app.js");
+        ImplementationToolContext context = newContext(file, DeliveryMode.PATCH, false);
+        FileEditTool tool = new FileEditTool();
+
+        ToolInvocationResult createResult = tool.invoke(
+                new LlmToolCall(
+                        "call-edit-create",
+                        "Edit",
+                        Map.of(
+                                "file_path", file.toString(),
+                                "old_string", "",
+                                "new_string", "export const ready = false;\n"
+                        )
+                ),
+                context
+        );
+        ToolInvocationResult replaceResult = tool.invoke(
+                new LlmToolCall(
+                        "call-edit-replace-created",
+                        "Edit",
+                        Map.of(
+                                "file_path", file.toString(),
+                                "old_string", "export const ready = false;\n",
+                                "new_string", "export const ready = true;\n"
+                        )
+                ),
+                context
+        );
+
+        assertTrue(createResult.success());
+        assertTrue(replaceResult.success());
+        assertEquals("export const ready = true;\n", Files.readString(file));
+        assertEquals(2, context.mutationRecords().size());
+    }
+
+    @Test
+    void editToolRejectsRecreatingPatchExistingFileAfterDeletion() throws Exception {
+        Path file = tempDir.resolve("app.js");
+        Files.writeString(file, "export const ready = false;\n");
+        ImplementationToolContext context = newContext(file, DeliveryMode.PATCH, false);
+        Files.delete(file);
+        context.clearReadState(file);
+
+        ToolInvocationResult result = new FileEditTool().invoke(
+                new LlmToolCall(
+                        "call-edit-recreate-patch-existing",
+                        "Edit",
+                        Map.of(
+                                "file_path", file.toString(),
+                                "old_string", "",
+                                "new_string", "export const ready = true;\n"
+                        )
+                ),
+                context
+        );
+
+        assertFalse(result.success());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> payload = (Map<String, Object>) result.payload();
+        assertEquals(
+                "Edit is only allowed for files whose current execution contract is create-new. Current contract: patch-existing.",
+                payload.get("message")
+        );
+    }
+
     private ImplementationToolContext newContext(Path file, DeliveryMode deliveryMode, boolean repairMode) throws Exception {
         ImplementationToolContext context = new ImplementationToolContext(
                 tempDir,
@@ -195,10 +262,12 @@ class FileEditToolTests {
                 ),
                 deliveryMode
         );
-        context.readFileStateLedger().put(
-                file,
-                new CoderReadFileState(Files.readString(file), Files.getLastModifiedTime(file).toMillis(), null, null, false)
-        );
+        if (Files.exists(file)) {
+            context.readFileStateLedger().put(
+                    file,
+                    new CoderReadFileState(Files.readString(file), Files.getLastModifiedTime(file).toMillis(), null, null, false)
+            );
+        }
         return context;
     }
 }

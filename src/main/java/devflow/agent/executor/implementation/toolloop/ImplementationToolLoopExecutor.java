@@ -540,6 +540,16 @@ public final class ImplementationToolLoopExecutor {
         if (!matchesLatestTerminalState(mutationSummary, currentState)) {
             return false;
         }
+        if (!mutationSummary.beforeExists() || !mutationSummary.afterExists()) {
+            return false;
+        }
+        if (!mutationSummary.operations().contains(ToolLoopMutationOperation.UPDATE)) {
+            return false;
+        }
+        if (mutationSummary.operations().contains(ToolLoopMutationOperation.CREATE)
+                || mutationSummary.operations().contains(ToolLoopMutationOperation.DELETE)) {
+            return false;
+        }
         if (workspaceStateClosure) {
             return true;
         }

@@ -39,6 +39,7 @@ public final class FileDeleteTool implements ImplementationTool {
             DeleteInput input = context.objectMapper().convertValue(toolCall.arguments(), DeleteInput.class);
             Path absolutePath = context.requireProjectAbsolutePath(input.filePath());
             context.assertWritable(absolutePath);
+            context.assertDeleteAllowed(absolutePath, "Delete");
             boolean existed = context.exists(absolutePath);
             String previous = existed ? context.readFile(absolutePath) : "";
             context.deleteFile(absolutePath);

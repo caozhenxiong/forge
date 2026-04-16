@@ -43,6 +43,8 @@ import java.util.stream.Stream;
 import devflow.agent.executor.implementation.ImplementationEventJournal;
 import devflow.agent.executor.DeliveryMode;
 import devflow.agent.executor.implementation.toolloop.FileMutationRecord;
+import devflow.agent.executor.subtask.ExecutionFileContract;
+import devflow.agent.executor.subtask.ExecutionFileContractMode;
 import devflow.agent.executor.subtask.ExecutionFileContractSet;
 /**
  * coding tool runtime 的共享上下文。
@@ -182,6 +184,32 @@ public final class ImplementationToolContext implements ToolExecutionContext {
     }
 
     @Override
+    public void assertCreateAllowed(Path absolutePath, String toolName) {
+        ExecutionFileContract contract = executionContractFor(absolutePath);
+        if (contract != null && contract.mode() == ExecutionFileContractMode.CREATE_NEW) {
+            return;
+        }
+        throw new IllegalArgumentException(
+                (toolName == null || toolName.isBlank() ? "Create" : toolName)
+                        + " is only allowed for files whose current execution contract is create-new. "
+                        + "Current contract: " + describeExecutionContract(contract) + "."
+        );
+    }
+
+    @Override
+    public void assertDeleteAllowed(Path absolutePath, String toolName) {
+        ExecutionFileContract contract = executionContractFor(absolutePath);
+        if (contract != null && contract.mode() == ExecutionFileContractMode.DELETE) {
+            return;
+        }
+        throw new IllegalArgumentException(
+                (toolName == null || toolName.isBlank() ? "Delete" : toolName)
+                        + " is only allowed for files whose current execution contract is delete. "
+                        + "Current contract: " + describeExecutionContract(contract) + "."
+        );
+    }
+
+    @Override
     public void assertMutationContract(Path absolutePath, String content) {
         mutationContractGuard.validate(
                 projectPath,
@@ -288,7 +316,9 @@ public final class ImplementationToolContext implements ToolExecutionContext {
         if (absolutePath == null || !exists(absolutePath)) {
             return;
         }
-        if (permissionContext.allowExistingFileWholeRewrite()) {
+        ExecutionFileContract contract = executionContractFor(absolutePath);
+        if (permissionContext.allowExistingFileWholeRewrite()
+                || (contract != null && contract.mode() == ExecutionFileContractMode.CREATE_NEW)) {
             return;
         }
         String modeLabel = permissionContext.repairMode() ? "repair mode" : deliveryMode.name();
@@ -313,10 +343,17 @@ public final class ImplementationToolContext implements ToolExecutionContext {
                 case READ_FILE -> assertFreshFullRead(absolutePath, "Bash copy source");
                 case WRITE_FILE -> {
                     assertWritable(absolutePath);
-                    assertExistingFileWholeRewriteAllowed(absolutePath, "Bash write");
-                    assertFreshReadBeforeOverwrite(absolutePath);
+                    if (exists(absolutePath)) {
+                        assertExistingFileWholeRewriteAllowed(absolutePath, "Bash write");
+                        assertFreshReadBeforeOverwrite(absolutePath);
+                    } else {
+                        assertCreateAllowed(absolutePath, "Bash write");
+                    }
                 }
-                case DELETE_FILE -> assertWritable(absolutePath);
+                case DELETE_FILE -> {
+                    assertWritable(absolutePath);
+                    assertDeleteAllowed(absolutePath, "Bash delete");
+                }
                 case PREPARE_DIRECTORY -> {
                     if (!isOwnedDirectory(pathIntent.path())) {
                         throw new IllegalArgumentException(
@@ -628,6 +665,20 @@ public final class ImplementationToolContext implements ToolExecutionContext {
         }
         return relativePath.getFileName() != null
                 && ProjectPathSupport.isIgnoredWorkspaceArtifact(relativePath.getFileName().toString());
+    }
+
+    private ExecutionFileContract executionContractFor(Path absolutePath) {
+        if (absolutePath == null) {
+            return null;
+        }
+        return executionFileContract().contractFor(relativize(absolutePath));
+    }
+
+    private String describeExecutionContract(ExecutionFileContract contract) {
+        if (contract == null || contract.mode() == null) {
+            return "missing";
+        }
+        return contract.mode().renderToken();
     }
 
     private String hashFile(Path absolutePath) {
