@@ -113,14 +113,19 @@
 ### Scope 1. Outline Capability Partition Closure
 
 - [ImplementationOutlinePromptBuilder.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/ImplementationOutlinePromptBuilder.java)
+- [ImplementationPlanningPromptAssembler.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/ImplementationPlanningPromptAssembler.java)
 - [PlanningBoundaryContractPromptSupport.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/PlanningBoundaryContractPromptSupport.java)
 - [ImplementationPlanningPayloadParser.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/ImplementationPlanningPayloadParser.java)
+- [ImplementationPlanningRepairSupport.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/ImplementationPlanningRepairSupport.java)
 - [ImplementationPlanner.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/ImplementationPlanner.java)
 - [ImplementationPlanningFeedbackRouter.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/ImplementationPlanningFeedbackRouter.java)
 - [ImplementationPlanCoverageAnalyzer.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/ImplementationPlanCoverageAnalyzer.java)
 - [ImplementationOutlineGate.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/ImplementationOutlineGate.java)
 - [ImplementationPlanGate.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/ImplementationPlanGate.java)
 - [ImplementationPlanGateTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/executor/ImplementationPlanGateTests.java)
+- [ImplementationPlanCoverageAnalyzerTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/executor/ImplementationPlanCoverageAnalyzerTests.java)
+- [ImplementationPlanningFeedbackRouterTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/executor/ImplementationPlanningFeedbackRouterTests.java)
+- [ImplementationPlanningPromptBuilderTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/executor/implementation/planning/ImplementationPlanningPromptBuilderTests.java)
 - planning outline / gate regression tests
 
 ### Scope 2. Live Execution File Contract Closure
@@ -128,6 +133,8 @@
 - [SubtaskExecutionState.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/subtask/SubtaskExecutionState.java)
 - [SubtaskExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/subtask/SubtaskExecutor.java)
 - [TaskPackage.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/subtask/TaskPackage.java)
+- [TaskPackageAssembler.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/render/TaskPackageAssembler.java)
+- [TaskPackageMarkdownRenderer.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/editing/TaskPackageMarkdownRenderer.java)
 - [ImplementationToolPromptBuilder.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/toolloop/ImplementationToolPromptBuilder.java)
 - [ImplementationToolLoopExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/toolloop/ImplementationToolLoopExecutor.java)
 - [ImplementationToolPermissionPolicy.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/tools/ImplementationToolPermissionPolicy.java)
@@ -149,6 +156,7 @@
 
 - outline prompt 必须把 capability partition 收成明确结构 contract，而不是泛泛提示
 - outline retry feedback 必须直接回注 deterministic gate 产出的结构性问题，不再让模型用重新措辞逃过同一约束
+- `ImplementationPlanningPromptAssembler` 与 `ImplementationPlanningRepairSupport` 必须和 `ImplementationPlanner / ImplementationPlanningFeedbackRouter` 共用同一套 retry 注入语义，不能继续出现“gate 很严，但 retry prompt 仍是泛化 prose”的第二轨
 - final gate 与 outline gate 的 capability boundary 语义必须保持同一套 wording / owner 规则
 - 如果 shared-file future boundary 需要完整 defer，就在 prompt 和 retry contract 里明确写死，不允许只靠 gate 末端兜底
 
@@ -172,6 +180,7 @@
   - 产出当前 attempt 唯一有效的 `create-new / patch-existing / delete` contract
 - 之后：
   - `TaskPackage` 只展示 materialized contract
+  - `TaskPackageAssembler` / `TaskPackageMarkdownRenderer` 只渲染 materialized contract，不再把 raw `subtask.changes()` 直接投影到 `task_packages.md` 或紧凑 task package
   - `Current File Contracts` 只展示 materialized contract
   - tool permission 与 closure 只消费 materialized contract
 - 不允许再让 raw `FileChange.action` 直接控制 live existing-file semantics
