@@ -178,8 +178,14 @@
 - [SubtaskRepairDirectiveResolverTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/executor/subtask/SubtaskRepairDirectiveResolverTests.java)
 - [SubtaskVerificationSupportTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/executor/subtask/SubtaskVerificationSupportTests.java)
 - [SubtaskRetryFeedbackRendererTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/executor/subtask/SubtaskRetryFeedbackRendererTests.java)
+- 新增或显式扩展 `ExecutionDirectivePayload` owner regressions
+  - 目标：直接锁死 `ExecutionDirectivePayload.mergeCanonicalPatchPackage(...)` 的 no-revive 语义
+  - 不允许只靠 `ExecutionDirectiveFeedbackSupportTests` 间接覆盖
 - [ExecutionDirectiveFeedbackSupportTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/protocol/ExecutionDirectiveFeedbackSupportTests.java)
 - [TestExecutorTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/executor/testing/TestExecutorTests.java)
+- 新增或显式扩展 `SubtaskExecutor` owner regressions
+  - 目标：直接锁死 `attempt N -> attempt N+1` 保留 active concrete package，而 later-subtask 仍只拿 repair brief
+  - 不允许只靠 `ImplementationPlanRunnerTests` 间接覆盖
 - [ImplementationPlanRunnerTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/executor/implementation/ImplementationPlanRunnerTests.java)
 - [SubtaskExecutionStateTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/executor/SubtaskExecutionStateTests.java)
 
@@ -281,7 +287,9 @@
 - active retry feedback 保留当前 concrete package
 - repair brief 继续不带 concrete package
 - `ExecutionDirectivePayload.mergeCanonicalPatchPackage(...)` 不复活旧 package
+- 新增或显式扩展 `ExecutionDirectivePayload` owner regressions，直接钉住 no-revive 规则，不只测包装层
 - `SubtaskExecutor` 锁死 `attempt N -> attempt N+1` 保留 active concrete package，而 later-subtask 仍只拿 repair brief
+- 新增或显式扩展 `SubtaskExecutor` owner regressions，直接钉住 same-subtask attempt carrier，不只测 runner 层
 - next attempt 继续消费同一 active canonical package
 
 ## Explicit Non-Goals
