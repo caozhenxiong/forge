@@ -155,6 +155,7 @@
 
 ### Scope 2. Active Retry Carrier
 
+- [SubtaskExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/subtask/SubtaskExecutor.java)
 - [SubtaskRetryFeedbackRenderer.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/subtask/SubtaskRetryFeedbackRenderer.java)
 - [ExecutionDirectivePayload.java](/home/linus/workspace/forge/src/main/java/devflow/agent/protocol/ExecutionDirectivePayload.java)
 - [ExecutionDirectiveFeedbackSupport.java](/home/linus/workspace/forge/src/main/java/devflow/agent/protocol/ExecutionDirectiveFeedbackSupport.java)
@@ -218,6 +219,9 @@
 - 把两种 feedback 语义拆开，但不引入第二个 owner：
   - active retry feedback：允许携带当前 canonical package
   - repair brief feedback：继续不携带 concrete package
+- `ExecutionDirectivePayload.mergeCanonicalPatchPackage(...)` 是 no-revive 规则的协议 owner：
+  - fresh feedback 没有 concrete package 时，不能回退复活 base concrete package
+  - active retry 与 repair brief 的差异，只能建立在这条协议 owner 之上，不允许在包装层重新各写一套复活逻辑
 - `ExecutionDirectiveFeedbackSupport` 只负责：
   - 保留 active retry 当前轮需要消费的 concrete package
   - 不复活旧轮次/旧阶段 concrete package
@@ -240,7 +244,12 @@
   - fresh package 进入当前 active subtask 时，唯一 machine owner 立刻切到 `SubtaskRevisionDirective -> SubtaskExecutionState.effectiveChanges`
   - retry feedback 只是 derived carrier
   - `TaskPackage` 也是 derived view
-- `ExecutionDirectiveFeedbackSupport.merge(...)` 不能在 fresh feedback 没 concrete package 时复活 base package
+- `ExecutionDirectivePayload.mergeCanonicalPatchPackage(...)` 不能在 fresh feedback 没 concrete package 时复活 base package
+- `ExecutionDirectiveFeedbackSupport.merge(...)` 只能复用上述协议 owner，不允许再在 support 层长第二套 revive/fallback 逻辑
+- `SubtaskExecutor` 必须与 `ImplementationPlanRunner` 一起对齐：
+  - `ImplementationPlanRunner` 负责“子任务之间”的 carrier 边界
+  - `SubtaskExecutor` 负责“同一子任务 attempt N -> attempt N+1” 的 carrier 滚动
+  - 两处都必须保持：当前 active attempt 保留 active concrete package，而 later-subtask 仍只拿 repair brief
 - `ImplementationPlanRunner` / `SubtaskRecoverySupport` 只在 active retry 仍属于当前 subtask 时保留当前 package
 - later-subtask 路径只滚动 repair brief，不滚动 active concrete package
 
@@ -255,7 +264,9 @@
 ### Phase 2. 锁死 active retry carrier
 
 - `SubtaskRetryFeedbackRenderer` 补回 concrete patch package
+- `ExecutionDirectivePayload.mergeCanonicalPatchPackage(...)` 收成唯一 no-revive 协议 owner
 - `ExecutionDirectiveFeedbackSupport` 区分 active retry feedback 与 repair brief feedback
+- `SubtaskExecutor` / `ImplementationPlanRunner` 一起对齐 attempt 内与子任务间的 carrier 滚动
 - 删除现有 “drop concrete patch package” 预期测试
 
 ### Phase 3. 对齐 merge / next-attempt 消费链
@@ -269,7 +280,8 @@
 - patch review 缺 scope 不再自动扩范围
 - active retry feedback 保留当前 concrete package
 - repair brief 继续不带 concrete package
-- merge 不复活旧 package
+- `ExecutionDirectivePayload.mergeCanonicalPatchPackage(...)` 不复活旧 package
+- `SubtaskExecutor` 锁死 `attempt N -> attempt N+1` 保留 active concrete package，而 later-subtask 仍只拿 repair brief
 - next attempt 继续消费同一 active canonical package
 
 ## Explicit Non-Goals
