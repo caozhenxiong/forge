@@ -66,6 +66,7 @@
 
 - [ ] 引入单一 execution file contract materializer，只基于 accepted/effective structured change-set + live workspace state 产出当前 attempt contract
 - [ ] 明确 materialized contract 不进入 snapshot/state 持久化链；resume / retry 重新进入 attempt 时必须现算
+- [ ] 留出显式证据位：`retry / resume` 重新进入 attempt 时会重新 materialize execution contract，而不是沿用上一轮 contract
 - [ ] `TaskPackage` / `TaskPackageAssembler` / `TaskPackageMarkdownRenderer` 只展示 materialized contract，不再直接渲染 raw `subtask.changes()`
 - [ ] `ImplementationToolPromptBuilder` 的 `Current File Contracts` 只展示 materialized contract
 - [ ] `ImplementationToolPermissionContext` / `ToolExecutionContext` / `ImplementationToolContext` / `ImplementationMutationContractGuard` 只消费 materialized contract，不再直接吃 raw `scopedChanges`
@@ -111,6 +112,7 @@
 
 - commit：`待提交`
 - self-test：`待执行`
+- evidence：`待补“retry / resume re-materialize contract”专门回归或等价 deterministic 证据`
 - code review：`待执行`
 - docs：`tracker 已创建，等待 reviewer 审阅`
 
