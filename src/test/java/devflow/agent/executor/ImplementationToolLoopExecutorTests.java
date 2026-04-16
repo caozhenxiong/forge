@@ -172,6 +172,147 @@ class ImplementationToolLoopExecutorTests {
     }
 
     @Test
+    void toolLoopAllowsAssistantOnlyCompletionForDeleteContractInRepairRoundWhenFileIsAlreadyAbsent() throws Exception {
+        Path file = tempDir.resolve("obsolete.js");
+        Files.deleteIfExists(file);
+        SubtaskExecutionState executionState = new SubtaskExecutionState(DeliveryMode.PATCH, false)
+                .applyRevisionDirective(devflow.agent.executor.subtask.SubtaskRevisionDirective.patch(
+                        List.of(new FileChange("obsolete.js", ChangeAction.DELETE, "继续删除废弃文件"))
+                ));
+
+        ImplementationToolLoopExecutor executor = newToolLoopExecutor(
+                new ScriptedChatProvider(
+                        new LlmChatResponse("当前删除范围已满足", List.of(), null, "stop")
+                ),
+                2
+        );
+
+        ImplementationToolLoopResult result = executor.execute(
+                tempDir,
+                runRecord(tempDir),
+                new Subtask(
+                        "继续删除旧文件",
+                        "继续清理旧 runtime 资产",
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of("旧文件保持删除状态"),
+                        false,
+                        DeliveryMode.PATCH,
+                        List.of(new FileChange("obsolete.js", ChangeAction.DELETE, "删除废弃文件"))
+                ),
+                taskPackage("继续删除旧文件", "obsolete.js"),
+                null,
+                QualityPlan.empty(),
+                fingerprint("obsolete.js"),
+                "继续当前 repair round，只验证当前删除范围。",
+                "",
+                null,
+                executionState
+        );
+
+        assertEquals("当前删除范围已满足", result.finalResponse());
+        assertFalse(Files.exists(file));
+        assertEquals(List.of(), result.touchedPaths());
+    }
+
+    @Test
+    void toolLoopRejectsAssistantOnlyCompletionForDeleteContractInRepairRoundWhenFileWasRecreated() throws Exception {
+        Path file = tempDir.resolve("obsolete.js");
+        Files.writeString(file, "console.log('recreated');");
+        SubtaskExecutionState executionState = new SubtaskExecutionState(DeliveryMode.PATCH, false)
+                .applyRevisionDirective(devflow.agent.executor.subtask.SubtaskRevisionDirective.patch(
+                        List.of(new FileChange("obsolete.js", ChangeAction.DELETE, "继续删除废弃文件"))
+                ));
+
+        ImplementationToolLoopExecutor executor = newToolLoopExecutor(
+                new ScriptedChatProvider(
+                        new LlmChatResponse("当前删除范围已满足", List.of(), null, "stop")
+                ),
+                2
+        );
+
+        GenerationFailureException exception = assertThrows(
+                GenerationFailureException.class,
+                () -> executor.execute(
+                        tempDir,
+                        runRecord(tempDir),
+                        new Subtask(
+                                "继续删除旧文件",
+                                "继续清理旧 runtime 资产",
+                                List.of(),
+                                List.of(),
+                                List.of(),
+                                List.of("旧文件保持删除状态"),
+                                false,
+                                DeliveryMode.PATCH,
+                                List.of(new FileChange("obsolete.js", ChangeAction.DELETE, "删除废弃文件"))
+                        ),
+                        taskPackage("继续删除旧文件", "obsolete.js"),
+                        null,
+                        QualityPlan.empty(),
+                        fingerprint("obsolete.js"),
+                        "继续当前 repair round，只验证当前删除范围。",
+                        "",
+                        null,
+                        executionState
+                )
+        );
+
+        assertEquals(GenerationFailureType.NO_MATERIAL_CHANGE, exception.report().failureType());
+        assertTrue(exception.report().evidence().contains("path=obsolete.js"));
+        assertTrue(exception.report().evidence().contains("contract=delete"));
+        assertTrue(exception.report().evidence().contains("closureMode=workspace-state"));
+        assertTrue(exception.report().evidence().contains("exists=true"));
+    }
+
+    @Test
+    void toolLoopRejectsAssistantOnlyCompletionForDeleteContractOutsideRepairRoundWhenFileIsAlreadyAbsent() throws Exception {
+        Path file = tempDir.resolve("obsolete.js");
+        Files.deleteIfExists(file);
+
+        ImplementationToolLoopExecutor executor = newToolLoopExecutor(
+                new ScriptedChatProvider(
+                        new LlmChatResponse("当前删除范围已满足", List.of(), null, "stop")
+                ),
+                2
+        );
+
+        GenerationFailureException exception = assertThrows(
+                GenerationFailureException.class,
+                () -> executor.execute(
+                        tempDir,
+                        runRecord(tempDir),
+                        new Subtask(
+                                "删除旧文件",
+                                "清理旧 runtime 资产",
+                                List.of(),
+                                List.of(),
+                                List.of(),
+                                List.of("旧文件已删除"),
+                                false,
+                                DeliveryMode.PATCH,
+                                List.of(new FileChange("obsolete.js", ChangeAction.DELETE, "删除废弃文件"))
+                        ),
+                        taskPackage("删除旧文件", "obsolete.js"),
+                        null,
+                        QualityPlan.empty(),
+                        fingerprint("obsolete.js"),
+                        "",
+                        "",
+                        null,
+                        new SubtaskExecutionState(DeliveryMode.PATCH, false)
+                )
+        );
+
+        assertEquals(GenerationFailureType.NO_MATERIAL_CHANGE, exception.report().failureType());
+        assertTrue(exception.report().evidence().contains("path=obsolete.js"));
+        assertTrue(exception.report().evidence().contains("contract=delete"));
+        assertTrue(exception.report().evidence().contains("closureMode=mutation-history"));
+        assertTrue(exception.report().evidence().contains("mutations=[]"));
+    }
+
+    @Test
     void toolLoopCarriesReadStateAcrossRetryAfterFailedAssistantOnlyCompletion() throws Exception {
         Path file = tempDir.resolve("app.js");
         Files.writeString(file, """

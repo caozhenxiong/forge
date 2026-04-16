@@ -562,14 +562,14 @@ public final class ImplementationToolLoopExecutor {
             boolean currentExists,
             boolean workspaceStateClosure
     ) {
+        if (workspaceStateClosure) {
+            return !currentExists;
+        }
         if (mutationSummary == null) {
             return false;
         }
         if (!matchesLatestTerminalState(mutationSummary, currentExists)) {
             return false;
-        }
-        if (workspaceStateClosure) {
-            return true;
         }
         return mutationSummary.beforeExists() && !currentExists;
     }
