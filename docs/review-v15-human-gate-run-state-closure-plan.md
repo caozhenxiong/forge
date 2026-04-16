@@ -38,7 +38,9 @@
    - 本轮不新增新的人工 repair-routing API
    - 但必须通过 `HumanReviewResolutionContext` 的 terminal 标记或等价结构化字段，把它表达成“不可再次 approve”的状态
    - 再次 `approve` terminal human state 必须是单一行为：
-     视为无效操作，不修改 `run-state / review history / transition artifact / events.log`，只返回明确诊断给 CLI / autopilot
+     视为无效操作，不修改 `run-state / review history / transition artifact / events.log`
+   - 这条“明确诊断”必须有单一 carrier：
+     `approveStage()` 抛固定异常类型，CLI 顶层统一捕获并渲染；不允许靠返回原 `RunRecord` 让 CLI 猜，也不允许临时向 stdout/stderr 散打字串
 
 本轮收口后，`v182` 这类真实链路应变成：
 
@@ -81,12 +83,16 @@
 
 ### Scope 2. Human Approval Lifecycle
 
+- [WorkflowEngine.java](/home/linus/workspace/forge/src/main/java/devflow/agent/orchestrator/WorkflowEngine.java)
+- [DefaultWorkflowEngine.java](/home/linus/workspace/forge/src/main/java/devflow/agent/orchestrator/DefaultWorkflowEngine.java)
 - [WorkflowRunLifecycleSupport.java](/home/linus/workspace/forge/src/main/java/devflow/agent/orchestrator/WorkflowRunLifecycleSupport.java)
 - [StageTransitionSupport.java](/home/linus/workspace/forge/src/main/java/devflow/agent/orchestrator/StageTransitionSupport.java)
 - [StageStatusSupport.java](/home/linus/workspace/forge/src/main/java/devflow/agent/orchestrator/StageStatusSupport.java)
 - [StageRevisionSupport.java](/home/linus/workspace/forge/src/main/java/devflow/agent/orchestrator/StageRevisionSupport.java)
 - [StageEntryExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/orchestrator/StageEntryExecutor.java)
 - [FlowDecisionExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/orchestrator/FlowDecisionExecutor.java)
+- 新增或显式引入：
+  - `TerminalHumanApprovalRejectedException` 或等价固定诊断异常类型
 
 ### Scope 3. Repair Context Persistence
 
@@ -107,6 +113,7 @@
 
 - [CliRunCommandHandler.java](/home/linus/workspace/forge/src/main/java/devflow/agent/interfaceadapter/cli/CliRunCommandHandler.java)
 - [CliOutputRenderer.java](/home/linus/workspace/forge/src/main/java/devflow/agent/interfaceadapter/cli/CliOutputRenderer.java)
+- [DevflowCliRunner.java](/home/linus/workspace/forge/src/main/java/devflow/agent/interfaceadapter/cli/DevflowCliRunner.java)
 
 ### Scope 6. Regression Tests
 
@@ -325,7 +332,10 @@
   - 本轮默认做法是把 terminal 语义挂到 `HumanReviewResolutionContext` 上
   - `approveStage()` 在读取到 `CONFIRM_REPAIR_ROUTE + terminal=true` 时，必须视为无效操作：
     不修改 `run-state / review history / transition artifact / events.log`
-  - `CliRunCommandHandler` / autopilot 对同一 context 也必须停止自动 approve，并向用户输出明确诊断
+  - 这条无效操作的诊断 carrier 本轮写死为固定异常类型，例如 `TerminalHumanApprovalRejectedException`
+  - `WorkflowEngine` / `DefaultWorkflowEngine` / `WorkflowRunLifecycleSupport` 只允许通过这条异常链把诊断抛出
+  - `DevflowCliRunner` 负责统一捕获该异常，`CliOutputRenderer` 负责统一渲染
+  - `CliRunCommandHandler` / autopilot 对同一 context 也必须停止自动 approve，并复用同一异常诊断输出
 - 当前公开入口仍只有 `approve / reject` 两个动作；因此本轮的收口目标是：
   - 先禁止错误自动 reroute
   - 先把 reject 后的状态写成单一、稳定、可审计的 terminal human state
@@ -389,7 +399,8 @@
    仍按阶段 revision policy 进入正确 reroute
 9. `CONFIRM_REPAIR_ROUTE + reject + terminal`
    后续 `approveStage()` 与 autopilot 必须把它视为无效操作：
-   不修改 `run-state / review history / transition artifact / events.log`，只返回明确诊断
+   不修改 `run-state / review history / transition artifact / events.log`
+   并统一通过固定异常类型向 CLI / autopilot 返回诊断
 
 ## Risks / Blockers
 
