@@ -107,8 +107,8 @@
 
 ## Current Status
 
-- 当前阶段：`REVIEW_FIXES_REQUIRED`
-- 当前 blocker：`存在 3 条最新代码 review 阻塞：repair round 复用旧 mutation history、detail gate 误杀合法 runtime package、WEB_RESOURCE_LINK_CHECK 仍误判 root-relative 资源`
+- 当前阶段：`PASSED_FOR_SINGLE_COMMIT_PENDING_REVIEW`
+- 当前 blocker：`无新的代码 blocker；latest blockers remediation 已落地，等待 reviewer 审核本轮单次提交`
 - 当前修复方案： [review-v13-latest-blockers-remediation-plan.md](/home/linus/workspace/forge/docs/review-v13-latest-blockers-remediation-plan.md)
 - 当前约束：`禁止兼容层、禁止双轨并存、禁止 fallback、禁止“后续再清理”`
 
@@ -139,29 +139,29 @@
 ### Scope 1
 
 - commit：`待提交`
-- self-test：`mvn -q -Dtest=SubtaskExecutionStateTests,ImplementationStateSnapshotSerializerTests,ImplementationResumePolicyTests,ImplementationToolPermissionPolicyTests,ImplementationToolLoopExecutorTests,devflow.agent.executor.implementation.planning.ImplementationPlanChangeGateTests,devflow.agent.executor.implementation.planning.PlanningRuntimeFactsResolverTests,ImplementationPlanGateTests,ImplementationSubtaskDetailGateTests,WebRuntimeWiringCheckTests test`
-- code review：`已完成；repair predicate 已收回 SubtaskExecutionState，tool-loop / permission policy 不再各自保留 heuristic`
+- self-test：`mvn -q -Dtest=SubtaskExecutionStateTests,ImplementationToolLoopExecutorTests,ImplementationResumePolicyTests,ImplementationPlanGateTests,ImplementationSubtaskDetailGateTests,ImplementationStateSnapshotSerializerTests,ImplementationSnapshotRestorerTests,devflow.agent.validation.ValidationExecutorTests test`
+- code review：`本地静态自审通过；新 repair round 只经 SubtaskExecutionState / ImplementationToolSessionState 开启，resume / generation recovery 已删掉旧 mutation history 复用路径`
 - docs：`tracker 已更新到可提交态`
 
 ### Scope 2
 
 - commit：`待提交`
 - self-test：`同 Scope 1`
-- code review：`已完成；closure 只认 canonical mutation terminal state，未保留 “file exists => satisfied” 旧语义`
+- code review：`本地静态自审通过；existing-file closure 仍只认 current round mutation terminal state，没有把上一轮 mutation history 继续当作 assistant-only completion 证据`
 - docs：`tracker 已更新到可提交态`
 
 ### Scope 3
 
 - commit：`待提交`
 - self-test：`同 Scope 1`
-- code review：`已完成；planning/runtime/ownership 统一改为同一 root-relative 归一规则`
+- code review：`本地静态自审通过；WEB_RESOURCE_LINK_CHECK 已直接复用 RuntimeScriptGraphInspector 的 root-relative 归一规则，validation 不再保留第二套解析`
 - docs：`tracker 已更新到可提交态`
 
 ### Scope 4
 
 - commit：`待提交`
 - self-test：`同 Scope 1`
-- code review：`已完成；planning 不再扫描 sibling/orphan runtime root facts，brand-new root 明确下沉到 detail runtimeScriptRole`
+- code review：`本地静态自审通过；detail gate 的 LEAF anchor 已收成 reachable anchor + package ROOT anchor 两类，没有再长出新 heuristic`
 - docs：`tracker 已更新到可提交态`
 
 ### Scope 5
@@ -183,13 +183,13 @@
 ## Completion Gate
 
 - [x] `S1` fresh vs repair boundary 单轨收口
-- [ ] `S2` existing-file closure 只认 canonical mutation terminal state
+- [x] `S2` existing-file closure 只认 canonical mutation terminal state
 - [x] `S3` root-relative runtime path 在 planning/runtime/ownership 单轨收口
-- [ ] `S4` planning runtime facts boundary 在 outline/detail 单轨收口
-- [ ] `R1 ~ R9` 全部补齐
-- [ ] `self-test + code review + docs` 全部补齐
+- [x] `S4` planning runtime facts boundary 在 outline/detail 单轨收口
+- [x] `R1 ~ R9` 全部补齐
+- [x] `self-test + code review + docs` 全部补齐
 
-结果：`REVIEW_BLOCKED`
+结果：`PENDING_EXTERNAL_REVIEW`
 
 ## Review Focus
 

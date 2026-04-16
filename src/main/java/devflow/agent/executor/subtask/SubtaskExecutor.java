@@ -77,7 +77,6 @@ public class SubtaskExecutor {
                     return new SubtaskExecutionReport(executionContext.subtask(), false, attempts, executionState.copy());
                 }
                 executionState = executionState.withRecoveryPolicy(recoveryDecision.deliveryPolicy());
-                executionState.resetToolLoopTranscript();
                 feedback = subtaskRecoverySupport.mergeFeedback(
                         executionContext.persistentRepairFeedback(),
                         subtaskRecoverySupport.buildGenerationRetryFeedback(failureReport, recoveryDecision)
@@ -106,7 +105,6 @@ public class SubtaskExecutor {
                 return new SubtaskExecutionReport(executionContext.subtask(), false, attempts, executionState.copy());
             }
             executionState = executionState.applyRevisionDirective(revisionDirective);
-            executionState.resetToolLoopTranscript();
             feedback = subtaskRecoverySupport.mergeFeedback(
                     executionContext.persistentRepairFeedback(),
                     subtaskVerificationSupport.buildRetryFeedback(selfCheck, verification, completenessResult)

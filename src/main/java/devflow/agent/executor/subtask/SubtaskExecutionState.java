@@ -68,14 +68,7 @@ public final class SubtaskExecutionState {
 
     public SubtaskExecutionState withRecoveryPolicy(DeliveryPolicy policy) {
         DeliveryMode nextMode = parseMode(policy.mode(), deliveryMode);
-        return new SubtaskExecutionState(
-                nextMode,
-                policy.preferPreciseEditing(),
-                true,
-                copyProgressMap(),
-                copyEffectiveChanges(),
-                copyToolSessionState()
-        );
+        return startRepairRound(nextMode, policy.preferPreciseEditing(), copyEffectiveChanges());
     }
 
     public SubtaskExecutionState copy() {
@@ -156,16 +149,7 @@ public final class SubtaskExecutionState {
             return this;
         }
         DeliveryMode nextMode = directive.nextDeliveryMode() == null ? deliveryMode : directive.nextDeliveryMode();
-        SubtaskExecutionState nextState = new SubtaskExecutionState(
-                nextMode,
-                preferPreciseEditing,
-                true,
-                copyProgressMap(),
-                copyEffectiveChanges(),
-                copyToolSessionState()
-        );
-        nextState.setEffectiveChanges(directive.retryChanges());
-        return nextState;
+        return startRepairRound(nextMode, preferPreciseEditing, directive.retryChanges());
     }
 
     /**
@@ -190,7 +174,7 @@ public final class SubtaskExecutionState {
         SubtaskExecutionState nextState = new SubtaskExecutionState(
                 deliveryMode,
                 preferPreciseEditing,
-                true,
+                repairRound,
                 copyProgressMap(),
                 copyEffectiveChanges(),
                 copyToolSessionState()
@@ -205,10 +189,6 @@ public final class SubtaskExecutionState {
 
     public ImplementationToolSessionState toolSessionState() {
         return toolSessionState;
-    }
-
-    public void resetToolLoopTranscript() {
-        toolSessionState.clearTranscript();
     }
 
     public static SubtaskExecutionState restore(
@@ -270,6 +250,25 @@ public final class SubtaskExecutionState {
 
     private ImplementationToolSessionState copyToolSessionState() {
         return toolSessionState == null ? new ImplementationToolSessionState() : toolSessionState.copy();
+    }
+
+    private SubtaskExecutionState startRepairRound(
+            DeliveryMode nextMode,
+            boolean nextPreferPreciseEditing,
+            List<FileChange> retryChanges
+    ) {
+        SubtaskExecutionState nextState = new SubtaskExecutionState(
+                nextMode,
+                nextPreferPreciseEditing,
+                true,
+                copyProgressMap(),
+                copyEffectiveChanges(),
+                toolSessionState == null
+                        ? new ImplementationToolSessionState()
+                        : toolSessionState.startNewRepairRound()
+        );
+        nextState.setEffectiveChanges(retryChanges);
+        return nextState;
     }
 
     private DeliveryMode parseMode(DeliveryPolicyMode value, DeliveryMode fallback) {

@@ -258,6 +258,124 @@ class ImplementationResumePolicyTests {
     }
 
     @Test
+    void currentPatchContinuationClearsPriorMutationHistoryWhenReopeningIncompletePlan() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        ImplementationResumePolicy policy = new ImplementationResumePolicy(objectMapper);
+        String previousStateJson = objectMapper.writeValueAsString(new ImplementationStateSnapshot(
+                "继续修补当前实现",
+                List.of(new ImplementationStateSnapshot.PlannedSubtaskState(
+                        "逻辑",
+                        "补齐逻辑",
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of("逻辑完成"),
+                        false,
+                        "PATCH",
+                        List.of(new ImplementationStateSnapshot.FileChangeState("src/app.js", "WRITE", "修逻辑"))
+                )),
+                List.of(new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot(
+                        "逻辑",
+                        false,
+                        List.of(),
+                        "PATCH",
+                        true,
+                        false,
+                        List.of(),
+                        List.of(new ImplementationStateSnapshot.FileChangeState("src/app.js", "WRITE", "修逻辑")),
+                        toolSessionSnapshotWithMutation("src/app.js", "hash-before", "hash-after")
+                )),
+                List.of(),
+                "逻辑",
+                false,
+                false,
+                null,
+                ImplementationContinuationMode.MID_PLAN_CONTINUE.name(),
+                "",
+                "",
+                "",
+                "",
+                List.of(),
+                ImplementationPatchTarget.NONE.name(),
+                ReviewReasonCode.NONE.name(),
+                List.of("逻辑")
+        ));
+
+        ReusableImplementationState reusableState = policy.loadReusableImplementationState(
+                previousStateJson,
+                FixMode.PATCH,
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                List.of(new FileChange("src/app.js", ChangeAction.WRITE, "修逻辑")),
+                DocumentLanguage.ZH
+        );
+
+        assertNotNull(reusableState);
+        assertNotNull(reusableState.resumedExecutionState());
+        assertTrue(reusableState.resumedExecutionState().repairRound());
+        assertTrue(reusableState.resumedExecutionState().toolSessionState().mutationRecords().isEmpty());
+        assertTrue(reusableState.resumedExecutionState().toolSessionState().transcript().isEmpty());
+    }
+
+    @Test
+    void restoresSameRoundMutationHistoryForMidPlanContinuation() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        ImplementationResumePolicy policy = new ImplementationResumePolicy(objectMapper);
+        String previousStateJson = objectMapper.writeValueAsString(new ImplementationStateSnapshot(
+                "继续修补当前实现",
+                List.of(new ImplementationStateSnapshot.PlannedSubtaskState(
+                        "逻辑",
+                        "补齐逻辑",
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of("逻辑完成"),
+                        false,
+                        "PATCH",
+                        List.of(new ImplementationStateSnapshot.FileChangeState("src/app.js", "WRITE", "修逻辑"))
+                )),
+                List.of(new ImplementationStateSnapshot.SubtaskExecutionStateSnapshot(
+                        "逻辑",
+                        false,
+                        List.of(),
+                        "PATCH",
+                        true,
+                        true,
+                        List.of(),
+                        List.of(new ImplementationStateSnapshot.FileChangeState("src/app.js", "WRITE", "修逻辑")),
+                        toolSessionSnapshotWithMutation("src/app.js", "hash-before", "hash-after")
+                )),
+                List.of(),
+                "逻辑",
+                false,
+                false,
+                null,
+                ImplementationContinuationMode.MID_PLAN_CONTINUE.name(),
+                "",
+                "",
+                "",
+                "",
+                List.of(),
+                ImplementationPatchTarget.NONE.name(),
+                ReviewReasonCode.NONE.name(),
+                List.of("逻辑")
+        ));
+
+        ReusableImplementationState reusableState = policy.loadReusableImplementationState(
+                previousStateJson,
+                FixMode.PATCH,
+                ImplementationPatchTarget.NONE,
+                List.of(),
+                DocumentLanguage.ZH
+        );
+
+        assertNotNull(reusableState);
+        assertNotNull(reusableState.resumedExecutionState());
+        assertTrue(reusableState.resumedExecutionState().repairRound());
+        assertEquals(1, reusableState.resumedExecutionState().toolSessionState().mutationRecords().size());
+        assertEquals(Path.of("src/app.js"), reusableState.resumedExecutionState().toolSessionState().mutationRecords().getFirst().relativePath());
+    }
+
+    @Test
     void reopensOwningCompletedSubtaskForRuntimeWiringPatch() throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         ImplementationResumePolicy policy = new ImplementationResumePolicy(objectMapper);
@@ -1215,6 +1333,31 @@ class ImplementationResumePolicyTests {
 
     private ImplementationStateSnapshot.FileChangeState implementationPatchContinuationChange(String path, String reason) {
         return new ImplementationStateSnapshot.FileChangeState(path, "WRITE", reason);
+    }
+
+    private ImplementationStateSnapshot.ToolSessionStateSnapshot toolSessionSnapshotWithMutation(
+            String path,
+            String beforeHash,
+            String afterHash
+    ) {
+        return new ImplementationStateSnapshot.ToolSessionStateSnapshot(
+                100L,
+                1_024L,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(new ImplementationStateSnapshot.FileMutationState(
+                        ToolLoopMutationOperation.UPDATE.name(),
+                        path,
+                        true,
+                        beforeHash,
+                        true,
+                        afterHash,
+                        List.of(),
+                        1L
+                )),
+                List.of()
+        );
     }
 
     private String continuationSummary(ImplementationPatchTarget patchTarget) {

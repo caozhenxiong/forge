@@ -70,6 +70,23 @@ public final class ImplementationToolSessionState {
         );
     }
 
+    public ImplementationToolSessionState startNewRepairRound() {
+        return new ImplementationToolSessionState(
+                List.of(),
+                new ToolLoopReadFileStateLedger(
+                        readFileStateLedger.maxEntries(),
+                        readFileStateLedger.maxSizeBytes(),
+                        readFileStateLedger.snapshotEntries()
+                ),
+                new ToolLoopResultReplacementState(
+                        resultReplacementState.snapshotSeenIds(),
+                        resultReplacementState.snapshotReplacements()
+                ),
+                List.of(),
+                diagnosticLedger.copy()
+        );
+    }
+
     public List<LlmChatMessage> transcript() {
         return List.copyOf(transcript);
     }

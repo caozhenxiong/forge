@@ -1,5 +1,6 @@
 package devflow.agent.validation;
 
+import devflow.agent.executor.runtime.RuntimeScriptGraphInspector;
 import devflow.agent.executor.tools.ToolFailureCode;
 import devflow.agent.executor.tools.ToolName;
 import devflow.agent.executor.tools.ToolResult;
@@ -18,9 +19,11 @@ import java.util.List;
 final class WebResourceValidationSupport {
 
     private final FileProjectWorkspace workspace;
+    private final RuntimeScriptGraphInspector runtimeScriptGraphInspector;
 
     WebResourceValidationSupport(FileProjectWorkspace workspace) {
         this.workspace = workspace;
+        this.runtimeScriptGraphInspector = new RuntimeScriptGraphInspector(workspace);
     }
 
     ValidationStepExecution run(Path projectPath, ProjectFingerprint fingerprint, String reason) {
@@ -94,8 +97,11 @@ final class WebResourceValidationSupport {
         if (rawRef == null || rawRef.isBlank() || ProjectPathSupport.isExternalReference(rawRef)) {
             return;
         }
-        Path baseDir = htmlFile.getParent() == null ? Path.of("") : htmlFile.getParent();
-        Path resolved = projectPath.resolve(baseDir).resolve(rawRef).normalize();
+        Path resolvedReference = runtimeScriptGraphInspector.resolveProjectRelativeReference(htmlFile, rawRef);
+        if (resolvedReference == null) {
+            return;
+        }
+        Path resolved = projectPath.resolve(resolvedReference).normalize();
         if (!resolved.startsWith(projectPath.normalize()) || !Files.exists(resolved)) {
             missingResources.add(rawRef);
         }

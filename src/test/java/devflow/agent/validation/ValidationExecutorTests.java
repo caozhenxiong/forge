@@ -86,6 +86,60 @@ class ValidationExecutorTests {
     }
 
     @Test
+    void passesRootRelativeLocalAssets() throws Exception {
+        Files.createDirectories(tempDir.resolve("js"));
+        Files.createDirectories(tempDir.resolve("styles"));
+        Files.writeString(tempDir.resolve("index.html"), """
+                <!doctype html>
+                <html>
+                <head>
+                  <link rel="stylesheet" href="/styles/app.css">
+                </head>
+                <body>
+                  <script src="/js/game-engine.js"></script>
+                </body>
+                </html>
+                """);
+        Files.writeString(tempDir.resolve("styles/app.css"), "body { margin: 0; }");
+        Files.writeString(tempDir.resolve("js/game-engine.js"), "export const ready = true;");
+
+        ValidationPlan plan = new ValidationPlan(
+                "检查 root-relative 资源引用。",
+                List.of(new ValidationStep(ValidationCapability.WEB_RESOURCE_LINK_CHECK, "检查本地资源引用。", true))
+        );
+
+        SelfCheckResult result = executor.execute(tempDir, null, plan);
+
+        assertTrue(result.passed(), result.details());
+    }
+
+    @Test
+    void failsWhenRootRelativeLocalAssetIsMissing() throws Exception {
+        Files.writeString(tempDir.resolve("index.html"), """
+                <!doctype html>
+                <html>
+                <head>
+                  <link rel="stylesheet" href="/styles/missing.css">
+                </head>
+                <body>
+                  <script src="/js/missing.js"></script>
+                </body>
+                </html>
+                """);
+
+        ValidationPlan plan = new ValidationPlan(
+                "检查 root-relative 资源引用。",
+                List.of(new ValidationStep(ValidationCapability.WEB_RESOURCE_LINK_CHECK, "检查本地资源引用。", true))
+        );
+
+        SelfCheckResult result = executor.execute(tempDir, null, plan);
+
+        assertFalse(result.passed());
+        assertTrue(result.details().contains("/styles/missing.css"));
+        assertTrue(result.details().contains("/js/missing.js"));
+    }
+
+    @Test
     void resourceCheckOnlyValidatesResolvedHtmlEntry() throws Exception {
         Files.writeString(tempDir.resolve("index.html"), """
                 <!doctype html>

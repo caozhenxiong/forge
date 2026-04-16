@@ -105,7 +105,6 @@ public class ImplementationResumePolicy {
                 resumedExecutionState = resumedExecutionState.applyRevisionDirective(
                         buildRetryDirective(continuation.patchTarget(), continuationChanges)
                 );
-                resumedExecutionState.resetToolLoopTranscript();
             }
             return new ReusableImplementationState(
                     new ImplementationPlan(blankIfNull(snapshot.summary()), subtasks),
@@ -146,7 +145,6 @@ public class ImplementationResumePolicy {
         resumedExecutionState = resumedExecutionState.applyRevisionDirective(
                 buildRetryDirective(effectivePatchTarget, overrideChanges)
         );
-        resumedExecutionState.resetToolLoopTranscript();
         return new ReusableImplementationState(
                 new ImplementationPlan(blankIfNull(snapshot.summary()), subtasks),
                 completedPrefix,

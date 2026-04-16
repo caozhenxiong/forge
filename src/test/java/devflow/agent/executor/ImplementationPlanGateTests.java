@@ -578,6 +578,51 @@ class ImplementationPlanGateTests {
     }
 
     @Test
+    void allowsRuntimeLeafWhenPackageDeclaresNewRootAndHostPatchTogether() {
+        ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
+        GateReport report = gate.evaluate(new ImplementationPlanGateInput(
+                new ProjectFingerprint("web", "none", false, false, false, false, true, true, false, "index.html", Set.of("index.html", "index.app.js", "src/engine.js"), List.of()),
+                contractView(),
+                new PlanningRuntimeFacts(
+                        java.nio.file.Path.of("index.html"),
+                        HtmlRuntimeOwnershipContract.inlineHost(java.nio.file.Path.of("index.html")),
+                        List.of(),
+                        List.of()
+                ),
+                List.of("index.html", "index.app.js", "src/engine.js"),
+                List.of("拆出 companion runtime"),
+                List.of("CAP-1"),
+                List.of("PATCH"),
+                true,
+                true,
+                null,
+                ImplementationPatchTarget.NONE,
+                ImplementationContinuationConstraints.empty(),
+                List.of(detail("拆出 companion runtime",
+                        new ImplementationSubtaskDetailChange("index.html", ChangeAction.WRITE, "补宿主接线"),
+                        new ImplementationSubtaskDetailChange("index.app.js", ChangeAction.WRITE, "新增 runtime root", PlanningRuntimeScriptRole.ROOT),
+                        new ImplementationSubtaskDetailChange("src/engine.js", ChangeAction.WRITE, "新增 runtime leaf", PlanningRuntimeScriptRole.LEAF))),
+                List.of(new Subtask(
+                        "拆出 companion runtime",
+                        "宿主接线并新增 root/leaf runtime 包",
+                        List.of("CAP-1"),
+                        List.of("runtime wiring"),
+                        List.of(),
+                        List.of("入口可运行"),
+                        false,
+                        DeliveryMode.PATCH,
+                        List.of(
+                                new FileChange("index.html", ChangeAction.WRITE, "补宿主接线"),
+                                new FileChange("index.app.js", ChangeAction.WRITE, "新增 runtime root"),
+                                new FileChange("src/engine.js", ChangeAction.WRITE, "新增 runtime leaf")
+                        )
+                ))
+        ));
+
+        assertTrue(report.passed(), report.issues().toString());
+    }
+
+    @Test
     void failsWhenNewRuntimeScriptOmitsRoleEvenWithReachableAnchor() {
         ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
         GateReport report = gate.evaluate(new ImplementationPlanGateInput(

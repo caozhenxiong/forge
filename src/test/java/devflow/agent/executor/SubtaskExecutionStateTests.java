@@ -13,13 +13,21 @@ import devflow.agent.executor.implementation.toolloop.*;
 import devflow.agent.executor.generation.GenerationFailureException;
 import devflow.agent.executor.generation.GenerationFailureReport;
 import devflow.agent.executor.generation.GenerationFailureType;
+import devflow.agent.executor.implementation.toolloop.CoderReadFileState;
+import devflow.agent.executor.implementation.toolloop.FileMutationRecord;
+import devflow.agent.executor.implementation.toolloop.ToolLoopMutationOperation;
+import devflow.agent.executor.llm.LlmChatMessage;
+import devflow.agent.supervisor.DeliveryPolicy;
+import devflow.agent.supervisor.DeliveryPolicyMode;
 
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import devflow.agent.executor.subtask.Subtask;
 import devflow.agent.executor.subtask.SubtaskExecutionState;
@@ -125,11 +133,84 @@ class SubtaskExecutionStateTests {
                 )
         );
 
-        assertEquals(true, state.repairRound());
+        assertFalse(state.repairRound());
         assertEquals(List.of("src/app.js"), state.effectiveChanges().stream().map(FileChange::path).toList());
         assertNull(state.fileEditAttemptState(Path.of("index.html")));
         FileEditAttemptState progressState = state.fileEditAttemptState(Path.of("src/app.js"));
         assertEquals("code-unit-16", progressState.currentTargetLabel());
         assertEquals(List.of("code-unit-1", "code-unit-2"), progressState.completedTargetLabels());
+    }
+
+    @Test
+    void recoveryPolicyStartsFreshRepairRoundAndClearsPriorMutations() {
+        SubtaskExecutionState state = new SubtaskExecutionState(DeliveryMode.PATCH, true);
+        state.toolSessionState().appendTranscript(LlmChatMessage.assistant("上一轮输出"));
+        state.toolSessionState().readFileStateLedger().put(
+                Path.of("/tmp/project/src/app.js"),
+                new CoderReadFileState("export const ready = false;\n", 1L, null, null, false)
+        );
+        state.toolSessionState().recordMutation(new FileMutationRecord(
+                ToolLoopMutationOperation.UPDATE,
+                Path.of("src/app.js"),
+                true,
+                "hash-before",
+                true,
+                "hash-after",
+                List.of(),
+                1L
+        ));
+        state = state.applyFileScopedGenerationFailure(
+                new Subtask(
+                        "修脚本",
+                        "只修脚本",
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of("脚本可运行"),
+                        false,
+                        DeliveryMode.PATCH,
+                        List.of(new FileChange("src/app.js", ChangeAction.WRITE, "修脚本"))
+                ),
+                new GenerationFailureException(
+                        new GenerationFailureReport(
+                                "src/app.js",
+                                DeliveryMode.PATCH.name(),
+                                FileEditStrategyNames.PRECISE_CODE,
+                                GenerationFailureType.VALIDATION_FAILED,
+                                1,
+                                true,
+                                "patch failed",
+                                "NO_MATERIAL_CHANGE",
+                                "retry current file"
+                        ),
+                        new FileEditAttemptState(
+                                Path.of("src/app.js"),
+                                FileEditProtocolNames.TARGETED_REWRITE,
+                                FileEditStrategyNames.PRECISE_CODE,
+                                "export const ready = false;\n",
+                                "hash-before",
+                                List.of(),
+                                "code-unit-1"
+                        )
+                )
+        );
+
+        assertFalse(state.repairRound());
+        assertEquals(1, state.toolSessionState().mutationRecords().size());
+        assertEquals(1, state.toolSessionState().transcript().size());
+
+        state = state.withRecoveryPolicy(new DeliveryPolicy(
+                DeliveryPolicyMode.PATCH,
+                1,
+                1,
+                false,
+                false,
+                true
+        ));
+
+        assertTrue(state.repairRound());
+        assertTrue(state.toolSessionState().mutationRecords().isEmpty());
+        assertTrue(state.toolSessionState().transcript().isEmpty());
+        assertEquals(1, state.toolSessionState().readFileStateLedger().snapshotEntries().size());
     }
 }

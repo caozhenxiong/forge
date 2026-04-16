@@ -186,6 +186,98 @@ class ImplementationSubtaskDetailGateTests {
     }
 
     @Test
+    void acceptsNewLeafRuntimeScriptWhenPackageAlsoDeclaresNewRootAndHostPatch() {
+        ImplementationSubtaskDetailGate gate = new ImplementationSubtaskDetailGate();
+
+        GateReport report = gate.evaluate(
+                new DeliveryPolicyEnvelope(DeliveryMode.PATCH, 4, 4, true, false, true, List.of()),
+                new PlanningRuntimeFacts(
+                        java.nio.file.Path.of("index.html"),
+                        HtmlRuntimeOwnershipContract.inlineHost(java.nio.file.Path.of("index.html")),
+                        List.of(),
+                        List.of()
+                ),
+                new ImplementationOutlineSubtask(
+                        "subtask-root-leaf",
+                        "split runtime",
+                        "host patch + new root + leaf",
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        false,
+                        DeliveryMode.PATCH,
+                        List.of("index.html", "index.app.js", "src/engine.js")
+                ),
+                new ImplementationSubtaskDetail(
+                        "subtask-root-leaf",
+                        List.of(
+                                new ImplementationSubtaskDetailChange(
+                                        "index.html",
+                                        ChangeAction.WRITE,
+                                        "patch host html"
+                                ),
+                                new ImplementationSubtaskDetailChange(
+                                        "index.app.js",
+                                        ChangeAction.WRITE,
+                                        "add root runtime",
+                                        PlanningRuntimeScriptRole.ROOT
+                                ),
+                                new ImplementationSubtaskDetailChange(
+                                        "src/engine.js",
+                                        ChangeAction.WRITE,
+                                        "add leaf runtime",
+                                        PlanningRuntimeScriptRole.LEAF
+                                )
+                        )
+                )
+        );
+
+        assertTrue(report.passed(), report.issues().toString());
+    }
+
+    @Test
+    void rejectsLeafRuntimeScriptWithoutReachableOrPackageRootAnchor() {
+        ImplementationSubtaskDetailGate gate = new ImplementationSubtaskDetailGate();
+
+        GateReport report = gate.evaluate(
+                new DeliveryPolicyEnvelope(DeliveryMode.PATCH, 3, 4, true, false, true, List.of()),
+                new PlanningRuntimeFacts(
+                        java.nio.file.Path.of("index.html"),
+                        HtmlRuntimeOwnershipContract.inlineHost(java.nio.file.Path.of("index.html")),
+                        List.of(),
+                        List.of()
+                ),
+                new ImplementationOutlineSubtask(
+                        "subtask-leaf-only",
+                        "add leaf runtime only",
+                        "missing anchor",
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        false,
+                        DeliveryMode.PATCH,
+                        List.of("src/engine.js")
+                ),
+                new ImplementationSubtaskDetail(
+                        "subtask-leaf-only",
+                        List.of(
+                                new ImplementationSubtaskDetailChange(
+                                        "src/engine.js",
+                                        ChangeAction.WRITE,
+                                        "add leaf runtime",
+                                        PlanningRuntimeScriptRole.LEAF
+                                )
+                        )
+                )
+        );
+
+        assertFalse(report.passed());
+        assertTrue(report.issues().stream().anyMatch(issue -> issue.message().contains("显式声明的 ROOT anchor")));
+    }
+
+    @Test
     void rejectsRuntimeRoleOnHostHtmlEntry() {
         ImplementationSubtaskDetailGate gate = new ImplementationSubtaskDetailGate();
 

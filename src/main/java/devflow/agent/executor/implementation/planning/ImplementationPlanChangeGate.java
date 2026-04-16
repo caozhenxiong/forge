@@ -320,9 +320,12 @@ final class ImplementationPlanChangeGate {
             }
             List<Path> reachableRuntimePaths = runtimeFacts.reachableRuntimePaths();
             List<Path> runtimeRootPaths = runtimeFacts.runtimeRootPaths();
-            boolean hasReachableAnchor = scopedRuntimePaths.stream()
+            java.util.LinkedHashSet<Path> packageAnchorPaths = new java.util.LinkedHashSet<>(reachableRuntimePaths);
+            scopedRuntimePaths.stream()
+                    .filter(scopedPath -> scopedPath.action() != ChangeAction.DELETE)
+                    .filter(scopedPath -> scopedPath.runtimeScriptRole() == PlanningRuntimeScriptRole.ROOT)
                     .map(ScopedPath::path)
-                    .anyMatch(reachableRuntimePaths::contains);
+                    .forEach(packageAnchorPaths::add);
             boolean requiresHostEntryPatch = false;
             for (ScopedPath scopedPath : scopedRuntimePaths) {
                 Path path = scopedPath.path();
@@ -346,8 +349,8 @@ final class ImplementationPlanChangeGate {
                     continue;
                 }
                 if (runtimeScriptRole == PlanningRuntimeScriptRole.LEAF) {
-                    if (!hasReachableAnchor) {
-                        issues.add("当前子任务把 runtime 脚本标记为 LEAF，但同包没有当前 reachable runtime anchor: " + path);
+                    if (packageAnchorPaths.isEmpty()) {
+                        issues.add("当前子任务把 runtime 脚本标记为 LEAF，但同包既没有当前 reachable runtime anchor，也没有显式声明的 ROOT anchor: " + path);
                         continue;
                     }
                     if (knownRoot) {
