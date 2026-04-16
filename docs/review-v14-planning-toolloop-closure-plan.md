@@ -74,6 +74,10 @@
   - 当前 workspace 文件存在性
   - 当前 subtask execution state
   产出唯一一份 canonical execution file contract
+- 这份 materialized contract 只在 attempt 入口现算：
+  - 它不会写入 `SubtaskExecutionState`
+  - 它不会进入 snapshot / restore 持久化链
+  - resume / retry 重新进入 attempt 时必须基于当下 workspace state 重新 materialize
 - 这份 contract 至少要把文件分成：
   - `create-new`
   - `patch-existing`
@@ -137,10 +141,19 @@
 - [TaskPackageMarkdownRenderer.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/editing/TaskPackageMarkdownRenderer.java)
 - [ImplementationToolPromptBuilder.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/toolloop/ImplementationToolPromptBuilder.java)
 - [ImplementationToolLoopExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/toolloop/ImplementationToolLoopExecutor.java)
+- [ImplementationToolContext.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/toolloop/ImplementationToolContext.java)
+- [ImplementationMutationContractGuard.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/toolloop/ImplementationMutationContractGuard.java)
 - [ImplementationToolPermissionPolicy.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/tools/ImplementationToolPermissionPolicy.java)
+- [ImplementationToolPermissionContext.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/tools/ImplementationToolPermissionContext.java)
+- [ToolExecutionContext.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/tools/ToolExecutionContext.java)
 - [FileWriteTool.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/tools/FileWriteTool.java)
 - [FileEditTool.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/tools/FileEditTool.java)
 - tool-loop / existing-file closure regression tests
+
+说明：
+
+- `SubtaskExecutionState` 保留在 Scope 2，是因为它仍然提供 attempt-local 的 effective structured change-set 与 repair context
+- 但 materialized execution contract 不进入 snapshot/state 持久化，因此 `ImplementationStateSnapshotSerializer` / `ImplementationSnapshotRestorer` 不属于这条 owner 链
 
 ## Problem / Solution Map
 
@@ -178,10 +191,16 @@
 - 它只做一件事：
   - 接收 structured change-set + live workspace state
   - 产出当前 attempt 唯一有效的 `create-new / patch-existing / delete` contract
+- `SubtaskExecutionState` 在这条链里只保留：
+  - 当前 effective structured change-set
+  - retry / repair round 的执行上下文
+  - 但不持久化 materialized execution contract 本身
+- 因为 contract 依赖 live workspace 存在性，它必须在每次 attempt 入口重算；不能通过 snapshot serializer / restorer 恢复一份旧 contract
 - 之后：
   - `TaskPackage` 只展示 materialized contract
   - `TaskPackageAssembler` / `TaskPackageMarkdownRenderer` 只渲染 materialized contract，不再把 raw `subtask.changes()` 直接投影到 `task_packages.md` 或紧凑 task package
   - `Current File Contracts` 只展示 materialized contract
+  - `ImplementationToolPermissionContext` / `ToolExecutionContext` / `ImplementationToolContext` / `ImplementationMutationContractGuard` 只消费 materialized contract，不再继续直吃 raw `scopedChanges` 语义
   - tool permission 与 closure 只消费 materialized contract
 - 不允许再让 raw `FileChange.action` 直接控制 live existing-file semantics
 
@@ -261,14 +280,17 @@
 
 - 如果只改 gate，不改 outline prompt / retry owner，会继续出现“deterministic gate 很严格，但模型一直稳定撞墙”的半收口
 - 如果只改 tool-loop closure，不改 execution file contract materialization，会继续出现“planning-time WRITE 与 live existing-file patch 语义冲突”的双轨
+- 如果没有把 `ImplementationToolPermissionContext / ToolExecutionContext / ImplementationToolContext / ImplementationMutationContractGuard` 一起收口，会上层单轨、底层接口仍保留旧 `scopedChanges` 语义
+- 如果把 materialized contract 持久化进 snapshot/state，而不是按 attempt 入口现算，resume 会恢复出过时的 existing-file / create-new 判断
 - 如果只改 prompt，不改 tool permission / closure owner，会继续出现“模型被提示 patch-existing，但系统内部仍按 raw WRITE 判定”的第二轨
 
 ## Review Questions
 
-请 reviewer 重点只审下面 5 点：
+请 reviewer 重点只审下面 6 点：
 
 1. `v181` 这条是否已经被准确收敛成 outline capability partition / shared-file deferred boundary 问题，而不是 runtime wiring 或 coder 问题
 2. `v180` 这条是否已经准确识别为 `planning-time FileChange` 与 `live execution file contract` 双轨分裂，而不是单纯 closure 小 bug
 3. Scope 1 是否覆盖了 outline producer / gate / reroute 的完整 owner 链，没有只改末端 gate
 4. Scope 2 是否真正把 prompt / permission / tools / closure 统一到同一份 materialized execution contract，而不是继续双轨
-5. 这份方案是否仍然遵守 `AGENTS.md` 与 `engineering-agreements.md`，没有引入 fallback、过渡层或“后续再清理”
+5. 这份方案是否已经把 materialized contract 的边界写死为“attempt 入口现算、不持久化到 snapshot/state”，避免恢复旧 contract
+6. 这份方案是否仍然遵守 `AGENTS.md` 与 `engineering-agreements.md`，没有引入 fallback、过渡层或“后续再清理”
