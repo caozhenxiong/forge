@@ -109,6 +109,7 @@
 
 - 当前阶段：`REVIEW_FIXES_REQUIRED`
 - 当前 blocker：`存在 3 条最新代码 review 阻塞：repair round 复用旧 mutation history、detail gate 误杀合法 runtime package、WEB_RESOURCE_LINK_CHECK 仍误判 root-relative 资源`
+- 当前修复方案： [review-v13-latest-blockers-remediation-plan.md](/home/linus/workspace/forge/docs/review-v13-latest-blockers-remediation-plan.md)
 - 当前约束：`禁止兼容层、禁止双轨并存、禁止 fallback、禁止“后续再清理”`
 
 ## Latest Reviewer Findings
