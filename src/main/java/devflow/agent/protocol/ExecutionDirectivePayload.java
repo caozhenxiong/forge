@@ -134,8 +134,8 @@ public record ExecutionDirectivePayload(
         }
         if (hasConcretePatchPackage(basePatchTarget, baseOverrideChanges)) {
             return new CanonicalPatchPackage(
-                    canonicalPatchTarget(basePatchTarget),
-                    List.copyOf(baseOverrideChanges)
+                    chooseText(null, overridePatchTarget),
+                    overrideOverrideChanges == null ? List.of() : List.copyOf(overrideOverrideChanges)
             );
         }
         return new CanonicalPatchPackage(

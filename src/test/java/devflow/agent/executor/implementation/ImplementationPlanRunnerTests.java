@@ -36,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ImplementationPlanRunnerTests {
 
     @Test
-    void firstActiveSubtaskOwnsConcretePatchPackageViaExecutionStateNotFeedback() {
+    void firstActiveSubtaskReceivesConcretePatchPackageInDerivedFeedbackAndExecutionState() {
         AtomicReference<SubtaskExecutionContext> captured = new AtomicReference<>();
         SubtaskExecutor stubExecutor = new SubtaskExecutor(null, null, null, 1) {
             @Override
@@ -153,8 +153,9 @@ class ImplementationPlanRunnerTests {
 
         SubtaskExecutionContext executionContext = captured.get();
         ExecutionDirectivePayload persistent = ExecutionDirectiveProtocol.parseMerged(executionContext.persistentRepairFeedback());
-        assertFalse(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage(executionContext.persistentRepairFeedback()));
-        assertTrue(persistent.overrideChanges().isEmpty());
+        assertTrue(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage(executionContext.persistentRepairFeedback()));
+        assertEquals(ImplementationPatchTarget.PATCH_RUNTIME_WIRING.name(), persistent.implementationPatchTarget());
+        assertEquals(2, persistent.overrideChanges().size());
         assertEquals(2, executionContext.initialExecutionState().effectiveChanges().size());
         assertEquals("index.html", executionContext.initialExecutionState().effectiveChanges().getFirst().path());
         assertTrue(executionContext.inheritedFeedback().contains("继续修接线"));
@@ -259,7 +260,7 @@ class ImplementationPlanRunnerTests {
         );
 
         assertEquals(2, captured.size());
-        assertFalse(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage(captured.getFirst().persistentRepairFeedback()));
+        assertTrue(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage(captured.getFirst().persistentRepairFeedback()));
         assertEquals(1, captured.getFirst().initialExecutionState().effectiveChanges().size());
         assertTrue(captured.get(1).persistentRepairFeedback().isBlank());
     }
@@ -363,7 +364,7 @@ class ImplementationPlanRunnerTests {
         );
 
         assertEquals(2, captured.size());
-        assertFalse(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage(captured.getFirst().persistentRepairFeedback()));
+        assertTrue(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage(captured.getFirst().persistentRepairFeedback()));
         ExecutionDirectivePayload secondPersistent = ExecutionDirectiveProtocol.parseMerged(captured.get(1).persistentRepairFeedback());
         assertFalse(ExecutionDirectiveFeedbackSupport.carriesConcretePatchPackage(captured.get(1).persistentRepairFeedback()));
         assertTrue(Boolean.TRUE.equals(secondPersistent.repairBriefEnforced()));

@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class SubtaskRetryFeedbackRendererTests {
 
     @Test
-    void renderDropsConcretePatchPackageFromRetryFeedback() {
+    void renderPreservesConcretePatchPackageForActiveRetryFeedback() {
         SubtaskRetryFeedbackRenderer renderer = new SubtaskRetryFeedbackRenderer(new SubtaskReviewPromptAssembler());
 
         String feedback = renderer.render(
@@ -45,10 +45,9 @@ class SubtaskRetryFeedbackRendererTests {
 
         ExecutionDirectivePayload directives = ExecutionDirectiveProtocol.parseMerged(feedback);
 
-        assertEquals(ImplementationPatchTarget.NONE.name(), directives.implementationPatchTarget() == null
-                ? ImplementationPatchTarget.NONE.name()
-                : directives.implementationPatchTarget());
-        assertEquals(0, directives.overrideChanges().size());
+        assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION.name(), directives.implementationPatchTarget());
+        assertEquals(1, directives.overrideChanges().size());
+        assertEquals("src/game.js", directives.overrideChanges().getFirst().path());
         assertEquals("需要继续修当前实现", directives.summary());
         assertEquals("只修当前文件范围", directives.changeRequest());
     }

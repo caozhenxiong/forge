@@ -121,6 +121,34 @@ class SubtaskRepairDirectiveResolverTests {
         assertTrue(outcome.revisionDirective().retryChanges().isEmpty());
     }
 
+    @Test
+    void genericStructuredPatchWithoutExplicitScopeRequestsHuman() {
+        ReviewResult review = new ReviewResult(
+                ReviewDecision.REVISION_REQUIRED,
+                FixMode.PATCH,
+                "需要继续修当前实现",
+                "请修复当前实现缺口。",
+                "review did not provide override scope",
+                "",
+                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                List.of(),
+                ReviewRevisionRoute.ROUTE_TO_REPAIR_TARGET,
+                ReviewReasonCode.IMPLEMENTATION_GAP
+        );
+
+        SubtaskVerificationOutcome outcome = resolver.resolveStructuredPatch(
+                subtask(),
+                review,
+                new StructuredReviewResult(review, ReviewSemantics.empty(), null),
+                DocumentLanguage.ZH
+        );
+
+        assertEquals(ReviewRevisionRoute.REQUEST_HUMAN, outcome.review().revisionRoute());
+        assertEquals(ImplementationPatchTarget.NONE, outcome.review().implementationPatchTarget());
+        assertTrue(outcome.review().summary().contains("缺少结构化文件范围"));
+        assertTrue(outcome.revisionDirective().retryChanges().isEmpty());
+    }
+
     private List<String> paths(List<FileChange> changes) {
         return changes.stream().map(FileChange::path).toList();
     }

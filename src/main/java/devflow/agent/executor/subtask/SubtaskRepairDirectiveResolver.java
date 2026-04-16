@@ -26,7 +26,20 @@ public final class SubtaskRepairDirectiveResolver {
             ReviewResult review,
             DocumentLanguage language
     ) {
-        return resolveWithinSubtask(subtask, review, null, language, false);
+        if (review == null || !requiresPatch(review)) {
+            return SubtaskVerificationOutcome.of(review, SubtaskRevisionDirective.empty());
+        }
+        if (!review.implementationPatchTarget().concretePatch()) {
+            return SubtaskVerificationOutcome.of(review, SubtaskRevisionDirective.empty());
+        }
+        if (review.implementationPatchTarget() == ImplementationPatchTarget.PATCH_RUNTIME_WIRING) {
+            return missingRuntimeRepairPackage(review, language);
+        }
+        List<FileChange> allowedScope = effectiveChanges(subtask);
+        if (allowedScope.isEmpty()) {
+            return missingStructuredPatchScope(review, language);
+        }
+        return patchOutcome(withOverrideChanges(review, allowedScope), allowedScope);
     }
 
     public SubtaskVerificationOutcome resolveStructuredPatch(
@@ -118,7 +131,7 @@ public final class SubtaskRepairDirectiveResolver {
             return patchOutcome(withOverrideChanges(review, canonicalChanges), canonicalChanges);
         }
 
-        return patchOutcome(withOverrideChanges(review, allowedScope), allowedScope);
+        return missingStructuredPatchScope(review, language);
     }
 
     private SubtaskVerificationOutcome resolveBoundaryPatch(

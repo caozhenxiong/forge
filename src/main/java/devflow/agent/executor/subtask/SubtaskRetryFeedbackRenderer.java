@@ -7,6 +7,7 @@ import devflow.agent.executor.gate.ImplementationCompletenessResult;
 import devflow.agent.executor.SelfCheckResult;
 import devflow.agent.protocol.ExecutionDirectiveNarrativeRenderer;
 import devflow.agent.protocol.ExecutionDirectivePayload;
+import devflow.agent.protocol.FileChangePayload;
 import devflow.agent.review.ReviewResult;
 import java.util.List;
 
@@ -32,8 +33,10 @@ public final class SubtaskRetryFeedbackRenderer {
         return ExecutionDirectiveNarrativeRenderer.renderRetryFeedback(
                 new ExecutionDirectivePayload(
                         verification.fixMode() == null ? null : verification.fixMode().name(),
-                        null,
-                        List.of(),
+                        verification.implementationPatchTarget() == null
+                                ? null
+                                : verification.implementationPatchTarget().name(),
+                        toPayloads(verification.overrideChanges()),
                         false,
                         false,
                         null,
@@ -70,5 +73,22 @@ public final class SubtaskRetryFeedbackRenderer {
                         ? promptAssembler.renderBulletList(List.of())
                         : completenessResult.evidenceMarkdown()
         );
+    }
+
+    private List<FileChangePayload> toPayloads(List<devflow.agent.executor.FileChange> changes) {
+        if (changes == null || changes.isEmpty()) {
+            return List.of();
+        }
+        return changes.stream()
+                .filter(change -> change != null)
+                .map(change -> new FileChangePayload(
+                        change.path(),
+                        change.action() == null ? null : change.action().name(),
+                        change.reason(),
+                        change.effectiveEditScope() == null ? null : change.effectiveEditScope().name(),
+                        change.runtimeOwnership() == null ? null : change.runtimeOwnership().name(),
+                        change.hostHtmlPatchRequired()
+                ))
+                .toList();
     }
 }

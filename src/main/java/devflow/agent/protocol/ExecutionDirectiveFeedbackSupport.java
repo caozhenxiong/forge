@@ -129,8 +129,8 @@ public final class ExecutionDirectiveFeedbackSupport {
     private static ExecutionDirectivePayload feedbackPayload(ExecutionDirectivePayload directives) {
         return new ExecutionDirectivePayload(
                 directives.fixMode(),
-                null,
-                List.of(),
+                directives.implementationPatchTarget(),
+                directives.overrideChanges(),
                 directives.repairBriefPresent(),
                 directives.repairBriefEnforced(),
                 directives.deliveryMode(),
