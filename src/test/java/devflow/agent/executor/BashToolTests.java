@@ -37,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import devflow.agent.executor.implementation.toolloop.CoderReadFileState;
 import devflow.agent.executor.implementation.toolloop.ImplementationToolContext;
 import devflow.agent.executor.implementation.toolloop.ImplementationToolSessionState;
+import devflow.agent.executor.subtask.ExecutionFileContractMaterializer;
 class BashToolTests {
 
     @TempDir
@@ -370,7 +371,12 @@ class BashToolTests {
                 new ImplementationToolSessionState(),
                 new ImplementationToolPermissionContext(
                         tempDir,
-                        ownedPaths,
+                        new ExecutionFileContractMaterializer().materialize(
+                                tempDir,
+                                ownedPaths.stream()
+                                        .map(path -> new FileChange(path.toString(), ChangeAction.WRITE, "owned path"))
+                                        .toList()
+                        ),
                         Set.of("Bash"),
                         5_000L,
                         5_000L,
@@ -383,8 +389,7 @@ class BashToolTests {
                         new ImplementationToolPermissionProperties(List.of("Bash")),
                         new ImplementationExecutionPolicy()
                 ),
-                DeliveryMode.PATCH,
-                List.of()
+                DeliveryMode.PATCH
         );
     }
 

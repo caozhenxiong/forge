@@ -30,14 +30,6 @@ final class ImplementationOutlineGate {
 
     private static final String OUTLINE_UNIT_ID = "outline";
 
-    private static final String OUTLINE_RETRY_GUIDANCE = """
-            请重新规划 implementation outline，并确保：
-            1. 子任务集合覆盖执行契约要求的入口与最小可运行表面
-            2. 每个子任务必须声明自己的 targetPaths
-            3. runnable milestone 必须直接覆盖入口或运行表面
-            4. 不要在 outline 阶段输出具体文件补丁
-            """;
-
     private final ImplementationPlanCoverageAnalyzer coverageAnalyzer;
     private final ImplementationPlanChangeGate changeGate;
 
@@ -97,7 +89,14 @@ final class ImplementationOutlineGate {
     }
 
     String toRetryFeedback(GateReport report) {
-        return report.toRetryFeedback(OUTLINE_RETRY_GUIDANCE);
+        return report.toRetryFeedback("""
+                请重新规划 implementation outline，并确保：
+                1. 子任务集合覆盖执行契约要求的入口与最小可运行表面
+                2. 每个子任务必须声明自己的 targetPaths
+                3. runnable milestone 必须直接覆盖入口或运行表面
+                4. 不要在 outline 阶段输出具体文件补丁
+                %s
+                """.formatted(PlanningBoundaryContractPromptSupport.outlineRetryGuidanceBlock()).trim());
     }
 
     private List<GateIssue> validateTargetPaths(

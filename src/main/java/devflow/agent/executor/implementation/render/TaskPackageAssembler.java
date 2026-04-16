@@ -18,6 +18,7 @@ import java.util.List;
 
 import devflow.agent.executor.subtask.Subtask;
 import devflow.agent.executor.subtask.TaskPackage;
+import devflow.agent.executor.subtask.ExecutionFileContractMaterializer;
 /**
  * 负责从 implementation plan 派生 task package。
  *
@@ -27,6 +28,8 @@ import devflow.agent.executor.subtask.TaskPackage;
 public final class TaskPackageAssembler {
 
     private final TargetedFileContextRenderer targetedFileContextRenderer;
+    private final ExecutionFileContractMaterializer executionFileContractMaterializer =
+            new ExecutionFileContractMaterializer();
 
     public TaskPackageAssembler(TargetedFileContextRenderer targetedFileContextRenderer) {
         this.targetedFileContextRenderer = targetedFileContextRenderer;
@@ -41,12 +44,13 @@ public final class TaskPackageAssembler {
     ) {
         List<TaskPackage> packages = new ArrayList<>();
         for (Subtask subtask : plan.subtasks()) {
+            var executionFileContract = executionFileContractMaterializer.materialize(projectPath, subtask.changes());
             packages.add(new TaskPackage(
                     subtask.title(),
                     subtask.goal(),
                     subtask.deliveryMode().name(),
                     subtask.runnableMilestone(),
-                    subtask.changes().stream().map(FileChange::path).toList(),
+                    executionFileContract.ownedFiles(),
                     safeList(subtask.coverageRefs()),
                     safeList(subtask.ownedCapabilities()),
                     safeList(subtask.deferredCapabilities()),
@@ -54,6 +58,7 @@ public final class TaskPackageAssembler {
                     sharedContextBundle.mustFixFirst(),
                     sharedContextBundle.forbiddenDirections(),
                     renderTargetedContext(projectPath, subtask.changes(), contractView, fingerprint),
+                    executionFileContract,
                     sharedContextBundle
             ));
         }

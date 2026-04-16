@@ -43,13 +43,18 @@
 
 ## 当前编码内核现状
 
-截至 `2026-04-14`，已经完成的事实是：
+截至 `2026-04-16`，已经完成的事实是：
 
 - implementation 子任务执行主链已经切到 `assistant -> tool_use -> tool_result -> assistant`
 - `Read / Edit / Write / Delete / Glob / Grep / Bash` 已进入主链
 - Bash 写入子集已收紧到单段、可建模的简单命令；`sed/tee` 和泛化“只读命令 + 重定向落盘”已移出主链，文件内容变更统一回到 `Read/Edit/Write/Delete`
 - tool loop 的终态成功判定已收紧：如果当前 subtask 声明的文件交付契约未被工具真实落盘满足，纯 assistant prose 不再被当作成功，而是直接以 `NO_MATERIAL_CHANGE` 在执行阶段失败
 - implementation planning 的 subtask detail 已收敛成 Claude 风格最小协议，只允许 `path / action / reason`
+- `review-v14` 的 planning / tool-loop 收口已落地：
+  - outline / final plan retry feedback 现在和 deterministic gate 共用同一套 `capability partition / shared-file deferred boundary` 语义
+  - implementation attempt 入口现在会基于 `accepted/effective structured change-set + live workspace state` materialize 唯一的 `ExecutionFileContract`
+  - `TaskPackage / Current File Contracts / permission / mutation guard / declared-changes closure` 已统一消费这份 materialized contract
+  - materialized contract 不进入 snapshot/state 持久化；retry / resume 重新进入 attempt 时按当下 workspace 现算
 - `transcript / readFileState / tool-result replacement / mutation / diagnostics` 已收进单一 session state
 - implementation 的 live control flow 现在只认 `implementation_state.json`；`stageReady / continuationMode / continuation 文本 / overrideChanges` 都由上游 gate 一次产出，读取侧与 coordinator 不再二次推导
 - accepted change-set 已进入 implementation coder 的确定性边界：新本地依赖只能引用当前 owned files 或项目里已存在资产
@@ -68,7 +73,7 @@
 - implementation verification 遇到 `TEST_PLAN_DEFECT`、`RUNTIME_PROBE_INVALID` 这类非实现问题时，不会再被静默放过；当前会直接阻断到人工，避免带着无效测试证据继续推进实现
 - implementation stage roll-up 已能保留 `ROUTE_TO_REPAIR_TARGET` 的结构化 repair scope，不再把它降级成泛化“未完成子任务”
 - 编码主链只认 `chat/tool` provider，不再走 `generate -> chat` 桥接
-- 仓库级单测 `mvn -q test` 已通过
+- `review-v14` 受影响的 deterministic 单测链已通过
 
 这说明：
 
@@ -81,9 +86,10 @@
 
 当前主线已经切换为：
 
-1. `黄金路径集成验证`
+1. `review-v14 外部审阅`
+2. `reviewer 通过后恢复黄金路径集成验证`
 
-架构整改 5 个 phase 已完成，当前目标重新回到黄金路径集成验证，不再继续扩散架构级拆分。
+架构整改 5 个 phase 已完成；当前先做 `review-v14` 审阅收口，review 通过后再恢复黄金路径集成验证，不再继续扩散架构级拆分。
 
 当前架构整改的 5 条主线是：
 
@@ -104,7 +110,7 @@
 - `executor.gate` 已收口：`ArchitectIntegrationCheck / ImplementationCompleteness* / ImplementationStageGate / ImplementationGateEngine / TestEvidenceGate / GateReport` 已归位到统一 gate 包
 - `Phase 3` 已完成：generate 主链统一切到 `LlmGenerateRequest`，`ContextCompactor` 与 `ContextBudgetPlanner` 已改为结构化四层上下文预算
 - `Phase 4` 已完成：`StageProgressCoordinator` 已收回纯 orchestration，`ImplementationExecutor` 保持单构造器注入，subtask 执行主链改为 `SubtaskExecutionContext`
-- 下一步不再是补架构骨架，而是恢复黄金路径集成验证
+- 下一步不再是补架构骨架，而是完成 `review-v14` 审阅后恢复黄金路径集成验证
 
 ## 当前关键约束
 
@@ -119,7 +125,7 @@
 
 ## 当前剩余问题面
 
-当前仍需观察的，不再是基础设施骨架本身，而是黄金路径集成上的真实稳定性：
+当前仍需观察的，不再是基础设施骨架本身，而是 `review-v14` 审阅后再进入的黄金路径集成稳定性，以及仓库级单测里尚未纳入本轮 scope 的现存失败：
 
 ### 1. 外提 runtime 与宿主 HTML 接线在真实产物上的一致性
 
@@ -138,6 +144,15 @@
 
 - 需要继续验证后续阶段不会因为 artifact 结构变化又回退到 prose 猜测
 - 需要继续验证集成日志、状态产物与真实执行路径一致
+
+### 4. 全量仓库单测里仍有 3 条现存失败待下一轮判定
+
+- 本轮执行 `mvn -q test` 时，仍复现了 3 条当前未纳入 `review-v14` 交付 gate 的失败：
+  - `StageArtifactComposerTests.prdPromptKeepsAnalysisBodyContentInsteadOfGuessingLowAuthoritySemantics`
+  - `ImplementationExecutorTests.runtimeWiringContinuationReusesPreviousPlanWithoutReplanning`
+  - `ImplementationPlannerTests.replansOutlineWhenRuntimeSplitOmitsHostHtmlPatch`
+- 这 3 条没有被本轮定向 deterministic 回归收口，不应伪装成“仓库全绿”
+- 它们需要在 `review-v14` 审阅之后，单独判断哪些属于下一轮真实 blocker
 
 ## 后续待办
 
@@ -161,11 +176,12 @@
 当前结论已经变成：
 
 - implementation 编码内核的基础骨架已经完成代码层收口
+- `review-v14` 的 planning / tool-loop closure 已在代码层完成，本地 deterministic 回归已过
 - `domain` 共享模型层已经落地，`context ↔ orchestrator` 的旧模型耦合已切开
-- 当前主问题已经不再是架构收口，而是黄金路径真实集成稳定性
+- 当前主问题不再是架构收口，而是 reviewer 审阅后进入黄金路径时的真实集成稳定性
 - `Phase 0` 到 `Phase 4` 的 `self-test + code review` 已完成
-- 仓库级单测 `mvn -q clean test` 已通过
-- 下一步直接回到黄金路径集成测试，而不是继续做骨架整改
+- 当前不能宣称仓库级 `mvn -q test` 已全绿；全量单测仍有 3 条现存失败待下一轮收口
+- 下一步是先完成 `review-v14` 审阅，再回到黄金路径集成测试，而不是继续做骨架整改
 
 ## 文档入口
 

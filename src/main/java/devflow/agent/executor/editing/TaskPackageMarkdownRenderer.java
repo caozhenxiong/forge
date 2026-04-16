@@ -14,6 +14,7 @@ import java.util.List;
 
 import devflow.agent.executor.subtask.Subtask;
 import devflow.agent.executor.subtask.TaskPackage;
+import devflow.agent.executor.subtask.ExecutionFileContractMaterializer;
 /**
  * 统一渲染紧凑版任务包 markdown。
  *
@@ -21,6 +22,9 @@ import devflow.agent.executor.subtask.TaskPackage;
  * 这层把组装逻辑从协调器中抽离，避免门面类继续手工拼接 `TaskPackage`。
  */
 public final class TaskPackageMarkdownRenderer {
+
+    private final ExecutionFileContractMaterializer executionFileContractMaterializer =
+            new ExecutionFileContractMaterializer();
 
     String renderCompact(
             Path projectPath,
@@ -32,12 +36,13 @@ public final class TaskPackageMarkdownRenderer {
             TargetedContextRenderer targetedContextRenderer
     ) {
         String targetedContext = targetedContextRenderer.render(projectPath, subtask.changes(), relativePath, contractView, fingerprint);
+        var executionFileContract = executionFileContractMaterializer.materialize(projectPath, subtask.changes());
         TaskPackage taskPackage = new TaskPackage(
                 subtask.title(),
                 subtask.goal(),
                 subtask.deliveryMode().name(),
                 subtask.runnableMilestone(),
-                subtask.changes().stream().map(FileChange::path).toList(),
+                executionFileContract.ownedFiles(),
                 safeList(subtask.coverageRefs()),
                 safeList(subtask.ownedCapabilities()),
                 safeList(subtask.deferredCapabilities()),
@@ -45,6 +50,7 @@ public final class TaskPackageMarkdownRenderer {
                 sharedContextBundle == null ? List.of() : sharedContextBundle.mustFixFirst(),
                 sharedContextBundle == null ? List.of() : sharedContextBundle.forbiddenDirections(),
                 targetedContext,
+                executionFileContract,
                 sharedContextBundle
         );
         if (relativePath != null) {

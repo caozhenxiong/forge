@@ -18,9 +18,10 @@
 
 ## 当前主线
 
-当前业务验证主线仍是：
+当前业务验证主线当前分两步：
 
-1. `黄金路径集成验证`
+1. `review-v14 实现审阅与收尾`
+2. `reviewer 通过后恢复黄金路径集成验证`
 
 这条主线的目标不是继续补基础骨架，而是验证当前编码内核在真实 case 上是否已经收口：
 
@@ -81,17 +82,19 @@
 - [x] PRD 低权重条目从正文承诺区收束到 `Source Metadata`，并从 `PRODUCT_CONTRACT` 投影中移除
 - [x] implementation execute 成功态已收紧到“声明的文件交付契约已被工具真实落盘满足”；纯 assistant prose 不再冒充成功并泄漏到 observe/self-check
 
-### Phase 2. 验证与集成
+### Phase 2. review-v14 审阅与验证
 
 - [x] 跑本轮 `self-test`
 - [x] 做一次 `code review`
-- [ ] 跑黄金路径集成测试
-- [ ] 根据集成结果更新 `docs/current-state.md`
+- [x] 更新 `docs/current-state.md`
+- [ ] reviewer 审阅 `review-v14` 代码与 tracker
+- [ ] reviewer 通过后，跑黄金路径集成测试
+- [ ] 根据集成结果再次更新 `docs/current-state.md`
 
 ## 当前状态
 
-- 当前阶段：`黄金路径集成验证待执行`
+- 当前阶段：`review-v14 待 reviewer 审阅`
 - 当前约束：`不允许场景特判、不允许文件名硬编码、不允许把 runtime metadata 塞回 planning detail`
-- 当前阻塞：`无新的架构 blocker；待恢复并跑通至少一条真实黄金路径 case`
+- 当前阻塞：`reviewer 尚未确认 v14 实现；review 通过前禁止进入黄金路径集成测试`
 - 当前补充：`空 scope PATCH continuation、旧字符串 generate 主路径、tool loop common pool、StageProgressCoordinator 内联装配 已在主链封死`
 - 当前判定标准：`不允许兼容层 / fallback / 双轨并存 / “后续再清理”`

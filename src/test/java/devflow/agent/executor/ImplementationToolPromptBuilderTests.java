@@ -22,6 +22,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import devflow.agent.executor.implementation.toolloop.ImplementationToolPromptBuilder;
 import devflow.agent.executor.subtask.Subtask;
 import devflow.agent.executor.subtask.TaskPackage;
+import devflow.agent.executor.subtask.ExecutionFileContract;
+import devflow.agent.executor.subtask.ExecutionFileContractMode;
+import devflow.agent.executor.subtask.ExecutionFileContractSet;
 class ImplementationToolPromptBuilderTests {
 
     private final ImplementationToolPromptBuilder builder = new ImplementationToolPromptBuilder();
@@ -62,6 +65,25 @@ class ImplementationToolPromptBuilderTests {
                 List.of(),
                 List.of(),
                 "",
+                new ExecutionFileContractSet(List.of(
+                        new ExecutionFileContract(
+                                Path.of("index.html"),
+                                ExecutionFileContractMode.PATCH_EXISTING,
+                                new FileChange(
+                                        "index.html",
+                                        ChangeAction.WRITE,
+                                        "修接线",
+                                        FileEditScope.HOST_HTML_PATCH,
+                                        RuntimeOwnershipMode.EXTERNAL_COMPANION,
+                                        true
+                                )
+                        ),
+                        new ExecutionFileContract(
+                                Path.of("src/app.js"),
+                                ExecutionFileContractMode.CREATE_NEW,
+                                new FileChange("src/app.js", ChangeAction.WRITE, "保留 companion runtime")
+                        )
+                )),
                 null
         );
 
@@ -96,6 +118,7 @@ class ImplementationToolPromptBuilderTests {
                 List.of(),
                 List.of(),
                 "",
+                ExecutionFileContractSet.empty(),
                 null
         );
         Subtask effectiveSubtask = new Subtask(

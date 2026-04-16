@@ -5,6 +5,7 @@ import devflow.agent.executor.ChangeAction;
 import devflow.agent.executor.DeliveryMode;
 import devflow.agent.executor.FileChange;
 import devflow.agent.i18n.DocumentLanguage;
+import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -28,6 +29,7 @@ class TaskPackageTests {
                 List.of(),
                 List.of(),
                 "targeted context",
+                ExecutionFileContractSet.empty(),
                 sharedContextBundle()
         );
         Subtask narrowedRetry = new Subtask(
@@ -66,6 +68,7 @@ class TaskPackageTests {
                 List.of(),
                 List.of(),
                 "shared context",
+                ExecutionFileContractSet.empty(),
                 sharedContextBundle()
         );
 
@@ -76,6 +79,44 @@ class TaskPackageTests {
         assertEquals(List.of("CAP-1"), scoped.coverageRefs());
         assertEquals(List.of("shell"), scoped.ownedCapabilities());
         assertEquals(List.of("gameplay"), scoped.deferredCapabilities());
+    }
+
+    @Test
+    void scopeToFileNarrowsExecutionFileContractToCurrentFile() {
+        TaskPackage taskPackage = new TaskPackage(
+                "title",
+                "goal",
+                "PATCH",
+                true,
+                List.of("index.html", "src/app.js"),
+                List.of("CAP-1"),
+                List.of("shell"),
+                List.of("gameplay"),
+                List.of("页面可打开"),
+                List.of(),
+                List.of(),
+                "shared context",
+                new ExecutionFileContractSet(List.of(
+                        new ExecutionFileContract(
+                                Path.of("index.html"),
+                                ExecutionFileContractMode.PATCH_EXISTING,
+                                new FileChange("index.html", ChangeAction.WRITE, "patch host")
+                        ),
+                        new ExecutionFileContract(
+                                Path.of("src/app.js"),
+                                ExecutionFileContractMode.CREATE_NEW,
+                                new FileChange("src/app.js", ChangeAction.WRITE, "create module")
+                        )
+                )),
+                sharedContextBundle()
+        );
+
+        TaskPackage scoped = taskPackage.scopeToFile("src/app.js", "current file context");
+
+        assertEquals(List.of("src/app.js"), scoped.ownedFiles());
+        assertEquals(1, scoped.executionFileContract().contracts().size());
+        assertEquals(ExecutionFileContractMode.CREATE_NEW, scoped.executionFileContract().contracts().getFirst().mode());
+        assertEquals("src/app.js", scoped.executionFileContract().contracts().getFirst().path());
     }
 
     @Test
@@ -93,6 +134,7 @@ class TaskPackageTests {
                 List.of(),
                 List.of(),
                 "targeted context",
+                ExecutionFileContractSet.empty(),
                 sharedContextBundle()
         );
 

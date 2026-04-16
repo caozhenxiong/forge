@@ -17,7 +17,6 @@ import devflow.agent.executor.tools.ImplementationToolRegistry;
 
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,6 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import devflow.agent.executor.subtask.SubtaskExecutionState;
 import devflow.agent.executor.subtask.SubtaskRevisionDirective;
+import devflow.agent.executor.subtask.ExecutionFileContract;
+import devflow.agent.executor.subtask.ExecutionFileContractMode;
+import devflow.agent.executor.subtask.ExecutionFileContractSet;
 class ImplementationToolPermissionPolicyTests {
 
     @Test
@@ -36,7 +38,7 @@ class ImplementationToolPermissionPolicyTests {
         );
         ImplementationToolPermissionContext context = policy.build(
                 Path.of("/tmp/project"),
-                Set.of(Path.of("src/app.js")),
+                contractSet("src/app.js"),
                 DeliveryMode.PATCH,
                 false,
                 ImplementationToolRegistry.defaultRegistry().toolNames()
@@ -54,7 +56,7 @@ class ImplementationToolPermissionPolicyTests {
         );
         ImplementationToolPermissionContext context = policy.build(
                 Path.of("/tmp/project"),
-                Set.of(Path.of("src/app.js")),
+                contractSet("src/app.js"),
                 DeliveryMode.PATCH,
                 false,
                 ImplementationToolRegistry.defaultRegistry().toolNames()
@@ -75,7 +77,7 @@ class ImplementationToolPermissionPolicyTests {
         );
         ImplementationToolPermissionContext context = policy.build(
                 Path.of("/tmp/project"),
-                Set.of(Path.of("src/app.js")),
+                contractSet("src/app.js"),
                 DeliveryMode.REWORK,
                 true,
                 ImplementationToolRegistry.defaultRegistry().toolNames()
@@ -101,14 +103,14 @@ class ImplementationToolPermissionPolicyTests {
 
         ImplementationToolPermissionContext freshContext = policy.build(
                 Path.of("/tmp/project"),
-                Set.of(Path.of("src/app.js")),
+                contractSet("src/app.js"),
                 freshState.deliveryMode(),
                 freshState.repairRound(),
                 ImplementationToolRegistry.defaultRegistry().toolNames()
         );
         ImplementationToolPermissionContext repairContext = policy.build(
                 Path.of("/tmp/project"),
-                Set.of(Path.of("src/app.js")),
+                contractSet("src/app.js"),
                 repairState.deliveryMode(),
                 repairState.repairRound(),
                 ImplementationToolRegistry.defaultRegistry().toolNames()
@@ -118,5 +120,15 @@ class ImplementationToolPermissionPolicyTests {
         assertEquals(true, freshContext.allowExistingFileWholeRewrite());
         assertEquals(true, repairContext.repairMode());
         assertEquals(false, repairContext.allowExistingFileWholeRewrite());
+    }
+
+    private ExecutionFileContractSet contractSet(String path) {
+        return new ExecutionFileContractSet(List.of(
+                new ExecutionFileContract(
+                        Path.of(path),
+                        ExecutionFileContractMode.PATCH_EXISTING,
+                        new FileChange(path, ChangeAction.WRITE, "update")
+                )
+        ));
     }
 }

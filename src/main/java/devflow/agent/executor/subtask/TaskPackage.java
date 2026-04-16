@@ -24,11 +24,15 @@ public record TaskPackage(
         List<String> mustFixFirst,
         List<String> forbiddenDirections,
         String targetedContext,
+        ExecutionFileContractSet executionFileContract,
         SharedContextBundle sharedContextBundle
 ) {
 
     public TaskPackage {
-        ownedFiles = normalizePaths(ownedFiles);
+        executionFileContract = executionFileContract == null ? ExecutionFileContractSet.empty() : executionFileContract;
+        ownedFiles = executionFileContract.isEmpty()
+                ? normalizePaths(ownedFiles)
+                : executionFileContract.ownedFiles();
         coverageRefs = normalizeValues(coverageRefs);
         ownedCapabilities = normalizeValues(ownedCapabilities);
         deferredCapabilities = normalizeValues(deferredCapabilities);
@@ -51,6 +55,7 @@ public record TaskPackage(
                 mustFixFirst,
                 forbiddenDirections,
                 fileTargetedContext == null || fileTargetedContext.isBlank() ? targetedContext : fileTargetedContext,
+                executionFileContract.scopeToPath(ownedFile),
                 sharedContextBundle
         );
     }
@@ -72,6 +77,28 @@ public record TaskPackage(
                 mustFixFirst,
                 forbiddenDirections,
                 targetedContext,
+                executionFileContract.scopeToPaths(ownedFilesFromChanges(subtask.changes(), ownedFiles).stream()
+                        .map(java.nio.file.Path::of)
+                        .toList()),
+                sharedContextBundle
+        );
+    }
+
+    public TaskPackage withExecutionFileContract(ExecutionFileContractSet nextExecutionFileContract) {
+        return new TaskPackage(
+                title,
+                goal,
+                deliveryMode,
+                runnableMilestone,
+                ownedFiles,
+                coverageRefs,
+                ownedCapabilities,
+                deferredCapabilities,
+                acceptanceCriteria,
+                mustFixFirst,
+                forbiddenDirections,
+                targetedContext,
+                nextExecutionFileContract,
                 sharedContextBundle
         );
     }
@@ -87,6 +114,9 @@ public record TaskPackage(
                 - %s: %s
                 - %s: %s
                 - %s: %s
+
+                ### %s
+                %s
 
                 ### %s
                 %s
@@ -138,6 +168,8 @@ public record TaskPackage(
                 bullets(ownedCapabilities, language),
                 language.choose("后续负责能力", "Deferred Capabilities"),
                 bullets(deferredCapabilities, language),
+                language.choose("当前文件契约", "Current File Contracts"),
+                fileContracts(language),
                 language.choose("验收标准", "Acceptance Criteria"),
                 bullets(acceptanceCriteria, language),
                 ArtifactLabels.mustFixFirst(language),
@@ -151,6 +183,23 @@ public record TaskPackage(
                 language.choose("共享上下文引用", "Shared Context Reference"),
                 sharedContextBundle == null ? PlaceholderValues.none(language) : sharedContextBundle.toMarkdown(language)
         ).trim();
+    }
+
+    private String fileContracts(DocumentLanguage language) {
+        if (executionFileContract == null || executionFileContract.isEmpty()) {
+            return PlaceholderValues.bulletNone(language);
+        }
+        return executionFileContract.contracts().stream()
+                .map(contract -> "- " + contract.path()
+                        + " | contract=" + contract.mode().renderToken()
+                        + (contract.reason().isBlank() ? "" : " | reason=" + contract.reason())
+                        + (contract.effectiveEditScope() == null || contract.effectiveEditScope() == devflow.agent.executor.editing.FileEditScope.AUTO
+                        ? ""
+                        : " | editScope=" + contract.effectiveEditScope().name())
+                        + (contract.runtimeOwnership() == null ? "" : " | runtimeOwnership=" + contract.runtimeOwnership().name())
+                        + (contract.hostHtmlPatchRequired() ? " | hostHtmlPatchRequired=true" : ""))
+                .reduce((left, right) -> left + "\n" + right)
+                .orElse(PlaceholderValues.bulletNone(language));
     }
 
     private String bullets(List<String> values, DocumentLanguage language) {

@@ -12,8 +12,8 @@ import java.util.stream.Collectors;
 
 import devflow.agent.executor.subtask.Subtask;
 import devflow.agent.executor.subtask.TaskPackage;
-import devflow.agent.executor.FileChange;
-import devflow.agent.executor.editing.FileEditScope;
+import devflow.agent.executor.subtask.ExecutionFileContract;
+import devflow.agent.executor.subtask.ExecutionFileContractSet;
 /**
  * tool-driven coder prompt 组装器。
  *
@@ -50,12 +50,14 @@ public final class ImplementationToolPromptBuilder {
             String feedback,
             String coderContextMarkdown
     ) {
-        List<String> writableFiles = subtask == null || subtask.changes() == null
+        ExecutionFileContractSet executionFileContract = taskPackage == null
+                ? ExecutionFileContractSet.empty()
+                : taskPackage.executionFileContract();
+        List<String> writableFiles = executionFileContract.isEmpty()
                 ? List.of()
-                : subtask.changes().stream()
-                .filter(change -> change != null && change.path() != null && !change.path().isBlank())
-                .map(change -> projectPath.resolve(change.path()).normalize().toString())
-                .distinct()
+                : executionFileContract.ownedPaths().stream()
+                .map(path -> projectPath.resolve(path).normalize().toString())
+                .sorted()
                 .toList();
         return """
                 # Current Project Root
@@ -86,7 +88,7 @@ public final class ImplementationToolPromptBuilder {
                 """.formatted(
                 projectPath,
                 writableFiles.isEmpty() ? "- (none)" : writableFiles.stream().map(value -> "- " + value).collect(Collectors.joining("\n")),
-                renderFileContracts(projectPath, subtask),
+                renderFileContracts(projectPath, executionFileContract),
                 taskPackage == null ? "" : taskPackage.toMarkdown(),
                 contractView == null ? "" : contractView.toMarkdown(),
                 qualityPlan == null ? "" : qualityPlan.toMarkdown(devflow.agent.i18n.DocumentLanguage.ZH),
@@ -105,51 +107,55 @@ public final class ImplementationToolPromptBuilder {
                 """.formatted(feedback == null ? "" : feedback.trim()).trim();
     }
 
-    private String renderFileContracts(Path projectPath, Subtask subtask) {
-        if (subtask == null || subtask.changes() == null || subtask.changes().isEmpty()) {
+    private String renderFileContracts(Path projectPath, ExecutionFileContractSet executionFileContract) {
+        if (executionFileContract == null || executionFileContract.isEmpty()) {
             return "- (none)";
         }
-        List<FileChange> changes = subtask.changes().stream()
-                .filter(change -> change != null && change.path() != null && !change.path().isBlank())
-                .toList();
-        if (changes.isEmpty()) {
-            return "- (none)";
-        }
-        return changes.stream()
-                .map(change -> renderFileContract(projectPath, change, changes))
+        return executionFileContract.contracts().stream()
+                .map(contract -> renderFileContract(projectPath, contract, executionFileContract))
                 .collect(Collectors.joining("\n"));
     }
 
-    private String renderFileContract(Path projectPath, FileChange change, List<FileChange> changes) {
-        Path relativePath = Path.of(change.path()).normalize();
+    private String renderFileContract(
+            Path projectPath,
+            ExecutionFileContract contract,
+            ExecutionFileContractSet executionFileContract
+    ) {
+        Path relativePath = contract.relativePath();
         StringBuilder builder = new StringBuilder("- ")
                 .append(projectPath.resolve(relativePath).normalize());
-        builder.append(" | action=").append(change.action());
-        builder.append(" | editScope=").append(change.effectiveEditScope());
-        if (change.runtimeOwnership() != null) {
-            builder.append(" | runtimeOwnership=").append(change.runtimeOwnership());
+        builder.append(" | contract=").append(contract.mode().renderToken());
+        if (contract.effectiveEditScope() != null) {
+            builder.append(" | editScope=").append(contract.effectiveEditScope());
         }
-        List<String> declaredRuntimeRoots = declaredRuntimeRoots(relativePath, changes);
+        if (contract.runtimeOwnership() != null) {
+            builder.append(" | runtimeOwnership=").append(contract.runtimeOwnership());
+        }
+        List<String> declaredRuntimeRoots = declaredRuntimeRoots(relativePath, executionFileContract);
         if (!declaredRuntimeRoots.isEmpty()) {
             builder.append(" | declaredRuntimeRoots=").append(String.join(", ", declaredRuntimeRoots));
         }
-        if (change.hostHtmlPatchRequired() || change.effectiveEditScope() == FileEditScope.HOST_HTML_PATCH) {
+        if (contract.hostHtmlPatchRequired()
+                || contract.effectiveEditScope() == devflow.agent.executor.editing.FileEditScope.HOST_HTML_PATCH) {
             builder.append(" | constraint=仅修宿主 HTML 结构与接线，不要把主运行时代码内联回宿主页面");
         }
         return builder.toString();
     }
 
-    private List<String> declaredRuntimeRoots(Path htmlEntryPath, List<FileChange> changes) {
-        if (htmlEntryPath == null || !devflow.agent.util.ProjectPathSupport.isHtml(htmlEntryPath) || changes == null || changes.isEmpty()) {
+    private List<String> declaredRuntimeRoots(Path htmlEntryPath, ExecutionFileContractSet executionFileContract) {
+        if (htmlEntryPath == null
+                || !devflow.agent.util.ProjectPathSupport.isHtml(htmlEntryPath)
+                || executionFileContract == null
+                || executionFileContract.isEmpty()) {
             return List.of();
         }
         Path htmlParent = htmlEntryPath.getParent() == null ? Path.of("") : htmlEntryPath.getParent().normalize();
         ArrayList<String> roots = new ArrayList<>();
-        for (FileChange change : changes) {
-            if (change == null || change.path() == null || change.path().isBlank()) {
+        for (ExecutionFileContract contract : executionFileContract.contracts()) {
+            if (contract == null || contract.relativePath() == null || contract.path().isBlank() || !contract.writeIntent()) {
                 continue;
             }
-            Path candidate = Path.of(change.path()).normalize();
+            Path candidate = contract.relativePath();
             if (!devflow.agent.util.ProjectPathSupport.isRuntimeScript(candidate)) {
                 continue;
             }

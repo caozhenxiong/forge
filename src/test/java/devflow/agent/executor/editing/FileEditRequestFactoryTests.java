@@ -129,6 +129,7 @@ class FileEditRequestFactoryTests {
                         List.of(),
                         List.of(),
                         "shared context",
+                        devflow.agent.executor.subtask.ExecutionFileContractSet.empty(),
                         null
                 ),
                 "",

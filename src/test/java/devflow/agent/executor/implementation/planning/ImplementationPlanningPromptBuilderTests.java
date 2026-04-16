@@ -6,6 +6,9 @@ import devflow.agent.domain.RunStatus;
 import devflow.agent.domain.StageExecution;
 import devflow.agent.domain.StageStatus;
 import devflow.agent.domain.StageType;
+import devflow.agent.executor.gate.GateFailureDisposition;
+import devflow.agent.executor.gate.GateIssue;
+import devflow.agent.executor.gate.GateReport;
 import devflow.agent.executor.DeliveryMode;
 import devflow.agent.executor.DeliveryPolicyEnvelope;
 import devflow.agent.executor.llm.ModelRole;
@@ -110,6 +113,42 @@ class ImplementationPlanningPromptBuilderTests {
         assertTrue(llmProvider.lastSystemPrompt.contains("ownedCapabilities / deferredCapabilities / targetPaths"));
         assertTrue(llmProvider.lastSystemPrompt.contains("boundary contract"));
         assertTrue(llmProvider.lastSystemPrompt.contains("不要删除、改名或用新字段替代"));
+    }
+
+    @Test
+    void outlineRetryFeedbackRepeatsSharedFileBoundaryContract() {
+        ImplementationOutlineGate gate = new ImplementationOutlineGate(new ImplementationPlanCoverageAnalyzer());
+
+        String feedback = gate.toRetryFeedback(GateReport.failure(
+                "outline failed",
+                List.of(new GateIssue(
+                        "PLAN_CAPABILITY_PARTITION_1",
+                        "共享文件 deferredCapabilities 不完整",
+                        GateFailureDisposition.REPLAN_CURRENT_STAGE
+                ))
+        ));
+
+        assertTrue(feedback.contains("同一 capability 只能有一个 current owner"));
+        assertTrue(feedback.contains("完整 ownedCapabilities 全量写进 deferredCapabilities"));
+        assertTrue(feedback.contains("重新拆分 targetPaths"));
+    }
+
+    @Test
+    void finalPlanRetryFeedbackRepeatsSharedFileBoundaryContract() {
+        ImplementationPlanGate gate = new ImplementationPlanGate(new ImplementationPlanCoverageAnalyzer());
+
+        String feedback = gate.toPlanningFeedback(GateReport.failure(
+                "plan failed",
+                List.of(new GateIssue(
+                        "PLAN_CAPABILITY_PARTITION_1",
+                        "共享文件 deferredCapabilities 不完整",
+                        GateFailureDisposition.REPLAN_CURRENT_STAGE
+                ))
+        ));
+
+        assertTrue(feedback.contains("capability partition 必须与 outline gate 的 shared-file boundary 规则完全一致"));
+        assertTrue(feedback.contains("overlap owner、partial defer"));
+        assertTrue(feedback.contains("deferredCapabilities"));
     }
 
     private RunRecord runRecord() {

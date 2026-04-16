@@ -4,6 +4,7 @@ import devflow.agent.executor.gate.*;
 import devflow.agent.executor.runtime.*;
 
 import devflow.agent.executor.DeliveryMode;
+import devflow.agent.executor.subtask.ExecutionFileContractSet;
 import java.nio.file.Path;
 import java.util.Set;
 
@@ -14,7 +15,7 @@ import java.util.Set;
  */
 public record ImplementationToolPermissionContext(
         Path projectPath,
-        Set<Path> ownedPaths,
+        ExecutionFileContractSet executionFileContract,
         Set<String> allowedToolNames,
         long defaultShellTimeoutMs,
         long maxShellTimeoutMs,
@@ -26,7 +27,7 @@ public record ImplementationToolPermissionContext(
 
     public ImplementationToolPermissionContext {
         projectPath = projectPath == null ? Path.of("") : projectPath.toAbsolutePath().normalize();
-        ownedPaths = ownedPaths == null ? Set.of() : Set.copyOf(ownedPaths);
+        executionFileContract = executionFileContract == null ? ExecutionFileContractSet.empty() : executionFileContract;
         allowedToolNames = allowedToolNames == null ? Set.of() : Set.copyOf(allowedToolNames);
         defaultShellTimeoutMs = Math.max(1L, defaultShellTimeoutMs);
         maxShellTimeoutMs = Math.max(defaultShellTimeoutMs, maxShellTimeoutMs);
@@ -37,7 +38,11 @@ public record ImplementationToolPermissionContext(
         return toolName != null && allowedToolNames.contains(toolName);
     }
 
+    public Set<Path> ownedPaths() {
+        return executionFileContract.ownedPaths();
+    }
+
     public boolean hasOwnedPaths() {
-        return !ownedPaths.isEmpty();
+        return !executionFileContract.isEmpty();
     }
 }

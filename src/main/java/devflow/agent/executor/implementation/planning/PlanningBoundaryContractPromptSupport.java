@@ -35,6 +35,22 @@ final class PlanningBoundaryContractPromptSupport {
                 """;
     }
 
+    static String outlineRetryGuidanceBlock() {
+        return """
+                5. 同一 capability 只能有一个 current owner，不能让多个 subtasks 同时声明同一项 ownedCapabilities
+                6. 如果当前子任务与后续子任务共享文件，必须把每个 downstream owner 的完整 ownedCapabilities 全量写进 deferredCapabilities
+                7. 如果无法为共享文件建立完整 defer boundary，就重新拆分 targetPaths，不要用 prose 模糊描述“后面再补”
+                """;
+    }
+
+    static String planningRetryGuidanceBlock() {
+        return """
+                5. capability partition 必须与 outline gate 的 shared-file boundary 规则完全一致
+                6. 不允许只修 wording；必须消除 overlap owner、partial defer 或缺失 defer 的非法结构
+                7. 如果同一路径在多个 subtasks 间流转，最终 accepted plan 也必须保留同一套 deferredCapabilities 边界
+                """;
+    }
+
     static String sharedFileBoundaryContext(
             ImplementationOutline outline,
             ImplementationOutlineSubtask currentSubtask

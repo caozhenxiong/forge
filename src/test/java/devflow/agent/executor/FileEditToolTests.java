@@ -36,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import devflow.agent.executor.implementation.toolloop.CoderReadFileState;
 import devflow.agent.executor.implementation.toolloop.ImplementationToolContext;
 import devflow.agent.executor.implementation.toolloop.ImplementationToolSessionState;
+import devflow.agent.executor.subtask.ExecutionFileContractMaterializer;
 
 class FileEditToolTests {
 
@@ -176,7 +177,10 @@ class FileEditToolTests {
                 new ImplementationToolSessionState(),
                 new ImplementationToolPermissionContext(
                         tempDir,
-                        Set.of(Path.of("app.js")),
+                        new ExecutionFileContractMaterializer().materialize(
+                                tempDir,
+                                List.of(new FileChange("app.js", ChangeAction.WRITE, "更新 app.js"))
+                        ),
                         Set.of("Read", "Edit"),
                         5_000L,
                         5_000L,
@@ -189,8 +193,7 @@ class FileEditToolTests {
                         new ImplementationToolPermissionProperties(List.of("Read", "Edit")),
                         new ImplementationExecutionPolicy()
                 ),
-                deliveryMode,
-                List.of(new FileChange("app.js", ChangeAction.WRITE, "更新 app.js"))
+                deliveryMode
         );
         context.readFileStateLedger().put(
                 file,

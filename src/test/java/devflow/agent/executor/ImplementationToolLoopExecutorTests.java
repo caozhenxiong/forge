@@ -50,6 +50,7 @@ import devflow.agent.executor.implementation.toolloop.ToolLoopDiagnosticStatus;
 import devflow.agent.executor.subtask.Subtask;
 import devflow.agent.executor.subtask.SubtaskExecutionState;
 import devflow.agent.executor.subtask.TaskPackage;
+import devflow.agent.executor.subtask.ExecutionFileContractSet;
 class ImplementationToolLoopExecutorTests {
 
     @TempDir
@@ -341,7 +342,7 @@ class ImplementationToolLoopExecutorTests {
 
         assertEquals(GenerationFailureType.NO_MATERIAL_CHANGE, exception.report().failureType());
         assertTrue(exception.report().evidence().contains("terminalMode=assistant-only"));
-        assertTrue(exception.report().evidence().contains("WRITE:index.html"));
+        assertTrue(exception.report().evidence().contains("create-new:index.html"));
         assertTrue(exception.report().evidence().contains("exists=false"));
     }
 
@@ -845,6 +846,84 @@ class ImplementationToolLoopExecutorTests {
         assertEquals(List.of(Path.of("app.js")), result.touchedPaths());
     }
 
+    @Test
+    void toolLoopMaterializesPatchExistingAgainstCurrentWorkspaceWhenPlanningActionStaysWrite() throws Exception {
+        Path file = tempDir.resolve("app.js");
+
+        ImplementationToolLoopExecutor createExecutor = newToolLoopExecutor(
+                new ScriptedChatProvider(
+                        new LlmChatResponse(
+                                "",
+                                List.of(new LlmToolCall(
+                                        "tool-1",
+                                        "Write",
+                                        Map.of(
+                                                "file_path", file.toString(),
+                                                "content", "export const ready = true;\n"
+                                        )
+                                )),
+                                null,
+                                ""
+                        )
+                ),
+                1
+        );
+        createExecutor.execute(
+                tempDir,
+                runRecord(tempDir),
+                subtask("创建 app.js", "app.js"),
+                taskPackage("创建 app.js", "app.js"),
+                null,
+                QualityPlan.empty(),
+                fingerprint("app.js"),
+                "",
+                "",
+                null,
+                new SubtaskExecutionState(DeliveryMode.PATCH, false)
+        );
+
+        ImplementationToolLoopExecutor reopenExecutor = newToolLoopExecutor(
+                new ScriptedChatProvider(
+                        new LlmChatResponse(
+                                "",
+                                List.of(new LlmToolCall(
+                                        "tool-2",
+                                        "Write",
+                                        Map.of(
+                                                "file_path", file.toString(),
+                                                "content", "export const ready = false;\n"
+                                        )
+                                )),
+                                null,
+                                ""
+                        )
+                ),
+                1
+        );
+
+        GenerationFailureException exception = assertThrows(
+                GenerationFailureException.class,
+                () -> reopenExecutor.execute(
+                        tempDir,
+                        runRecord(tempDir),
+                        subtask("继续 app.js", "app.js"),
+                        taskPackage("继续 app.js", "app.js"),
+                        null,
+                        QualityPlan.empty(),
+                        fingerprint("app.js"),
+                        "",
+                        "",
+                        null,
+                        new SubtaskExecutionState(DeliveryMode.PATCH, false)
+                )
+        );
+
+        assertEquals(GenerationFailureType.VALIDATION_FAILED, exception.report().failureType());
+        assertTrue(exception.report().evidence().contains("contract=patch-existing"));
+        assertTrue(Files.exists(file));
+        assertEquals("export const ready = true;\n", Files.readString(file));
+    }
+
     private Subtask subtask(String title, String path) {
         return new Subtask(
                 title,
@@ -877,6 +956,7 @@ class ImplementationToolLoopExecutorTests {
                 List.of(),
                 List.of(),
                 "",
+                ExecutionFileContractSet.empty(),
                 null
         );
     }

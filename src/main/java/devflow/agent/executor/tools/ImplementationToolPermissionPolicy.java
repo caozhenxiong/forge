@@ -7,6 +7,7 @@ import devflow.agent.executor.DeliveryMode;
 import devflow.agent.executor.implementation.ImplementationExecutionPolicy;
 import devflow.agent.executor.shell.ShellCommandAnalyzer;
 import devflow.agent.executor.shell.ShellCommandDecision;
+import devflow.agent.executor.subtask.ExecutionFileContractSet;
 
 import java.nio.file.Path;
 import java.util.Collection;
@@ -39,7 +40,7 @@ public final class ImplementationToolPermissionPolicy {
 
     public ImplementationToolPermissionContext build(
             Path projectPath,
-            Set<Path> ownedPaths,
+            ExecutionFileContractSet executionFileContract,
             DeliveryMode deliveryMode,
             boolean repairMode,
             Collection<String> registeredToolNames
@@ -47,7 +48,7 @@ public final class ImplementationToolPermissionPolicy {
         DeliveryMode resolvedDeliveryMode = deliveryMode == null ? DeliveryMode.PATCH : deliveryMode;
         return new ImplementationToolPermissionContext(
                 projectPath,
-                ownedPaths,
+                executionFileContract,
                 resolveAllowedToolNames(registeredToolNames),
                 implementationExecutionPolicy.defaultShellTimeoutMs(),
                 implementationExecutionPolicy.maxShellTimeoutMs(),

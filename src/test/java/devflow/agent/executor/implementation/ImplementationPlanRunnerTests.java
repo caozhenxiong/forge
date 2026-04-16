@@ -13,6 +13,7 @@ import devflow.agent.executor.subtask.SubtaskExecutionState;
 import devflow.agent.executor.subtask.SubtaskExecutor;
 import devflow.agent.executor.subtask.SubtaskRevisionDirective;
 import devflow.agent.executor.subtask.TaskPackage;
+import devflow.agent.executor.subtask.ExecutionFileContractSet;
 import devflow.agent.i18n.DocumentLanguage;
 import devflow.agent.protocol.ExecutionDirectiveFeedbackSupport;
 import devflow.agent.protocol.ExecutionDirectiveNarrativeRenderer;
@@ -134,6 +135,7 @@ class ImplementationPlanRunnerTests {
                         List.of(),
                         List.of(),
                         "",
+                        ExecutionFileContractSet.empty(),
                         null
                 )),
                 DeliveryPolicyEnvelope.defaultPolicy(),
@@ -240,8 +242,8 @@ class ImplementationPlanRunnerTests {
                         )
                 ),
                 List.of(
-                        new TaskPackage("先修 gameplay", "repair gameplay", DeliveryMode.PATCH.name(), false, List.of("src/game.js"), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), "", null),
-                        new TaskPackage("后续任务", "follow-up", DeliveryMode.PATCH.name(), false, List.of("src/ui.js"), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), "", null)
+                        new TaskPackage("先修 gameplay", "repair gameplay", DeliveryMode.PATCH.name(), false, List.of("src/game.js"), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), "", ExecutionFileContractSet.empty(), null),
+                        new TaskPackage("后续任务", "follow-up", DeliveryMode.PATCH.name(), false, List.of("src/ui.js"), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), "", ExecutionFileContractSet.empty(), null)
                 ),
                 DeliveryPolicyEnvelope.defaultPolicy(),
                 null,
@@ -344,8 +346,8 @@ class ImplementationPlanRunnerTests {
                         )
                 ),
                 List.of(
-                        new TaskPackage("先修 gameplay", "repair gameplay", DeliveryMode.PATCH.name(), false, List.of("src/game.js"), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), "", null),
-                        new TaskPackage("后续任务", "follow-up", DeliveryMode.PATCH.name(), false, List.of("src/ui.js"), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), "", null)
+                        new TaskPackage("先修 gameplay", "repair gameplay", DeliveryMode.PATCH.name(), false, List.of("src/game.js"), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), "", ExecutionFileContractSet.empty(), null),
+                        new TaskPackage("后续任务", "follow-up", DeliveryMode.PATCH.name(), false, List.of("src/ui.js"), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), "", ExecutionFileContractSet.empty(), null)
                 ),
                 DeliveryPolicyEnvelope.defaultPolicy(),
                 null,

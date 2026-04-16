@@ -27,14 +27,6 @@ public class ImplementationPlanGate implements DeterministicGate<ImplementationP
 
     private static final String OUTLINE_UNIT_ID = "outline";
 
-    private static final String PLANNING_RETRY_GUIDANCE = """
-            请重新规划子任务，并确保：
-            1. 子任务集合覆盖执行契约要求的入口与最小可运行表面
-            2. 不要只拆内部逻辑模块
-            3. 保持小步交付，但第一批交付必须形成可运行表面
-            4. 至少有一个子任务必须负责把当前交付物接成可启动、可验证的运行状态
-            """;
-
     private final ImplementationPlanCoverageAnalyzer coverageAnalyzer;
     private final ImplementationPlanChangeGate changeGate;
 
@@ -85,7 +77,14 @@ public class ImplementationPlanGate implements DeterministicGate<ImplementationP
     }
 
     public String toPlanningFeedback(GateReport report) {
-        return report.toRetryFeedback(PLANNING_RETRY_GUIDANCE);
+        return report.toRetryFeedback("""
+                请重新规划子任务，并确保：
+                1. 子任务集合覆盖执行契约要求的入口与最小可运行表面
+                2. 不要只拆内部逻辑模块
+                3. 保持小步交付，但第一批交付必须形成可运行表面
+                4. 至少有一个子任务必须负责把当前交付物接成可启动、可验证的运行状态
+                %s
+                """.formatted(PlanningBoundaryContractPromptSupport.planningRetryGuidanceBlock()).trim());
     }
 
     private List<GateIssue> toIssues(String codePrefix, CoverageResult result) {

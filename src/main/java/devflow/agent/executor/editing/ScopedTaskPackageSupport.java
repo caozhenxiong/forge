@@ -14,6 +14,7 @@ import java.util.List;
 
 import devflow.agent.executor.subtask.Subtask;
 import devflow.agent.executor.subtask.TaskPackage;
+import devflow.agent.executor.subtask.ExecutionFileContractMaterializer;
 /**
  * 负责把任务包压缩到文件级视角。
  *
@@ -26,6 +27,8 @@ public final class ScopedTaskPackageSupport {
 
     private final TargetedFileContextRenderer targetedFileContextRenderer;
     private final TaskPackageMarkdownRenderer taskPackageMarkdownRenderer;
+    private final ExecutionFileContractMaterializer executionFileContractMaterializer =
+            new ExecutionFileContractMaterializer();
 
     public ScopedTaskPackageSupport(
             TargetedFileContextRenderer targetedFileContextRenderer,
@@ -43,13 +46,14 @@ public final class ScopedTaskPackageSupport {
             ContractView contractView,
             ProjectFingerprint fingerprint
     ) {
+        var executionFileContract = executionFileContractMaterializer.materialize(projectPath, subtask.changes());
         TaskPackage base = taskPackage == null
                 ? new TaskPackage(
                 subtask.title(),
                 subtask.goal(),
                 subtask.deliveryMode().name(),
                 subtask.runnableMilestone(),
-                subtask.changes().stream().map(FileChange::path).toList(),
+                executionFileContract.ownedFiles(),
                 safeList(subtask.coverageRefs()),
                 safeList(subtask.ownedCapabilities()),
                 safeList(subtask.deferredCapabilities()),
@@ -57,9 +61,10 @@ public final class ScopedTaskPackageSupport {
                 List.of(),
                 List.of(),
                 targetedFileContextRenderer.render(projectPath, subtask.changes(), null, contractView, fingerprint),
+                executionFileContract,
                 null
         )
-                : taskPackage;
+                : taskPackage.withExecutionFileContract(executionFileContract);
         return base.scopeToFile(
                 relativePath.toString(),
                 targetedFileContextRenderer.render(projectPath, subtask.changes(), relativePath, contractView, fingerprint)

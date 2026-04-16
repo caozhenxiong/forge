@@ -17,6 +17,7 @@ import java.util.Set;
 import devflow.agent.executor.ChangeAction;
 import devflow.agent.executor.FileChange;
 import devflow.agent.executor.runtime.RuntimeOwnershipMode;
+import devflow.agent.executor.subtask.ExecutionFileContractSet;
 /**
  * implementation tool loop 的单次文件变更契约校验。
  *
@@ -35,11 +36,20 @@ public final class ImplementationMutationContractGuard {
             Path projectPath,
             Path relativePath,
             String content,
-            Set<Path> ownedPaths,
-            List<FileChange> scopedChanges
+            ExecutionFileContractSet executionFileContract
     ) {
-        validateDeclaredLocalReferences(projectPath, relativePath, content, ownedPaths);
-        validateDeclaredHtmlRuntimeOwnership(projectPath, relativePath, content, scopedChanges);
+        validateDeclaredLocalReferences(
+                projectPath,
+                relativePath,
+                content,
+                executionFileContract == null ? Set.of() : executionFileContract.ownedPaths()
+        );
+        validateDeclaredHtmlRuntimeOwnership(
+                projectPath,
+                relativePath,
+                content,
+                executionFileContract == null ? List.of() : executionFileContract.declaredChanges()
+        );
     }
 
     private void validateDeclaredLocalReferences(

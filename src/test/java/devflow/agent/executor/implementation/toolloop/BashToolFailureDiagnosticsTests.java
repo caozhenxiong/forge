@@ -11,6 +11,9 @@ import devflow.agent.executor.tools.ImplementationToolPermissionProperties;
 import devflow.agent.executor.tools.ToolFailureCode;
 import devflow.agent.executor.tools.ToolInvocationResult;
 import devflow.agent.executor.llm.LlmToolCall;
+import devflow.agent.executor.ChangeAction;
+import devflow.agent.executor.FileChange;
+import devflow.agent.executor.subtask.ExecutionFileContractMaterializer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -213,7 +216,12 @@ class BashToolFailureDiagnosticsTests {
                 new ImplementationToolSessionState(),
                 new ImplementationToolPermissionContext(
                         tempDir,
-                        ownedPaths,
+                        new ExecutionFileContractMaterializer().materialize(
+                                tempDir,
+                                ownedPaths.stream()
+                                        .map(path -> new FileChange(path.toString(), ChangeAction.WRITE, "owned path"))
+                                        .toList()
+                        ),
                         Set.of("Bash"),
                         5_000L,
                         5_000L,
@@ -226,8 +234,7 @@ class BashToolFailureDiagnosticsTests {
                         new ImplementationToolPermissionProperties(List.of("Bash")),
                         new ImplementationExecutionPolicy()
                 ),
-                DeliveryMode.PATCH,
-                List.of()
+                DeliveryMode.PATCH
         );
     }
 }

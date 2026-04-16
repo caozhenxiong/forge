@@ -15,6 +15,9 @@ import devflow.agent.executor.tools.ImplementationToolPermissionContext;
 import devflow.agent.executor.tools.ImplementationToolPermissionProperties;
 import devflow.agent.executor.tools.ImplementationToolPermissionPolicy;
 import devflow.agent.executor.tools.ImplementationToolRegistry;
+import devflow.agent.executor.subtask.ExecutionFileContract;
+import devflow.agent.executor.subtask.ExecutionFileContractMode;
+import devflow.agent.executor.subtask.ExecutionFileContractSet;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -36,7 +39,7 @@ class ImplementationToolRegistryTests {
     void hidesWorkspaceMutationToolsWhenSubtaskOwnsNoPaths() {
         ImplementationToolPermissionContext context = permissionPolicy.build(
                 Path.of("/tmp/project"),
-                Set.of(),
+                ExecutionFileContractSet.empty(),
                 DeliveryMode.PATCH,
                 false,
                 registry.toolNames()
@@ -59,7 +62,7 @@ class ImplementationToolRegistryTests {
     void keepsWorkspaceMutationToolsWhenSubtaskOwnsPaths() {
         ImplementationToolPermissionContext context = permissionPolicy.build(
                 Path.of("/tmp/project"),
-                Set.of(Path.of("src/app.js")),
+                contractSet("src/app.js"),
                 DeliveryMode.PATCH,
                 false,
                 registry.toolNames()
@@ -78,7 +81,7 @@ class ImplementationToolRegistryTests {
     void hidesBashDuringRepairMode() {
         ImplementationToolPermissionContext context = permissionPolicy.build(
                 Path.of("/tmp/project"),
-                Set.of(Path.of("src/app.js")),
+                contractSet("src/app.js"),
                 DeliveryMode.PATCH,
                 true,
                 registry.toolNames()
@@ -93,5 +96,15 @@ class ImplementationToolRegistryTests {
         assertTrue(visible.contains("Write"));
         assertTrue(visible.contains("Delete"));
         assertFalse(visible.contains("Bash"));
+    }
+
+    private ExecutionFileContractSet contractSet(String path) {
+        return new ExecutionFileContractSet(List.of(
+                new ExecutionFileContract(
+                        Path.of(path),
+                        ExecutionFileContractMode.PATCH_EXISTING,
+                        new FileChange(path, ChangeAction.WRITE, "update")
+                )
+        ));
     }
 }

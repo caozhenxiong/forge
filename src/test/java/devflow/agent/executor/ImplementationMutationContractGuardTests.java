@@ -13,7 +13,6 @@ import devflow.agent.executor.implementation.toolloop.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -22,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import devflow.agent.executor.implementation.toolloop.ImplementationMutationContractGuard;
+import devflow.agent.executor.subtask.ExecutionFileContractMaterializer;
 class ImplementationMutationContractGuardTests {
 
     @TempDir
@@ -45,8 +45,7 @@ class ImplementationMutationContractGuardTests {
                                 <body></body>
                                 </html>
                                 """,
-                        Set.of(Path.of("index.html"), Path.of("src/game.js")),
-                        List.of(
+                        contracts(
                                 new FileChange(
                                         "index.html",
                                         ChangeAction.WRITE,
@@ -78,8 +77,7 @@ class ImplementationMutationContractGuardTests {
                         <body></body>
                         </html>
                         """,
-                Set.of(Path.of("index.html"), Path.of("src/game.js")),
-                List.of(
+                contracts(
                         new FileChange(
                                 "index.html",
                                 ChangeAction.WRITE,
@@ -111,8 +109,7 @@ class ImplementationMutationContractGuardTests {
                                 </body>
                                 </html>
                                 """,
-                        Set.of(Path.of("index.html"), Path.of("src/game.js")),
-                        List.of(
+                        contracts(
                                 new FileChange(
                                         "index.html",
                                         ChangeAction.WRITE,
@@ -151,8 +148,7 @@ class ImplementationMutationContractGuardTests {
                         </body>
                         </html>
                         """,
-                Set.of(Path.of("index.html")),
-                List.of(new FileChange(
+                contracts(new FileChange(
                         "index.html",
                         ChangeAction.WRITE,
                         "更新入口",
@@ -161,5 +157,9 @@ class ImplementationMutationContractGuardTests {
                         true
                 ))
         ));
+    }
+
+    private devflow.agent.executor.subtask.ExecutionFileContractSet contracts(FileChange... changes) {
+        return new ExecutionFileContractMaterializer().materialize(tempDir, List.of(changes));
     }
 }

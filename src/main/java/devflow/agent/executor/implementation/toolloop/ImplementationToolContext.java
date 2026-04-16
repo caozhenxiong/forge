@@ -42,8 +42,8 @@ import java.util.stream.Stream;
 
 import devflow.agent.executor.implementation.ImplementationEventJournal;
 import devflow.agent.executor.DeliveryMode;
-import devflow.agent.executor.FileChange;
 import devflow.agent.executor.implementation.toolloop.FileMutationRecord;
+import devflow.agent.executor.subtask.ExecutionFileContractSet;
 /**
  * coding tool runtime 的共享上下文。
  *
@@ -63,7 +63,6 @@ public final class ImplementationToolContext implements ToolExecutionContext {
     private final ImplementationToolPermissionContext permissionContext;
     private final ImplementationToolPermissionPolicy permissionPolicy;
     private final DeliveryMode deliveryMode;
-    private final List<FileChange> scopedChanges;
     private final ImplementationMutationContractGuard mutationContractGuard = new ImplementationMutationContractGuard();
     private final FileStateLedger fileStateLedger = new FileStateLedger();
     private final TreeSitterSupport treeSitterSupport = new TreeSitterSupport();
@@ -81,8 +80,7 @@ public final class ImplementationToolContext implements ToolExecutionContext {
             ImplementationToolSessionState toolSessionState,
             ImplementationToolPermissionContext permissionContext,
             ImplementationToolPermissionPolicy permissionPolicy,
-            DeliveryMode deliveryMode,
-            List<FileChange> scopedChanges
+            DeliveryMode deliveryMode
     ) {
         this.projectPath = projectPath.toAbsolutePath().normalize();
         this.runRecord = runRecord;
@@ -95,7 +93,6 @@ public final class ImplementationToolContext implements ToolExecutionContext {
         this.permissionContext = permissionContext;
         this.permissionPolicy = Objects.requireNonNull(permissionPolicy, "permissionPolicy");
         this.deliveryMode = deliveryMode == null ? DeliveryMode.PATCH : deliveryMode;
-        this.scopedChanges = scopedChanges == null ? List.of() : List.copyOf(scopedChanges);
     }
 
     @Override
@@ -130,6 +127,10 @@ public final class ImplementationToolContext implements ToolExecutionContext {
 
     ImplementationToolPermissionContext permissionContext() {
         return permissionContext;
+    }
+
+    ExecutionFileContractSet executionFileContract() {
+        return permissionContext == null ? ExecutionFileContractSet.empty() : permissionContext.executionFileContract();
     }
 
     public ToolLoopReadFileStateLedger readFileStateLedger() {
@@ -186,8 +187,7 @@ public final class ImplementationToolContext implements ToolExecutionContext {
                 projectPath,
                 relativize(absolutePath),
                 content == null ? "" : content,
-                permissionContext.ownedPaths(),
-                scopedChanges
+                executionFileContract()
         );
     }
 

@@ -45,6 +45,10 @@ import devflow.agent.executor.implementation.ImplementationEventJournal;
 import devflow.agent.executor.subtask.Subtask;
 import devflow.agent.executor.subtask.SubtaskExecutionState;
 import devflow.agent.executor.subtask.TaskPackage;
+import devflow.agent.executor.subtask.ExecutionFileContract;
+import devflow.agent.executor.subtask.ExecutionFileContractMaterializer;
+import devflow.agent.executor.subtask.ExecutionFileContractMode;
+import devflow.agent.executor.subtask.ExecutionFileContractSet;
 import devflow.agent.executor.DeliveryMode;
 import devflow.agent.executor.FileChange;
 import devflow.agent.executor.implementation.toolloop.FileMutationRecord;
@@ -65,6 +69,7 @@ public final class ImplementationToolLoopExecutor {
     private final ImplementationToolResultBudgetManager resultBudgetManager = new ImplementationToolResultBudgetManager();
     private final ImplementationToolRegistry toolRegistry;
     private final ImplementationToolPermissionPolicy permissionPolicy;
+    private final ExecutionFileContractMaterializer executionFileContractMaterializer = new ExecutionFileContractMaterializer();
     private final int maxToolTurns;
     private final ExecutorService toolExecutor;
 
@@ -99,16 +104,20 @@ public final class ImplementationToolLoopExecutor {
         DeliveryMode activeDeliveryMode = activeDeliveryMode(subtask, executionState);
         List<FileChange> activeChanges = activeChanges(subtask, executionState);
         boolean repairMode = isRepairMode(executionState);
+        ExecutionFileContractSet executionFileContract = executionFileContractMaterializer.materialize(projectPath, activeChanges);
         Subtask activeSubtask = scopeSubtask(subtask, activeDeliveryMode, activeChanges);
-        TaskPackage activeTaskPackage = taskPackage == null ? null : taskPackage.alignToSubtask(activeSubtask);
-        Set<Path> ownedPaths = collectOwnedPaths(activeSubtask);
+        TaskPackage activeTaskPackage = materializeTaskPackage(
+                activeSubtask,
+                taskPackage,
+                executionFileContract
+        );
         ChatCapableLlmProvider chatCapableLlmProvider = requireChatProvider();
         ImplementationToolSessionState toolSessionState = executionState == null
                 ? new ImplementationToolSessionState()
                 : executionState.toolSessionState();
         ImplementationToolPermissionContext permissionContext = permissionPolicy.build(
                 projectPath,
-                ownedPaths,
+                executionFileContract,
                 activeDeliveryMode,
                 repairMode,
                 toolRegistry.toolNames()
@@ -124,8 +133,7 @@ public final class ImplementationToolLoopExecutor {
                 toolSessionState,
                 permissionContext,
                 permissionPolicy,
-                activeDeliveryMode,
-                activeChanges
+                activeDeliveryMode
         );
         initializeTranscript(
                 toolSessionState,
@@ -190,7 +198,7 @@ public final class ImplementationToolLoopExecutor {
                             "请保留当前子任务状态，只补齐当前轮缺失的 assistant 输出或工具调用。"
                     );
                 }
-                assertDeclaredChangesSatisfied(projectPath, activeSubtask, toolContext, turn, "assistant-only", repairMode);
+                assertDeclaredChangesSatisfied(projectPath, executionFileContract, toolContext, turn, "assistant-only", repairMode, activeSubtask);
                 toolContext.appendEvent("实现阶段｜tool-loop｜轮次完成｜子任务=%s｜轮次=%d/%d｜触发工具=0"
                         .formatted(subtask.title(), turn, maxToolTurns));
                 return new ImplementationToolLoopResult(
@@ -227,7 +235,7 @@ public final class ImplementationToolLoopExecutor {
             toolContext.appendEvent("实现阶段｜tool-loop｜轮次完成｜子任务=%s｜轮次=%d/%d｜触发工具=%d"
                     .formatted(subtask.title(), turn, maxToolTurns, rawResults.size()));
         }
-        List<String> unsatisfied = collectUnsatisfiedDeclaredChanges(projectPath, activeSubtask, toolContext, repairMode);
+        List<String> unsatisfied = collectUnsatisfiedDeclaredChanges(projectPath, executionFileContract, toolContext, repairMode);
         if (unsatisfied.isEmpty()) {
             toolContext.appendEvent("实现阶段｜tool-loop｜声明交付已满足｜子任务=%s｜轮次=%d/%d｜结束=declared-changes-satisfied"
                     .formatted(subtask.title(), maxToolTurns, maxToolTurns));
@@ -255,13 +263,14 @@ public final class ImplementationToolLoopExecutor {
 
     private void assertDeclaredChangesSatisfied(
             Path projectPath,
-            Subtask subtask,
+            ExecutionFileContractSet executionFileContract,
             ImplementationToolContext toolContext,
             int turn,
             String terminalMode,
-            boolean workspaceStateClosure
+            boolean workspaceStateClosure,
+            Subtask subtask
     ) {
-        List<String> unsatisfied = collectUnsatisfiedDeclaredChanges(projectPath, subtask, toolContext, workspaceStateClosure);
+        List<String> unsatisfied = collectUnsatisfiedDeclaredChanges(projectPath, executionFileContract, toolContext, workspaceStateClosure);
         if (unsatisfied.isEmpty()) {
             return;
         }
@@ -278,12 +287,12 @@ public final class ImplementationToolLoopExecutor {
                 """
                         terminalMode=%s
                         closureMode=%s
-                        declaredChanges=%s
+                        declaredContracts=%s
                         unsatisfiedChanges=%s
                         """.formatted(
                         terminalMode == null || terminalMode.isBlank() ? "assistant-only" : terminalMode,
                         workspaceStateClosure ? "workspace-state" : "mutation-history",
-                        summarizeDeclaredChanges(subtask.changes()),
+                        summarizeExecutionFileContracts(executionFileContract),
                         String.join(" | ", unsatisfied)
                 ).trim(),
                 "请继续当前子任务，只通过工具把缺失的文件写入、更新或删除到位，不要只输出口头完成说明。"
@@ -292,41 +301,42 @@ public final class ImplementationToolLoopExecutor {
 
     private List<String> collectUnsatisfiedDeclaredChanges(
             Path projectPath,
-            Subtask subtask,
+            ExecutionFileContractSet executionFileContract,
             ImplementationToolContext toolContext,
             boolean workspaceStateClosure
     ) {
-        if (subtask == null || subtask.changes() == null || subtask.changes().isEmpty()) {
+        if (executionFileContract == null || executionFileContract.isEmpty()) {
             return List.of();
         }
         Map<Path, PathMutationSummary> mutationsByPath = collectMutationsByPath(toolContext.mutationRecords());
         List<String> unsatisfied = new ArrayList<>();
-        for (FileChange change : subtask.changes()) {
-            if (change == null || change.path() == null || change.path().isBlank() || change.action() == null) {
+        for (ExecutionFileContract contract : executionFileContract.contracts()) {
+            if (contract == null || contract.relativePath() == null || contract.path().isBlank()) {
                 continue;
             }
-            Path relativePath = Path.of(change.path()).normalize();
+            Path relativePath = contract.relativePath();
             Path absolutePath = projectPath.resolve(relativePath).normalize();
             boolean exists = toolContext.exists(absolutePath);
             PathMutationSummary mutationSummary = mutationsByPath.get(relativePath);
             FileStateSnapshot currentState = toolContext.captureFileState(absolutePath);
-            boolean satisfied = switch (change.action()) {
-                case WRITE -> writeSatisfied(mutationSummary, currentState, workspaceStateClosure);
+            boolean satisfied = switch (contract.mode()) {
+                case CREATE_NEW -> createSatisfied(mutationSummary, currentState);
+                case PATCH_EXISTING -> patchSatisfied(mutationSummary, currentState, workspaceStateClosure);
                 case DELETE -> deleteSatisfied(mutationSummary, exists, workspaceStateClosure);
             };
             if (!satisfied) {
                 unsatisfied.add("""
-                        path=%s, action=%s, exists=%s, baselineExists=%s, baselineHash=%s, currentHash=%s, mutations=%s, closureMode=%s, reason=%s
+                        path=%s, contract=%s, exists=%s, baselineExists=%s, baselineHash=%s, currentHash=%s, mutations=%s, closureMode=%s, reason=%s
                         """.formatted(
                         relativePath.toString().replace('\\', '/'),
-                        change.action().name(),
+                        contract.mode().renderToken(),
                         exists,
                         mutationSummary != null && mutationSummary.beforeExists(),
                         mutationSummary == null ? "" : mutationSummary.beforeHash(),
                         currentState.contentHash(),
                         mutationSummary == null || mutationSummary.operations().isEmpty() ? "[]" : mutationSummary.operations(),
                         workspaceStateClosure ? "workspace-state" : "mutation-history",
-                        change.reason() == null ? "" : change.reason().trim()
+                        contract.reason()
                 ).trim());
             }
         }
@@ -503,7 +513,20 @@ public final class ImplementationToolLoopExecutor {
         return mutationsByPath;
     }
 
-    private boolean writeSatisfied(
+    private boolean createSatisfied(
+            PathMutationSummary mutationSummary,
+            FileStateSnapshot currentState
+    ) {
+        if (currentState == null || !currentState.exists() || mutationSummary == null) {
+            return false;
+        }
+        if (!matchesLatestTerminalState(mutationSummary, currentState)) {
+            return false;
+        }
+        return !mutationSummary.beforeExists() && mutationSummary.afterExists();
+    }
+
+    private boolean patchSatisfied(
             PathMutationSummary mutationSummary,
             FileStateSnapshot currentState,
             boolean workspaceStateClosure
@@ -557,13 +580,12 @@ public final class ImplementationToolLoopExecutor {
                 """.formatted(title).trim();
     }
 
-    private String summarizeDeclaredChanges(List<FileChange> changes) {
-        if (changes == null || changes.isEmpty()) {
+    private String summarizeExecutionFileContracts(ExecutionFileContractSet executionFileContract) {
+        if (executionFileContract == null || executionFileContract.isEmpty()) {
             return "[]";
         }
-        return changes.stream()
-                .filter(change -> change != null && change.path() != null && !change.path().isBlank() && change.action() != null)
-                .map(change -> "%s:%s".formatted(change.action().name(), change.path().replace('\\', '/')))
+        return executionFileContract.contracts().stream()
+                .map(contract -> "%s:%s".formatted(contract.mode().renderToken(), contract.path()))
                 .toList()
                 .toString();
     }
@@ -573,20 +595,6 @@ public final class ImplementationToolLoopExecutor {
                 ? "当前子任务"
                 : subtask.title().trim();
         return "已完成当前子任务的声明文件交付：%s".formatted(title);
-    }
-
-    private Set<Path> collectOwnedPaths(Subtask subtask) {
-        if (subtask == null || subtask.changes() == null || subtask.changes().isEmpty()) {
-            return Set.of();
-        }
-        Set<Path> paths = new LinkedHashSet<>();
-        for (FileChange change : subtask.changes()) {
-            if (change == null || change.path() == null || change.path().isBlank()) {
-                continue;
-            }
-            paths.add(Path.of(change.path()).normalize());
-        }
-        return Set.copyOf(paths);
     }
 
     private DeliveryMode activeDeliveryMode(Subtask subtask, SubtaskExecutionState executionState) {
@@ -648,5 +656,31 @@ public final class ImplementationToolLoopExecutor {
             String afterHash,
             EnumSet<ToolLoopMutationOperation> operations
     ) {
+    }
+
+    private TaskPackage materializeTaskPackage(
+            Subtask activeSubtask,
+            TaskPackage taskPackage,
+            ExecutionFileContractSet executionFileContract
+    ) {
+        if (taskPackage == null) {
+            return new TaskPackage(
+                    activeSubtask.title(),
+                    activeSubtask.goal(),
+                    activeSubtask.deliveryMode().name(),
+                    activeSubtask.runnableMilestone(),
+                    executionFileContract.ownedFiles(),
+                    activeSubtask.coverageRefs(),
+                    activeSubtask.ownedCapabilities(),
+                    activeSubtask.deferredCapabilities(),
+                    activeSubtask.acceptanceCriteria(),
+                    List.of(),
+                    List.of(),
+                    "",
+                    executionFileContract,
+                    null
+            );
+        }
+        return taskPackage.alignToSubtask(activeSubtask).withExecutionFileContract(executionFileContract);
     }
 }

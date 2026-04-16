@@ -7,14 +7,20 @@ import devflow.agent.executor.FileChange;
 import devflow.agent.executor.implementation.planning.ImplementationPlan;
 import devflow.agent.executor.subtask.Subtask;
 import devflow.agent.executor.subtask.TaskPackage;
+import devflow.agent.executor.subtask.ExecutionFileContractMode;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TaskPackageAssemblerTests {
+
+    @TempDir
+    Path tempDir;
 
     @Test
     void buildTaskPackagesPreservesAcceptedBoundaryContract() {
@@ -63,6 +69,41 @@ class TaskPackageAssemblerTests {
                 List.of("forbidden"),
                 "",
                 ""
+        );
+    }
+
+    @Test
+    void buildTaskPackagesMaterializesPatchExistingAgainstCurrentWorkspace() throws Exception {
+        Files.createDirectories(tempDir.resolve("src"));
+        Files.writeString(tempDir.resolve("src/app.js"), "export const ready = true;\n");
+        TaskPackageAssembler assembler = new TaskPackageAssembler(null);
+        ImplementationPlan plan = new ImplementationPlan(
+                "summary",
+                List.of(new Subtask(
+                        "subtask-1",
+                        "patch runtime",
+                        List.of("CAP-1"),
+                        List.of("runtime"),
+                        List.of(),
+                        List.of("页面可打开"),
+                        true,
+                        DeliveryMode.PATCH,
+                        List.of(new FileChange("src/app.js", ChangeAction.WRITE, "patch existing runtime"))
+                ))
+        );
+
+        List<TaskPackage> packages = assembler.buildTaskPackages(
+                tempDir,
+                plan,
+                sharedContextBundle(),
+                null,
+                null
+        );
+
+        assertEquals(1, packages.size());
+        assertEquals(
+                ExecutionFileContractMode.PATCH_EXISTING,
+                packages.getFirst().executionFileContract().contractFor(Path.of("src/app.js")).mode()
         );
     }
 }

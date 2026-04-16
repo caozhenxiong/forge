@@ -33,6 +33,7 @@ import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import devflow.agent.executor.subtask.ExecutionFileContractMaterializer;
 import devflow.agent.executor.implementation.toolloop.CoderReadFileState;
 import devflow.agent.executor.implementation.toolloop.ImplementationToolContext;
 import devflow.agent.executor.implementation.toolloop.ImplementationToolSessionState;
@@ -145,7 +146,10 @@ class FileWriteToolTests {
                 new ImplementationToolSessionState(),
                 new ImplementationToolPermissionContext(
                         tempDir,
-                        Set.of(Path.of("app.js")),
+                        new ExecutionFileContractMaterializer().materialize(
+                                tempDir,
+                                List.of(new FileChange("app.js", ChangeAction.WRITE, "更新 app.js"))
+                        ),
                         Set.of("Read", "Write"),
                         5_000L,
                         5_000L,
@@ -158,8 +162,7 @@ class FileWriteToolTests {
                         new ImplementationToolPermissionProperties(List.of("Read", "Write")),
                         new ImplementationExecutionPolicy()
                 ),
-                deliveryMode,
-                List.of(new FileChange("app.js", ChangeAction.WRITE, "更新 app.js"))
+                deliveryMode
         );
         context.readFileStateLedger().put(
                 file,
