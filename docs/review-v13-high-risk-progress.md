@@ -107,9 +107,31 @@
 
 ## Current Status
 
-- 当前阶段：`READY_FOR_SINGLE_COMMIT`
-- 当前 blocker：`无；v13 high-risk 代码、自测、代码 review 已完成，等待一次性提交`
+- 当前阶段：`REVIEW_FIXES_REQUIRED`
+- 当前 blocker：`存在 3 条最新代码 review 阻塞：repair round 复用旧 mutation history、detail gate 误杀合法 runtime package、WEB_RESOURCE_LINK_CHECK 仍误判 root-relative 资源`
 - 当前约束：`禁止兼容层、禁止双轨并存、禁止 fallback、禁止“后续再清理”`
+
+## Latest Reviewer Findings
+
+以下结论基于最新代码静态 review，当前状态不能按 `PASSED_FOR_SINGLE_COMMIT` 继续推进：
+
+1. `repair / reopen` 轮次还在复用上一轮的 `mutation history`，会导致“本轮没改代码也能被判定收口”。
+   落点：`src/main/java/devflow/agent/executor/implementation/ImplementationResumePolicy.java`、`src/main/java/devflow/agent/executor/subtask/SubtaskExecutionState.java`、`src/main/java/devflow/agent/executor/implementation/toolloop/ImplementationToolLoopExecutor.java`
+   问题：新的 repair round 只清 transcript，不清旧 `mutationRecords`；而 existing-file closure 现在接受“current state matches latest terminal state”，所以 reopened patch / revision retry 在当前轮零新 mutation 时，仍可能直接 assistant-only 收口。
+
+2. planning detail gate 现在会误杀合法的“首轮 runtime externalization 完整包”。
+   落点：`src/main/java/devflow/agent/executor/implementation/planning/ImplementationPlanChangeGate.java`
+   问题：`runtimeScriptRole=LEAF` 目前只认“当前图里已有 reachable anchor”，不认“同包里新增的 ROOT + host patch”；因此 `index.html host patch + index.app.js(ROOT) + src/engine.js(LEAF)` 这类本应合法的一次性完整 package 会被 detail gate 误判非法。
+
+3. root-relative 资源路径在自测链路里还没统一，合法产物会被 `WEB_RESOURCE_LINK_CHECK` 误判失败。
+   落点：`src/main/java/devflow/agent/validation/WebResourceValidationSupport.java`、`src/main/java/devflow/agent/validation/ValidationExecutor.java`
+   问题：runtime graph / ownership 已开始支持 `"/js/app.js"` 这类 root-relative 引用，但资源校验仍按 html 所在目录拼接路径，导致合法 root-relative script / stylesheet 仍可能被判 missing resource。
+
+修复顺序建议固定为：
+
+1. 先修第 1 条，确保 repair / reopen 的收口证据只来自当前 round
+2. 再修第 2 条，避免 planning 把正确 runtime package 挡在入口外
+3. 最后修第 3 条，统一 self-check 对 root-relative 资源的解析
 
 ## Evidence Log
 
@@ -160,13 +182,13 @@
 ## Completion Gate
 
 - [x] `S1` fresh vs repair boundary 单轨收口
-- [x] `S2` existing-file closure 只认 canonical mutation terminal state
+- [ ] `S2` existing-file closure 只认 canonical mutation terminal state
 - [x] `S3` root-relative runtime path 在 planning/runtime/ownership 单轨收口
-- [x] `S4` planning runtime facts boundary 在 outline/detail 单轨收口
-- [x] `R1 ~ R9` 全部补齐
-- [x] `self-test + code review + docs` 全部补齐
+- [ ] `S4` planning runtime facts boundary 在 outline/detail 单轨收口
+- [ ] `R1 ~ R9` 全部补齐
+- [ ] `self-test + code review + docs` 全部补齐
 
-结果：`PASSED_FOR_SINGLE_COMMIT`
+结果：`REVIEW_BLOCKED`
 
 ## Review Focus
 
