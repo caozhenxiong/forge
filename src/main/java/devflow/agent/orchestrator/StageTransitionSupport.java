@@ -93,7 +93,14 @@ public class StageTransitionSupport {
         if (context.intent() == HumanReviewIntent.CONFIRM_REPAIR_ROUTE) {
             return stageStatusSupport.rejectRepairRouteTerminal(projectPath, runRecord, stageType, reviewer, reason);
         }
-        return stageRevisionSupport.rejectHumanReview(projectPath, runRecord, stageType, reviewer, reason, stageEntryAction);
+        return stageRevisionSupport.rejectHumanReview(
+                projectPath,
+                runRecord.withHumanReviewResolutionContext(null),
+                stageType,
+                reviewer,
+                reason,
+                stageEntryAction
+        );
     }
 
     public RunRecord onStageApproved(

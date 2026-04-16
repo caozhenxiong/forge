@@ -195,6 +195,47 @@ class StageTransitionSupportTests {
     }
 
     @Test
+    void rejectHumanReviewClearsStageGateContextBeforeReroute() {
+        FileRunRepository runRepository = new FileRunRepository();
+        runRepository.initialize(tempDir);
+        StageTransitionSupport support = newSupport(runRepository);
+        RunRecord runRecord = runRepository.save(
+                newRunRecord(tempDir).withHumanReviewResolutionContext(
+                        HumanReviewResolutionContext.approveStageGate("需要人工确认", "退回当前阶段修订")
+                ).withCurrentStage(
+                        StageType.ANALYSIS,
+                        RunStatus.BLOCKED,
+                        stageStates(new StageExecution(
+                                StageType.ANALYSIS,
+                                StageStatus.AWAITING_HUMAN_REVIEW,
+                                1,
+                                null,
+                                ReviewDecision.REVISION_REQUIRED,
+                                "需要人工确认",
+                                "退回当前阶段修订"
+                        )),
+                        Instant.now()
+                )
+        );
+
+        RunRecord rerouted = support.rejectHumanReview(
+                tempDir,
+                runRecord,
+                StageType.ANALYSIS,
+                "tester",
+                "不同意当前结论",
+                (draft, stageType, runStatus, note) -> runRepository.save(draft)
+        );
+
+        RunRecord reloaded = runRepository.findById(tempDir, runRecord.runId()).orElseThrow();
+        assertEquals(null, rerouted.humanReviewResolutionContext());
+        assertEquals(null, reloaded.humanReviewResolutionContext());
+        assertEquals(StageType.ANALYSIS, reloaded.currentStage());
+        assertEquals(RunStatus.IN_PROGRESS, reloaded.status());
+        assertEquals(StageStatus.NEEDS_REVISION, reloaded.stageStates().get(StageType.ANALYSIS).status());
+    }
+
+    @Test
     void rerouteForRevisionFailsWhenAutoRevisionBudgetIsExhausted() {
         FileRunRepository runRepository = new FileRunRepository();
         runRepository.initialize(tempDir);
