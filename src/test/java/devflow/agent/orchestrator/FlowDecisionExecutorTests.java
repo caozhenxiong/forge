@@ -1,5 +1,7 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.domain.HumanReviewIntent;
+import devflow.agent.domain.HumanReviewResolutionContext;
 import devflow.agent.domain.RunConfig;
 import devflow.agent.domain.RunRecord;
 import devflow.agent.domain.RunStatus;
@@ -227,10 +229,17 @@ class FlowDecisionExecutorTests {
     @Test
     void requestHumanReviewUsesBlockedReviewOverrideWhenProvided() {
         AtomicReference<ReviewResult> capturedReview = new AtomicReference<>();
+        AtomicReference<HumanReviewResolutionContext> capturedContext = new AtomicReference<>();
         StageTransitionSupport stageTransitionSupport = new StageTransitionSupport(null, null, null) {
             @Override
-            public RunRecord blockForHumanReview(RunRecord runRecord, StageType stageType, ReviewResult reviewResult) {
+            public RunRecord blockForHumanReview(
+                    RunRecord runRecord,
+                    StageType stageType,
+                    ReviewResult reviewResult,
+                    HumanReviewResolutionContext context
+            ) {
                 capturedReview.set(reviewResult);
+                capturedContext.set(context);
                 return runRecord;
             }
         };
@@ -285,6 +294,8 @@ class FlowDecisionExecutorTests {
         assertEquals("缺少结构化 patch scope，不能自动续跑。", capturedReview.get().summary());
         assertEquals("请先补齐 overrideChanges。", capturedReview.get().changeRequest());
         assertEquals(ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION, capturedReview.get().implementationPatchTarget());
+        assertEquals(HumanReviewIntent.CONFIRM_REPAIR_ROUTE, capturedContext.get().intent());
+        assertEquals(StageType.IMPLEMENTATION, capturedContext.get().targetStage());
     }
 
     private FlowDecisionExecutor newExecutor(AtomicReference<RevisionContext> capturedContext) {

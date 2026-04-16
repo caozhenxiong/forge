@@ -1,5 +1,7 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.domain.HumanReviewIntent;
+import devflow.agent.domain.HumanReviewResolutionContext;
 import devflow.agent.domain.RunConfig;
 import devflow.agent.domain.RunRecord;
 import devflow.agent.domain.RunStatus;
@@ -22,6 +24,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StageStatusSupportTests {
 
@@ -38,11 +42,50 @@ class StageStatusSupportTests {
         RunRecord blocked = support.blockForHumanReview(
                 runRecord,
                 StageType.ANALYSIS,
-                new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", "")
+                new ReviewResult(ReviewDecision.APPROVED, FixMode.NONE, "ok", ""),
+                HumanReviewResolutionContext.approveStageGate("ok", "")
         );
 
         assertEquals(RunStatus.BLOCKED, blocked.status());
         assertEquals(StageStatus.AWAITING_HUMAN_REVIEW, blocked.stageStates().get(StageType.ANALYSIS).status());
+        assertNotNull(blocked.humanReviewResolutionContext());
+        assertEquals(HumanReviewIntent.APPROVE_STAGE_GATE, blocked.humanReviewResolutionContext().intent());
+    }
+
+    @Test
+    void rejectRepairRouteTerminalKeepsBlockedStateAndMarksContextTerminal() {
+        FileRunRepository runRepository = new FileRunRepository();
+        runRepository.initialize(tempDir);
+        StageStatusSupport support = newSupport(runRepository);
+        RunRecord runRecord = runRepository.save(
+                newRunRecord(StageType.TEST, StageStatus.AWAITING_HUMAN_REVIEW, 1)
+                        .withHumanReviewResolutionContext(
+                                HumanReviewResolutionContext.confirmRepairRoute(
+                                        StageType.IMPLEMENTATION,
+                                        FixMode.PATCH,
+                                        devflow.agent.review.ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                                        java.util.List.of(),
+                                        "repair summary",
+                                        "repair change",
+                                        "evidence",
+                                        "actions",
+                                        devflow.agent.protocol.ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK
+                                )
+                        )
+        );
+
+        RunRecord blocked = support.rejectRepairRouteTerminal(
+                tempDir,
+                runRecord,
+                StageType.TEST,
+                "tester",
+                "不同意当前 repair route"
+        );
+
+        assertEquals(RunStatus.BLOCKED, blocked.status());
+        assertEquals(StageStatus.AWAITING_HUMAN_REVIEW, blocked.stageStates().get(StageType.TEST).status());
+        assertTrue(blocked.humanReviewResolutionContext().terminal());
+        assertTrue(blocked.humanReviewResolutionContext().diagnosticMessage().contains("terminal human state"));
     }
 
     @Test

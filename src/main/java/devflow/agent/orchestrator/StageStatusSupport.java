@@ -1,5 +1,6 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.domain.HumanReviewResolutionContext;
 import devflow.agent.domain.RunRecord;
 import devflow.agent.domain.RunStatus;
 import devflow.agent.domain.StageExecution;
@@ -75,10 +76,14 @@ public class StageStatusSupport {
             String reviewer,
             StageTransitionSupport.StageEntryAction stageEntryAction
     ) {
+        HumanReviewResolutionContext context = requireHumanReviewContext(runRecord, stageType);
         Map<StageType, StageExecution> nextStates = mutableStageStates(runRecord);
         StageExecution currentExecution = requireStage(nextStates, stageType);
         if (currentExecution.status() != StageStatus.AWAITING_HUMAN_REVIEW) {
             throw new IllegalStateException("Stage is not awaiting human review: " + stageType);
+        }
+        if (context.terminal()) {
+            throw new TerminalHumanApprovalRejectedException(runRecord, stageType, context, reviewer);
         }
 
         nextStates.put(
@@ -108,7 +113,8 @@ public class StageStatusSupport {
             return runRepository.save(completed);
         }
 
-        RunRecord draft = runRecord.withCurrentStage(nextStage, RunStatus.IN_PROGRESS, nextStates, now);
+        RunRecord draft = runRecord.withHumanReviewResolutionContext(null)
+                .withCurrentStage(nextStage, RunStatus.IN_PROGRESS, nextStates, now);
         return stageEntryAction.enter(draft, nextStage, RunStatus.IN_PROGRESS, "由人工批准 " + stageType + " 后进入当前阶段。");
     }
 
@@ -138,7 +144,12 @@ public class StageStatusSupport {
         return stageEntryAction.enter(draft, nextStage, RunStatus.IN_PROGRESS, note);
     }
 
-    public RunRecord blockForHumanReview(RunRecord runRecord, StageType stageType, ReviewResult reviewResult) {
+    public RunRecord blockForHumanReview(
+            RunRecord runRecord,
+            StageType stageType,
+            ReviewResult reviewResult,
+            HumanReviewResolutionContext context
+    ) {
         Map<StageType, StageExecution> nextStates = mutableStageStates(runRecord);
         StageExecution currentExecution = requireStage(nextStates, stageType);
         nextStates.put(
@@ -146,7 +157,48 @@ public class StageStatusSupport {
                 currentExecution.withStatus(StageStatus.AWAITING_HUMAN_REVIEW)
                         .withReview(reviewResult.decision(), reviewResult.summary(), reviewResult.changeRequest())
         );
-        RunRecord blocked = runRecord.withCurrentStage(stageType, RunStatus.BLOCKED, nextStates, Instant.now());
+        RunRecord blocked = runRecord.withHumanReviewResolutionContext(context)
+                .withCurrentStage(stageType, RunStatus.BLOCKED, nextStates, Instant.now());
+        return runRepository.save(blocked);
+    }
+
+    public RunRecord rejectRepairRouteTerminal(
+            Path projectPath,
+            RunRecord runRecord,
+            StageType stageType,
+            String reviewer,
+            String reason
+    ) {
+        HumanReviewResolutionContext context = requireHumanReviewContext(runRecord, stageType);
+        Map<StageType, StageExecution> nextStates = mutableStageStates(runRecord);
+        StageExecution currentExecution = requireStage(nextStates, stageType);
+        if (currentExecution.status() != StageStatus.AWAITING_HUMAN_REVIEW) {
+            throw new IllegalStateException("Stage is not awaiting human review: " + stageType);
+        }
+        HumanReviewResolutionContext terminalContext = context.asTerminal(buildTerminalDiagnostic(stageType, reason));
+        DocumentLanguage language = languagePolicy.resolve(runRecord.goal(), runRecord.constraints());
+        artifactStore.appendReviewHistory(
+                projectPath,
+                runRecord.runId(),
+                stageType,
+                workflowArtifactRenderer.renderReviewHistoryEntry(
+                        stageType,
+                        currentExecution.attempt(),
+                        "human:" + reviewer,
+                        new ReviewResult(
+                                ReviewDecision.REJECTED,
+                                context.fixMode(),
+                                "Repair route rejected by " + reviewer,
+                                reason,
+                                terminalContext.diagnosticMessage(),
+                                ""
+                        ),
+                        language
+                )
+        );
+        eventLogStore.append(projectPath, runRecord.runId(), WorkflowEventMessages.humanRejectedRepairRoute(stageType, reviewer));
+        RunRecord blocked = runRecord.withHumanReviewResolutionContext(terminalContext)
+                .withCurrentStage(stageType, RunStatus.BLOCKED, nextStates, Instant.now());
         return runRepository.save(blocked);
     }
 
@@ -214,6 +266,19 @@ public class StageStatusSupport {
 
     private Map<StageType, StageExecution> mutableStageStates(RunRecord runRecord) {
         return new EnumMap<>(runRecord.stageStates());
+    }
+
+    private HumanReviewResolutionContext requireHumanReviewContext(RunRecord runRecord, StageType stageType) {
+        HumanReviewResolutionContext context = runRecord.humanReviewResolutionContext();
+        if (context == null) {
+            throw new IllegalStateException("Missing human review resolution context for stage " + stageType);
+        }
+        return context;
+    }
+
+    private String buildTerminalDiagnostic(StageType stageType, String reason) {
+        String suffix = reason == null || reason.isBlank() ? "" : " 原因：" + reason.trim();
+        return "阶段 " + stageType + " 的 repair route 已被人工拒绝，当前处于 terminal human state，不能再次批准。" + suffix;
     }
 
     static StageExecution requireStage(Map<StageType, StageExecution> stageStates, StageType stageType) {

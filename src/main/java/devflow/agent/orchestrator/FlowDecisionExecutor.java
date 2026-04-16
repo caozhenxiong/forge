@@ -1,5 +1,6 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.domain.HumanReviewResolutionContext;
 import devflow.agent.domain.RunRecord;
 import devflow.agent.domain.StageType;
 import devflow.agent.domain.WorkflowAction;
@@ -20,13 +21,23 @@ public class FlowDecisionExecutor {
 
     private final StageTransitionSupport stageTransitionSupport;
     private final StageEntryExecutor stageEntryExecutor;
+    private final HumanReviewResolutionContextResolver humanReviewContextResolver;
 
     public FlowDecisionExecutor(
             StageTransitionSupport stageTransitionSupport,
             StageEntryExecutor stageEntryExecutor
     ) {
+        this(stageTransitionSupport, stageEntryExecutor, new HumanReviewResolutionContextResolver());
+    }
+
+    FlowDecisionExecutor(
+            StageTransitionSupport stageTransitionSupport,
+            StageEntryExecutor stageEntryExecutor,
+            HumanReviewResolutionContextResolver humanReviewContextResolver
+    ) {
         this.stageTransitionSupport = stageTransitionSupport;
         this.stageEntryExecutor = stageEntryExecutor;
+        this.humanReviewContextResolver = humanReviewContextResolver;
     }
 
     public RunRecord apply(
@@ -51,7 +62,12 @@ public class FlowDecisionExecutor {
             );
         }
         if (action == WorkflowAction.REQUEST_HUMAN_REVIEW) {
-            return stageTransitionSupport.blockForHumanReview(runRecord, stageType, effectiveReviewResult);
+            return stageTransitionSupport.blockForHumanReview(
+                    runRecord,
+                    stageType,
+                    effectiveReviewResult,
+                    humanReviewContextResolver.resolveForHumanReview(stageType, effectiveReviewResult, supervisorDecision, flowDecision)
+            );
         }
         if (action == WorkflowAction.COMPLETE_RUN) {
             return stageTransitionSupport.completeRun(runRecord, stageType, effectiveReviewResult);
@@ -161,8 +177,9 @@ public class FlowDecisionExecutor {
     public RunRecord blockForHumanReview(
             RunRecord runRecord,
             StageType stageType,
-            ReviewResult reviewResult
+            ReviewResult reviewResult,
+            HumanReviewResolutionContext context
     ) {
-        return stageTransitionSupport.blockForHumanReview(runRecord, stageType, reviewResult);
+        return stageTransitionSupport.blockForHumanReview(runRecord, stageType, reviewResult, context);
     }
 }

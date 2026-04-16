@@ -39,6 +39,7 @@ public class StageProgressCoordinator {
     private final ImplementationProgressSupport implementationProgressSupport;
     private final RepeatIssueDetector repeatIssueDetector;
     private final LanguagePolicy languagePolicy;
+    private final HumanReviewResolutionContextResolver humanReviewContextResolver;
 
     public StageProgressCoordinator(
             FileArtifactStore artifactStore,
@@ -53,6 +54,36 @@ public class StageProgressCoordinator {
             RepeatIssueDetector repeatIssueDetector,
             LanguagePolicy languagePolicy
     ) {
+        this(
+                artifactStore,
+                supervisorAgent,
+                flowController,
+                contextProjector,
+                stageOperationExecutor,
+                flowDecisionExecutor,
+                artifactSupport,
+                stageToolResultGate,
+                implementationProgressSupport,
+                repeatIssueDetector,
+                languagePolicy,
+                new HumanReviewResolutionContextResolver()
+        );
+    }
+
+    StageProgressCoordinator(
+            FileArtifactStore artifactStore,
+            SupervisorAgent supervisorAgent,
+            FlowController flowController,
+            ContextProjector contextProjector,
+            StageOperationExecutor stageOperationExecutor,
+            FlowDecisionExecutor flowDecisionExecutor,
+            StageProgressArtifactSupport artifactSupport,
+            StageToolResultGate stageToolResultGate,
+            ImplementationProgressSupport implementationProgressSupport,
+            RepeatIssueDetector repeatIssueDetector,
+            LanguagePolicy languagePolicy,
+            HumanReviewResolutionContextResolver humanReviewContextResolver
+    ) {
         this.artifactStore = artifactStore;
         this.supervisorAgent = supervisorAgent;
         this.flowController = flowController;
@@ -64,6 +95,7 @@ public class StageProgressCoordinator {
         this.implementationProgressSupport = implementationProgressSupport;
         this.repeatIssueDetector = repeatIssueDetector;
         this.languagePolicy = languagePolicy;
+        this.humanReviewContextResolver = humanReviewContextResolver;
     }
 
     public LoopStepResult progress(Path projectPath, RunRecord current) {
@@ -196,7 +228,12 @@ public class StageProgressCoordinator {
         );
         artifactSupport.writeBlockedStageArtifacts(projectPath, current, transitionDecision, language);
         ReviewResult reviewResult = implementationProgress.humanReviewResult();
-        RunRecord next = flowDecisionExecutor.blockForHumanReview(current, stageType, reviewResult);
+        RunRecord next = flowDecisionExecutor.blockForHumanReview(
+                current,
+                stageType,
+                reviewResult,
+                humanReviewContextResolver.confirmRepairRoute(StageType.IMPLEMENTATION, continuationContext)
+        );
         return new LoopStepResult(next, transitionDecision, flowController.shouldContinue(next));
     }
 

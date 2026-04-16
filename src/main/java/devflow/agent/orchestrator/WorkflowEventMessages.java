@@ -75,6 +75,10 @@ public final class WorkflowEventMessages {
         return "阶段｜人工批准｜阶段=%s｜审批人=%s".formatted(stageType, reviewer);
     }
 
+    public static String humanRejectedRepairRoute(StageType stageType, String reviewer) {
+        return "阶段｜人工拒绝修复回流｜阶段=%s｜审批人=%s".formatted(stageType, reviewer);
+    }
+
     public static String maxAutoRevisionsExceeded(StageType stageType) {
         return "阶段｜超过最大自动修订次数｜阶段=%s".formatted(stageType);
     }

@@ -1,8 +1,10 @@
 package devflow.agent.interfaceadapter.cli;
 
+import devflow.agent.domain.HumanReviewResolutionContext;
 import devflow.agent.domain.RunRecord;
 import devflow.agent.domain.StageExecution;
 import devflow.agent.domain.StageType;
+import devflow.agent.orchestrator.TerminalHumanApprovalRejectedException;
 import java.util.Locale;
 import java.util.Map;
 
@@ -20,6 +22,17 @@ final class CliOutputRenderer {
         builder.append("goal: ").append(runRecord.goal()).append('\n');
         if (!runRecord.constraints().isBlank()) {
             builder.append("constraints: ").append(runRecord.constraints()).append('\n');
+        }
+        HumanReviewResolutionContext humanReviewContext = runRecord.humanReviewResolutionContext();
+        if (humanReviewContext != null) {
+            builder.append("humanReview: ")
+                    .append("intent=").append(humanReviewContext.intent())
+                    .append(", targetStage=").append(humanReviewContext.targetStage())
+                    .append(", terminal=").append(humanReviewContext.terminal())
+                    .append('\n');
+            if (!humanReviewContext.diagnosticMessage().isBlank()) {
+                builder.append("humanReviewDiagnostic: ").append(humanReviewContext.diagnosticMessage()).append('\n');
+            }
         }
         builder.append("stages:\n");
         for (Map.Entry<StageType, StageExecution> entry : runRecord.stageStates().entrySet()) {
@@ -43,6 +56,19 @@ final class CliOutputRenderer {
             }
         }
         return builder.toString().stripTrailing();
+    }
+
+    String renderTerminalApprovalRejected(TerminalHumanApprovalRejectedException exception) {
+        RunRecord runRecord = exception.runRecord();
+        StringBuilder builder = new StringBuilder();
+        builder.append("terminalApprovalRejected: true\n");
+        builder.append("runId: ").append(runRecord.runId()).append('\n');
+        builder.append("stage: ").append(exception.stageType()).append('\n');
+        builder.append("reviewer: ").append(exception.reviewer()).append('\n');
+        builder.append("message: ").append(exception.context().diagnosticMessage()).append('\n');
+        builder.append("status: ").append(runRecord.status()).append('\n');
+        builder.append("currentStage: ").append(runRecord.currentStage());
+        return builder.toString();
     }
 
     String renderUsage() {

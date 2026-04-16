@@ -24,6 +24,8 @@ import devflow.agent.executor.ChangeAction;
 import devflow.agent.executor.FileChange;
 import devflow.agent.executor.generation.GenerationTelemetry;
 import devflow.agent.project.FileProjectWorkspace;
+import devflow.agent.domain.HumanReviewIntent;
+import devflow.agent.domain.HumanReviewResolutionContext;
 import devflow.agent.protocol.ImplementationContinuationMode;
 import devflow.agent.protocol.ImplementationStageStatusPayload;
 import devflow.agent.repair.DiagnosisAgent;
@@ -389,10 +391,13 @@ class StageProgressCoordinatorTests {
             public RunRecord blockForHumanReview(
                     RunRecord currentRun,
                     StageType stageType,
-                    ReviewResult reviewResult
+                    ReviewResult reviewResult,
+                    HumanReviewResolutionContext context
             ) {
                 blockedCalled.set(true);
                 blockedReview.set(reviewResult);
+                assertEquals(HumanReviewIntent.CONFIRM_REPAIR_ROUTE, context.intent());
+                assertEquals(StageType.IMPLEMENTATION, context.targetStage());
                 return currentRun.withCurrentStage(stageType, RunStatus.BLOCKED, currentRun.stageStates(), Instant.now());
             }
         };

@@ -2,6 +2,7 @@ package devflow.agent.interfaceadapter.cli;
 
 import devflow.agent.artifact.EventLogStore;
 import devflow.agent.artifact.FileArtifactStore;
+import devflow.agent.orchestrator.TerminalHumanApprovalRejectedException;
 import devflow.agent.orchestrator.WorkflowEngine;
 import devflow.agent.util.DevflowPathSupport;
 import java.nio.file.Path;
@@ -57,8 +58,12 @@ public class DevflowCliRunner implements CommandLineRunner {
             printUsage();
             return;
         }
-        if (!runCommandHandler.handle(args)) {
-            printUsage();
+        try {
+            if (!runCommandHandler.handle(args)) {
+                printUsage();
+            }
+        } catch (TerminalHumanApprovalRejectedException exception) {
+            System.out.println(outputRenderer.renderTerminalApprovalRejected(exception));
         }
     }
 

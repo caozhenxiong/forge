@@ -3,6 +3,7 @@ package devflow.agent.orchestrator;
 import devflow.agent.executor.llm.LlmProvider;
 
 import devflow.agent.domain.GatePolicy;
+import devflow.agent.domain.HumanReviewResolutionContext;
 import devflow.agent.domain.RunConfig;
 import devflow.agent.domain.RunRecord;
 import devflow.agent.domain.RunStatus;
@@ -101,6 +102,96 @@ class StageTransitionSupportTests {
         assertTrue(capturedNote.get().contains("DEVFLOW:EXECUTION_DIRECTIVES:BEGIN"), capturedNote.get());
         assertTrue(capturedNote.get().contains("\"deliveryMode\" : \"NONE\""), capturedNote.get());
         assertTrue(capturedNote.get().contains("聚焦入口"), capturedNote.get());
+    }
+
+    @Test
+    void approveHumanReviewClearsStageGateContextAfterApproval() {
+        FileRunRepository runRepository = new FileRunRepository();
+        runRepository.initialize(tempDir);
+        StageTransitionSupport support = newSupport(runRepository);
+        RunRecord runRecord = runRepository.save(
+                newRunRecord(tempDir).withHumanReviewResolutionContext(
+                        HumanReviewResolutionContext.approveStageGate("approved", "")
+                ).withCurrentStage(
+                        StageType.ANALYSIS,
+                        RunStatus.BLOCKED,
+                        stageStates(new StageExecution(
+                                StageType.ANALYSIS,
+                                StageStatus.AWAITING_HUMAN_REVIEW,
+                                1,
+                                null,
+                                ReviewDecision.APPROVED,
+                                "approved",
+                                ""
+                        )),
+                        Instant.now()
+                )
+        );
+
+        RunRecord approved = support.approveHumanReview(
+                tempDir,
+                runRecord,
+                StageType.ANALYSIS,
+                "tester",
+                (draft, stageType, runStatus, note) -> draft
+        );
+
+        assertEquals(StageType.PRD, approved.currentStage());
+        assertEquals(StageStatus.APPROVED, approved.stageStates().get(StageType.ANALYSIS).status());
+        assertEquals(null, approved.humanReviewResolutionContext());
+    }
+
+    @Test
+    void approveHumanReviewConfirmsRepairRouteWithoutApprovingCurrentStage() {
+        FileRunRepository runRepository = new FileRunRepository();
+        runRepository.initialize(tempDir);
+        StageTransitionSupport support = newSupport(runRepository);
+        RunRecord runRecord = runRepository.save(
+                new RunRecord(
+                        UUID.randomUUID(),
+                        tempDir,
+                        "goal",
+                        "",
+                        RunConfig.defaultConfig(),
+                        StageType.TEST,
+                        RunStatus.BLOCKED,
+                        stageStates(new StageExecution(
+                                StageType.TEST,
+                                StageStatus.AWAITING_HUMAN_REVIEW,
+                                1,
+                                null,
+                                ReviewDecision.REJECTED,
+                                "测试拒绝",
+                                "回 implementation 修复"
+                        )),
+                        HumanReviewResolutionContext.confirmRepairRoute(
+                                StageType.IMPLEMENTATION,
+                                FixMode.PATCH,
+                                ImplementationPatchTarget.PATCH_EXISTING_IMPLEMENTATION,
+                                patchExistingOverrideChanges(),
+                                "测试拒绝",
+                                "回 implementation 修复",
+                                "缺少运行证据",
+                                "1. 修复 2. 复测",
+                                devflow.agent.protocol.ImplementationContinuationMode.BLOCKED_EXHAUSTED_SUBTASK
+                        ),
+                        Instant.now(),
+                        Instant.now()
+                )
+        );
+
+        RunRecord rerouted = support.approveHumanReview(
+                tempDir,
+                runRecord,
+                StageType.TEST,
+                "tester",
+                (draft, stageType, runStatus, note) -> draft
+        );
+
+        assertEquals(StageType.IMPLEMENTATION, rerouted.currentStage());
+        assertEquals(StageStatus.NEEDS_REVISION, rerouted.stageStates().get(StageType.TEST).status());
+        assertEquals(ReviewDecision.REJECTED, rerouted.stageStates().get(StageType.TEST).reviewDecision());
+        assertEquals(null, rerouted.humanReviewResolutionContext());
     }
 
     @Test

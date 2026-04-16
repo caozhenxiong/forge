@@ -1,5 +1,7 @@
 package devflow.agent.orchestrator;
 
+import devflow.agent.domain.HumanReviewIntent;
+import devflow.agent.domain.HumanReviewResolutionContext;
 import devflow.agent.domain.RunRecord;
 import devflow.agent.domain.RunStatus;
 import devflow.agent.domain.StageExecution;
@@ -47,7 +49,33 @@ public class StageTransitionSupport {
         if (runRecord.currentStage() != stageType) {
             throw new IllegalStateException("Stage " + stageType + " is not current stage " + runRecord.currentStage());
         }
-        return stageStatusSupport.approveHumanReview(projectPath, runRecord, stageType, reviewer, stageEntryAction);
+        HumanReviewResolutionContext context = requireHumanReviewContext(runRecord, stageType);
+        if (context.intent() == HumanReviewIntent.APPROVE_STAGE_GATE) {
+            return stageStatusSupport.approveHumanReview(projectPath, runRecord, stageType, reviewer, stageEntryAction);
+        }
+        if (context.terminal()) {
+            throw new TerminalHumanApprovalRejectedException(runRecord, stageType, context, reviewer);
+        }
+        return stageRevisionSupport.rerouteForRevision(
+                projectPath,
+                runRecord.withHumanReviewResolutionContext(null),
+                stageType,
+                new RevisionContext(
+                        currentReviewDecision(runRecord, stageType),
+                        context.fixMode(),
+                        context.implementationPatchTarget(),
+                        context.summary(),
+                        context.changeRequest(),
+                        context.evidence(),
+                        context.actionItems(),
+                        context.overrideChanges(),
+                        null,
+                        context.targetStage() == null ? stageType : context.targetStage(),
+                        true,
+                        false
+                ),
+                stageEntryAction
+        );
     }
 
     public RunRecord rejectHumanReview(
@@ -60,6 +88,10 @@ public class StageTransitionSupport {
     ) {
         if (runRecord.currentStage() != stageType) {
             throw new IllegalStateException("Stage " + stageType + " is not current stage " + runRecord.currentStage());
+        }
+        HumanReviewResolutionContext context = requireHumanReviewContext(runRecord, stageType);
+        if (context.intent() == HumanReviewIntent.CONFIRM_REPAIR_ROUTE) {
+            return stageStatusSupport.rejectRepairRouteTerminal(projectPath, runRecord, stageType, reviewer, reason);
         }
         return stageRevisionSupport.rejectHumanReview(projectPath, runRecord, stageType, reviewer, reason, stageEntryAction);
     }
@@ -84,9 +116,14 @@ public class StageTransitionSupport {
         );
     }
 
-    public RunRecord blockForHumanReview(RunRecord runRecord, StageType stageType, ReviewResult reviewResult) {
+    public RunRecord blockForHumanReview(
+            RunRecord runRecord,
+            StageType stageType,
+            ReviewResult reviewResult,
+            HumanReviewResolutionContext context
+    ) {
         // human review 是流程阻塞态，不改变当前阶段，只切 run/status 并保留 review 结论。
-        return stageStatusSupport.blockForHumanReview(runRecord, stageType, reviewResult);
+        return stageStatusSupport.blockForHumanReview(runRecord, stageType, reviewResult, context);
     }
 
     public RunRecord completeRun(RunRecord runRecord, StageType stageType, ReviewResult reviewResult) {
@@ -151,6 +188,21 @@ public class StageTransitionSupport {
 
     public String mergeActionItems(String actionItems, SupervisorDecision supervisorDecision) {
         return stageRevisionSupport.mergeActionItems(actionItems, supervisorDecision);
+    }
+
+    private HumanReviewResolutionContext requireHumanReviewContext(RunRecord runRecord, StageType stageType) {
+        HumanReviewResolutionContext context = runRecord.humanReviewResolutionContext();
+        if (context == null) {
+            throw new IllegalStateException("Missing human review context for stage " + stageType);
+        }
+        return context;
+    }
+
+    private devflow.agent.review.ReviewDecision currentReviewDecision(RunRecord runRecord, StageType stageType) {
+        StageExecution execution = StageStatusSupport.requireStage(runRecord.stageStates(), stageType);
+        return execution.reviewDecision() == null
+                ? devflow.agent.review.ReviewDecision.REVISION_REQUIRED
+                : execution.reviewDecision();
     }
     @FunctionalInterface
     public interface StageEntryAction {
