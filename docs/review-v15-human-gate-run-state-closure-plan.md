@@ -37,6 +37,8 @@
 8. `CONFIRM_REPAIR_ROUTE + reject` 形成的 terminal human state 必须在协议上可区分，不能再次被 `approveStage()` / autopilot 放行：
    - 本轮不新增新的人工 repair-routing API
    - 但必须通过 `HumanReviewResolutionContext` 的 terminal 标记或等价结构化字段，把它表达成“不可再次 approve”的状态
+   - 再次 `approve` terminal human state 必须是单一行为：
+     视为无效操作，不修改 `run-state / review history / transition artifact / events.log`，只返回明确诊断给 CLI / autopilot
 
 本轮收口后，`v182` 这类真实链路应变成：
 
@@ -321,8 +323,9 @@
   - 不承诺在本轮新增“提交新的 repair routing / rollback / fail”的交互入口
 - 这个 terminal human state 在协议上必须可区分，不能只是 prose：
   - 本轮默认做法是把 terminal 语义挂到 `HumanReviewResolutionContext` 上
-  - `approveStage()` 在读取到 `CONFIRM_REPAIR_ROUTE + terminal=true` 时必须 hard-fail 或显式拒绝
-  - `CliRunCommandHandler` / autopilot 对同一 context 也必须拒绝自动 approve
+  - `approveStage()` 在读取到 `CONFIRM_REPAIR_ROUTE + terminal=true` 时，必须视为无效操作：
+    不修改 `run-state / review history / transition artifact / events.log`
+  - `CliRunCommandHandler` / autopilot 对同一 context 也必须停止自动 approve，并向用户输出明确诊断
 - 当前公开入口仍只有 `approve / reject` 两个动作；因此本轮的收口目标是：
   - 先禁止错误自动 reroute
   - 先把 reject 后的状态写成单一、稳定、可审计的 terminal human state
@@ -385,7 +388,8 @@
 8. `APPROVE_STAGE_GATE + reject`
    仍按阶段 revision policy 进入正确 reroute
 9. `CONFIRM_REPAIR_ROUTE + reject + terminal`
-   后续 `approveStage()` 与 autopilot 必须显式拒绝，不能再次放行
+   后续 `approveStage()` 与 autopilot 必须把它视为无效操作：
+   不修改 `run-state / review history / transition artifact / events.log`，只返回明确诊断
 
 ## Risks / Blockers
 
