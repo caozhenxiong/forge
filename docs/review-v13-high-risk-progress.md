@@ -114,7 +114,7 @@
 
 ## Latest Reviewer Findings
 
-以下结论基于最新代码静态 review，当前状态不能按 `PASSED_FOR_SINGLE_COMMIT` 继续推进：
+以下 3 条是上一轮 reviewer 提出的 latest blocker，已在提交 `58becfa` 中完成收口；它们保留在这里作为当前单次提交的审阅上下文，不再构成新的代码 blocker：
 
 1. `repair / reopen` 轮次还在复用上一轮的 `mutation history`，会导致“本轮没改代码也能被判定收口”。
    落点：`src/main/java/devflow/agent/executor/implementation/ImplementationResumePolicy.java`、`src/main/java/devflow/agent/executor/subtask/SubtaskExecutionState.java`、`src/main/java/devflow/agent/executor/implementation/toolloop/ImplementationToolLoopExecutor.java`
@@ -128,7 +128,7 @@
    落点：`src/main/java/devflow/agent/validation/WebResourceValidationSupport.java`、`src/main/java/devflow/agent/validation/ValidationExecutor.java`
    问题：runtime graph / ownership 已开始支持 `"/js/app.js"` 这类 root-relative 引用，但资源校验仍按 html 所在目录拼接路径，导致合法 root-relative script / stylesheet 仍可能被判 missing resource。
 
-修复顺序建议固定为：
+本轮实际修复顺序已按下面 3 步落地：
 
 1. 先修第 1 条，确保 repair / reopen 的收口证据只来自当前 round
 2. 再修第 2 条，避免 planning 把正确 runtime package 挡在入口外
@@ -138,35 +138,35 @@
 
 ### Scope 1
 
-- commit：`待提交`
+- commit：`58becfa fix: close v13 latest blockers`
 - self-test：`mvn -q -Dtest=SubtaskExecutionStateTests,ImplementationToolLoopExecutorTests,ImplementationResumePolicyTests,ImplementationPlanGateTests,ImplementationSubtaskDetailGateTests,ImplementationStateSnapshotSerializerTests,ImplementationSnapshotRestorerTests,devflow.agent.validation.ValidationExecutorTests test`
 - code review：`本地静态自审通过；新 repair round 只经 SubtaskExecutionState / ImplementationToolSessionState 开启，resume / generation recovery 已删掉旧 mutation history 复用路径`
 - docs：`tracker 已更新到可提交态`
 
 ### Scope 2
 
-- commit：`待提交`
+- commit：`58becfa fix: close v13 latest blockers`
 - self-test：`同 Scope 1`
 - code review：`本地静态自审通过；existing-file closure 仍只认 current round mutation terminal state，没有把上一轮 mutation history 继续当作 assistant-only completion 证据`
 - docs：`tracker 已更新到可提交态`
 
 ### Scope 3
 
-- commit：`待提交`
+- commit：`58becfa fix: close v13 latest blockers`
 - self-test：`同 Scope 1`
 - code review：`本地静态自审通过；WEB_RESOURCE_LINK_CHECK 已直接复用 RuntimeScriptGraphInspector 的 root-relative 归一规则，validation 不再保留第二套解析`
 - docs：`tracker 已更新到可提交态`
 
 ### Scope 4
 
-- commit：`待提交`
+- commit：`58becfa fix: close v13 latest blockers`
 - self-test：`同 Scope 1`
 - code review：`本地静态自审通过；detail gate 的 LEAF anchor 已收成 reachable anchor + package ROOT anchor 两类，没有再长出新 heuristic`
 - docs：`tracker 已更新到可提交态`
 
 ### Scope 5
 
-- commit：`待提交`
+- commit：`58becfa fix: close v13 latest blockers`
 - self-test：`同 Scope 1`
 - code review：`已完成；R1~R9 回归全部补齐且 targeted self-test 通过`
 - docs：`tracker 已更新到可提交态`
