@@ -10,6 +10,10 @@
   - 最终 [run.json](/home/linus/workspace/tetris_test_itest_v182/.devflow/runs/c8019e26-05b0-4426-8fa1-688503c2d2a2/run.json) 被落成 `COMPLETED + APPROVED`
 - 这属于工作流真相源与人工 gate 语义冲突，不是业务实现已经通过。
 - 本轮目标不是顺手补俄罗斯方块逻辑，而是先把“human gate / repair route / final run-state”这条单链收口，让后续红绿结果可信。
+- `9663d12` 里补充的系统性诊断作为本轮边界约束保留，但不扩成额外实现 scope：
+  - 本轮只直接收 `human gate / repair route / final run-state`
+  - 不顺手重做 `planning / tool-loop / resume` 的其他问题族
+  - 这样可以把 reviewer 的系统性判断和这轮的具体修法收成同一份方案，而不是两套文档各讲一半
 
 ## Final State
 
@@ -25,6 +29,11 @@
    - 如果走 complete：所有产物都必须显式是 `APPROVED / COMPLETED`
    - 不允许再出现 “events/report 说 REJECTED，run.json 说 APPROVED”。
 5. test / code review 给出的 canonical repair package 必须能穿过 human gate，进入下一轮 implementation；不能在人工批准点丢失。
+6. `HumanReviewResolutionContext` 必须有单一 run-state owner，并在 `approveStage()` 内先被消费为 canonical revision / continuation note，再进入 `enterStage()`；不能挂在会被 `StageEntryExecutor` 重置的当前 stage execution 上。
+7. human gate 的 `approve / reject` 都必须是 intent-aware：
+   - `APPROVE_STAGE_GATE`
+   - `CONFIRM_REPAIR_ROUTE`
+   两类 intent 不允许共用同一套 reject 语义。
 
 本轮收口后，`v182` 这类真实链路应变成：
 
@@ -57,9 +66,10 @@
 
 ### Scope 1. Human Gate Intent Protocol
 
+- [RunRecord.java](/home/linus/workspace/forge/src/main/java/devflow/agent/domain/RunRecord.java)
 - [StageExecution.java](/home/linus/workspace/forge/src/main/java/devflow/agent/domain/StageExecution.java)
 - [StageStatus.java](/home/linus/workspace/forge/src/main/java/devflow/agent/domain/StageStatus.java)
-- `RunRecord` / `run.json` 对应序列化链
+- [FileRunRepository.java](/home/linus/workspace/forge/src/main/java/devflow/agent/orchestrator/FileRunRepository.java)
 - 新增或显式引入：
   - `HumanReviewIntent`
   - `HumanReviewResolutionContext`
@@ -70,6 +80,7 @@
 - [StageTransitionSupport.java](/home/linus/workspace/forge/src/main/java/devflow/agent/orchestrator/StageTransitionSupport.java)
 - [StageStatusSupport.java](/home/linus/workspace/forge/src/main/java/devflow/agent/orchestrator/StageStatusSupport.java)
 - [StageRevisionSupport.java](/home/linus/workspace/forge/src/main/java/devflow/agent/orchestrator/StageRevisionSupport.java)
+- [StageEntryExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/orchestrator/StageEntryExecutor.java)
 - [FlowDecisionExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/orchestrator/FlowDecisionExecutor.java)
 
 ### Scope 3. Repair Context Persistence
@@ -115,6 +126,9 @@
   - `StageStatusSupport.approveHumanReview(...)`
 - 当前错误不是“很多分散 bug”，而是同一条批准入口被拿来处理两种不同语义。
 - 这条问题可以通过引入单一 `HumanReviewIntent` / `HumanReviewResolutionContext` 一次性消掉旧路径。
+- `run.json` 的真实持久化 owner 是 [FileRunRepository.java](/home/linus/workspace/forge/src/main/java/devflow/agent/orchestrator/FileRunRepository.java)，
+  `StageEntryExecutor.enterStage(...)` 又会在阶段重入时重置当前 stage 的 `artifactPath/review`；
+  如果这两层不进 scope，human gate context 很容易写了一半就被下一跳抹掉。
 
 如果 reviewer 不接受“在 run-state 中显式持久化 human gate intent / repair context”，那本轮就不该实现，应停在文档阶段；因为不持久化就只能回退到读 markdown/fallback 猜语义。
 
@@ -155,6 +169,9 @@
 - 至少区分两类 intent：
   - `APPROVE_STAGE_GATE`
   - `CONFIRM_REPAIR_ROUTE`
+- `run.json` 的唯一读写 owner 明确为
+  [FileRunRepository.java](/home/linus/workspace/forge/src/main/java/devflow/agent/orchestrator/FileRunRepository.java)；
+  本轮不允许把它继续写成“RunRecord / run.json 序列化链”这类泛称。
 - `approveStage()` 不再直接等价于“当前 stage APPROVED”。
 - `approveStage()` 必须先读取当前 stage 的 `HumanReviewResolutionContext`：
   - `APPROVE_STAGE_GATE` -> 才允许走 `approve current stage + next stage`
@@ -200,7 +217,14 @@
   - `summary/changeRequest/evidence`
   - 如果来源是 implementation blocked，还要持有 `continuationMode`
 - 这份 context 必须进 run-state 主链，不允许只放在 markdown artifact。
-- `CONFIRM_REPAIR_ROUTE` 被批准后，下一轮 implementation 只能消费这份 context，不能再从 report 重新构造。
+- context 的 carrier 选择在本轮写死为：
+  - 挂在不会被 `enterStage()` 清空的 run-state owner 上
+  - 不能挂在当前 stage execution 的 `review/artifactPath` 这些会被
+    [StageEntryExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/orchestrator/StageEntryExecutor.java)
+    重置的字段上
+- `approveStage()` 在调用 `enterStage()` 之前，必须先消费这份 `HumanReviewResolutionContext`，
+  把它降成 canonical revision / continuation note；`enterStage()` 本身不承担保存 human context 的职责。
+- `CONFIRM_REPAIR_ROUTE` 被批准后，下一轮 implementation 只能消费这份 context 降成的 canonical note，不能再从 report 重新构造。
 
 ### Problem 3. Final state 被 human approve 覆写，导致 `run.json` 与 report / events 冲突
 
@@ -264,7 +288,36 @@
   - `人工确认修复回流`
 - 不允许继续输出会误导人的统一“人工批准”语义。
 
-### Problem 5. 这轮也暴露了真实业务失败，但它不是当前工作流主问题
+### Problem 5. reject 语义如果不区分 intent，human gate 仍然保留第二轨
+
+#### Evidence
+
+- 当前
+  [StageRevisionSupport.java](/home/linus/workspace/forge/src/main/java/devflow/agent/orchestrator/StageRevisionSupport.java)
+  的 `rejectHumanReview()` 仍然是统一 `REWORK reroute` 语义。
+- 但在新协议里，human gate 已经区分：
+  - `APPROVE_STAGE_GATE`
+  - `CONFIRM_REPAIR_ROUTE`
+- 如果 reject 仍共用旧入口，那么 approve 已结构化、reject 仍是旧语义，协议还是双轨。
+
+#### Why This Is Wrong
+
+- `APPROVE_STAGE_GATE` 被 reject，表示当前阶段内容不通过，应进入正常 revision/reroute。
+- `CONFIRM_REPAIR_ROUTE` 被 reject，表示当前 repair route 本身未获确认，不应自动降格成 generic `REWORK`。
+- 这两者含义不同，不能共用一个统一 reject。
+
+#### Solution
+
+- 本轮 reject 语义同样纳入 intent-aware 协议，不标记为 out of scope。
+- 对 `APPROVE_STAGE_GATE + reject`：
+  - 保持阶段内容未通过语义
+  - 走当前 stage 的 revision policy / reroute policy
+- 对 `CONFIRM_REPAIR_ROUTE + reject`：
+  - 不允许直接落回 generic `REWORK`
+  - 必须保持 blocked / unresolved human state，等待新的 repair routing 或明确 rollback / fail 决策
+- `rejectStage()` / `rejectHumanReview()` 必须先读取当前 `HumanReviewIntent`，再决定动作；不允许继续复用统一旧路径。
+
+### Problem 6. 这轮也暴露了真实业务失败，但它不是当前工作流主问题
 
 #### Evidence
 
@@ -296,6 +349,7 @@
    - blocked implementation approve 不会进 code review
    - rejected test + route_to_repair approve 不会 complete run
    - canonical repair package 能跨 human gate 进入 implementation
+   - `APPROVE_STAGE_GATE / CONFIRM_REPAIR_ROUTE` 的 reject 各自只走对应语义
 
 ## Regression Matrix
 
@@ -313,6 +367,10 @@
    对 repair route 保持一致
 6. `canonical repair package`
    经过 human gate 后仍能进入 implementation resume，不丢 `patch target / overrideChanges`
+7. `CONFIRM_REPAIR_ROUTE + reject`
+   不得自动降成 generic `REWORK`
+8. `APPROVE_STAGE_GATE + reject`
+   仍按阶段 revision policy 进入正确 reroute
 
 ## Risks / Blockers
 
@@ -338,6 +396,7 @@
 
 - 这部分不是 `v15` 当前必做 scope，也不是要求本轮顺手实现。
 - 它的作用是给后续细化方案提供统一判断，避免问题再次被拆成孤立 patch。
+- `v15` 本轮只直接处理其中第 4 条，即 `human gate / repair route / final run-state` 的单链收口。
 
 ### Systemic Diagnosis
 
