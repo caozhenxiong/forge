@@ -14,6 +14,15 @@
   - 工作区里那 5 个 prompt / tool guidance 的未提交本地改动
   - 集成测试
 
+## Latest Reviewer Addendum
+
+基于最新一轮 review，这份 remediation plan 还必须额外钉死两条边界：
+
+1. Scope A 不能只覆盖 `reopen / revision retry`。
+   `generation failure -> recovery retry`、`file-scoped retry` 也是新的 repair round 入口，必须与 completed-plan reopen / revision retry 一起走同一个 “start new repair round” owner。
+2. Scope C 的 regression 不能只写成泛泛的 “validation 侧对应测试”。
+   这条 blocker 的真实 owner 是 `WEB_RESOURCE_LINK_CHECK` 在 `ValidationExecutor` 的执行入口，所以必须明确挂到 `ValidationExecutorTests`；`WebRuntimeWiringCheckTests` 只能作为共享 root-relative helper 被复用时的并行回归，不是主测试 owner。
+
 ## Final State
 
 本轮完成后，`v13` 的剩余 blocker 必须同时满足：
@@ -47,6 +56,7 @@
 ### Scope A. Current-Round Mutation Evidence
 
 - [SubtaskExecutionState.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/subtask/SubtaskExecutionState.java)
+- [SubtaskExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/subtask/SubtaskExecutor.java)
 - [ImplementationResumePolicy.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/ImplementationResumePolicy.java)
 - [ImplementationToolLoopExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/toolloop/ImplementationToolLoopExecutor.java)
 - [ImplementationToolSessionState.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/toolloop/ImplementationToolSessionState.java)
@@ -54,6 +64,8 @@
 - [ImplementationSnapshotRestorer.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/state/ImplementationSnapshotRestorer.java)
 - [ImplementationToolLoopExecutorTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/executor/ImplementationToolLoopExecutorTests.java)
 - [ImplementationResumePolicyTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/executor/ImplementationResumePolicyTests.java)
+- [SubtaskExecutionStateTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/executor/SubtaskExecutionStateTests.java)
+- `SubtaskExecutor` / attempt runner 级 retry-path regression（如当前没有直接 owner 测试，则本轮新增）
 
 ### Scope B. Runtime Externalization Package Legality
 
@@ -66,10 +78,10 @@
 
 - [WebResourceValidationSupport.java](/home/linus/workspace/forge/src/main/java/devflow/agent/validation/WebResourceValidationSupport.java)
 - [ValidationExecutor.java](/home/linus/workspace/forge/src/main/java/devflow/agent/validation/ValidationExecutor.java)
+- [ValidationExecutorTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/validation/ValidationExecutorTests.java)
 - [RuntimeScriptGraphInspector.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/runtime/RuntimeScriptGraphInspector.java)
 - [PlanningRuntimeFactsResolver.java](/home/linus/workspace/forge/src/main/java/devflow/agent/executor/implementation/planning/PlanningRuntimeFactsResolver.java)
-- `validation` 侧对应 root-relative regression tests
-- [WebRuntimeWiringCheckTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/executor/WebRuntimeWiringCheckTests.java)
+- [WebRuntimeWiringCheckTests.java](/home/linus/workspace/forge/src/test/java/devflow/agent/executor/WebRuntimeWiringCheckTests.java)（仅当共享 helper 影响 runtime/ownership 侧时并行补回归，不作为主测试 owner）
 
 ## Problem / Solution Map
 
@@ -78,12 +90,18 @@
 #### Problem
 
 - `ImplementationResumePolicy` 在 reopen / revision retry 时只清 transcript，不清 `mutationRecords`。
+- `SubtaskExecutor` 在 `generation failure -> applyFileScopedGenerationFailure() -> withRecoveryPolicy()` 这条 recovery retry 链上，也会开启新的 repair round。
 - `ImplementationToolLoopExecutor` 的 existing-file closure 又已经变成“只要 current state matches latest terminal state 即可收口”。
 - 两者叠加后，新 round 可能在零新 mutation 的情况下直接 assistant-only 收口。
 
 #### Required Fix
 
-- 进入新 repair / reopen round 时，必须显式重建当前 round 的 `ImplementationToolSessionState`。
+- 进入任意新 repair round 时，必须显式重建当前 round 的 `ImplementationToolSessionState`。
+- “新 repair round” 的 owner 范围必须一次收齐：
+  - completed-plan reopen
+  - revision retry
+  - generation recovery retry
+  - file-scoped retry 后的下一轮执行
 - 新 round 允许继承：
   - read ledger
   - result replacement state
@@ -96,6 +114,7 @@
 #### Regression
 
 - reopened patch round + current file matches old terminal state + zero new mutation => `NO_MATERIAL_CHANGE`
+- generation recovery retry starts a new round with cleared mutation history
 - restored same-round session still preserves current round mutation history
 
 ### B2. Detail gate 误杀合法 runtime externalization 完整包
@@ -134,11 +153,12 @@
 - validation 侧必须复用与 runtime graph 同一套 root-relative 本地资源归一规则。
 - `ValidationExecutor` 只保留 owner wiring，不新增第二套规则。
 - `WebResourceValidationSupport` 不能再自己解释 root-relative 路径。
+- Scope C 的主 regression owner 必须落在 `ValidationExecutorTests`，因为 blocker 命中的是 `WEB_RESOURCE_LINK_CHECK` 真正执行入口。
 
 #### Regression
 
-- `src="/js/game-engine.js"` pass
-- `href="/styles/app.css"` pass
+- `ValidationExecutorTests`: `src="/js/game-engine.js"` pass
+- `ValidationExecutorTests`: `href="/styles/app.css"` pass
 - 真正缺失的 root-relative 本地资源 still fail
 
 ## Implementation Order
@@ -147,6 +167,7 @@
 
 - 在 `SubtaskExecutionState` 或单一 helper 上提供“开始新 repair round”入口
 - `ImplementationResumePolicy` 的 reopen / revision retry 统一走这条入口
+- `SubtaskExecutor` 的 generation recovery retry / file-scoped retry 也统一走这条入口
 - 删除“新 round 继续复用旧 mutationRecords”的旧路径
 - 补 Scope A regression
 
@@ -165,13 +186,14 @@
 ## Regression Matrix
 
 - `RB1` new repair round reopens existing file but carries zero new mutation => fail, not assistant-only success
-- `RB2` same-round restore keeps current round mutation history => pass
-- `RB3` `host HTML patch + ROOT + LEAF` runtime externalization package => pass
-- `RB4` `LEAF` without reachable anchor and without package `ROOT` => fail
-- `RB5` new `ROOT` without host patch => fail
-- `RB6` `WEB_RESOURCE_LINK_CHECK` passes root-relative script reference
-- `RB7` `WEB_RESOURCE_LINK_CHECK` passes root-relative stylesheet reference
-- `RB8` missing root-relative local asset still fails deterministically
+- `RB2` generation recovery retry starts a new round with cleared mutation history
+- `RB3` same-round restore keeps current round mutation history => pass
+- `RB4` `host HTML patch + ROOT + LEAF` runtime externalization package => pass
+- `RB5` `LEAF` without reachable anchor and without package `ROOT` => fail
+- `RB6` new `ROOT` without host patch => fail
+- `RB7` `ValidationExecutorTests` passes root-relative script reference
+- `RB8` `ValidationExecutorTests` passes root-relative stylesheet reference
+- `RB9` missing root-relative local asset still fails deterministically
 
 ## Self-Test Gate
 
@@ -202,6 +224,8 @@
 请 reviewer 只审下面 4 点：
 
 1. Scope A 是否真正删除了“新 round 复用旧 mutation history”的旧路径
+   包括 completed-plan reopen、revision retry、generation recovery retry、file-scoped retry 这四类入口
 2. Scope B 的 package-level anchor 语义是否足够精确，没有重新长出 heuristic
 3. Scope C 是否真正复用了单一 root-relative 解析规则，而不是 validation 自己再保留一套
+   并且主 regression owner 是否明确落在 `ValidationExecutorTests`
 4. 这份 remediation plan 是否仍然严格限制在 3 条 latest blocker，没有范围漂移
