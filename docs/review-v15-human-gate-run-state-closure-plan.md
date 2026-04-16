@@ -314,7 +314,12 @@
   - 走当前 stage 的 revision policy / reroute policy
 - 对 `CONFIRM_REPAIR_ROUTE + reject`：
   - 不允许直接落回 generic `REWORK`
-  - 必须保持 blocked / unresolved human state，等待新的 repair routing 或明确 rollback / fail 决策
+  - 本轮定义为稳定的 blocked terminal human state
+  - 不承诺在本轮新增“提交新的 repair routing / rollback / fail”的交互入口
+- 当前公开入口仍只有 `approve / reject` 两个动作；因此本轮的收口目标是：
+  - 先禁止错误自动 reroute
+  - 先把 reject 后的状态写成单一、稳定、可审计的 terminal human state
+  - 后续新的 routing / rollback / fail 入口在下一轮单独立项，不允许作为本轮实现里的 fallback 暗长出来
 - `rejectStage()` / `rejectHumanReview()` 必须先读取当前 `HumanReviewIntent`，再决定动作；不允许继续复用统一旧路径。
 
 ### Problem 6. 这轮也暴露了真实业务失败，但它不是当前工作流主问题
@@ -353,7 +358,7 @@
 
 ## Regression Matrix
 
-至少补下面 6 类回归：
+至少补下面 8 类回归：
 
 1. `IMPLEMENTATION_BLOCKED_EXHAUSTED_SUBTASK` -> human confirm -> re-enter implementation
    不能进入 `CODE_REVIEW`
@@ -368,7 +373,7 @@
 6. `canonical repair package`
    经过 human gate 后仍能进入 implementation resume，不丢 `patch target / overrideChanges`
 7. `CONFIRM_REPAIR_ROUTE + reject`
-   不得自动降成 generic `REWORK`
+   不得自动降成 generic `REWORK`，并保持 stable blocked terminal human state
 8. `APPROVE_STAGE_GATE + reject`
    仍按阶段 revision policy 进入正确 reroute
 
@@ -389,6 +394,10 @@
 - 测试用例设计策略调整
 - runtime wiring / tool-loop 的其他问题族
 - 更大范围的 implementation/test/state 重构
+- 新的人工交互入口：
+  - 提交新的 repair routing
+  - 明确 rollback
+  - 显式 fail / close
 
 ## Advisory Notes
 
