@@ -34,6 +34,9 @@
    - `APPROVE_STAGE_GATE`
    - `CONFIRM_REPAIR_ROUTE`
    两类 intent 不允许共用同一套 reject 语义。
+8. `CONFIRM_REPAIR_ROUTE + reject` 形成的 terminal human state 必须在协议上可区分，不能再次被 `approveStage()` / autopilot 放行：
+   - 本轮不新增新的人工 repair-routing API
+   - 但必须通过 `HumanReviewResolutionContext` 的 terminal 标记或等价结构化字段，把它表达成“不可再次 approve”的状态
 
 本轮收口后，`v182` 这类真实链路应变成：
 
@@ -316,6 +319,10 @@
   - 不允许直接落回 generic `REWORK`
   - 本轮定义为稳定的 blocked terminal human state
   - 不承诺在本轮新增“提交新的 repair routing / rollback / fail”的交互入口
+- 这个 terminal human state 在协议上必须可区分，不能只是 prose：
+  - 本轮默认做法是把 terminal 语义挂到 `HumanReviewResolutionContext` 上
+  - `approveStage()` 在读取到 `CONFIRM_REPAIR_ROUTE + terminal=true` 时必须 hard-fail 或显式拒绝
+  - `CliRunCommandHandler` / autopilot 对同一 context 也必须拒绝自动 approve
 - 当前公开入口仍只有 `approve / reject` 两个动作；因此本轮的收口目标是：
   - 先禁止错误自动 reroute
   - 先把 reject 后的状态写成单一、稳定、可审计的 terminal human state
@@ -355,10 +362,11 @@
    - rejected test + route_to_repair approve 不会 complete run
    - canonical repair package 能跨 human gate 进入 implementation
    - `APPROVE_STAGE_GATE / CONFIRM_REPAIR_ROUTE` 的 reject 各自只走对应语义
+   - `CONFIRM_REPAIR_ROUTE + reject + terminal` 不能再次被 approve/autopilot 放行
 
 ## Regression Matrix
 
-至少补下面 8 类回归：
+至少补下面 9 类回归：
 
 1. `IMPLEMENTATION_BLOCKED_EXHAUSTED_SUBTASK` -> human confirm -> re-enter implementation
    不能进入 `CODE_REVIEW`
@@ -376,6 +384,8 @@
    不得自动降成 generic `REWORK`，并保持 stable blocked terminal human state
 8. `APPROVE_STAGE_GATE + reject`
    仍按阶段 revision policy 进入正确 reroute
+9. `CONFIRM_REPAIR_ROUTE + reject + terminal`
+   后续 `approveStage()` 与 autopilot 必须显式拒绝，不能再次放行
 
 ## Risks / Blockers
 
