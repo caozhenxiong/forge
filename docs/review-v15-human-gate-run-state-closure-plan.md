@@ -332,6 +332,51 @@
 - runtime wiring / tool-loop 的其他问题族
 - 更大范围的 implementation/test/state 重构
 
+## Advisory Notes
+
+下面这些是基于多轮方案 / 代码 review 得出的系统性建议，用来解释“为什么集成测试到现在仍然一次都没跑通”。
+
+- 这部分不是 `v15` 当前必做 scope，也不是要求本轮顺手实现。
+- 它的作用是给后续细化方案提供统一判断，避免问题再次被拆成孤立 patch。
+
+### Systemic Diagnosis
+
+当前集成测试长期不过，我的总体判断不是“还差最后一个业务 bug”，而是下面 5 条系统性原因叠加：
+
+1. 端到端还没有形成单一 canonical execution contract。
+   从 `planning -> task package -> tool loop -> subtask verification -> repair/resume -> human gate -> final run-state`，很多环节都持有一份“近似同义”的执行语义，但不是同一份 owner / carrier / persistence 链。
+   所以局部看每层都“有 contract”，串起来却仍会漂移。
+2. 上游 gate 历史上长期允许坏 package 进入执行，后面再靠 verifier / repair 止血。
+   这也是为什么之前经常出现“accepted package 语义上需要 companion，但结构上并不完整”的情况。
+   集成测试测的是闭环，不是单点兜底；前面放坏包，后面一定会在别处炸开。
+3. `repair / resume` 还不是稳定保真的 continuation 协议。
+   它仍然是最容易丢失语义、重新 materialize scope、重新解释 patch target 的一层。
+   只要 repair package 不能被单一路径保真地穿过 resume / re-enter / tool loop，集成就会持续出现“局部修了、下一轮又漂”的现象。
+4. `human gate / repair route / final run-state` 直到现在都还没有完全收口成单链。
+   这正是 `v15` 这轮聚焦的问题。
+   在这条链彻底收完之前，即使业务 patch 偶尔修对，最终 `run.json` 仍可能把失败回合写成 `APPROVED / COMPLETED`，导致红绿结果本身不可信。
+5. 系统复杂度已经明显超过当前协议化程度。
+   Forge 现在不是单一 coder loop，而是叠了 planning、subtask、review、supervisor、repair、human gate、artifact、run-state 多层跃迁。
+   这套系统只有在每一层 owner / carrier / serializer / enforcer 都写死时才稳定；只要有一层仍然靠 prose、fallback 或隐式 helper 续命，黄金路径集成就会继续暴露新的未收口面。
+
+### Suggested Priority After V15
+
+如果 `v15` 收口后要继续推进，我建议后续优先级固定成下面 5 层，而不是继续分散打补丁：
+
+1. `human gate / repair route / run-state` 单链彻底收口
+2. `repair / resume` 的 canonical contract 保真
+3. `planning accepted package` 不再放坏包
+4. `subtask boundary + completeness` 全部改成 deterministic gate
+5. `tool-loop closure` 只认 canonical execution contract，不再依赖轮次副产物兜底
+
+### Why This Matters
+
+- 这 5 条建议不是为了扩 scope，而是为了统一判断标准：
+  - 不再把问题误认为“只是俄罗斯方块业务没修好”
+  - 不再把问题拆成孤立的单点 bug
+  - 不再把后置止血层误判成主因已经修复
+- 如果后续细化方案没有对齐这条系统性主线，集成测试即使偶尔变绿，也不能视为可信收口。
+
 ## Review Focus
 
 请 reviewer 重点只审下面 5 点：
